@@ -499,22 +499,26 @@ function sizesMatch(n1, n2) {
 
 // المطابقة بالاسم فقط: بما أن المطابقة التامة للكود تمّت مسبقاً، فأي صنف هنا كوده غير مطابق
 // تماماً ⇒ نبحث عن أقرب اسم في المستودع ونطابق به (لا نعتمد على قرب الكود إطلاقاً)
-function suggestFor(skuN, nm, whList) {
+function suggestFor(skuN, nm, whList, zidPrice) {
   const nt = nameTokens(nm);
+  const zp = priceInt(zidPrice);
   let best = null;
   for (const w of whList) {
     const ns = nameSimTokens(nt, w.tokens);
     if (ns <= 0) continue;
     const match = sizesMatch(nm, w.name);       // نفس المقاس ⇒ ترجيح قوي
     const conflict = sizesConflict(nm, w.name); // مقاس مختلف ⇒ خصم
-    const score = ns + (match ? 1.0 : 0) - (conflict ? 0.5 : 0);
-    if (!best || score > best.score) best = { w, ns, match, conflict, score };
+    const wp = priceInt(w.price);
+    const priceEq = zp != null && wp != null && zp === wp; // نفس السعر ⇒ ترجيح إضافي
+    const score = ns + (match ? 1.0 : 0) - (conflict ? 0.5 : 0) + (priceEq ? 0.3 : 0);
+    if (!best || score > best.score) best = { w, ns, match, conflict, priceEq, score };
   }
   // يُقبل التطابق إذا كان تشابه الاسم ≥60%، أو ≥45% مع تطابق المقاس
   if (!best || !(best.ns >= 0.60 || (best.match && best.ns >= 0.45))) return null;
   let sim = best.ns, sizeMismatch = false, sizeMatch = false;
   if (best.match) { sim = Math.min(0.99, best.ns + 0.25); sizeMatch = true; }   // مكافأة تطابق المقاس
   else if (best.conflict) { sim = Math.min(sim, 0.40); sizeMismatch = true; }   // عقوبة اختلاف المقاس
+  if (best.priceEq && !sizeMismatch) sim = Math.min(0.99, sim + 0.10);           // تطابق السعر يرفع الثقة
   return { code: best.w.code, name: best.w.name, price: best.w.price, sim, ns: best.ns, by: "name", sizeMatch, sizeMismatch };
 }
 
@@ -748,8 +752,8 @@ function sortRank(it) {
 function buildItems(raw) {
   const items = raw.slice(0, 100).map(u => {
     const isZ = /^z\./i.test(String(u.sku).trim());
-    // نطابق بالاسم حتى لأكواد زد الآلية (لا نكتفي بتقارب الكود)
-    const suggestion = suggestFor(u.skuN, u.name, lastWhList);
+    // نطابق بالاسم حتى لأكواد زد الآلية (لا نكتفي بتقارب الكود)، ونمرّر سعر زد للترجيح
+    const suggestion = suggestFor(u.skuN, u.name, lastWhList, u.price);
     return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, isZ, suggestion, bound: boundSet.has(normCode(u.skuN)), ignored: ignoredSet.has(normCode(u.skuN)) };
   });
   items.sort((a, b) => {
