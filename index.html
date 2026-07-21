@@ -195,6 +195,7 @@
   .cat-inf { background: rgba(147,162,181,.16); color: #a9b6c6; }
   .sim-bad { background: rgba(229,144,135,.18); color: var(--danger); }
   .size-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(229,144,135,.16); color: var(--danger); border: 1px solid rgba(229,144,135,.4); }
+  .by-code-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(147,162,181,.16); color: #a9b6c6; border: 1px solid rgba(147,162,181,.4); }
   /* صمامات الأمان + كشف المنتجات الجديدة */
   .alert-new { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 800; font-size: 14.5px; border-radius: 14px; padding: 14px 16px; margin-bottom: 16px;
     color: #f4bd7a; background: linear-gradient(135deg, rgba(230,163,74,.18), rgba(230,163,74,.08)); border: 1px solid rgba(230,163,74,.55); transition: all .15s; }
@@ -477,21 +478,25 @@ function sizesConflict(n1, n2) {
   return true;
 }
 
-// أفضل مرشح من المستودع: تقارب الكود أولاً، ثم أعلى تشابه بالاسم (≥60%)
+// المطابقة بالاسم أولاً (الكود غير مطابق تماماً هنا لأن المطابقة التامة تمّت مسبقاً)،
+// والكود شديد القرب (اختلاف رقم واحد) يُستخدم فقط كمقترح احتياطي بثقة منخفضة
 function suggestFor(skuN, nm, whList) {
   const nt = nameTokens(nm);
-  let codeCand = null, nameCand = null;
+  let nameCand = null, codeCand = null;
   for (const w of whList) {
-    const cp = codeProximity(skuN, w.code);
     const ns = nameSimTokens(nt, w.tokens);
-    if (cp > 0) { const rank = cp * 100 + ns; if (!codeCand || rank > codeCand.rank) codeCand = { w, cp, ns, rank }; }
+    const cp = codeProximity(skuN, w.code);
     if (!nameCand || ns > nameCand.ns) nameCand = { w, ns };
+    if (cp > 0) { const rank = cp * 100 + ns; if (!codeCand || rank > codeCand.rank) codeCand = { w, cp, ns, rank }; }
   }
   let chosen = null, sim = 0, ns = 0, by = "";
-  if (codeCand) { chosen = codeCand.w; ns = codeCand.ns; sim = Math.min(0.99, codeCand.cp * 0.9 + codeCand.ns * 0.1); by = "code"; }
-  else if (nameCand && nameCand.ns >= 0.60) { chosen = nameCand.w; ns = nameCand.ns; sim = nameCand.ns; by = "name"; }
+  if (nameCand && nameCand.ns >= 0.60) {                         // 1) طابق بالاسم
+    chosen = nameCand.w; ns = nameCand.ns; sim = nameCand.ns; by = "name";
+  } else if (codeCand && codeCand.cp >= 0.92) {                   // 2) احتياطي: كود بفارق رقم واحد فقط، بثقة منخفضة
+    chosen = codeCand.w; ns = codeCand.ns; sim = Math.min(0.55, 0.30 + codeCand.ns * 0.25); by = "code";
+  }
   if (!chosen) return null;
-  // اختلاف المقاس يخفض النسبة إلى 40% كحد أقصى (يتجاوز تقارب الكود)
+  // اختلاف المقاس يخفض النسبة إلى 40% كحد أقصى
   let sizeMismatch = false;
   if (sizesConflict(nm, chosen.name)) { sim = Math.min(sim, 0.40); sizeMismatch = true; }
   return { code: chosen.code, name: chosen.name, price: chosen.price, sim, ns, by, sizeMismatch };
@@ -727,7 +732,8 @@ function sortRank(it) {
 function buildItems(raw) {
   const items = raw.slice(0, 100).map(u => {
     const isZ = /^z\./i.test(String(u.sku).trim());
-    const suggestion = isZ ? null : suggestFor(u.skuN, u.name, lastWhList);
+    // نطابق بالاسم حتى لأكواد زد الآلية (لا نكتفي بتقارب الكود)
+    const suggestion = suggestFor(u.skuN, u.name, lastWhList);
     return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, isZ, suggestion, bound: boundSet.has(normCode(u.skuN)), ignored: ignoredSet.has(normCode(u.skuN)) };
   });
   items.sort((a, b) => {
@@ -868,22 +874,23 @@ function rowHtml(it, i) {
   const nameCell = (esc(it.name) || "—") +
     (zidPrice != null ? `<div class="price-line">سعر زد: ${zidPrice} ر.س</div>` : "");
   let sugg, bind;
-  if (it.isZ) {
-    sugg = `<span class="sugg-note">كود آلي من زد — يحتاج ربطاً يدوياً</span>`;
-    bind = "";
-  } else if (it.suggestion) {
+  if (it.suggestion) {
     const pct = Math.round(it.suggestion.sim * 100);
     const cls = it.suggestion.sizeMismatch ? "sim-bad" : (pct >= 85 ? "sim-hi" : "sim-mid");
     const whPrice = priceInt(it.suggestion.price);
     const sizeTag = it.suggestion.sizeMismatch ? `<span class="size-tag" title="المقاسات مختلفة بين المنتجين — تحقق قبل الربط">مقاس مختلف</span>` : "";
+    const byTag = it.suggestion.by === "code" ? `<span class="by-code-tag" title="تشابه الاسم منخفض — التطابق بقرب الكود فقط، راجع الاسم">بالكود فقط</span>` : "";
     sugg = `<span class="sugg-code">${esc(it.suggestion.code)}</span> <span class="sugg-name">${esc(it.suggestion.name)}</span>` +
-      `<span class="simbadge ${cls}">${pct}%</span>${priceBadge(it.price, it.suggestion.price)}${sizeTag}` +
+      `<span class="simbadge ${cls}">${pct}%</span>${priceBadge(it.price, it.suggestion.price)}${sizeTag}${byTag}` +
       (whPrice != null ? `<div class="price-line">سعر المستودع: ${whPrice} ر.س</div>` : "");
     bind = it.bound
       ? `<button class="mini bind" disabled>مربوط ✓</button>`
       : (it.ignored ? `<button class="mini bind" disabled>اربط ✓</button>` : `<button class="mini bind" onclick="bindRow(${i})">اربط ✓</button>`);
+  } else if (it.isZ) {
+    sugg = `<span class="sugg-note">كود آلي من زد — لا يوجد تطابق بالاسم</span>`;
+    bind = "";
   } else {
-    sugg = `<span class="sugg-note">لا يوجد مقترح</span>`;
+    sugg = `<span class="sugg-note">لا يوجد اقتراح مطابق بالاسم</span>`;
     bind = "";
   }
   const ignoreBtn = it.ignored
