@@ -202,6 +202,13 @@
   .alert-new:hover { border-color: #e6a34a; transform: translateY(-1px); box-shadow: 0 8px 22px rgba(230,163,74,.18); }
   .verify-ok { margin-top: 10px; color: var(--green-2); background: rgba(123,168,132,.12); border: 1px solid rgba(123,168,132,.35); border-radius: 10px; padding: 11px 14px; font-size: 13.5px; font-weight: 700; }
   .verify-fail { margin-top: 10px; color: var(--danger); background: rgba(229,144,135,.12); border: 1px solid rgba(229,144,135,.45); border-radius: 10px; padding: 11px 14px; font-size: 13.5px; font-weight: 700; }
+  .wh-search-wrap { margin-bottom: 12px; }
+  .wh-results { margin-top: 8px; max-height: 260px; overflow: auto; }
+  .wh-results:empty { display: none; }
+  .wh-row { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 6px; background: var(--panel); font-size: 13.5px; }
+  .wh-row .wh-price { color: var(--muted); font-size: 12.5px; }
+  .wh-row .mini { margin-inline-start: auto; flex-shrink: 0; }
+  .wh-empty { color: var(--muted-2); font-size: 13px; padding: 8px 4px; }
   .export-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
   .export-btn { background: transparent !important; border: 1px solid var(--gold) !important; color: var(--gold-2) !important; box-shadow: none !important; }
   .export-btn:hover { background: rgba(230,197,111,.1) !important; transform: none !important; }
@@ -321,7 +328,7 @@
     <div id="unBlock" style="display:none">
       <div class="clabel" style="margin-top:18px" id="unTitle"></div>
       <div class="unbar">
-        <input type="text" id="unSearch" placeholder="🔍 ابحث بالكود أو الاسم..." oninput="filterUnmatched()">
+        <input type="text" id="unSearch" placeholder="🔍 ابحث في منتجات زد (بالكود أو الاسم)..." oninput="filterUnmatched()">
         <button class="btn-run sm bindall" id="bindAllBtn" onclick="bindAll90()">اربط الاقتراحات المؤكدة</button>
       </div>
       <div class="twrap" id="detailTable"></div>
@@ -331,10 +338,14 @@
   <div class="section-head"><span class="n">٣</span><h2>ربط يدوي <span style="color:var(--muted-2);font-weight:600;font-size:13px">(اختياري)</span></h2><span class="line"></span></div>
   <div class="card">
     <div class="clabel">يُحفظ في متصفحك — <span id="mapCount">0</span> ربط محفوظ</div>
-    <p class="hint">للأصناف التي يختلف كودها بين المستودع وزد: أدخل SKU زد وكود المستودع المقابل. يُطبَّق تلقائياً في كل مطابقة.</p>
+    <p class="hint">للأصناف التي يختلف كودها بين المستودع وزد: ابحث في المستودع بالأسفل، اختر الصنف الصحيح ليُعبّأ كوده، ثم أدخل SKU زد واحفظ الربط. يُطبَّق تلقائياً في كل مطابقة.</p>
+    <div class="wh-search-wrap">
+      <input type="text" id="whSearch" placeholder="🔎 ابحث في ملف المستودع (بالاسم أو الكود)..." oninput="searchWarehouse()">
+      <div id="whResults" class="wh-results"></div>
+    </div>
     <div class="maprow">
       <input type="text" id="mSku" placeholder="SKU في زد (مثال: 80207)">
-      <input type="text" id="mCode" placeholder="كود المستودع (مثال: 80384)">
+      <input type="text" id="mCode" placeholder="كود المستودع (اختره من البحث أعلاه)">
       <button class="btn-run sm" onclick="addMapping()">حفظ الربط</button>
     </div>
     <div class="pills" id="pills"></div>
@@ -970,6 +981,27 @@ function bindAll90() {
   updateNewCount();
 }
 
+// بحث منفصل داخل ملف المستودع (للربط اليدوي)
+let whResultsList = [];
+function searchWarehouse() {
+  const q = normText(document.getElementById("whSearch").value);
+  const box = document.getElementById("whResults");
+  if (!q) { box.innerHTML = ""; whResultsList = []; return; }
+  if (!lastWhList.length) { box.innerHTML = '<div class="wh-empty">شغّل «طابق وأنشئ الملف» أولاً لتحميل بيانات المستودع</div>'; whResultsList = []; return; }
+  whResultsList = lastWhList.filter(w => normText(w.code + " " + w.name).includes(q)).slice(0, 25);
+  if (!whResultsList.length) { box.innerHTML = '<div class="wh-empty">لا نتائج مطابقة في ملف المستودع</div>'; return; }
+  box.innerHTML = whResultsList.map((w, i) =>
+    `<div class="wh-row"><span class="sugg-code">${esc(w.code)}</span> <span class="sugg-name">${esc(w.name)}</span>` +
+    (w.price != null ? ` <span class="wh-price">${priceInt(w.price)} ر.س</span>` : "") +
+    `<button class="mini bind" onclick="pickWh(${i})">اختر ←</button></div>`).join("");
+}
+function pickWh(i) {
+  const w = whResultsList[i];
+  if (!w) return;
+  document.getElementById("mCode").value = w.code;
+  document.getElementById("mSku").focus();
+}
+
 function addMapping() {
   const sku = document.getElementById("mSku").value.trim();
   const code = document.getElementById("mCode").value.trim();
@@ -977,6 +1009,7 @@ function addMapping() {
   manualMap[normCode(sku)] = normCode(code);
   localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
   document.getElementById("mSku").value = ""; document.getElementById("mCode").value = "";
+  document.getElementById("whSearch").value = ""; document.getElementById("whResults").innerHTML = "";
   renderPills();
 }
 
