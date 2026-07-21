@@ -175,6 +175,19 @@
   #unBody tr.zrow td { background: rgba(230,197,111,.05); }
   #unBody tr.bound td { background: rgba(123,168,132,.18); }
   #unBody tr.ignored { opacity: .38; }
+  /* صمامات الأمان + كشف المنتجات الجديدة */
+  .alert-new { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 800; font-size: 14.5px; border-radius: 14px; padding: 14px 16px; margin-bottom: 16px;
+    color: #f4bd7a; background: linear-gradient(135deg, rgba(230,163,74,.18), rgba(230,163,74,.08)); border: 1px solid rgba(230,163,74,.55); transition: all .15s; }
+  .alert-new:hover { border-color: #e6a34a; transform: translateY(-1px); box-shadow: 0 8px 22px rgba(230,163,74,.18); }
+  .verify-ok { margin-top: 10px; color: var(--green-2); background: rgba(123,168,132,.12); border: 1px solid rgba(123,168,132,.35); border-radius: 10px; padding: 11px 14px; font-size: 13.5px; font-weight: 700; }
+  .verify-fail { margin-top: 10px; color: var(--danger); background: rgba(229,144,135,.12); border: 1px solid rgba(229,144,135,.45); border-radius: 10px; padding: 11px 14px; font-size: 13.5px; font-weight: 700; }
+  .export-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .export-btn { background: transparent !important; border: 1px solid var(--gold) !important; color: var(--gold-2) !important; box-shadow: none !important; }
+  .export-btn:hover { background: rgba(230,197,111,.1) !important; transform: none !important; }
+  details#ignoredCard summary { cursor: pointer; font-weight: 800; color: var(--muted); list-style: none; font-size: 14px; }
+  details#ignoredCard summary::-webkit-details-marker { display: none; }
+  details#ignoredCard[open] summary { color: var(--text); }
+  #ignoredBody td { font-size: 14px; }
   input[type=text] {
     padding: 11px 13px; border-radius: 10px; border: 1px solid var(--border-strong); font-size: 14px;
     background: rgba(255,255,255,.04); color: var(--text); outline: none; flex: 1; min-width: 150px; font-family: inherit; transition: border-color .15s;
@@ -272,14 +285,17 @@
   <div class="error" id="err"></div>
 
   <div class="card" id="result">
+    <div id="newAlert" class="alert-new" style="display:none" onclick="scrollToNew()"></div>
     <div class="clabel">النتيجة</div>
     <div class="stats">
       <div class="stat"><b style="color:#8fbf98" id="sUpd">0</b><span>تم تحديثه ✅</span></div>
+      <div class="stat"><b style="color:#e6a34a" id="sNew">0</b><span>جديد يحتاج قراراً</span></div>
       <div class="stat"><b style="color:#e3c88c" id="sUn">0</b><span>بدون ربط</span></div>
       <div class="stat"><b style="color:#93a2b5" id="sInf">0</b><span>غير محدود (تُرك)</span></div>
       <div class="stat"><b style="color:#f1e9d8" id="sTot">0</b><span>إجمالي الأسطر</span></div>
     </div>
     <a class="btn-dl" id="dlBtn" download="zid_products_updated.xlsx">⬇ تحميل الملف المحدث لاستيراده في زد</a>
+    <div id="verifyMsg" style="display:none"></div>
     <div id="unBlock" style="display:none">
       <div class="clabel" style="margin-top:18px" id="unTitle"></div>
       <div class="unbar">
@@ -304,7 +320,20 @@
       <button class="btn-run sm" onclick="addMapping()">حفظ الربط</button>
     </div>
     <div class="pills" id="pills"></div>
+    <div class="export-row">
+      <button class="btn-run sm export-btn" onclick="exportConfig()">⬇ تصدير ملفات الإعداد (mapping.json + ignored.json)</button>
+      <span class="hint" style="margin:0">حمّل الملفين وارفعهما إلى جذر المشروع لمشاركة الروابط والتجاهلات مع الجميع.</span>
+    </div>
   </div>
+
+  <details class="card" id="ignoredCard" style="display:none">
+    <summary>🚫 متجاهلة سابقاً (<span id="ignoredCount">0</span>) — اضغط للعرض</summary>
+    <div class="twrap" style="margin-top:12px"><table>
+      <colgroup><col class="c-sku"><col><col style="width:140px"></colgroup>
+      <thead><tr><th>SKU زد</th><th>اسم المنتج</th><th>إجراء</th></tr></thead>
+      <tbody id="ignoredBody"></tbody>
+    </table></div>
+  </details>
 
   <footer>
     المطابقة: الربط اليدوي أولاً ← ثم SKU الكامل ← ثم الكود الأساسي (مع تجاهل الأصفار البادئة مثل 080158 = 80158).
@@ -314,12 +343,29 @@
 
 <script>
 const MAP_KEY = "zid-manual-mapping-v1";
+const IGN_KEY = "zid-ignored-v1";
 const OPT_KEY = "zid-options-v1";
 let whRows = null, stData = null;
 let opts = { price: "incl", inf: "skip" };
 let manualMap = {};
-try { manualMap = JSON.parse(localStorage.getItem(MAP_KEY) || "{}"); } catch {}
+let ignoredSet = new Set();
+let boundSet = new Set();
+let lastWhList = [], lastUnmatchedRaw = [], lastUnmatched = [], lastIgnored = [];
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
+
+// تحميل mapping.json و ignored.json عبر fetch، ودمجهما مع localStorage (يتعامل مع 404 بهدوء)
+async function loadConfig() {
+  let baseMap = {}, baseIgn = [];
+  try { const r = await fetch("mapping.json", { cache: "no-store" }); if (r.ok) baseMap = await r.json(); } catch {}
+  try { const r = await fetch("ignored.json", { cache: "no-store" }); if (r.ok) baseIgn = await r.json(); } catch {}
+  let localMap = {}, localIgn = [];
+  try { localMap = JSON.parse(localStorage.getItem(MAP_KEY) || "{}"); } catch {}
+  try { localIgn = JSON.parse(localStorage.getItem(IGN_KEY) || "[]"); } catch {}
+  manualMap = Object.assign({}, (baseMap && typeof baseMap === "object") ? baseMap : {}, localMap);
+  const merged = [...(Array.isArray(baseIgn) ? baseIgn : []), ...(Array.isArray(localIgn) ? localIgn : [])];
+  ignoredSet = new Set(merged.map(normCode).filter(Boolean));
+}
+function saveIgnored() { localStorage.setItem(IGN_KEY, JSON.stringify([...ignoredSet])); }
 
 const normCode = v => {
   if (v === null || v === undefined) return "";
@@ -424,7 +470,38 @@ function priceBadge(storeP, whP) {
 }
 
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
-let lastUnmatched = [];
+
+// تحميل ملفات JSON (تصدير) + التحقق من مخرجات الإكسل
+function download(name, text) {
+  const blob = new Blob([text], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+}
+function exportConfig() {
+  download("mapping.json", JSON.stringify(manualMap, null, 2));
+  download("ignored.json", JSON.stringify([...ignoredSet].sort(), null, 2));
+}
+// صمام الأمان: يتأكد أن المخرجات مطابقة للأصل ولم يتغير سوى الكمية والسعر
+function verifyOutput(orig, out, H) {
+  if (out.length !== orig.length) return { ok: false, msg: `عدد الصفوف غير متطابق (${out.length} ≠ ${orig.length})` };
+  const oh = orig[0] || [], nh = out[0] || [];
+  if (oh.length !== nh.length) return { ok: false, msg: `عدد الأعمدة غير متطابق (${nh.length} ≠ ${oh.length})` };
+  for (let c = 0; c < oh.length; c++)
+    if (String(oh[c]) !== String(nh[c])) return { ok: false, msg: `اسم/ترتيب العمود رقم ${c + 1} تغيّر: "${nh[c]}" بدل "${oh[c]}"` };
+  const iSku = H.indexOf("sku"), iBar = H.indexOf("barcode"), iQty = H.indexOf("quantity"), iPrice = H.indexOf("price");
+  for (let r = 1; r < out.length; r++) {
+    for (let c = 0; c < oh.length; c++) {
+      if (c === iQty || c === iPrice) continue;
+      if (String(orig[r][c]) !== String(out[r][c]))
+        return { ok: false, msg: `العمود "${H[c]}" تغيّر في الصف ${r + 1} — يُسمح بتغيير الكمية والسعر فقط` };
+    }
+    if (iSku >= 0 && String(orig[r][iSku]) !== String(out[r][iSku])) return { ok: false, msg: `عمود sku تغيّر في الصف ${r + 1}` };
+    if (iBar >= 0 && String(orig[r][iBar]) !== String(out[r][iBar])) return { ok: false, msg: `عمود barcode تغيّر في الصف ${r + 1}` };
+  }
+  return { ok: true, cols: oh.length };
+}
 
 function setOpt(btn) {
   const g = btn.dataset.group;
@@ -529,50 +606,104 @@ function run() {
       updated++;
     }
 
-    const ws = XLSX.utils.aoa_to_sheet(out);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, stData.sheetName);
-    const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })],
-      { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    // === صمام الأمان: تحقّق قبل التحميل ===
+    const verify = verifyOutput(stData.rows, out, H);
+    const dl = document.getElementById("dlBtn");
+    const vm = document.getElementById("verifyMsg");
+    if (verify.ok) {
+      const ws = XLSX.utils.aoa_to_sheet(out);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, stData.sheetName);
+      const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })],
+        { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      dl.href = URL.createObjectURL(blob);
+      dl.style.display = "block";
+      vm.className = "verify-ok"; vm.style.display = "block";
+      vm.textContent = `✓ تم التحقق: ${verify.cols} عموداً مطابقاً للأصل — لم يتغير سوى الكمية والسعر في ${updated} صف`;
+    } else {
+      dl.style.display = "none"; dl.removeAttribute("href");
+      vm.className = "verify-fail"; vm.style.display = "block";
+      vm.textContent = `✗ تم إيقاف التحميل — ${verify.msg}`;
+    }
 
     document.getElementById("sUpd").textContent = updated;
     document.getElementById("sUn").textContent = unmatched.length;
     document.getElementById("sInf").textContent = skippedInf;
     document.getElementById("sTot").textContent = out.length - 1;
-    document.getElementById("dlBtn").href = URL.createObjectURL(blob);
 
-    const unBlock = document.getElementById("unBlock");
-    if (unmatched.length) {
-      unBlock.style.display = "block";
-      renderUnmatched(unmatched, whList);
-    } else unBlock.style.display = "none";
+    // === تصنيف الأصناف بدون ربط (جديد / متجاهل) ===
+    lastWhList = whList;
+    lastUnmatchedRaw = unmatched;
+    boundSet = new Set();
+    refreshUnmatchedUI();
 
     document.getElementById("result").style.display = "block";
     document.getElementById("result").scrollIntoView({ behavior: "smooth" });
   } catch (x) { showErr("خطأ أثناء المعالجة: " + x.message); }
 }
 
-/* ---------- عرض جدول "أصناف بدون ربط" مع الاقتراح الذكي ---------- */
-function renderUnmatched(all, whList) {
-  const shown = all.slice(0, 100);
-  const items = shown.map(u => {
+/* ---------- تصنيف الأصناف بدون ربط: "جديد يحتاج قراراً" و"متجاهلة سابقاً" ---------- */
+function refreshUnmatchedUI() {
+  const active = [], ignored = [];
+  for (const u of lastUnmatchedRaw) (ignoredSet.has(normCode(u.skuN)) ? ignored : active).push(u);
+
+  // جدول المنتجات الجديدة (مع الاقتراح الذكي) — بحد 100
+  const items = active.slice(0, 100).map(u => {
     const isZ = /^z\./i.test(String(u.sku).trim());
-    const suggestion = isZ ? null : suggestFor(u.skuN, u.name, whList);
-    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, isZ, suggestion, bound: false, ignored: false };
+    const suggestion = isZ ? null : suggestFor(u.skuN, u.name, lastWhList);
+    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, isZ, suggestion, bound: boundSet.has(normCode(u.skuN)), ignored: false };
   });
-  // ترتيب: أكواد زد الآلية في آخر الجدول، والباقي حسب نسبة التشابه تنازلياً
   items.sort((a, b) => {
     if (a.isZ !== b.isZ) return a.isZ ? 1 : -1;
     return (b.suggestion ? b.suggestion.sim : -1) - (a.suggestion ? a.suggestion.sim : -1);
   });
   lastUnmatched = items;
 
-  document.getElementById("unTitle").textContent =
-    `أصناف بدون ربط (${all.length}${all.length > 100 ? " — تُعرض أول ١٠٠" : ""}) — راجع المقترحات أو اربط يدوياً`;
-  document.getElementById("unBody").innerHTML = items.map(rowHtml).join("");
-  updateBindAllCount();
-  filterUnmatched();
+  const unBlock = document.getElementById("unBlock");
+  if (active.length) {
+    unBlock.style.display = "block";
+    document.getElementById("unTitle").textContent =
+      `منتجات جديدة تحتاج قرارك (${active.length}${active.length > 100 ? " — تُعرض أول ١٠٠" : ""}) — اربطها أو تجاهلها`;
+    document.getElementById("unBody").innerHTML = items.map(rowHtml).join("");
+    updateBindAllCount();
+    filterUnmatched();
+  } else unBlock.style.display = "none";
+
+  renderIgnored(ignored);
+  updateNewCount();
 }
+
+// شريط التنبيه البرتقالي + البطاقة الخامسة (يستبعد ما رُبط في هذه الجلسة)
+function updateNewCount() {
+  const newCount = lastUnmatchedRaw.filter(u => !ignoredSet.has(normCode(u.skuN)) && !boundSet.has(normCode(u.skuN))).length;
+  document.getElementById("sNew").textContent = newCount;
+  const alert = document.getElementById("newAlert");
+  if (newCount > 0) {
+    alert.style.display = "flex";
+    alert.textContent = `⚠ يوجد ${newCount} منتجاً جديداً بدون ربط ولا تجاهل — كمياتها لن تتحدث! راجعها الآن`;
+  } else alert.style.display = "none";
+}
+
+function renderIgnored(list) {
+  lastIgnored = list;
+  const card = document.getElementById("ignoredCard");
+  document.getElementById("ignoredCount").textContent = list.length;
+  if (!list.length) { card.style.display = "none"; return; }
+  card.style.display = "block";
+  document.getElementById("ignoredBody").innerHTML = list.map((u, i) =>
+    `<tr><td class="mono">${esc(String(u.sku))}</td><td>${esc(u.name) || "—"}</td>` +
+    `<td><button class="mini ignore" onclick="unignore(${i})">إلغاء التجاهل ↩</button></td></tr>`).join("");
+}
+
+function unignore(i) {
+  const u = lastIgnored[i];
+  if (!u) return;
+  ignoredSet.delete(normCode(u.skuN));
+  saveIgnored();
+  refreshUnmatchedUI();
+}
+
+function scrollToNew() { document.getElementById("unBlock").scrollIntoView({ behavior: "smooth", block: "start" }); }
 
 function rowHtml(it, i) {
   const zidPrice = priceNum(it.price);
@@ -589,18 +720,23 @@ function rowHtml(it, i) {
     sugg = `<span class="sugg-code">${esc(it.suggestion.code)}</span> <span class="sugg-name">${esc(it.suggestion.name)}</span>` +
       `<span class="simbadge ${cls}">${pct}%</span>${priceBadge(it.price, it.suggestion.price)}` +
       (whPrice != null ? `<div class="price-line">سعر المستودع: ${fmtPrice(whPrice)} ر.س</div>` : "");
-    bind = `<button class="mini bind" onclick="bindRow(${i})">اربط ✓</button>`;
+    bind = it.bound
+      ? `<button class="mini bind" disabled>مربوط ✓</button>`
+      : `<button class="mini bind" onclick="bindRow(${i})">اربط ✓</button>`;
   } else {
     sugg = `<span class="sugg-note">لا يوجد مقترح</span>`;
     bind = "";
   }
+  const ignoreBtn = it.bound
+    ? `<button class="mini ignore" disabled>تجاهل ✗</button>`
+    : `<button class="mini ignore" onclick="ignoreRow(${i})">تجاهل ✗</button>`;
   const search = esc(normText(it.sku + " " + it.name + " " + (it.suggestion ? it.suggestion.code + " " + it.suggestion.name : "")));
-  return `<tr id="un-${i}" class="${it.isZ ? "zrow" : ""}" data-search="${search}">` +
+  return `<tr id="un-${i}" class="${(it.isZ ? "zrow" : "") + (it.bound ? " bound" : "")}" data-search="${search}">` +
     `<td class="mono">${esc(it.sku)}</td>` +
     `<td>${nameCell}</td>` +
     `<td>${sugg}</td>` +
     `<td>${bind}</td>` +
-    `<td><button class="mini ignore" onclick="ignoreRow(${i})">تجاهل ✗</button></td>` +
+    `<td>${ignoreBtn}</td>` +
     `</tr>`;
 }
 
@@ -622,6 +758,7 @@ function filterUnmatched() {
 
 function applyBind(it, i) {
   manualMap[normCode(it.skuN)] = normCode(it.suggestion.code);
+  boundSet.add(normCode(it.skuN));
   it.bound = true;
   const tr = document.getElementById("un-" + i);
   if (tr) { tr.classList.remove("ignored"); tr.classList.add("bound"); tr.querySelectorAll("button").forEach(b => b.disabled = true); }
@@ -634,15 +771,15 @@ function bindRow(i) {
   localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
   renderPills();
   updateBindAllCount();
+  updateNewCount();
 }
 
 function ignoreRow(i) {
   const it = lastUnmatched[i];
   if (!it) return;
-  it.ignored = true;
-  const tr = document.getElementById("un-" + i);
-  if (tr) { tr.classList.add("ignored"); tr.querySelectorAll("button").forEach(b => b.disabled = true); }
-  updateBindAllCount();
+  ignoredSet.add(normCode(it.skuN));
+  saveIgnored();
+  refreshUnmatchedUI();
 }
 
 function updateBindAllCount() {
@@ -660,6 +797,7 @@ function bindAll90() {
   localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
   renderPills();
   updateBindAllCount();
+  updateNewCount();
 }
 
 function addMapping() {
@@ -678,8 +816,9 @@ function renderPills() {
     .map(([s, c]) => `<span class="pill"><span class="mono">${s} ← ${c}</span><button onclick="delMap('${s}')">×</button></span>`).join("");
 }
 function delMap(s) { delete manualMap[s]; localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); renderPills(); }
-renderPills();
+
 applyOpts();
+(async () => { await loadConfig(); renderPills(); })();
 </script>
 </body>
 </html>
