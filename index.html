@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASJ — مزامنة المستودع مع متجر زد</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Tahoma, system-ui, sans-serif; background: #EDF0F3; color: #22303F; margin: 0; padding: 24px 16px 60px; }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  .eyebrow { font-size: 11px; letter-spacing: .15em; font-weight: 800; color: #8A94A3; }
+  h1 { margin: 4px 0 6px; font-size: 28px; }
+  .sub { color: #5A6577; font-size: 14.5px; margin: 0 0 20px; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .upload { border: 2px dashed #C6CFDA; border-radius: 14px; padding: 18px; cursor: pointer; background: #fff; display: block; transition: all .15s; }
+  .upload.ok { border-color: #2E7D46; background: #F0F7F2; }
+  .upload input { display: none; }
+  .step { width: 28px; height: 28px; border-radius: 50%; background: #22303F; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; margin-bottom: 8px; }
+  .utitle { font-weight: 800; font-size: 15px; }
+  .hint { font-size: 12.5px; color: #6B7686; margin: 2px 0 10px; }
+  .ustatus { margin-top: 8px; font-size: 13px; font-weight: 700; }
+  .card { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(34,48,63,.08); margin-bottom: 12px; }
+  .clabel { font-size: 12px; font-weight: 800; color: #8A94A3; letter-spacing: .06em; margin-bottom: 10px; }
+  .optrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .optlabel { font-size: 13.5px; font-weight: 700; }
+  .chip { background: #fff; border: 1px solid #C6CFDA; border-radius: 20px; padding: 7px 14px; font-size: 13px; cursor: pointer; color: #5A6577; font-family: inherit; }
+  .chip.on { background: #22303F; color: #fff; border-color: #22303F; font-weight: 700; }
+  .btn-run { width: 100%; background: #22303F; color: #fff; border: none; border-radius: 12px; padding: 14px; font-size: 15.5px; font-weight: 800; cursor: pointer; margin-bottom: 12px; font-family: inherit; }
+  .btn-run:hover:not(:disabled) { background: #33475E; }
+  .btn-run:disabled { background: #B9C2CD; cursor: not-allowed; }
+  .btn-run.sm { width: auto; padding: 10px 18px; font-size: 14px; margin: 0; }
+  .btn-dl { display: block; text-align: center; background: #2E7D46; color: #fff; text-decoration: none; border-radius: 12px; padding: 13px; font-weight: 800; font-size: 15px; }
+  .btn-dl:hover { background: #256B3B; }
+  .error { background: #FBEDEB; color: #A33025; padding: 10px 14px; border-radius: 8px; font-size: 13.5px; margin: 10px 0; display: none; }
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .stat { text-align: center; flex: 1; min-width: 90px; }
+  .stat b { font-size: 24px; display: block; }
+  .stat span { font-size: 12px; color: #6B7686; }
+  .twrap { max-height: 260px; overflow: auto; border: 1px solid #E2E7ED; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: right; padding: 8px 10px; background: #F4F6F8; position: sticky; top: 0; }
+  td { padding: 7px 10px; border-top: 1px solid #EEF1F4; }
+  .mono { font-family: ui-monospace, Consolas, monospace; direction: ltr; unicode-bidi: embed; }
+  input[type=text] { padding: 10px 12px; border-radius: 8px; border: 1px solid #C6CFDA; font-size: 14px; background: #FAFBFC; outline: none; flex: 1; min-width: 150px; font-family: inherit; }
+  input[type=text]:focus { border-color: #22303F; }
+  .maprow { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pills { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; background: #F0F3F6; border-radius: 20px; padding: 4px 10px; font-size: 12.5px; }
+  .pill button { border: none; background: none; cursor: pointer; color: #A33025; font-size: 15px; line-height: 1; }
+  footer { font-size: 12px; color: #8A94A3; margin-top: 16px; line-height: 1.7; }
+  #result { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">ASJ · مزامنة المخزون</div>
+  <h1>تحديث متجر زد من المستودع</h1>
+  <p class="sub">ارفع الملفين، وحمّل النسخة المحدثة (الكمية والسعر فقط) لاستيرادها في لوحة زد.</p>
+
+  <div class="grid2">
+    <label class="upload" id="whCard">
+      <input type="file" accept=".xlsx,.xls,.csv" onchange="onWarehouse(this)">
+      <div class="step">١</div>
+      <div class="utitle">ملف المستودع</div>
+      <div class="hint">الأعمدة: رقم الصنف، الكمية، الأسعار</div>
+      <div class="ustatus" id="whStatus">اضغط لاختيار الملف</div>
+    </label>
+    <label class="upload" id="stCard">
+      <input type="file" accept=".xlsx,.xls,.csv" onchange="onStore(this)">
+      <div class="step">٢</div>
+      <div class="utitle">تصدير المنتجات من زد</div>
+      <div class="hint">من لوحة زد: المنتجات ← تصدير</div>
+      <div class="ustatus" id="stStatus">اضغط لاختيار الملف</div>
+    </label>
+  </div>
+
+  <div class="card">
+    <div class="clabel">الخيارات</div>
+    <div class="optrow">
+      <span class="optlabel">السعر المُرسل إلى زد:</span>
+      <button class="chip on" data-group="price" data-v="incl" onclick="setOpt(this)">شامل الضريبة</button>
+      <button class="chip" data-group="price" data-v="excl" onclick="setOpt(this)">قبل الضريبة</button>
+      <button class="chip" data-group="price" data-v="none" onclick="setOpt(this)">لا تحدّث الأسعار</button>
+    </div>
+    <div class="optrow">
+      <span class="optlabel">منتجات "كمية غير محدودة":</span>
+      <button class="chip on" data-group="inf" data-v="skip" onclick="setOpt(this)">اتركها كما هي</button>
+      <button class="chip" data-group="inf" data-v="update" onclick="setOpt(this)">حدّثها من المستودع</button>
+    </div>
+  </div>
+
+  <button class="btn-run" id="runBtn" disabled onclick="run()">طابق وأنشئ الملف المحدث ←</button>
+  <div class="error" id="err"></div>
+
+  <div class="card" id="result">
+    <div class="clabel">النتيجة</div>
+    <div class="stats">
+      <div class="stat"><b style="color:#2E7D46" id="sUpd">0</b><span>تم تحديثه ✅</span></div>
+      <div class="stat"><b style="color:#B3541E" id="sUn">0</b><span>بدون ربط</span></div>
+      <div class="stat"><b style="color:#6B7686" id="sInf">0</b><span>غير محدود (تُرك)</span></div>
+      <div class="stat"><b style="color:#22303F" id="sTot">0</b><span>إجمالي الأسطر</span></div>
+    </div>
+    <a class="btn-dl" id="dlBtn" download="zid_products_updated.xlsx">⬇ تحميل الملف المحدث لاستيراده في زد</a>
+    <div id="unBlock" style="display:none">
+      <div class="clabel" style="margin-top:18px" id="unTitle"></div>
+      <div class="twrap"><table><thead><tr><th>SKU زد</th><th>اسم المنتج</th></tr></thead><tbody id="unBody"></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="clabel">ربط يدوي (يُحفظ في متصفحك — <span id="mapCount">0</span> ربط محفوظ)</div>
+    <p class="hint">للأصناف التي يختلف كودها بين المستودع وزد: أدخل SKU زد وكود المستودع المقابل. يُطبَّق تلقائياً في كل مطابقة.</p>
+    <div class="maprow">
+      <input type="text" id="mSku" placeholder="SKU في زد (مثال: 80207)">
+      <input type="text" id="mCode" placeholder="كود المستودع (مثال: 80384)">
+      <button class="btn-run sm" onclick="addMapping()">حفظ الربط</button>
+    </div>
+    <div class="pills" id="pills"></div>
+  </div>
+
+  <footer>
+    المطابقة: الربط اليدوي أولاً ← ثم SKU الكامل ← ثم الكود الأساسي (مع تجاهل الأصفار البادئة مثل 080158 = 80158).
+    الملف الناتج يحافظ على جميع الأعمدة ويغيّر الكمية والسعر فقط. جميع المعالجة تتم في متصفحك — لا تُرفع ملفاتك لأي خادم.
+  </footer>
+</div>
+
+<script>
+const MAP_KEY = "zid-manual-mapping-v1";
+let whRows = null, stData = null;
+let opts = { price: "incl", inf: "skip" };
+let manualMap = {};
+try { manualMap = JSON.parse(localStorage.getItem(MAP_KEY) || "{}"); } catch {}
+
+const normCode = v => {
+  if (v === null || v === undefined) return "";
+  let s = String(v).trim();
+  if (/^\d+(\.0+)?$/.test(s)) s = s.replace(/\.0+$/, "");
+  return s.replace(/^0+/, "") || "0";
+};
+const baseOf = sku => normCode(String(sku).split(".")[0]);
+const showErr = m => { const e = document.getElementById("err"); e.textContent = m; e.style.display = m ? "block" : "none"; };
+
+function setOpt(btn) {
+  const g = btn.dataset.group;
+  document.querySelectorAll(`[data-group=${g}]`).forEach(b => b.classList.remove("on"));
+  btn.classList.add("on");
+  opts[g] = btn.dataset.v;
+}
+
+function readWB(file) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = e => { try { res(XLSX.read(new Uint8Array(e.target.result), { type: "array" })); } catch (x) { rej(x); } };
+    fr.onerror = () => rej(new Error("فشل قراءة الملف"));
+    fr.readAsArrayBuffer(file);
+  });
+}
+
+async function onWarehouse(inp) {
+  const f = inp.files[0]; if (!f) return;
+  showErr(""); document.getElementById("result").style.display = "none";
+  try {
+    const wb = await readWB(f);
+    let rows = null;
+    for (const sn of wb.SheetNames) {
+      const js = XLSX.utils.sheet_to_json(wb.Sheets[sn], { defval: "" });
+      if (js.length && Object.keys(js[0]).some(k => k.includes("رقم الصنف") || k.toLowerCase() === "code" || k.toLowerCase() === "sku")) { rows = js; break; }
+    }
+    if (!rows) throw new Error("لم أجد عمود 'رقم الصنف' في ملف المستودع");
+    whRows = rows;
+    document.getElementById("whStatus").innerHTML = `<span style="color:#2E7D46">✓ ${f.name} — ${rows.length} صنف</span>`;
+    document.getElementById("whCard").classList.add("ok");
+  } catch (x) { showErr("ملف المستودع: " + x.message); }
+  inp.value = ""; checkReady();
+}
+
+async function onStore(inp) {
+  const f = inp.files[0]; if (!f) return;
+  showErr(""); document.getElementById("result").style.display = "none";
+  try {
+    const wb = await readWB(f);
+    const sheetName = wb.SheetNames.includes("Products") ? "Products" : wb.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: "" });
+    const header = rows[0].map(h => String(h).trim());
+    if (!header.includes("sku")) throw new Error("لم أجد عمود 'sku' — تأكد أنه ملف تصدير المنتجات من زد");
+    stData = { sheetName, rows, header };
+    document.getElementById("stStatus").innerHTML = `<span style="color:#2E7D46">✓ ${f.name} — ${rows.length - 1} سطر</span>`;
+    document.getElementById("stCard").classList.add("ok");
+  } catch (x) { showErr("ملف المتجر: " + x.message); }
+  inp.value = ""; checkReady();
+}
+
+function checkReady() { document.getElementById("runBtn").disabled = !(whRows && stData); }
+
+function run() {
+  showErr("");
+  try {
+    const whIndex = {};
+    for (const r of whRows) {
+      const keys = Object.keys(r);
+      const kCode = keys.find(k => k.includes("رقم الصنف") || k.toLowerCase() === "code" || k.toLowerCase() === "sku");
+      const kQty = keys.find(k => k.includes("الكمية") || k.toLowerCase() === "qty" || k.toLowerCase() === "quantity");
+      const kIncl = keys.find(k => k.includes("شامل"));
+      const kExcl = keys.find(k => k.includes("قبل"));
+      const code = normCode(r[kCode]);
+      if (!code) continue;
+      whIndex[code] = {
+        qty: Number(r[kQty]) || 0,
+        incl: kIncl ? (Number(r[kIncl]) || null) : null,
+        excl: kExcl ? (Number(r[kExcl]) || null) : null,
+      };
+    }
+
+    const H = stData.header;
+    const iSku = H.indexOf("sku"), iQty = H.indexOf("quantity"), iPrice = H.indexOf("price"), iName = H.indexOf("name_ar");
+    const out = stData.rows.map(r => [...r]);
+    let updated = 0, skippedInf = 0;
+    const unmatched = [];
+
+    for (let i = 1; i < out.length; i++) {
+      const row = out[i], rawSku = row[iSku];
+      if (!rawSku) continue;
+      const skuN = normCode(rawSku);
+      const isInf = String(row[iQty]).trim().toLowerCase() === "infinite";
+      const whCode = manualMap[skuN] || (whIndex[skuN] ? skuN : null) || (whIndex[baseOf(rawSku)] ? baseOf(rawSku) : null);
+      const wh = whCode ? whIndex[whCode] : null;
+      if (!wh) { if (!isInf) unmatched.push({ sku: String(rawSku), name: row[iName] || "" }); continue; }
+      if (isInf && opts.inf === "skip") { skippedInf++; continue; }
+      row[iQty] = wh.qty;
+      if (opts.price === "incl" && wh.incl != null) row[iPrice] = wh.incl;
+      if (opts.price === "excl" && wh.excl != null) row[iPrice] = wh.excl;
+      updated++;
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(out);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, stData.sheetName);
+    const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })],
+      { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+
+    document.getElementById("sUpd").textContent = updated;
+    document.getElementById("sUn").textContent = unmatched.length;
+    document.getElementById("sInf").textContent = skippedInf;
+    document.getElementById("sTot").textContent = out.length - 1;
+    document.getElementById("dlBtn").href = URL.createObjectURL(blob);
+
+    const unBlock = document.getElementById("unBlock");
+    if (unmatched.length) {
+      unBlock.style.display = "block";
+      document.getElementById("unTitle").textContent = `أصناف بدون ربط (${unmatched.length}) — اربطها أدناه ثم أعد المطابقة`;
+      document.getElementById("unBody").innerHTML = unmatched.slice(0, 100)
+        .map(u => `<tr><td class="mono">${u.sku}</td><td>${u.name}</td></tr>`).join("");
+    } else unBlock.style.display = "none";
+
+    document.getElementById("result").style.display = "block";
+    document.getElementById("result").scrollIntoView({ behavior: "smooth" });
+  } catch (x) { showErr("خطأ أثناء المعالجة: " + x.message); }
+}
+
+function addMapping() {
+  const sku = document.getElementById("mSku").value.trim();
+  const code = document.getElementById("mCode").value.trim();
+  if (!sku || !code) return;
+  manualMap[normCode(sku)] = normCode(code);
+  localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
+  document.getElementById("mSku").value = ""; document.getElementById("mCode").value = "";
+  renderPills();
+}
+
+function renderPills() {
+  document.getElementById("mapCount").textContent = Object.keys(manualMap).length;
+  document.getElementById("pills").innerHTML = Object.entries(manualMap)
+    .map(([s, c]) => `<span class="pill"><span class="mono">${s} ← ${c}</span><button onclick="delMap('${s}')">×</button></span>`).join("");
+}
+function delMap(s) { delete manualMap[s]; localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); renderPills(); }
+renderPills();
+</script>
+</body>
+</html>
