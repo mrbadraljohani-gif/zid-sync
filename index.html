@@ -139,28 +139,42 @@
   .stat { text-align: center; flex: 1; min-width: 90px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 8px; }
   .stat b { font-size: 26px; display: block; }
   .stat span { font-size: 12px; color: var(--muted); }
-  .twrap { max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
+  .twrap { max-height: 65vh; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { text-align: right; padding: 10px 12px; background: rgba(255,255,255,.05); position: sticky; top: 0; color: var(--muted); font-weight: 700; backdrop-filter: blur(6px); }
   td { padding: 8px 12px; border-top: 1px solid var(--border); color: var(--text); }
   .mono { font-family: ui-monospace, Consolas, monospace; direction: ltr; unicode-bidi: embed; }
   /* Smart suggestions */
-  .bindall { margin: 12px 0 !important; }
-  .mini { border: none; border-radius: 8px; padding: 6px 11px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
+  .unbar { display: flex; gap: 10px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+  .unbar input { flex: 1; min-width: 200px; }
+  .unbar .bindall { margin: 0 !important; flex-shrink: 0; }
+  .mini { border: none; border-radius: 8px; padding: 7px 12px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
   .mini.bind { background: linear-gradient(135deg, var(--green-2), var(--green)); color: #08160d; }
   .mini.bind:hover:not(:disabled) { filter: brightness(1.06); }
   .mini.ignore { background: transparent; border: 1px solid var(--border-strong); color: var(--muted); }
   .mini.ignore:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
   .mini:disabled { opacity: .4; cursor: default; }
-  .sugg-code { color: var(--gold-2); font-weight: 700; font-family: ui-monospace, Consolas, monospace; direction: ltr; unicode-bidi: embed; }
+  .sugg-code { color: var(--gold-2); font-weight: 700; font-family: ui-monospace, Consolas, monospace; direction: ltr; unicode-bidi: embed; font-size: 14px; }
   .sugg-name { color: var(--muted); }
-  .sugg-note { color: var(--muted-2); font-size: 12px; }
-  .simbadge { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; }
+  .sugg-note { color: var(--muted-2); font-size: 12.5px; }
+  .price-line { font-size: 12px; color: var(--muted); opacity: .8; margin-top: 5px; }
+  .simbadge { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11.5px; font-weight: 800; vertical-align: middle; }
   .sim-hi { background: rgba(157,208,166,.16); color: var(--green-2); }
   .sim-mid { background: rgba(230,197,111,.16); color: var(--gold-2); }
-  tr.bound td { background: rgba(123,168,132,.16); }
-  tr.ignored { opacity: .38; }
-  tr.zrow td { background: rgba(255,255,255,.02); }
+  .pbadge { display: inline-block; margin-inline-start: 6px; font-size: 13px; font-weight: 800; vertical-align: middle; cursor: help; }
+  .pb-ok { color: var(--green-2); }
+  .pb-warn { color: var(--gold-2); }
+  .pb-bad { color: var(--danger); }
+  /* الجدول: أعمدة ثابتة + خطوط أكبر + تخطيط زيبرا + رأس ثابت */
+  #unBlock col.c-sku { width: 120px; }
+  #unBlock col.c-act { width: 90px; }
+  #unBlock th { background: #1b1710; }
+  #unBody td { font-size: 15px; padding: 14px 14px; border-top: 1px solid var(--border-strong); vertical-align: top; }
+  #unBody td.mono { font-size: 14px; }
+  #unBody tr:nth-child(odd) td { background: rgba(255,255,255,.025); }
+  #unBody tr.zrow td { background: rgba(230,197,111,.05); }
+  #unBody tr.bound td { background: rgba(123,168,132,.18); }
+  #unBody tr.ignored { opacity: .38; }
   input[type=text] {
     padding: 11px 13px; border-radius: 10px; border: 1px solid var(--border-strong); font-size: 14px;
     background: rgba(255,255,255,.04); color: var(--text); outline: none; flex: 1; min-width: 150px; font-family: inherit; transition: border-color .15s;
@@ -172,7 +186,8 @@
   .pill { display: inline-flex; align-items: center; gap: 6px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 12.5px; }
   .pill button { border: none; background: none; cursor: pointer; color: var(--danger); font-size: 16px; line-height: 1; }
   footer { font-size: 12px; color: var(--muted-2); margin-top: 20px; line-height: 1.8; border-top: 1px solid var(--border); padding-top: 18px; }
-  #result { display: none; }
+  /* قسم النتائج والجدول بعرض كامل الشاشة تقريباً */
+  #result { display: none; width: min(1400px, calc(100vw - 40px)); position: relative; left: 50%; transform: translateX(-50%); }
 </style>
 </head>
 <body>
@@ -267,8 +282,12 @@
     <a class="btn-dl" id="dlBtn" download="zid_products_updated.xlsx">⬇ تحميل الملف المحدث لاستيراده في زد</a>
     <div id="unBlock" style="display:none">
       <div class="clabel" style="margin-top:18px" id="unTitle"></div>
-      <button class="btn-run sm bindall" id="bindAllBtn" onclick="bindAll90()">اربط كل الاقتراحات فوق 90%</button>
+      <div class="unbar">
+        <input type="text" id="unSearch" placeholder="🔍 ابحث بالكود أو الاسم..." oninput="filterUnmatched()">
+        <button class="btn-run sm bindall" id="bindAllBtn" onclick="bindAll90()">اربط الاقتراحات المؤكدة</button>
+      </div>
       <div class="twrap"><table>
+        <colgroup><col class="c-sku"><col><col><col class="c-act"><col class="c-act"></colgroup>
         <thead><tr><th>SKU زد</th><th>اسم المنتج</th><th>الاقتراح</th><th>ربط</th><th>تجاهل</th></tr></thead>
         <tbody id="unBody"></tbody>
       </table></div>
@@ -386,10 +405,22 @@ function suggestFor(skuN, nm, whList) {
   }
   if (codeCand) {
     const sim = Math.min(0.99, codeCand.cp * 0.9 + codeCand.ns * 0.1);
-    return { code: codeCand.w.code, name: codeCand.w.name, sim, by: "code" };
+    return { code: codeCand.w.code, name: codeCand.w.name, price: codeCand.w.price, sim, ns: codeCand.ns, by: "code" };
   }
-  if (nameCand && nameCand.ns >= 0.60) return { code: nameCand.w.code, name: nameCand.w.name, sim: nameCand.ns, by: "name" };
+  if (nameCand && nameCand.ns >= 0.60) return { code: nameCand.w.code, name: nameCand.w.name, price: nameCand.w.price, sim: nameCand.ns, ns: nameCand.ns, by: "name" };
   return null;
+}
+
+// تحليل الأسعار ومؤشر التطابق السعري
+function priceNum(v) { const n = Number(String(v == null ? "" : v).replace(/[^\d.\-]/g, "")); return Number.isFinite(n) && n > 0 ? n : null; }
+function fmtPrice(n) { return n % 1 === 0 ? String(n) : n.toFixed(2); }
+function priceDiffPct(a, b) { a = priceNum(a); b = priceNum(b); if (a == null || b == null) return null; const base = Math.max(a, b); return base ? Math.abs(a - b) / base * 100 : null; }
+function priceBadge(storeP, whP) {
+  const d = priceDiffPct(storeP, whP);
+  if (d == null) return "";
+  if (d <= 5) return `<span class="pbadge pb-ok" title="فرق سعري ${d.toFixed(0)}٪">✓</span>`;
+  if (d <= 20) return `<span class="pbadge pb-warn" title="فرق سعري ${d.toFixed(0)}٪">⚠</span>`;
+  return `<span class="pbadge pb-bad" title="فرق سعر كبير — تحقق قبل الربط (${d.toFixed(0)}٪)">✗</span>`;
 }
 
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
@@ -475,7 +506,7 @@ function run() {
         name: kName ? String(r[kName]).trim() : "",
       };
     }
-    const whList = Object.keys(whIndex).map(code => ({ code, name: whIndex[code].name || "", tokens: nameTokens(whIndex[code].name || "") }));
+    const whList = Object.keys(whIndex).map(code => ({ code, name: whIndex[code].name || "", tokens: nameTokens(whIndex[code].name || ""), price: whIndex[code].incl }));
 
     const H = stData.header;
     const iSku = H.indexOf("sku"), iQty = H.indexOf("quantity"), iPrice = H.indexOf("price"), iName = H.indexOf("name_ar");
@@ -490,7 +521,7 @@ function run() {
       const isInf = String(row[iQty]).trim().toLowerCase() === "infinite";
       const whCode = manualMap[skuN] || (whIndex[skuN] ? skuN : null) || (whIndex[baseOf(rawSku)] ? baseOf(rawSku) : null);
       const wh = whCode ? whIndex[whCode] : null;
-      if (!wh) { if (!isInf) unmatched.push({ sku: String(rawSku), skuN, name: row[iName] || "" }); continue; }
+      if (!wh) { if (!isInf) unmatched.push({ sku: String(rawSku), skuN, name: row[iName] || "", price: row[iPrice] }); continue; }
       if (isInf && opts.inf === "skip") { skippedInf++; continue; }
       row[iQty] = wh.qty;
       if (opts.price === "incl" && wh.incl != null) row[iPrice] = wh.incl;
@@ -527,7 +558,7 @@ function renderUnmatched(all, whList) {
   const items = shown.map(u => {
     const isZ = /^z\./i.test(String(u.sku).trim());
     const suggestion = isZ ? null : suggestFor(u.skuN, u.name, whList);
-    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", isZ, suggestion, bound: false, ignored: false };
+    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, isZ, suggestion, bound: false, ignored: false };
   });
   // ترتيب: أكواد زد الآلية في آخر الجدول، والباقي حسب نسبة التشابه تنازلياً
   items.sort((a, b) => {
@@ -540,9 +571,13 @@ function renderUnmatched(all, whList) {
     `أصناف بدون ربط (${all.length}${all.length > 100 ? " — تُعرض أول ١٠٠" : ""}) — راجع المقترحات أو اربط يدوياً`;
   document.getElementById("unBody").innerHTML = items.map(rowHtml).join("");
   updateBindAllCount();
+  filterUnmatched();
 }
 
 function rowHtml(it, i) {
+  const zidPrice = priceNum(it.price);
+  const nameCell = (esc(it.name) || "—") +
+    (zidPrice != null ? `<div class="price-line">سعر زد: ${fmtPrice(zidPrice)} ر.س</div>` : "");
   let sugg, bind;
   if (it.isZ) {
     sugg = `<span class="sugg-note">كود آلي من زد — يحتاج ربطاً يدوياً</span>`;
@@ -550,19 +585,39 @@ function rowHtml(it, i) {
   } else if (it.suggestion) {
     const pct = Math.round(it.suggestion.sim * 100);
     const cls = pct >= 85 ? "sim-hi" : "sim-mid";
-    sugg = `<span class="sugg-code">${esc(it.suggestion.code)}</span> <span class="sugg-name">${esc(it.suggestion.name)}</span> <span class="simbadge ${cls}">${pct}%</span>`;
+    const whPrice = priceNum(it.suggestion.price);
+    sugg = `<span class="sugg-code">${esc(it.suggestion.code)}</span> <span class="sugg-name">${esc(it.suggestion.name)}</span>` +
+      `<span class="simbadge ${cls}">${pct}%</span>${priceBadge(it.price, it.suggestion.price)}` +
+      (whPrice != null ? `<div class="price-line">سعر المستودع: ${fmtPrice(whPrice)} ر.س</div>` : "");
     bind = `<button class="mini bind" onclick="bindRow(${i})">اربط ✓</button>`;
   } else {
     sugg = `<span class="sugg-note">لا يوجد مقترح</span>`;
     bind = "";
   }
-  return `<tr id="un-${i}" class="${it.isZ ? "zrow" : ""}">` +
+  const search = esc(normText(it.sku + " " + it.name + " " + (it.suggestion ? it.suggestion.code + " " + it.suggestion.name : "")));
+  return `<tr id="un-${i}" class="${it.isZ ? "zrow" : ""}" data-search="${search}">` +
     `<td class="mono">${esc(it.sku)}</td>` +
-    `<td>${esc(it.name) || "—"}</td>` +
+    `<td>${nameCell}</td>` +
     `<td>${sugg}</td>` +
     `<td>${bind}</td>` +
     `<td><button class="mini ignore" onclick="ignoreRow(${i})">تجاهل ✗</button></td>` +
     `</tr>`;
+}
+
+// صنف "مؤكد": تشابه اسم 90%+ وفرق سعري ≤5%
+function isConfirmed(it) {
+  if (!it.suggestion || it.isZ || it.bound || it.ignored) return false;
+  if (it.suggestion.ns < 0.90) return false;
+  const d = priceDiffPct(it.price, it.suggestion.price);
+  return d != null && d <= 5;
+}
+
+function filterUnmatched() {
+  const q = normText(document.getElementById("unSearch").value);
+  document.querySelectorAll("#unBody tr").forEach(tr => {
+    const hay = tr.getAttribute("data-search") || "";
+    tr.style.display = (!q || hay.includes(q)) ? "" : "none";
+  });
 }
 
 function applyBind(it, i) {
@@ -590,22 +645,17 @@ function ignoreRow(i) {
   updateBindAllCount();
 }
 
-function countAbove90() {
-  return lastUnmatched.filter(x => x.suggestion && !x.isZ && !x.bound && !x.ignored && x.suggestion.sim >= 0.90).length;
-}
 function updateBindAllCount() {
-  const c = countAbove90();
+  const c = lastUnmatched.filter(isConfirmed).length;
   const b = document.getElementById("bindAllBtn");
-  b.textContent = `اربط كل الاقتراحات فوق 90% (${c})`;
+  b.textContent = `اربط الاقتراحات المؤكدة (${c})`;
   b.disabled = c === 0;
 }
 
 function bindAll90() {
-  const targets = lastUnmatched
-    .map((it, i) => ({ it, i }))
-    .filter(({ it }) => it.suggestion && !it.isZ && !it.bound && !it.ignored && it.suggestion.sim >= 0.90);
+  const targets = lastUnmatched.map((it, i) => ({ it, i })).filter(({ it }) => isConfirmed(it));
   if (!targets.length) return;
-  if (!confirm(`سيتم ربط ${targets.length} صنف تلقائياً (نسبة تشابه ٩٠٪ فأكثر).\nيُحفظ الربط في متصفحك ويُطبَّق في المطابقة التالية.\nهل تريد المتابعة؟`)) return;
+  if (!confirm(`سيتم ربط ${targets.length} صنف مؤكد تلقائياً (تشابه اسم ٩٠٪ فأكثر وفرق سعري ٥٪ أو أقل).\nيُحفظ الربط في متصفحك ويُطبَّق في المطابقة التالية.\nهل تريد المتابعة؟`)) return;
   for (const { it, i } of targets) applyBind(it, i);
   localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
   renderPills();
