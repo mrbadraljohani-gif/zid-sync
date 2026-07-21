@@ -34,12 +34,31 @@
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 840px; margin: 0 auto; }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  /* Hero banner */
+  .hero { position: relative; border-radius: 24px; overflow: hidden; margin-bottom: 8px; min-height: 250px; display: flex; align-items: flex-end; border: 1px solid var(--border); box-shadow: 0 22px 55px rgba(0,0,0,.4); }
+  .hero .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: saturate(1.05); }
+  .hero .overlay { position: absolute; inset: 0; background:
+      linear-gradient(to left, rgba(10,22,34,.94), rgba(10,22,34,.6) 48%, rgba(10,22,34,.22)),
+      linear-gradient(to top, rgba(10,22,34,.9), transparent 62%),
+      radial-gradient(600px 300px at 90% 10%, rgba(201,168,106,.18), transparent 60%); }
+  .hero-content { position: relative; padding: 34px 34px 30px; width: 100%; }
+  .badges { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .badge { font-size: 12px; font-weight: 700; color: var(--muted); background: rgba(255,255,255,.07); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; display: inline-flex; align-items: center; gap: 6px; }
+  .badge b { color: var(--gold-2); font-weight: 800; }
+
   .eyebrow { font-size: 11px; letter-spacing: .22em; font-weight: 800; color: var(--gold); display: flex; align-items: center; gap: 10px; text-transform: uppercase; }
   .eyebrow::before { content: ""; width: 26px; height: 1px; background: linear-gradient(90deg, var(--gold), transparent); }
-  h1 { margin: 12px 0 8px; font-size: 34px; font-weight: 800; letter-spacing: -.01em; line-height: 1.15; }
+  h1 { margin: 12px 0 8px; font-size: 36px; font-weight: 800; letter-spacing: -.01em; line-height: 1.14; }
   h1 .accent { background: linear-gradient(120deg, var(--green-2), var(--green)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .sub { color: var(--muted); font-size: 15px; margin: 0 0 26px; max-width: 620px; line-height: 1.6; }
+  .sub { color: var(--muted); font-size: 15px; margin: 0; max-width: 560px; line-height: 1.6; }
+
+  /* Section rhythm */
+  .section-head { display: flex; align-items: center; gap: 12px; margin: 26px 2px 14px; }
+  .section-head .n { width: 28px; height: 28px; border-radius: 9px; background: var(--panel-2); border: 1px solid var(--border-strong); color: var(--gold); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .section-head h2 { font-size: 16px; margin: 0; font-weight: 800; }
+  .section-head .line { flex: 1; height: 1px; background: linear-gradient(90deg, var(--border-strong), transparent); }
   .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin-bottom: 14px; }
   .upload {
     border: 1.5px dashed var(--border-strong); border-radius: 18px; padding: 20px; cursor: pointer;
@@ -112,10 +131,22 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">ASJ · مزامنة المخزون</div>
-  <h1>تحديث <span class="accent">متجر زد</span> من المستودع</h1>
-  <p class="sub">ارفع الملفين، وحمّل النسخة المحدثة (الكمية والسعر فقط) لاستيرادها في لوحة زد.</p>
+  <section class="hero">
+    <img class="bg" src="https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1600&q=80" alt="">
+    <div class="overlay"></div>
+    <div class="hero-content">
+      <div class="eyebrow">ASJ · مزامنة المخزون</div>
+      <h1>تحديث <span class="accent">متجر زد</span> من المستودع</h1>
+      <p class="sub">ارفع الملفين، وحمّل النسخة المحدثة (الكمية والسعر فقط) لاستيرادها في لوحة زد — كل المعالجة تتم داخل متصفحك.</p>
+      <div class="badges">
+        <span class="badge">🔒 آمن <b>100%</b> محلياً</span>
+        <span class="badge">⚡ مطابقة فورية</span>
+        <span class="badge">📄 يحافظ على كل الأعمدة</span>
+      </div>
+    </div>
+  </section>
 
+  <div class="section-head"><span class="n">١</span><h2>ارفع الملفات</h2><span class="line"></span></div>
   <div class="grid2">
     <label class="upload" id="whCard">
       <input type="file" accept=".xlsx,.xls,.csv" onchange="onWarehouse(this)">
@@ -133,8 +164,8 @@
     </label>
   </div>
 
+  <div class="section-head"><span class="n">٢</span><h2>اضبط الخيارات</h2><span class="line"></span></div>
   <div class="card">
-    <div class="clabel">الخيارات</div>
     <div class="optrow">
       <span class="optlabel">السعر المُرسل إلى زد:</span>
       <button class="chip on" data-group="price" data-v="incl" onclick="setOpt(this)">شامل الضريبة</button>
@@ -166,8 +197,9 @@
     </div>
   </div>
 
+  <div class="section-head"><span class="n">٣</span><h2>ربط يدوي <span style="color:var(--muted-2);font-weight:600;font-size:13px">(اختياري)</span></h2><span class="line"></span></div>
   <div class="card">
-    <div class="clabel">ربط يدوي (يُحفظ في متصفحك — <span id="mapCount">0</span> ربط محفوظ)</div>
+    <div class="clabel">يُحفظ في متصفحك — <span id="mapCount">0</span> ربط محفوظ</div>
     <p class="hint">للأصناف التي يختلف كودها بين المستودع وزد: أدخل SKU زد وكود المستودع المقابل. يُطبَّق تلقائياً في كل مطابقة.</p>
     <div class="maprow">
       <input type="text" id="mSku" placeholder="SKU في زد (مثال: 80207)">
