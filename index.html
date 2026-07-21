@@ -781,7 +781,7 @@ function renderDetail() {
 function suggestionsTableHTML(items) {
   return `<table>
     <colgroup><col class="c-sku"><col><col><col class="c-act"><col class="c-act"></colgroup>
-    <thead><tr><th>SKU زد</th><th>اسم المنتج</th><th>الاقتراح</th><th>ربط</th><th>تجاهل</th></tr></thead>
+    <thead><tr><th>SKU زد</th><th>اسم المنتج بزد</th><th>اسم المنتج في المستودع</th><th>ربط</th><th>تجاهل</th></tr></thead>
     <tbody id="unBody">${items.map(rowHtml).join("")}</tbody>
   </table>`;
 }
