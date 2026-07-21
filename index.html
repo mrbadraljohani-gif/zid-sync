@@ -295,10 +295,12 @@
 
 <script>
 const MAP_KEY = "zid-manual-mapping-v1";
+const OPT_KEY = "zid-options-v1";
 let whRows = null, stData = null;
 let opts = { price: "incl", inf: "skip" };
 let manualMap = {};
 try { manualMap = JSON.parse(localStorage.getItem(MAP_KEY) || "{}"); } catch {}
+try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
 
 const normCode = v => {
   if (v === null || v === undefined) return "";
@@ -398,6 +400,14 @@ function setOpt(btn) {
   document.querySelectorAll(`[data-group=${g}]`).forEach(b => b.classList.remove("on"));
   btn.classList.add("on");
   opts[g] = btn.dataset.v;
+  localStorage.setItem(OPT_KEY, JSON.stringify(opts));
+}
+
+// مزامنة أزرار الخيارات مع القيم المحفوظة
+function applyOpts() {
+  document.querySelectorAll(".chip[data-group]").forEach(b => {
+    b.classList.toggle("on", opts[b.dataset.group] === b.dataset.v);
+  });
 }
 
 function readWB(file) {
@@ -619,6 +629,7 @@ function renderPills() {
 }
 function delMap(s) { delete manualMap[s]; localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); renderPills(); }
 renderPills();
+applyOpts();
 </script>
 </body>
 </html>
