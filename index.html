@@ -478,28 +478,20 @@ function sizesConflict(n1, n2) {
   return true;
 }
 
-// المطابقة بالاسم أولاً (الكود غير مطابق تماماً هنا لأن المطابقة التامة تمّت مسبقاً)،
-// والكود شديد القرب (اختلاف رقم واحد) يُستخدم فقط كمقترح احتياطي بثقة منخفضة
+// المطابقة بالاسم فقط: بما أن المطابقة التامة للكود تمّت مسبقاً، فأي صنف هنا كوده غير مطابق
+// تماماً ⇒ نبحث عن أقرب اسم في المستودع ونطابق به (لا نعتمد على قرب الكود إطلاقاً)
 function suggestFor(skuN, nm, whList) {
   const nt = nameTokens(nm);
-  let nameCand = null, codeCand = null;
+  let nameCand = null;
   for (const w of whList) {
     const ns = nameSimTokens(nt, w.tokens);
-    const cp = codeProximity(skuN, w.code);
     if (!nameCand || ns > nameCand.ns) nameCand = { w, ns };
-    if (cp > 0) { const rank = cp * 100 + ns; if (!codeCand || rank > codeCand.rank) codeCand = { w, cp, ns, rank }; }
   }
-  let chosen = null, sim = 0, ns = 0, by = "";
-  if (nameCand && nameCand.ns >= 0.60) {                         // 1) طابق بالاسم
-    chosen = nameCand.w; ns = nameCand.ns; sim = nameCand.ns; by = "name";
-  } else if (codeCand && codeCand.cp >= 0.92) {                   // 2) احتياطي: كود بفارق رقم واحد فقط، بثقة منخفضة
-    chosen = codeCand.w; ns = codeCand.ns; sim = Math.min(0.55, 0.30 + codeCand.ns * 0.25); by = "code";
-  }
-  if (!chosen) return null;
+  if (!nameCand || nameCand.ns < 0.60) return null;   // لا مطابقة اسم موثوقة
+  let sim = nameCand.ns, sizeMismatch = false;
   // اختلاف المقاس يخفض النسبة إلى 40% كحد أقصى
-  let sizeMismatch = false;
-  if (sizesConflict(nm, chosen.name)) { sim = Math.min(sim, 0.40); sizeMismatch = true; }
-  return { code: chosen.code, name: chosen.name, price: chosen.price, sim, ns, by, sizeMismatch };
+  if (sizesConflict(nm, nameCand.w.name)) { sim = Math.min(sim, 0.40); sizeMismatch = true; }
+  return { code: nameCand.w.code, name: nameCand.w.name, price: nameCand.w.price, sim, ns: nameCand.ns, by: "name", sizeMismatch };
 }
 
 // تحليل الأسعار ومؤشر التطابق السعري
