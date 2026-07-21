@@ -196,6 +196,7 @@
   .sim-bad { background: rgba(229,144,135,.18); color: var(--danger); }
   .size-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(229,144,135,.16); color: var(--danger); border: 1px solid rgba(229,144,135,.4); }
   .by-code-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(147,162,181,.16); color: #a9b6c6; border: 1px solid rgba(147,162,181,.4); }
+  .size-ok { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(157,208,166,.16); color: var(--green-2); border: 1px solid rgba(157,208,166,.4); }
   /* صمامات الأمان + كشف المنتجات الجديدة */
   .alert-new { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 800; font-size: 14.5px; border-radius: 14px; padding: 14px 16px; margin-bottom: 16px;
     color: #f4bd7a; background: linear-gradient(135deg, rgba(230,163,74,.18), rgba(230,163,74,.08)); border: 1px solid rgba(230,163,74,.55); transition: all .15s; }
@@ -488,21 +489,33 @@ function sizesConflict(n1, n2) {
   for (const x of s1) if (s2.has(x)) return false;
   return true;
 }
+// تطابق المقاسات: كلاهما يحمل مقاساً مركّباً ويشتركان في مقاس واحد على الأقل
+function sizesMatch(n1, n2) {
+  const s1 = extractSizes(n1), s2 = extractSizes(n2);
+  if (!s1.size || !s2.size) return false;
+  for (const x of s1) if (s2.has(x)) return true;
+  return false;
+}
 
 // المطابقة بالاسم فقط: بما أن المطابقة التامة للكود تمّت مسبقاً، فأي صنف هنا كوده غير مطابق
 // تماماً ⇒ نبحث عن أقرب اسم في المستودع ونطابق به (لا نعتمد على قرب الكود إطلاقاً)
 function suggestFor(skuN, nm, whList) {
   const nt = nameTokens(nm);
-  let nameCand = null;
+  let best = null;
   for (const w of whList) {
     const ns = nameSimTokens(nt, w.tokens);
-    if (!nameCand || ns > nameCand.ns) nameCand = { w, ns };
+    if (ns <= 0) continue;
+    const match = sizesMatch(nm, w.name);       // نفس المقاس ⇒ ترجيح قوي
+    const conflict = sizesConflict(nm, w.name); // مقاس مختلف ⇒ خصم
+    const score = ns + (match ? 1.0 : 0) - (conflict ? 0.5 : 0);
+    if (!best || score > best.score) best = { w, ns, match, conflict, score };
   }
-  if (!nameCand || nameCand.ns < 0.60) return null;   // لا مطابقة اسم موثوقة
-  let sim = nameCand.ns, sizeMismatch = false;
-  // اختلاف المقاس يخفض النسبة إلى 40% كحد أقصى
-  if (sizesConflict(nm, nameCand.w.name)) { sim = Math.min(sim, 0.40); sizeMismatch = true; }
-  return { code: nameCand.w.code, name: nameCand.w.name, price: nameCand.w.price, sim, ns: nameCand.ns, by: "name", sizeMismatch };
+  // يُقبل التطابق إذا كان تشابه الاسم ≥60%، أو ≥45% مع تطابق المقاس
+  if (!best || !(best.ns >= 0.60 || (best.match && best.ns >= 0.45))) return null;
+  let sim = best.ns, sizeMismatch = false, sizeMatch = false;
+  if (best.match) { sim = Math.min(0.99, best.ns + 0.25); sizeMatch = true; }   // مكافأة تطابق المقاس
+  else if (best.conflict) { sim = Math.min(sim, 0.40); sizeMismatch = true; }   // عقوبة اختلاف المقاس
+  return { code: best.w.code, name: best.w.name, price: best.w.price, sim, ns: best.ns, by: "name", sizeMatch, sizeMismatch };
 }
 
 // تحليل الأسعار ومؤشر التطابق السعري
@@ -881,7 +894,9 @@ function rowHtml(it, i) {
     const pct = Math.round(it.suggestion.sim * 100);
     const cls = it.suggestion.sizeMismatch ? "sim-bad" : (pct >= 85 ? "sim-hi" : "sim-mid");
     const whPrice = priceInt(it.suggestion.price);
-    const sizeTag = it.suggestion.sizeMismatch ? `<span class="size-tag" title="المقاسات مختلفة بين المنتجين — تحقق قبل الربط">مقاس مختلف</span>` : "";
+    const sizeTag = it.suggestion.sizeMismatch
+      ? `<span class="size-tag" title="المقاسات مختلفة بين المنتجين — تحقق قبل الربط">مقاس مختلف</span>`
+      : (it.suggestion.sizeMatch ? `<span class="size-ok" title="المقاس مطابق بين المنتجين">مقاس مطابق ✓</span>` : "");
     const byTag = it.suggestion.by === "code" ? `<span class="by-code-tag" title="تشابه الاسم منخفض — التطابق بقرب الكود فقط، راجع الاسم">بالكود فقط</span>` : "";
     sugg = `<span class="sugg-code">${esc(it.suggestion.code)}</span> <span class="sugg-name">${esc(it.suggestion.name)}</span>` +
       `<span class="simbadge ${cls}">${pct}%</span>${priceBadge(it.price, it.suggestion.price)}${sizeTag}${byTag}` +
