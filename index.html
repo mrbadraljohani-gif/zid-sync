@@ -144,6 +144,23 @@
   th { text-align: right; padding: 10px 12px; background: rgba(255,255,255,.05); position: sticky; top: 0; color: var(--muted); font-weight: 700; backdrop-filter: blur(6px); }
   td { padding: 8px 12px; border-top: 1px solid var(--border); color: var(--text); }
   .mono { font-family: ui-monospace, Consolas, monospace; direction: ltr; unicode-bidi: embed; }
+  /* Smart suggestions */
+  .bindall { margin: 12px 0 !important; }
+  .mini { border: none; border-radius: 8px; padding: 6px 11px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
+  .mini.bind { background: linear-gradient(135deg, var(--green-2), var(--green)); color: #08160d; }
+  .mini.bind:hover:not(:disabled) { filter: brightness(1.06); }
+  .mini.ignore { background: transparent; border: 1px solid var(--border-strong); color: var(--muted); }
+  .mini.ignore:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
+  .mini:disabled { opacity: .4; cursor: default; }
+  .sugg-code { color: var(--gold-2); font-weight: 700; font-family: ui-monospace, Consolas, monospace; direction: ltr; unicode-bidi: embed; }
+  .sugg-name { color: var(--muted); }
+  .sugg-note { color: var(--muted-2); font-size: 12px; }
+  .simbadge { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; }
+  .sim-hi { background: rgba(157,208,166,.16); color: var(--green-2); }
+  .sim-mid { background: rgba(230,197,111,.16); color: var(--gold-2); }
+  tr.bound td { background: rgba(123,168,132,.16); }
+  tr.ignored { opacity: .38; }
+  tr.zrow td { background: rgba(255,255,255,.02); }
   input[type=text] {
     padding: 11px 13px; border-radius: 10px; border: 1px solid var(--border-strong); font-size: 14px;
     background: rgba(255,255,255,.04); color: var(--text); outline: none; flex: 1; min-width: 150px; font-family: inherit; transition: border-color .15s;
@@ -250,7 +267,11 @@
     <a class="btn-dl" id="dlBtn" download="zid_products_updated.xlsx">⬇ تحميل الملف المحدث لاستيراده في زد</a>
     <div id="unBlock" style="display:none">
       <div class="clabel" style="margin-top:18px" id="unTitle"></div>
-      <div class="twrap"><table><thead><tr><th>SKU زد</th><th>اسم المنتج</th></tr></thead><tbody id="unBody"></tbody></table></div>
+      <button class="btn-run sm bindall" id="bindAllBtn" onclick="bindAll90()">اربط كل الاقتراحات فوق 90%</button>
+      <div class="twrap"><table>
+        <thead><tr><th>SKU زد</th><th>اسم المنتج</th><th>الاقتراح</th><th>ربط</th><th>تجاهل</th></tr></thead>
+        <tbody id="unBody"></tbody>
+      </table></div>
     </div>
   </div>
 
@@ -287,6 +308,90 @@ const normCode = v => {
 };
 const baseOf = sku => normCode(String(sku).split(".")[0]);
 const showErr = m => { const e = document.getElementById("err"); e.textContent = m; e.style.display = m ? "block" : "none"; };
+
+/* ---------- الاقتراح الذكي للربط: تطبيع + تشابه نصي ---------- */
+// تطبيع النص العربي قبل المقارنة
+function normText(s) {
+  s = String(s == null ? "" : s);
+  s = s.replace(/[ً-ْٰـ]/g, "");        // إزالة التشكيل + التطويل
+  s = s.replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه") // توحيد الألف/الياء/التاء المربوطة
+       .replace(/ؤ/g, "و").replace(/ئ/g, "ي");
+  s = s.replace(/[^\p{L}\p{N}\s]/gu, " ");                  // إزالة الرموز
+  return s.toLowerCase().replace(/\s+/g, " ").trim();
+}
+function nameTokens(s) { const t = normText(s); return t ? t.split(" ").filter(Boolean) : []; }
+
+// مسافة Levenshtein بين كلمتين
+function lev(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+function wordSim(a, b) { if (a === b) return 1; const L = Math.max(a.length, b.length); return L ? 1 - lev(a, b) / L : 0; }
+
+// تشابه قائم على الكلمات: تقاطع الكلمات + Levenshtein للكلمات المفردة
+function nameSimTokens(A, B) {
+  if (!A.length || !B.length) return 0;
+  const used = new Array(B.length).fill(false);
+  let sum = 0;
+  for (const ta of A) {
+    let best = 0, bi = -1;
+    for (let i = 0; i < B.length; i++) {
+      if (used[i]) continue;
+      const s = wordSim(ta, B[i]);
+      if (s > best) { best = s; bi = i; }
+    }
+    if (bi >= 0 && best >= 0.5) { used[bi] = true; sum += best; }
+  }
+  return sum / Math.max(A.length, B.length);
+}
+
+// تقارب الكود: فرق رقم/رقمين أو نفس الأرقام بترتيب قريب
+function codeProximity(a, b) {
+  a = String(a); b = String(b);
+  if (!a || !b || a === b) return a === b ? 1 : 0;
+  let best = 0;
+  const na = Number(a), nb = Number(b);
+  if (Number.isFinite(na) && Number.isFinite(nb) && Math.abs(na - nb) <= 2) best = Math.max(best, 0.95);
+  if (a.length === b.length) {
+    let h = 0; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) h++;
+    if (h === 1) best = Math.max(best, 0.92);
+    else if (h === 2) best = Math.max(best, 0.85);
+    const sa = a.split("").sort().join(""), sb = b.split("").sort().join("");
+    if (sa === sb) best = Math.max(best, 0.85); // نفس الأرقام بترتيب مختلف
+  }
+  return best;
+}
+
+// أفضل مرشح من المستودع: تقارب الكود أولاً، ثم أعلى تشابه بالاسم (≥60%)
+function suggestFor(skuN, nm, whList) {
+  const nt = nameTokens(nm);
+  let codeCand = null, nameCand = null;
+  for (const w of whList) {
+    const cp = codeProximity(skuN, w.code);
+    const ns = nameSimTokens(nt, w.tokens);
+    if (cp > 0) { const rank = cp * 100 + ns; if (!codeCand || rank > codeCand.rank) codeCand = { w, cp, ns, rank }; }
+    if (!nameCand || ns > nameCand.ns) nameCand = { w, ns };
+  }
+  if (codeCand) {
+    const sim = Math.min(0.99, codeCand.cp * 0.9 + codeCand.ns * 0.1);
+    return { code: codeCand.w.code, name: codeCand.w.name, sim, by: "code" };
+  }
+  if (nameCand && nameCand.ns >= 0.60) return { code: nameCand.w.code, name: nameCand.w.name, sim: nameCand.ns, by: "name" };
+  return null;
+}
+
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+let lastUnmatched = [];
 
 function setOpt(btn) {
   const g = btn.dataset.group;
@@ -350,14 +455,17 @@ function run() {
       const kQty = keys.find(k => k.includes("الكمية") || k.toLowerCase() === "qty" || k.toLowerCase() === "quantity");
       const kIncl = keys.find(k => k.includes("شامل"));
       const kExcl = keys.find(k => k.includes("قبل"));
+      const kName = keys.find(k => k.includes("اسم") || k.toLowerCase() === "name");
       const code = normCode(r[kCode]);
       if (!code) continue;
       whIndex[code] = {
         qty: Number(r[kQty]) || 0,
         incl: kIncl ? (Number(r[kIncl]) || null) : null,
         excl: kExcl ? (Number(r[kExcl]) || null) : null,
+        name: kName ? String(r[kName]).trim() : "",
       };
     }
+    const whList = Object.keys(whIndex).map(code => ({ code, name: whIndex[code].name || "", tokens: nameTokens(whIndex[code].name || "") }));
 
     const H = stData.header;
     const iSku = H.indexOf("sku"), iQty = H.indexOf("quantity"), iPrice = H.indexOf("price"), iName = H.indexOf("name_ar");
@@ -372,7 +480,7 @@ function run() {
       const isInf = String(row[iQty]).trim().toLowerCase() === "infinite";
       const whCode = manualMap[skuN] || (whIndex[skuN] ? skuN : null) || (whIndex[baseOf(rawSku)] ? baseOf(rawSku) : null);
       const wh = whCode ? whIndex[whCode] : null;
-      if (!wh) { if (!isInf) unmatched.push({ sku: String(rawSku), name: row[iName] || "" }); continue; }
+      if (!wh) { if (!isInf) unmatched.push({ sku: String(rawSku), skuN, name: row[iName] || "" }); continue; }
       if (isInf && opts.inf === "skip") { skippedInf++; continue; }
       row[iQty] = wh.qty;
       if (opts.price === "incl" && wh.incl != null) row[iPrice] = wh.incl;
@@ -395,14 +503,103 @@ function run() {
     const unBlock = document.getElementById("unBlock");
     if (unmatched.length) {
       unBlock.style.display = "block";
-      document.getElementById("unTitle").textContent = `أصناف بدون ربط (${unmatched.length}) — اربطها أدناه ثم أعد المطابقة`;
-      document.getElementById("unBody").innerHTML = unmatched.slice(0, 100)
-        .map(u => `<tr><td class="mono">${u.sku}</td><td>${u.name}</td></tr>`).join("");
+      renderUnmatched(unmatched, whList);
     } else unBlock.style.display = "none";
 
     document.getElementById("result").style.display = "block";
     document.getElementById("result").scrollIntoView({ behavior: "smooth" });
   } catch (x) { showErr("خطأ أثناء المعالجة: " + x.message); }
+}
+
+/* ---------- عرض جدول "أصناف بدون ربط" مع الاقتراح الذكي ---------- */
+function renderUnmatched(all, whList) {
+  const shown = all.slice(0, 100);
+  const items = shown.map(u => {
+    const isZ = /^z\./i.test(String(u.sku).trim());
+    const suggestion = isZ ? null : suggestFor(u.skuN, u.name, whList);
+    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", isZ, suggestion, bound: false, ignored: false };
+  });
+  // ترتيب: أكواد زد الآلية في آخر الجدول، والباقي حسب نسبة التشابه تنازلياً
+  items.sort((a, b) => {
+    if (a.isZ !== b.isZ) return a.isZ ? 1 : -1;
+    return (b.suggestion ? b.suggestion.sim : -1) - (a.suggestion ? a.suggestion.sim : -1);
+  });
+  lastUnmatched = items;
+
+  document.getElementById("unTitle").textContent =
+    `أصناف بدون ربط (${all.length}${all.length > 100 ? " — تُعرض أول ١٠٠" : ""}) — راجع المقترحات أو اربط يدوياً`;
+  document.getElementById("unBody").innerHTML = items.map(rowHtml).join("");
+  updateBindAllCount();
+}
+
+function rowHtml(it, i) {
+  let sugg, bind;
+  if (it.isZ) {
+    sugg = `<span class="sugg-note">كود آلي من زد — يحتاج ربطاً يدوياً</span>`;
+    bind = "";
+  } else if (it.suggestion) {
+    const pct = Math.round(it.suggestion.sim * 100);
+    const cls = pct >= 85 ? "sim-hi" : "sim-mid";
+    sugg = `<span class="sugg-code">${esc(it.suggestion.code)}</span> <span class="sugg-name">${esc(it.suggestion.name)}</span> <span class="simbadge ${cls}">${pct}%</span>`;
+    bind = `<button class="mini bind" onclick="bindRow(${i})">اربط ✓</button>`;
+  } else {
+    sugg = `<span class="sugg-note">لا يوجد مقترح</span>`;
+    bind = "";
+  }
+  return `<tr id="un-${i}" class="${it.isZ ? "zrow" : ""}">` +
+    `<td class="mono">${esc(it.sku)}</td>` +
+    `<td>${esc(it.name) || "—"}</td>` +
+    `<td>${sugg}</td>` +
+    `<td>${bind}</td>` +
+    `<td><button class="mini ignore" onclick="ignoreRow(${i})">تجاهل ✗</button></td>` +
+    `</tr>`;
+}
+
+function applyBind(it, i) {
+  manualMap[normCode(it.skuN)] = normCode(it.suggestion.code);
+  it.bound = true;
+  const tr = document.getElementById("un-" + i);
+  if (tr) { tr.classList.remove("ignored"); tr.classList.add("bound"); tr.querySelectorAll("button").forEach(b => b.disabled = true); }
+}
+
+function bindRow(i) {
+  const it = lastUnmatched[i];
+  if (!it || !it.suggestion || it.bound) return;
+  applyBind(it, i);
+  localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
+  renderPills();
+  updateBindAllCount();
+}
+
+function ignoreRow(i) {
+  const it = lastUnmatched[i];
+  if (!it) return;
+  it.ignored = true;
+  const tr = document.getElementById("un-" + i);
+  if (tr) { tr.classList.add("ignored"); tr.querySelectorAll("button").forEach(b => b.disabled = true); }
+  updateBindAllCount();
+}
+
+function countAbove90() {
+  return lastUnmatched.filter(x => x.suggestion && !x.isZ && !x.bound && !x.ignored && x.suggestion.sim >= 0.90).length;
+}
+function updateBindAllCount() {
+  const c = countAbove90();
+  const b = document.getElementById("bindAllBtn");
+  b.textContent = `اربط كل الاقتراحات فوق 90% (${c})`;
+  b.disabled = c === 0;
+}
+
+function bindAll90() {
+  const targets = lastUnmatched
+    .map((it, i) => ({ it, i }))
+    .filter(({ it }) => it.suggestion && !it.isZ && !it.bound && !it.ignored && it.suggestion.sim >= 0.90);
+  if (!targets.length) return;
+  if (!confirm(`سيتم ربط ${targets.length} صنف تلقائياً (نسبة تشابه ٩٠٪ فأكثر).\nيُحفظ الربط في متصفحك ويُطبَّق في المطابقة التالية.\nهل تريد المتابعة؟`)) return;
+  for (const { it, i } of targets) applyBind(it, i);
+  localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
+  renderPills();
+  updateBindAllCount();
 }
 
 function addMapping() {
