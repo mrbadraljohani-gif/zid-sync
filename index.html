@@ -43,21 +43,36 @@
   /* Brand top bar */
   .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
   .brand { display: flex; align-items: center; gap: 14px; }
-  .brand .logo { width: 48px; height: 48px; color: var(--gold-2); flex-shrink: 0; filter: drop-shadow(0 3px 12px rgba(230,197,111,.3)); }
+  .brand .mark { width: 46px; height: 46px; border-radius: 50%; padding: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 34% 26%, #fffdf9, #efe7d6);
+    box-shadow: 0 4px 16px rgba(0,0,0,.45), 0 0 0 1px rgba(230,197,111,.4); }
+  .brand .mark img, .brand .mark svg { width: 100%; height: 100%; object-fit: contain; }
+  .brand .mark svg { color: #b8860b; }
   .brand-txt { display: flex; flex-direction: column; line-height: 1; }
   .brand-txt b { font-family: var(--serif); font-size: 23px; font-weight: 700; letter-spacing: .16em; color: var(--text); }
   .brand-txt span { font-size: 10.5px; letter-spacing: .3em; color: var(--gold); text-transform: uppercase; margin-top: 5px; }
   .topbar-tag { font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 20px; padding: 8px 15px; white-space: nowrap; }
 
   /* Hero banner */
-  .hero { position: relative; border-radius: 24px; overflow: hidden; margin-bottom: 8px; min-height: 250px; display: flex; align-items: flex-end; border: 1px solid var(--border); box-shadow: 0 22px 55px rgba(0,0,0,.4); }
-  .hero .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: saturate(1.05); }
-  .hero .overlay { position: absolute; inset: 0; background:
-      linear-gradient(to left, rgba(10,22,34,.94), rgba(10,22,34,.6) 48%, rgba(10,22,34,.22)),
-      linear-gradient(to top, rgba(10,22,34,.9), transparent 62%),
-      radial-gradient(600px 300px at 90% 10%, rgba(201,168,106,.18), transparent 60%); }
-  .hero .watermark { position: absolute; left: -28px; bottom: -34px; width: 210px; color: rgba(230,197,111,.13); pointer-events: none; }
-  .hero-content { position: relative; padding: 34px 34px 30px; width: 100%; }
+  .hero { position: relative; border-radius: 24px; overflow: hidden; margin-bottom: 8px; border: 1px solid var(--border);
+    background:
+      radial-gradient(680px 320px at 14% 22%, rgba(230,197,111,.16), transparent 62%),
+      linear-gradient(135deg, #1e1911, #14110c 55%, #100d09);
+    box-shadow: 0 22px 55px rgba(0,0,0,.4); }
+  .hero-inner { display: flex; align-items: center; justify-content: space-between; gap: 30px; padding: 42px 40px; }
+  .hero-content { min-width: 0; }
+  .hero-logo { flex-shrink: 0; }
+  .medallion { width: 154px; height: 154px; border-radius: 50%; padding: 12px; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 34% 26%, #fffdf9, #efe7d6);
+    box-shadow: 0 14px 42px rgba(0,0,0,.5), 0 0 0 1px rgba(230,197,111,.45), 0 0 46px rgba(230,197,111,.18); }
+  .medallion img, .medallion svg { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }
+  .medallion svg { color: #b8860b; }
+  @media (max-width: 620px) {
+    .hero-inner { flex-direction: column-reverse; text-align: center; align-items: center; gap: 22px; padding: 34px 24px; }
+    .hero .sub { margin-inline: auto; }
+    .hero .badges { justify-content: center; }
+    .medallion { width: 124px; height: 124px; }
+  }
   .badges { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
   .badge { font-size: 12px; font-weight: 700; color: var(--muted); background: rgba(255,255,255,.07); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; display: inline-flex; align-items: center; gap: 6px; }
   .badge b { color: var(--gold-2); font-weight: 800; }
@@ -147,12 +162,14 @@
 <div class="wrap">
   <header class="topbar">
     <div class="brand">
-      <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="ASJ">
-        <circle cx="50" cy="50" r="48.5" fill="none" stroke="currentColor" stroke-width="0.9" opacity=".65"/>
-        <path fill="currentColor" fill-rule="evenodd" d="M50 8 L12 44 L26 44 L26 78 L74 78 L74 44 L88 44 Z M40 78 L40 56 L50 40 L60 56 L60 78 Z"/>
-        <path fill="currentColor" d="M50 46 L45 55 L55 55 Z"/>
-        <text x="50" y="94" text-anchor="middle" font-family="'Playfair Display', Georgia, serif" font-size="19" font-weight="700" letter-spacing="4" fill="currentColor">ASJ</text>
-      </svg>
+      <span class="mark">
+        <img src="asj-logo.png" alt="ASJ" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+        <svg viewBox="0 0 100 100" style="display:none" aria-label="ASJ">
+          <circle cx="50" cy="50" r="48.5" fill="none" stroke="currentColor" stroke-width="0.9" opacity=".65"/>
+          <path fill="currentColor" fill-rule="evenodd" d="M50 8 L12 44 L26 44 L26 78 L74 78 L74 44 L88 44 Z M40 78 L40 56 L50 40 L60 56 L60 78 Z"/>
+          <path fill="currentColor" d="M50 46 L45 55 L55 55 Z"/>
+        </svg>
+      </span>
       <div class="brand-txt">
         <b>ASJ</b>
         <span>سفر ورحلات</span>
@@ -162,21 +179,26 @@
   </header>
 
   <section class="hero">
-    <img class="bg" src="https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=1600&q=80" alt="">
-    <div class="overlay"></div>
-    <svg class="watermark" viewBox="0 0 100 100" aria-hidden="true">
-      <circle cx="50" cy="50" r="48.5" fill="none" stroke="currentColor" stroke-width="0.9"/>
-      <path fill="currentColor" fill-rule="evenodd" d="M50 8 L12 44 L26 44 L26 78 L74 78 L74 44 L88 44 Z M40 78 L40 56 L50 40 L60 56 L60 78 Z"/>
-      <path fill="currentColor" d="M50 46 L45 55 L55 55 Z"/>
-    </svg>
-    <div class="hero-content">
-      <div class="eyebrow">مزامنة المخزون · متجر زد</div>
-      <h1>تحديث <span class="accent">متجر زد</span> من المستودع</h1>
-      <p class="sub">ارفع الملفين، وحمّل النسخة المحدثة (الكمية والسعر فقط) لاستيرادها في لوحة زد — كل المعالجة تتم داخل متصفحك.</p>
-      <div class="badges">
-        <span class="badge">🔒 آمن <b>100%</b> محلياً</span>
-        <span class="badge">⚡ مطابقة فورية</span>
-        <span class="badge">📄 يحافظ على كل الأعمدة</span>
+    <div class="hero-inner">
+      <div class="hero-content">
+        <div class="eyebrow">مزامنة المخزون · متجر زد</div>
+        <h1>تحديث <span class="accent">متجر زد</span> من المستودع</h1>
+        <p class="sub">ارفع الملفين، وحمّل النسخة المحدثة (الكمية والسعر فقط) لاستيرادها في لوحة زد — كل المعالجة تتم داخل متصفحك.</p>
+        <div class="badges">
+          <span class="badge">🔒 آمن <b>100%</b> محلياً</span>
+          <span class="badge">⚡ مطابقة فورية</span>
+          <span class="badge">📄 يحافظ على كل الأعمدة</span>
+        </div>
+      </div>
+      <div class="hero-logo">
+        <span class="medallion">
+          <img src="asj-logo.png" alt="ASJ" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+          <svg viewBox="0 0 100 100" style="display:none" aria-label="ASJ">
+            <circle cx="50" cy="50" r="48.5" fill="none" stroke="currentColor" stroke-width="0.9" opacity=".65"/>
+            <path fill="currentColor" fill-rule="evenodd" d="M50 8 L12 44 L26 44 L26 78 L74 78 L74 44 L88 44 Z M40 78 L40 56 L50 40 L60 56 L60 78 Z"/>
+            <path fill="currentColor" d="M50 46 L45 55 L55 55 Z"/>
+          </svg>
+        </span>
       </div>
     </div>
   </section>
