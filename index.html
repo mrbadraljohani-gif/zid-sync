@@ -176,6 +176,7 @@
   #unBody tr.zrow td { background: rgba(230,197,111,.05); }
   #unBody tr.bound td { background: rgba(123,168,132,.18); }
   #unBody tr.ignored { opacity: .5; }
+  #unBody tr.removing td { opacity: 0; transition: opacity .25s ease; }
   /* البطاقات كفلاتر تفاعلية */
   .stat { cursor: pointer; transition: all .15s; }
   .stat:hover { border-color: var(--border-strong); transform: translateY(-2px); }
@@ -497,8 +498,9 @@ function suggestFor(skuN, nm, whList) {
 
 // تحليل الأسعار ومؤشر التطابق السعري
 function priceNum(v) { const n = Number(String(v == null ? "" : v).replace(/[^\d.\-]/g, "")); return Number.isFinite(n) && n > 0 ? n : null; }
+function priceInt(v) { const n = priceNum(v); return n == null ? null : Math.round(n); } // كل الأسعار أعداد صحيحة
 function fmtPrice(n) { return n % 1 === 0 ? String(n) : n.toFixed(2); }
-function priceDiffPct(a, b) { a = priceNum(a); b = priceNum(b); if (a == null || b == null) return null; const base = Math.max(a, b); return base ? Math.abs(a - b) / base * 100 : null; }
+function priceDiffPct(a, b) { a = priceInt(a); b = priceInt(b); if (a == null || b == null) return null; const base = Math.max(a, b); return base ? Math.abs(a - b) / base * 100 : 0; }
 function priceBadge(storeP, whP) {
   const d = priceDiffPct(storeP, whP);
   if (d == null) return "";
@@ -626,7 +628,7 @@ function run() {
     const H = stData.header;
     const iSku = H.indexOf("sku"), iQty = H.indexOf("quantity"), iPrice = H.indexOf("price"), iName = H.indexOf("name_ar");
     const out = stData.rows.map(r => [...r]);
-    let updated = 0, skippedInf = 0;
+    let updated = 0, skippedInf = 0, qtyCount = 0, priceCount = 0;
     const unmatched = [], updatedList = [], infiniteList = [];
 
     for (let i = 1; i < out.length; i++) {
@@ -640,10 +642,23 @@ function run() {
       if (isInf && opts.inf === "skip") { infiniteList.push({ sku: String(rawSku), skuN, name: row[iName] || "" }); skippedInf++; continue; }
       const oldQty = row[iQty], oldPrice = row[iPrice];
       row[iQty] = wh.qty;
-      if (opts.price === "incl" && wh.incl != null) row[iPrice] = wh.incl;
-      if (opts.price === "excl" && wh.excl != null) row[iPrice] = wh.excl;
-      updatedList.push({ sku: String(rawSku), skuN, name: row[iName] || "", oldQty, newQty: row[iQty], oldPrice, newPrice: row[iPrice] });
-      updated++;
+      const qtyChanged = String(oldQty) !== String(row[iQty]);
+      // قاعدة الأسعار: تجاهل فرق < 1 ريال، وتقريب قيمة المستودع لعدد صحيح
+      let priceChanged = false;
+      const cand = opts.price === "incl" ? wh.incl : (opts.price === "excl" ? wh.excl : null);
+      if (cand != null) {
+        const oldP = Number(oldPrice);
+        if (!Number.isFinite(oldP) || Math.abs(cand - oldP) >= 1) {
+          row[iPrice] = Math.round(cand);
+          priceChanged = String(oldPrice) !== String(row[iPrice]);
+        }
+      }
+      if (qtyChanged) qtyCount++;
+      if (priceChanged) priceCount++;
+      if (qtyChanged || priceChanged) {
+        updatedList.push({ sku: String(rawSku), skuN, name: row[iName] || "", oldQty, newQty: row[iQty], oldPrice, newPrice: row[iPrice] });
+        updated++;
+      }
     }
 
     // === صمام الأمان: تحقّق قبل التحميل ===
@@ -659,7 +674,7 @@ function run() {
       dl.href = URL.createObjectURL(blob);
       dl.style.display = "block";
       vm.className = "verify-ok"; vm.style.display = "block";
-      vm.textContent = `✓ تم التحقق: ${verify.cols} عموداً مطابقاً للأصل — لم يتغير سوى الكمية والسعر في ${updated} صف`;
+      vm.textContent = `✓ تم التحقق: ${verify.cols} عموداً مطابقاً للأصل — تحدّثت الكمية في ${qtyCount} صف والسعر في ${priceCount} صف`;
     } else {
       dl.style.display = "none"; dl.removeAttribute("href");
       vm.className = "verify-fail"; vm.style.display = "block";
@@ -701,7 +716,13 @@ function selectCard(f) {
   document.getElementById("unBlock").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
-// بناء عناصر الاقتراح الذكي (بحد 100) من قائمة خام
+// رتبة الترتيب: مؤكد (0) ← له اقتراح (1) ← لا يوجد اقتراح (2) ← أكواد Z. الآلية (3، بالقاع)
+function sortRank(it) {
+  if (it.isZ) return 3;
+  if (!it.suggestion) return 2;
+  return isConfirmed(it) ? 0 : 1;
+}
+// بناء عناصر الاقتراح الذكي (بحد 100) مرتّبة بالنسبة تنازلياً
 function buildItems(raw) {
   const items = raw.slice(0, 100).map(u => {
     const isZ = /^z\./i.test(String(u.sku).trim());
@@ -709,7 +730,8 @@ function buildItems(raw) {
     return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, isZ, suggestion, bound: boundSet.has(normCode(u.skuN)), ignored: ignoredSet.has(normCode(u.skuN)) };
   });
   items.sort((a, b) => {
-    if (a.isZ !== b.isZ) return a.isZ ? 1 : -1;
+    const ra = sortRank(a), rb = sortRank(b);
+    if (ra !== rb) return ra - rb;
     return (b.suggestion ? b.suggestion.sim : -1) - (a.suggestion ? a.suggestion.sim : -1);
   });
   return items;
@@ -725,7 +747,10 @@ function renderDetail() {
   const cap = n => n > 100 ? " — تُعرض أول ١٠٠" : "";
 
   if (f === "new" || f === "unmatched") {
-    const raw = (f === "new") ? lastUnmatchedRaw.filter(u => !ignoredSet.has(normCode(u.skuN))) : lastUnmatchedRaw;
+    const notBound = u => !boundSet.has(normCode(u.skuN));
+    const raw = (f === "new")
+      ? lastUnmatchedRaw.filter(u => notBound(u) && !ignoredSet.has(normCode(u.skuN)))
+      : lastUnmatchedRaw.filter(notBound);
     const items = buildItems(raw);
     lastUnmatched = items;
     bindBtn.style.display = (f === "new") ? "" : "none";
@@ -766,10 +791,15 @@ function chgCell(oldV, newV) {
   if (o === n) return `<span class="chg"><span class="new">${n}</span></span>`;
   return `<span class="chg"><span class="old">${o}</span> → <span class="new">${n}</span></span>`;
 }
+// خلية سعر: تعرض الأعداد صحيحة (مقرّبة)
+function chgCellPrice(oldV, newV) {
+  const o = priceInt(oldV), n = priceInt(newV);
+  return chgCell(o == null ? oldV : o, n == null ? newV : n);
+}
 function updatedTableHTML(list) {
   const rows = list.map(u =>
     `<tr data-search="${esc(normText(u.sku + " " + u.name))}"><td class="mono">${esc(u.sku)}</td><td>${esc(u.name) || "—"}</td>` +
-    `<td>${chgCell(u.oldQty, u.newQty)}</td><td>${chgCell(u.oldPrice, u.newPrice)}</td></tr>`).join("");
+    `<td>${chgCell(u.oldQty, u.newQty)}</td><td>${chgCellPrice(u.oldPrice, u.newPrice)}</td></tr>`).join("");
   return `<table>
     <colgroup><col class="c-sku"><col><col style="width:150px"><col style="width:170px"></colgroup>
     <thead><tr><th>SKU زد</th><th>اسم المنتج</th><th>الكمية (السابق → الجديد)</th><th>السعر (السابق → الجديد)</th></tr></thead>
@@ -833,9 +863,9 @@ function unignore(i) {
 function scrollToNew() { document.getElementById("unBlock").scrollIntoView({ behavior: "smooth", block: "start" }); }
 
 function rowHtml(it, i) {
-  const zidPrice = priceNum(it.price);
+  const zidPrice = priceInt(it.price);
   const nameCell = (esc(it.name) || "—") +
-    (zidPrice != null ? `<div class="price-line">سعر زد: ${fmtPrice(zidPrice)} ر.س</div>` : "");
+    (zidPrice != null ? `<div class="price-line">سعر زد: ${zidPrice} ر.س</div>` : "");
   let sugg, bind;
   if (it.isZ) {
     sugg = `<span class="sugg-note">كود آلي من زد — يحتاج ربطاً يدوياً</span>`;
@@ -843,11 +873,11 @@ function rowHtml(it, i) {
   } else if (it.suggestion) {
     const pct = Math.round(it.suggestion.sim * 100);
     const cls = it.suggestion.sizeMismatch ? "sim-bad" : (pct >= 85 ? "sim-hi" : "sim-mid");
-    const whPrice = priceNum(it.suggestion.price);
+    const whPrice = priceInt(it.suggestion.price);
     const sizeTag = it.suggestion.sizeMismatch ? `<span class="size-tag" title="المقاسات مختلفة بين المنتجين — تحقق قبل الربط">مقاس مختلف</span>` : "";
     sugg = `<span class="sugg-code">${esc(it.suggestion.code)}</span> <span class="sugg-name">${esc(it.suggestion.name)}</span>` +
       `<span class="simbadge ${cls}">${pct}%</span>${priceBadge(it.price, it.suggestion.price)}${sizeTag}` +
-      (whPrice != null ? `<div class="price-line">سعر المستودع: ${fmtPrice(whPrice)} ر.س</div>` : "");
+      (whPrice != null ? `<div class="price-line">سعر المستودع: ${whPrice} ر.س</div>` : "");
     bind = it.bound
       ? `<button class="mini bind" disabled>مربوط ✓</button>`
       : (it.ignored ? `<button class="mini bind" disabled>اربط ✓</button>` : `<button class="mini bind" onclick="bindRow(${i})">اربط ✓</button>`);
@@ -886,30 +916,40 @@ function filterUnmatched() {
   });
 }
 
-function applyBind(it, i) {
+function applyBind(it) {
   manualMap[normCode(it.skuN)] = normCode(it.suggestion.code);
   boundSet.add(normCode(it.skuN));
   it.bound = true;
+}
+// إزالة صف بسلاسة دون إعادة ترتيب البقية (لا قفز للأعلى)
+function fadeRemoveRow(i) {
   const tr = document.getElementById("un-" + i);
-  if (tr) { tr.classList.remove("ignored"); tr.classList.add("bound"); tr.querySelectorAll("button").forEach(b => b.disabled = true); }
+  if (!tr) return;
+  tr.classList.add("removing");
+  setTimeout(() => tr.remove(), 260);
 }
 
 function bindRow(i) {
   const it = lastUnmatched[i];
   if (!it || !it.suggestion || it.bound) return;
-  applyBind(it, i);
+  applyBind(it);
   localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
   renderPills();
+  fadeRemoveRow(i);
   updateBindAllCount();
   updateNewCount();
 }
 
 function ignoreRow(i) {
   const it = lastUnmatched[i];
-  if (!it) return;
+  if (!it || it.ignored) return;
   ignoredSet.add(normCode(it.skuN));
+  it.ignored = true;
   saveIgnored();
-  refreshUnmatchedUI();
+  fadeRemoveRow(i);
+  renderIgnored(lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN))));
+  updateBindAllCount();
+  updateNewCount();
 }
 
 function updateBindAllCount() {
@@ -923,7 +963,7 @@ function bindAll90() {
   const targets = lastUnmatched.map((it, i) => ({ it, i })).filter(({ it }) => isConfirmed(it));
   if (!targets.length) return;
   if (!confirm(`سيتم ربط ${targets.length} صنف مؤكد تلقائياً (تشابه اسم ٩٠٪ فأكثر وفرق سعري ٥٪ أو أقل).\nيُحفظ الربط في متصفحك ويُطبَّق في المطابقة التالية.\nهل تريد المتابعة؟`)) return;
-  for (const { it, i } of targets) applyBind(it, i);
+  for (const { it, i } of targets) { applyBind(it); fadeRemoveRow(i); }
   localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
   renderPills();
   updateBindAllCount();
