@@ -1192,23 +1192,28 @@ function excludedBannerHTML() {
     <div class="exc-chips">${chips}</div>
   </div>`;
 }
-// تنزيل ملف اختبار يحوي هذا المنتج وحده — من ملف الأسعار (بنية كاملة) إن تغيّر سعره، وإلا من ملف الكميات
+// تنزيل ملف اختبار يحوي هذا المنتج وحده — ملف لكل نوع تغيّر (الكميات و/أو الأسعار) ليُجرَّب المساران في زد
 function downloadOne(skuN) {
   const target = normCode(skuN);
   const iSkuP = stData.header.indexOf("sku");
-  let hdr, row, kind;
-  if (lastPriceRows) { const r = lastPriceRows.find((rr, i) => i > 0 && normCode(rr[iSkuP]) === target); if (r) { hdr = lastPriceRows[0]; row = r; kind = "price"; } }
-  if (!row && lastQtyRows) { const r = lastQtyRows.find((rr, i) => i > 0 && normCode(rr[0]) === target); if (r) { hdr = lastQtyRows[0]; row = r; kind = "qty"; } }
-  if (!row) { showErr("هذا المنتج ليس ضمن ملفات التحديث — شغّل «طابق وأنشئ» أولاً."); return; }
-  const ws = XLSX.utils.aoa_to_sheet([hdr, row]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-  const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = `zid_test_${kind}_${target}.xlsx`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const files = [];
+  if (lastQtyRows) { const r = lastQtyRows.find((rr, i) => i > 0 && normCode(rr[0]) === target); if (r) files.push({ hdr: lastQtyRows[0], row: r, kind: "qty" }); }
+  if (lastPriceRows) { const r = lastPriceRows.find((rr, i) => i > 0 && normCode(rr[iSkuP]) === target); if (r) files.push({ hdr: lastPriceRows[0], row: r, kind: "price" }); }
+  if (!files.length) { showErr("هذا المنتج ليس ضمن ملفات التحديث — شغّل «طابق وأنشئ» أولاً."); return; }
+  files.forEach((f, idx) => {
+    const ws = XLSX.utils.aoa_to_sheet([f.hdr, f.row]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    // تأخير بسيط بين الملفين حتى لا يحجب المتصفح التنزيل الثاني
+    setTimeout(() => {
+      const a = document.createElement("a");
+      a.href = url; a.download = `zid_test_${f.kind}_${target}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, idx * 500);
+  });
 }
 function excludeUpdated(skuN) { excludedSet.add(normCode(skuN)); saveExcluded(); run(true); }
 function restoreExcluded(skuN) { excludedSet.delete(normCode(skuN)); saveExcluded(); run(true); }
