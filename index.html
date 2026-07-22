@@ -240,6 +240,10 @@
     box-shadow: 0 8px 24px rgba(123,168,132,.28); transition: all .2s;
   }
   .btn-dl:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(123,168,132,.4); }
+  .btn-dl.disabled { opacity: .45; pointer-events: none; filter: grayscale(.4); }
+  .dl-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 6px; }
+  .dl-group { flex: 1 1 320px; }
+  .dl-sub { font-size: 12px; color: var(--muted); margin: 7px 4px 0; text-align: center; line-height: 1.5; }
   .error { background: rgba(229,144,135,.12); color: var(--danger); border: 1px solid rgba(229,144,135,.28); padding: 11px 15px; border-radius: 10px; font-size: 13.5px; margin: 10px 0; display: none; }
   .rebind-hint { background: rgba(230,197,111,.10); color: var(--gold-2); border: 1px solid var(--border-strong); border-radius: 10px; padding: 11px 15px; font-size: 13.5px; font-weight: 700; margin: 10px 0; }
   .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -258,7 +262,6 @@
   .mini-btn { border: 1px solid var(--border-strong); background: transparent; color: var(--muted); border-radius: 8px; padding: 5px 9px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
   .mini-btn:hover { border-color: var(--gold); color: var(--gold-2); }
   .mini-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
-  .act-cell { display: flex; gap: 6px; flex-wrap: wrap; }
   .exc-bar { background: rgba(229,144,135,.08); border: 1px solid rgba(229,144,135,.3); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
   .exc-head { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--danger); flex-wrap: wrap; }
   .exc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -409,7 +412,7 @@
       <div class="hero-content">
         <div class="eyebrow">مزامنة المخزون · متجر زد</div>
         <h1>تحديث <span class="accent">متجر زد</span> من المستودع</h1>
-        <p class="sub">ارفع الملفين، وحمّل النسخة المحدثة (الكمية والسعر فقط) لاستيرادها في لوحة زد — كل المعالجة تتم داخل متصفحك.</p>
+        <p class="sub">ارفع الملفين، وحمّل ملفَّي التحديث (الكميات والأسعار كلٌّ على حدة) لاستيرادهما في لوحة زد — كل المعالجة تتم داخل متصفحك.</p>
         <div class="badges">
           <span class="badge">🔒 آمن <b>100%</b> محلياً</span>
           <span class="badge">⚡ مطابقة فورية</span>
@@ -445,11 +448,7 @@
       <button class="chip" data-group="price" data-v="excl" onclick="setOpt(this)">قبل الضريبة</button>
       <button class="chip" data-group="price" data-v="none" onclick="setOpt(this)">لا تحدّث الأسعار</button>
     </div>
-    <div class="optrow">
-      <span class="optlabel">منتجات "كمية غير محدودة":</span>
-      <button class="chip on" data-group="inf" data-v="skip" onclick="setOpt(this)">اتركها كما هي</button>
-      <button class="chip" data-group="inf" data-v="update" onclick="setOpt(this)">حدّثها من المستودع</button>
-    </div>
+    <p class="hint" style="margin:12px 2px 0">منتجات «الكمية غير المحدودة» المطابِقة تُستبدل تلقائياً بالكمية الحقيقية من المستودع في ملف الكميات.</p>
   </div>
 
   <button class="btn-run" id="runBtn" disabled onclick="run()">🔄 طابق وأنشئ الملف المحدث</button>
@@ -463,11 +462,20 @@
       <div class="stat" data-filter="updated" onclick="selectCard('updated')"><b style="color:#8fbf98" id="sUpd">0</b><span>تم تحديثه ✅</span></div>
       <div class="stat" data-filter="new" onclick="selectCard('new')"><b style="color:#e6a34a" id="sNew">0</b><span>جديد يحتاج قراراً</span></div>
       <div class="stat" data-filter="unmatched" onclick="selectCard('unmatched')"><b style="color:#e3c88c" id="sUn">0</b><span>بدون ربط</span></div>
-      <div class="stat" data-filter="infinite" onclick="selectCard('infinite')"><b style="color:#93a2b5" id="sInf">0</b><span>غير محدود (تُرك)</span></div>
+      <div class="stat" data-filter="infinite" onclick="selectCard('infinite')"><b style="color:#93a2b5" id="sInf">0</b><span>غير محدود بلا مطابقة</span></div>
       <div class="stat" data-filter="all" onclick="selectCard('all')"><b style="color:#f1e9d8" id="sTot">0</b><span>إجمالي الأسطر</span></div>
     </div>
     <p class="stats-hint">اضغط أي بطاقة لعرض تفاصيلها في الجدول بالأسفل</p>
-    <a class="btn-dl" id="dlBtn" download="zid_products_updated.xlsx">⬇ تحميل الملف المحدث لاستيراده في زد</a>
+    <div class="dl-row">
+      <div class="dl-group">
+        <a class="btn-dl" id="dlQty" download="zid_quantities_update.xlsx">⬇ ملف الكميات (<span id="qtyN">0</span> صنف)</a>
+        <div class="dl-sub">يُرفع في زد: استيراد ← تحديث كميات المنتجات الحالية فقط</div>
+      </div>
+      <div class="dl-group">
+        <a class="btn-dl" id="dlPrice" download="zid_prices_update.xlsx">⬇ ملف الأسعار (<span id="priceN">0</span> صنف)</a>
+        <div class="dl-sub">يُرفع في زد: استيراد ← تحديث المنتجات الحالية ← حدّد حقل السعر فقط ← تجاهل الحقول الفارغة</div>
+      </div>
+    </div>
     <div id="verifyMsg" style="display:none"></div>
     <div id="unBlock" style="display:none">
       <div class="clabel" style="margin-top:18px" id="unTitle"></div>
@@ -511,6 +519,8 @@
 </div>
 
 <script>
+// اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
+const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
 const IGN_KEY = "zid-ignored-v1";
 const EXC_KEY = "zid-excluded-v1";
@@ -524,7 +534,6 @@ let boundSet = new Set();
 let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [], lastIgnored = [];
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
 let lastUpdated = [], lastInfinite = [], lastExcluded = [], currentFilter = "new";
-let lastOut = null;   // صفوف الملف الناتج (للتنزيل الكامل أو تنزيل صف اختبار واحد)
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
 
 // تحميل mapping.json و ignored.json عبر fetch، ودمجهما مع localStorage (يتعامل مع 404 بهدوء)
@@ -816,21 +825,32 @@ async function saveToRepo(reason) {
   }
 }
 // صمام الأمان: يتأكد أن المخرجات مطابقة للأصل ولم يتغير سوى الكمية والسعر
-function verifyOutput(orig, out, H) {
-  if (out.length !== orig.length) return { ok: false, msg: `عدد الصفوف غير متطابق (${out.length} ≠ ${orig.length})` };
-  const oh = orig[0] || [], nh = out[0] || [];
+// صمام أمان ملف الكميات: 4 أعمدة بالتسميات الحرفية، sku غير فارغ، كميات أعداد صحيحة ≥ 0
+function verifyQuantities(rows) {
+  const want = ["sku", "name_ar", "name_en", ZID_QTY_COL];
+  const hdr = rows[0] || [];
+  if (hdr.length !== 4) return { ok: false, msg: `يجب أن يكون 4 أعمدة (${hdr.length})` };
+  for (let c = 0; c < 4; c++) if (String(hdr[c]) !== want[c]) return { ok: false, msg: `العمود ${c + 1} يجب أن يكون "${want[c]}" لا "${hdr[c]}"` };
+  for (let r = 1; r < rows.length; r++) {
+    if (String(rows[r][0]).trim() === "") return { ok: false, msg: `sku فارغ في الصف ${r + 1}` };
+    const q = rows[r][3];
+    if (!Number.isInteger(q) || q < 0) return { ok: false, msg: `كمية غير صحيحة في الصف ${r + 1} (يلزم عدد صحيح ≥ 0)` };
+  }
+  return { ok: true };
+}
+// صمام أمان ملف الأسعار: نفس أعمدة الأصل بالترتيب والتسميات، ولا يتغيّر سوى عمود السعر (sku/barcode/quantity ثابتة)
+function verifyPrices(rows, orig, H) {
+  const oh = stData.rows[0] || [], nh = rows[0] || [];
   if (oh.length !== nh.length) return { ok: false, msg: `عدد الأعمدة غير متطابق (${nh.length} ≠ ${oh.length})` };
   for (let c = 0; c < oh.length; c++)
-    if (String(oh[c]) !== String(nh[c])) return { ok: false, msg: `اسم/ترتيب العمود رقم ${c + 1} تغيّر: "${nh[c]}" بدل "${oh[c]}"` };
-  const iSku = H.indexOf("sku"), iBar = H.indexOf("barcode"), iQty = H.indexOf("quantity"), iPrice = H.indexOf("price");
-  for (let r = 1; r < out.length; r++) {
+    if (String(oh[c]) !== String(nh[c])) return { ok: false, msg: `اسم/ترتيب العمود رقم ${c + 1} تغيّر` };
+  const iPrice = H.indexOf("price");
+  for (let r = 1; r < rows.length; r++) {
     for (let c = 0; c < oh.length; c++) {
-      if (c === iQty || c === iPrice) continue;
-      if (String(orig[r][c]) !== String(out[r][c]))
-        return { ok: false, msg: `العمود "${H[c]}" تغيّر في الصف ${r + 1} — يُسمح بتغيير الكمية والسعر فقط` };
+      if (c === iPrice) continue; // يُسمح بتغيير السعر فقط (بقية الأعمدة ومنها quantity/sku/barcode ثابتة)
+      if (String(orig[r][c]) !== String(rows[r][c])) return { ok: false, msg: `العمود "${H[c]}" تغيّر في صف — يُسمح بتغيير السعر فقط` };
     }
-    if (iSku >= 0 && String(orig[r][iSku]) !== String(out[r][iSku])) return { ok: false, msg: `عمود sku تغيّر في الصف ${r + 1}` };
-    if (iBar >= 0 && String(orig[r][iBar]) !== String(out[r][iBar])) return { ok: false, msg: `عمود barcode تغيّر في الصف ${r + 1}` };
+    if (!Number.isFinite(Number(rows[r][iPrice]))) return { ok: false, msg: `قيمة سعر غير رقمية` };
   }
   return { ok: true, cols: oh.length };
 }
@@ -919,72 +939,95 @@ function run(reprocess) {
     const whList = Object.keys(whIndex).map(code => { const tk = nameTokens(whIndex[code].name || ""); return { code, name: whIndex[code].name || "", tokens: tk, tokensCore: coreTokens(tk), price: whIndex[code].incl }; });
 
     const H = stData.header;
-    const iSku = H.indexOf("sku"), iQty = H.indexOf("quantity"), iPrice = H.indexOf("price"), iName = H.indexOf("name_ar");
-    const out = stData.rows.map(r => [...r]);
-    const iImg = detectImageCol(H, out);                        // عمود صور زد (إن وُجد)
+    const rows0 = stData.rows;                                  // الصفوف الأصلية (لا تُعدّل)
+    const iSku = H.indexOf("sku"), iQty = H.indexOf("quantity"), iPrice = H.indexOf("price");
+    const iName = H.indexOf("name_ar"), iNameEn = H.indexOf("name_en");
+    const iImg = detectImageCol(H, rows0);                      // عمود صور زد (إن وُجد)
     const imgOf = row => (iImg >= 0 ? firstUrl(row[iImg]) : "");
-    let updated = 0, skippedInf = 0, qtyCount = 0, priceCount = 0;
-    const unmatched = [], updatedList = [], infiniteList = [], excludedList = [];
 
-    for (let i = 1; i < out.length; i++) {
-      const row = out[i], rawSku = row[iSku];
+    let qtyCount = 0, priceCount = 0, infConverted = 0;
+    const unmatched = [], updatedList = [], infiniteList = [], excludedList = [];
+    // ملف الكميات: 4 أعمدة بالترتيب والتسميات الحرفية المطلوبة
+    const qtyRows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
+    // ملف الأسعار: نفس بنية تصدير زد كاملة (رأس + الصفوف المتغيّر سعرها فقط)
+    const priceRows = [[...rows0[0]]];
+    const priceOrig = [rows0[0]];                               // أصل كل صف سعري (للتحقق)
+
+    for (let i = 1; i < rows0.length; i++) {
+      const orig = rows0[i], rawSku = orig[iSku];
       if (!rawSku) continue;
       const skuN = normCode(rawSku);
-      // مستبعد يدوياً من المطابقة: يبقى الصف كما هو في الملف دون أي تحديث
-      if (excludedSet.has(skuN)) { excludedList.push({ sku: String(rawSku), skuN, name: row[iName] || "" }); continue; }
-      const isInf = String(row[iQty]).trim().toLowerCase() === "infinite";
+      // مستبعد يدوياً من المطابقة: لا يُدرج في أي ملف
+      if (excludedSet.has(skuN)) { excludedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "" }); continue; }
+      const isInf = String(orig[iQty]).trim().toLowerCase() === "infinite";
       const whCode = manualMap[skuN] || (whIndex[skuN] ? skuN : null) || (whIndex[baseOf(rawSku)] ? baseOf(rawSku) : null);
       const wh = whCode ? whIndex[whCode] : null;
-      if (!wh) { if (!isInf) unmatched.push({ sku: String(rawSku), skuN, name: row[iName] || "", price: row[iPrice], img: imgOf(row) }); continue; }
-      if (isInf && opts.inf === "skip") { infiniteList.push({ sku: String(rawSku), skuN, name: row[iName] || "" }); skippedInf++; continue; }
-      const oldQty = row[iQty], oldPrice = row[iPrice];
-      row[iQty] = wh.qty;
-      const qtyChanged = String(oldQty) !== String(row[iQty]);
+      if (!wh) {
+        // غير محدود بلا مطابقة ⇒ لا يمكن استبداله بكمية حقيقية؛ غيره ⇒ يحتاج قرار/ربط
+        if (isInf) infiniteList.push({ sku: String(rawSku), skuN, name: orig[iName] || "" });
+        else unmatched.push({ sku: String(rawSku), skuN, name: orig[iName] || "", price: orig[iPrice], img: imgOf(orig) });
+        continue;
+      }
+      const oldQty = orig[iQty], oldPrice = orig[iPrice];
+      const newQty = Math.max(0, Math.round(Number(wh.qty) || 0));   // كمية حقيقية عدد صحيح ≥ 0
+      const qtyChanged = String(oldQty) !== String(newQty);          // "Infinite" ≠ رقم ⇒ يُستبدل دائماً
       // قاعدة الأسعار: تجاهل فرق < 1 ريال، وتقريب قيمة المستودع لعدد صحيح
-      let priceChanged = false;
+      let priceChanged = false, newPrice = oldPrice;
       const cand = opts.price === "incl" ? wh.incl : (opts.price === "excl" ? wh.excl : null);
       if (cand != null) {
         const oldP = Number(oldPrice);
         if (!Number.isFinite(oldP) || Math.abs(cand - oldP) >= 1) {
-          row[iPrice] = Math.round(cand);
-          priceChanged = String(oldPrice) !== String(row[iPrice]);
+          newPrice = Math.round(cand);
+          priceChanged = String(oldPrice) !== String(newPrice);
         }
       }
-      if (qtyChanged) qtyCount++;
-      if (priceChanged) priceCount++;
+      // ملف الكميات (يشمل تحويل "غير محدود" لكمية حقيقية)
+      if (qtyChanged) {
+        qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", newQty]);
+        qtyCount++;
+        if (isInf) infConverted++;
+      }
+      // ملف الأسعار (السعر فقط؛ الكمية وبقية الأعمدة تبقى كما هي)
+      if (priceChanged) {
+        const pr = [...orig]; pr[iPrice] = newPrice;
+        priceRows.push(pr); priceOrig.push(orig);
+        priceCount++;
+      }
+      // جدول العرض للتحقق البصري
       if (qtyChanged || priceChanged) {
-        updatedList.push({ sku: String(rawSku), skuN, name: row[iName] || "", whName: wh.name || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), oldQty, newQty: row[iQty], oldPrice, newPrice: row[iPrice], img: imgOf(row) });
-        updated++;
+        updatedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "", whName: wh.name || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), oldQty, newQty, oldPrice, newPrice, img: imgOf(orig) });
       }
     }
 
-    lastOut = out;   // احفظ الناتج ليتاح تنزيل صف اختبار واحد لاحقاً
-    // === صمام الأمان: تحقّق قبل التحميل ===
-    const verify = verifyOutput(stData.rows, out, H);
-    const dl = document.getElementById("dlBtn");
+    // === صمامات الأمان + إنشاء الملفين ===
+    const mkBlob = aoa => { const ws = XLSX.utils.aoa_to_sheet(aoa); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1"); return new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }); };
+    const vq = verifyQuantities(qtyRows);
+    const vp = verifyPrices(priceRows, priceOrig, H);
     const vm = document.getElementById("verifyMsg");
-    if (verify.ok) {
-      const ws = XLSX.utils.aoa_to_sheet(out);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, stData.sheetName);
-      const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })],
-        { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      dl.href = URL.createObjectURL(blob);
-      dl.style.display = "block";
-      // بعد تحميل الملف المحدّث: احفظ الروابط في الريبو مباشرةً
-      dl.onclick = () => { saveToRepo("بعد تحميل الملف المحدث"); };
+    const wireDl = (id, ok, aoa, count, reason) => {
+      const el = document.getElementById(id);
+      if (ok && count > 0) {
+        el.href = URL.createObjectURL(mkBlob(aoa)); el.classList.remove("disabled");
+        el.onclick = () => saveToRepo(reason);
+      } else { el.removeAttribute("href"); el.classList.add("disabled"); }
+    };
+    wireDl("dlQty", vq.ok, qtyRows, qtyCount, "بعد تحميل ملف الكميات");
+    wireDl("dlPrice", vp.ok, priceRows, priceCount, "بعد تحميل ملف الأسعار");
+    document.getElementById("qtyN").textContent = qtyCount;
+    document.getElementById("priceN").textContent = priceCount;
+
+    if (vq.ok && vp.ok) {
       vm.className = "verify-ok"; vm.style.display = "block";
-      vm.textContent = `✓ تم التحقق: ${verify.cols} عموداً مطابقاً للأصل — تحدّثت الكمية في ${qtyCount} صف والسعر في ${priceCount} صف`;
+      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف`;
     } else {
-      dl.style.display = "none"; dl.removeAttribute("href");
       vm.className = "verify-fail"; vm.style.display = "block";
-      vm.textContent = `✗ تم إيقاف التحميل — ${verify.msg}`;
+      vm.textContent = "✗ تم إيقاف التحميل — " + [!vq.ok ? "ملف الكميات: " + vq.msg : "", !vp.ok ? "ملف الأسعار: " + vp.msg : ""].filter(Boolean).join(" | ");
     }
 
-    document.getElementById("sUpd").textContent = updated;
+    document.getElementById("sUpd").textContent = updatedList.length;
     document.getElementById("sUn").textContent = unmatched.length;
-    document.getElementById("sInf").textContent = skippedInf;
-    document.getElementById("sTot").textContent = out.length - 1;
+    document.getElementById("sInf").textContent = infiniteList.length;
+    document.getElementById("sTot").textContent = rows0.length - 1;
 
     // === تصنيف الأصناف بدون ربط + بيانات الفلاتر ===
     lastWhList = whList;
@@ -1125,11 +1168,10 @@ function updatedTableHTML(list) {
       `<td class="mono">${zp != null ? fmtPrice(zp) : "—"}</td>` +
       `<td class="mono">${wp != null ? fmtPrice(wp) : "—"} ${badge}</td>` +
       `<td>${chgCell(u.oldQty, u.newQty)}</td>` +
-      `<td class="act-cell"><button class="mini-btn" onclick="downloadOne('${esc(u.skuN)}')" title="نزّل ملف اختبار يحوي هذا المنتج وحده لتجرّبه في زد قبل الاستيراد الكامل">🧪 جرّب</button>` +
-      `<button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="لا تُحدّث هذا الصنف — اتركه كما هو في زد">✕ شيلها</button></td></tr>`;
+      `<td><button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="لا تُحدّث هذا الصنف — اتركه كما هو في زد">✕ شيلها</button></td></tr>`;
   }).join("");
   return `<table>
-    <colgroup><col class="c-sku"><col><col><col style="width:70px"><col style="width:110px"><col style="width:130px"><col style="width:150px"></colgroup>
+    <colgroup><col class="c-sku"><col><col><col style="width:70px"><col style="width:110px"><col style="width:130px"><col style="width:96px"></colgroup>
     <thead><tr><th>SKU زد</th><th>اسم المنتج (زد)</th><th>اسم المنتج (المستودع)</th><th>سعر زد</th><th>سعر المستودع</th><th>الكمية (السابق → الجديد)</th><th>إجراء</th></tr></thead>
     <tbody id="unBody">${rows}</tbody>
   </table>`;
@@ -1145,24 +1187,6 @@ function excludedBannerHTML() {
       <button class="mini-btn" onclick="restoreAllExcluded()">استعادة الكل</button></div>
     <div class="exc-chips">${chips}</div>
   </div>`;
-}
-// تنزيل ملف استيراد يحوي هذا المنتج وحده (لتجربته في زد قبل الاستيراد الكامل)
-function downloadOne(skuN) {
-  if (!lastOut) { showErr("شغّل «طابق وأنشئ الملف المحدث» أولاً."); return; }
-  const H = stData.header, iSku = H.indexOf("sku");
-  const target = normCode(skuN);
-  const row = lastOut.find((r, i) => i > 0 && normCode(r[iSku]) === target);
-  if (!row) { showErr("تعذّر إيجاد صف هذا المنتج في الملف الناتج."); return; }
-  const ws = XLSX.utils.aoa_to_sheet([lastOut[0], row]);   // العناوين + صف المنتج فقط
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, stData.sheetName);
-  const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })],
-    { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = `zid_test_${target}.xlsx`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function excludeUpdated(skuN) { excludedSet.add(normCode(skuN)); saveExcluded(); run(true); }
 function restoreExcluded(skuN) { excludedSet.delete(normCode(skuN)); saveExcluded(); run(true); }
