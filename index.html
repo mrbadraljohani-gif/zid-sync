@@ -410,7 +410,8 @@ let manualMap = {};
 let ignoredSet = new Set();
 let excludedSet = new Set();           // أصناف استبعدها المستخدم يدوياً من المطابقة (تبقى كما هي)
 let boundSet = new Set();
-let lastWhList = [], lastUnmatchedRaw = [], lastUnmatched = [], lastIgnored = [];
+let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [], lastIgnored = [];
+let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
 let lastUpdated = [], lastInfinite = [], lastExcluded = [], currentFilter = "new";
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
 
@@ -533,14 +534,35 @@ function sizesMatch(n1, n2) {
   return false;
 }
 
+// فهرس معكوس: كلمة ⇒ عناصر المستودع التي تحتويها — لتقليص المرشحين وتسريع المطابقة الشاملة
+function buildWhTokenIndex(whList) {
+  const idx = new Map();
+  for (const w of whList) {
+    const seen = new Set();
+    for (const t of w.tokens) {
+      if (seen.has(t)) continue; seen.add(t);
+      let arr = idx.get(t); if (!arr) { arr = []; idx.set(t, arr); }
+      arr.push(w);
+    }
+  }
+  return idx;
+}
+
 // المطابقة بالاسم فقط: بما أن المطابقة التامة للكود تمّت مسبقاً، فأي صنف هنا كوده غير مطابق
 // تماماً ⇒ نبحث عن أقرب اسم في المستودع ونطابق به (لا نعتمد على قرب الكود إطلاقاً)
 function suggestFor(skuN, nm, whList, zidPrice) {
   const nt = nameTokens(nm);
   const ntCore = coreTokens(nt);
   const zp = priceInt(zidPrice);
+  // مرشحون فقط ممن يشاركون كلمة واحدة على الأقل (أي تطابق حقيقي يشارك كلمة) — تسريع كبير
+  let candidates = whList;
+  if (lastWhTokenIndex) {
+    const set = new Set();
+    for (const t of nt) { const arr = lastWhTokenIndex.get(t); if (arr) for (const w of arr) set.add(w); }
+    candidates = set;
+  }
   let best = null;
-  for (const w of whList) {
+  for (const w of candidates) {
     const ns = nameSimTokens(nt, w.tokens);
     if (ns <= 0) continue;
     // تشابه الكلمات الحقيقي (بلا أرقام) — حتى لا يرفع المقاس المشترك وحده درجة التطابق
@@ -759,6 +781,8 @@ function run(reprocess) {
 
     // === تصنيف الأصناف بدون ربط + بيانات الفلاتر ===
     lastWhList = whList;
+    lastWhTokenIndex = buildWhTokenIndex(whList);
+    if (!reprocess) suggCache = new Map();   // بيانات جديدة ⇒ أعِد بناء ذاكرة الاقتراحات
     lastUnmatchedRaw = unmatched;
     lastUpdated = updatedList;
     lastInfinite = infiniteList;
@@ -793,12 +817,15 @@ function sortRank(it) {
   if (!it.suggestion) return 2;
   return isConfirmed(it) ? 0 : 1;
 }
-// بناء عناصر الاقتراح الذكي (بحد 100) مرتّبة بالنسبة تنازلياً
+// بناء عناصر الاقتراح الذكي (كامل) مرتّبة بالنسبة تنازلياً
 function buildItems(raw) {
-  const items = raw.slice(0, 100).map(u => {
+  const items = raw.map(u => {
     const isZ = /^z\./i.test(String(u.sku).trim());
     // نطابق بالاسم حتى لأكواد زد الآلية (لا نكتفي بتقارب الكود)، ونمرّر سعر زد للترجيح
-    const suggestion = suggestFor(u.skuN, u.name, lastWhList, u.price);
+    // نخزّن الاقتراح في الذاكرة لتفادي إعادة الحساب عند تبديل الفلاتر
+    let suggestion;
+    if (suggCache.has(u.skuN)) suggestion = suggCache.get(u.skuN);
+    else { suggestion = suggestFor(u.skuN, u.name, lastWhList, u.price); suggCache.set(u.skuN, suggestion); }
     return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, isZ, suggestion, bound: boundSet.has(normCode(u.skuN)), ignored: ignoredSet.has(normCode(u.skuN)) };
   });
   items.sort((a, b) => {
@@ -816,7 +843,6 @@ function renderDetail() {
   const title = document.getElementById("unTitle");
   const wrap = document.getElementById("detailTable");
   document.getElementById("unBlock").style.display = "block";
-  const cap = n => n > 100 ? " — تُعرض أول ١٠٠" : "";
 
   if (f === "new" || f === "unmatched") {
     const notBound = u => !boundSet.has(normCode(u.skuN));
@@ -826,7 +852,7 @@ function renderDetail() {
     const items = buildItems(raw);
     lastUnmatched = items;
     bindBtn.style.display = (f === "new") ? "" : "none";
-    title.textContent = (f === "new" ? "منتجات جديدة تحتاج قرارك" : "كل الأصناف بدون ربط") + ` (${raw.length}${cap(raw.length)}) — اربطها أو تجاهلها`;
+    title.textContent = (f === "new" ? "منتجات جديدة تحتاج قرارك" : "كل الأصناف بدون ربط") + ` (${raw.length}) — كاملة — اربطها أو تجاهلها`;
     wrap.innerHTML = suggestionsTableHTML(items);
     updateBindAllCount();
   } else if (f === "updated") {
@@ -836,8 +862,8 @@ function renderDetail() {
     wrap.innerHTML = excludedBannerHTML() + updatedTableHTML(lastUpdated);
   } else if (f === "infinite") {
     bindBtn.style.display = "none";
-    title.textContent = `كمية غير محدودة — تُركت كما هي (${lastInfinite.length}${cap(lastInfinite.length)})`;
-    wrap.innerHTML = listTableHTML(lastInfinite.slice(0, 100));
+    title.textContent = `كمية غير محدودة — تُركت كما هي (${lastInfinite.length})`;
+    wrap.innerHTML = listTableHTML(lastInfinite);
   } else { // all
     bindBtn.style.display = "none";
     const all = [
