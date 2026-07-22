@@ -49,12 +49,12 @@
     border-bottom: 1px solid transparent; border-image: linear-gradient(90deg, transparent, rgba(230,197,111,.35), transparent) 1; }
   .brand { display: flex; align-items: center; gap: 13px; }
   .brand .mark { width: 48px; height: 48px; border-radius: 50%; padding: 0; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
-    background: radial-gradient(circle at 34% 26%, #fffdf9, #efe7d6);
+    background: radial-gradient(circle at 34% 26%, #1e1a12, #14110c);
     box-shadow: 0 4px 16px rgba(0,0,0,.45), 0 0 0 1.5px rgba(230,197,111,.7), 0 0 0 4px rgba(230,197,111,.09);
     transition: box-shadow .25s ease, transform .25s ease; }
   .brand .mark:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.5), 0 0 0 1.5px rgba(230,197,111,.95), 0 0 0 5px rgba(230,197,111,.15); }
-  .brand .mark img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.24) translateY(1.5%); }
-  .brand .mark svg { width: 100%; height: 100%; object-fit: contain; color: #b8860b; }
+  .brand .mark img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.24) translateY(1.5%); filter: invert(1) hue-rotate(180deg); }
+  .brand .mark svg { width: 100%; height: 100%; object-fit: contain; color: var(--gold-2); }
   .brand-divider { width: 1px; height: 30px; background: linear-gradient(180deg, transparent, rgba(230,197,111,.55), transparent); flex-shrink: 0; }
   .brand-txt { display: flex; flex-direction: column; line-height: 1; }
   .brand-txt b { font-family: var(--serif); font-size: 24px; font-weight: 700; letter-spacing: .18em;
@@ -75,10 +75,10 @@
   .hero-content { min-width: 0; }
   .hero-logo { flex-shrink: 0; }
   .medallion { width: 154px; height: 154px; border-radius: 50%; padding: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
-    background: radial-gradient(circle at 34% 26%, #fffdf9, #efe7d6);
+    background: radial-gradient(circle at 34% 26%, #1e1a12, #14110c);
     box-shadow: 0 14px 42px rgba(0,0,0,.5), 0 0 0 2px rgba(230,197,111,.6), 0 0 46px rgba(230,197,111,.2); }
-  .medallion img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.24) translateY(1.5%); }
-  .medallion svg { width: 100%; height: 100%; object-fit: contain; color: #b8860b; }
+  .medallion img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.24) translateY(1.5%); filter: invert(1) hue-rotate(180deg); }
+  .medallion svg { width: 100%; height: 100%; object-fit: contain; color: var(--gold-2); }
   @media (max-width: 620px) {
     .hero-inner { flex-direction: column-reverse; text-align: center; align-items: center; gap: 22px; padding: 34px 24px; }
     .hero .sub { margin-inline: auto; }
