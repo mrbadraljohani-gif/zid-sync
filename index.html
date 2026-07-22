@@ -234,6 +234,11 @@
   .stat span { font-size: 12px; color: var(--muted); }
   .twrap { max-height: 65vh; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
   .wh-name { color: var(--muted); }
+  .prodcell { display: flex; align-items: center; gap: 10px; }
+  .prodcell > span { min-width: 0; }
+  .thumb-link { flex-shrink: 0; line-height: 0; }
+  .thumb { width: 44px; height: 44px; border-radius: 9px; object-fit: cover; border: 1px solid var(--border-strong); background: var(--panel); display: block; transition: transform .15s ease; }
+  .thumb-link:hover .thumb { transform: scale(1.06); border-color: var(--gold); }
   .row-warn td { background: rgba(229,144,135,.10); }
   .warn-flag { display: inline-block; margin-inline-start: 8px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(229,144,135,.16); color: var(--danger); border: 1px solid rgba(229,144,135,.4); white-space: nowrap; }
   .mini-btn { border: 1px solid var(--border-strong); background: transparent; color: var(--muted); border-radius: 8px; padding: 5px 9px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
@@ -632,6 +637,22 @@ function sizesMatch(n1, n2) {
   return false;
 }
 
+// كشف عمود صور المنتجات في تصدير زد (بالاسم أولاً ثم بفحص القيم) + استخراج أول رابط
+function firstUrl(v) { const m = String(v == null ? "" : v).match(/https?:\/\/[^\s,;|"']+/i); return m ? m[0] : ""; }
+function imgExtUrl(v) { const m = String(v == null ? "" : v).match(/https?:\/\/[^\s,;|"']+\.(?:jpe?g|png|webp|gif|avif)(?:\?[^\s,;|"']*)?/i); return m ? m[0] : ""; }
+function detectImageCol(H, rows) {
+  let idx = H.findIndex(h => /image|images|img|photo|picture|صور|صوره|صورة/i.test(String(h)));
+  if (idx >= 0) return idx;
+  const n = Math.min(rows.length, 40);
+  for (let c = 0; c < H.length; c++) for (let r = 1; r < n; r++) if (imgExtUrl(rows[r][c])) return c;
+  return -1;
+}
+// صورة مصغّرة قابلة للتكبير بالضغط (تُخفى تلقائياً إن فشل تحميلها)
+function thumb(url) {
+  if (!url) return "";
+  return `<a class="thumb-link" href="${esc(url)}" target="_blank" rel="noopener"><img class="thumb" src="${esc(url)}" loading="lazy" referrerpolicy="no-referrer" alt="" onerror="this.closest('a').remove()"></a>`;
+}
+
 // فهرس معكوس: كلمة ⇒ عناصر المستودع التي تحتويها — لتقليص المرشحين وتسريع المطابقة الشاملة
 function buildWhTokenIndex(whList) {
   const idx = new Map();
@@ -898,6 +919,8 @@ function run(reprocess) {
     const H = stData.header;
     const iSku = H.indexOf("sku"), iQty = H.indexOf("quantity"), iPrice = H.indexOf("price"), iName = H.indexOf("name_ar");
     const out = stData.rows.map(r => [...r]);
+    const iImg = detectImageCol(H, out);                        // عمود صور زد (إن وُجد)
+    const imgOf = row => (iImg >= 0 ? firstUrl(row[iImg]) : "");
     let updated = 0, skippedInf = 0, qtyCount = 0, priceCount = 0;
     const unmatched = [], updatedList = [], infiniteList = [], excludedList = [];
 
@@ -910,7 +933,7 @@ function run(reprocess) {
       const isInf = String(row[iQty]).trim().toLowerCase() === "infinite";
       const whCode = manualMap[skuN] || (whIndex[skuN] ? skuN : null) || (whIndex[baseOf(rawSku)] ? baseOf(rawSku) : null);
       const wh = whCode ? whIndex[whCode] : null;
-      if (!wh) { if (!isInf) unmatched.push({ sku: String(rawSku), skuN, name: row[iName] || "", price: row[iPrice] }); continue; }
+      if (!wh) { if (!isInf) unmatched.push({ sku: String(rawSku), skuN, name: row[iName] || "", price: row[iPrice], img: imgOf(row) }); continue; }
       if (isInf && opts.inf === "skip") { infiniteList.push({ sku: String(rawSku), skuN, name: row[iName] || "" }); skippedInf++; continue; }
       const oldQty = row[iQty], oldPrice = row[iPrice];
       row[iQty] = wh.qty;
@@ -928,7 +951,7 @@ function run(reprocess) {
       if (qtyChanged) qtyCount++;
       if (priceChanged) priceCount++;
       if (qtyChanged || priceChanged) {
-        updatedList.push({ sku: String(rawSku), skuN, name: row[iName] || "", whName: wh.name || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), oldQty, newQty: row[iQty], oldPrice, newPrice: row[iPrice] });
+        updatedList.push({ sku: String(rawSku), skuN, name: row[iName] || "", whName: wh.name || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), oldQty, newQty: row[iQty], oldPrice, newPrice: row[iPrice], img: imgOf(row) });
         updated++;
       }
     }
@@ -1094,7 +1117,7 @@ function updatedTableHTML(list) {
     const flag = warn ? `<span class="warn-flag" title="الكود مطابق لكن اسم المنتج مختلف — تحقق قبل الاعتماد">⚠ راجع</span>` : "";
     return `<tr class="${warn ? "row-warn" : ""}" data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
       `<td class="mono">${esc(u.sku)}</td>` +
-      `<td>${esc(u.name) || "—"}${flag}</td>` +
+      `<td><div class="prodcell">${thumb(u.img)}<span>${esc(u.name) || "—"}${flag}</span></div></td>` +
       `<td class="wh-name">${esc(u.whName) || "—"}</td>` +
       `<td class="mono">${zp != null ? fmtPrice(zp) : "—"}</td>` +
       `<td class="mono">${wp != null ? fmtPrice(wp) : "—"} ${badge}</td>` +
@@ -1180,8 +1203,8 @@ function scrollToNew() { document.getElementById("unBlock").scrollIntoView({ beh
 
 function rowHtml(it, i) {
   const zidPrice = priceInt(it.price);
-  const nameCell = (esc(it.name) || "—") +
-    (zidPrice != null ? `<div class="price-line">سعر زد: ${zidPrice} ر.س</div>` : "");
+  const nameCell = `<div class="prodcell">${thumb(it.img)}<span>${(esc(it.name) || "—") +
+    (zidPrice != null ? `<div class="price-line">سعر زد: ${zidPrice} ر.س</div>` : "")}</span></div>`;
   let sugg, bind;
   if (it.suggestion) {
     const pct = Math.round(it.suggestion.sim * 100);
