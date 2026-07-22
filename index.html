@@ -262,6 +262,7 @@
   .mini-btn { border: 1px solid var(--border-strong); background: transparent; color: var(--muted); border-radius: 8px; padding: 5px 9px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
   .mini-btn:hover { border-color: var(--gold); color: var(--gold-2); }
   .mini-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+  .act-cell { display: flex; gap: 6px; flex-wrap: wrap; }
   .exc-bar { background: rgba(229,144,135,.08); border: 1px solid rgba(229,144,135,.3); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
   .exc-head { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--danger); flex-wrap: wrap; }
   .exc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -534,6 +535,7 @@ let boundSet = new Set();
 let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [], lastIgnored = [];
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
 let lastUpdated = [], lastInfinite = [], lastExcluded = [], currentFilter = "new";
+let lastQtyRows = null, lastPriceRows = null;   // صفوف الملفين الناتجين (لتنزيل صف اختبار واحد)
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
 
 // تحميل mapping.json و ignored.json عبر fetch، ودمجهما مع localStorage (يتعامل مع 404 بهدوء)
@@ -1000,6 +1002,7 @@ function run(reprocess) {
     }
 
     // === صمامات الأمان + إنشاء الملفين ===
+    lastQtyRows = qtyRows; lastPriceRows = priceRows;   // للتنزيل التجريبي لصف واحد
     const mkBlob = aoa => { const ws = XLSX.utils.aoa_to_sheet(aoa); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1"); return new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }); };
     const vq = verifyQuantities(qtyRows);
     const vp = verifyPrices(priceRows, priceOrig, H);
@@ -1168,10 +1171,11 @@ function updatedTableHTML(list) {
       `<td class="mono">${zp != null ? fmtPrice(zp) : "—"}</td>` +
       `<td class="mono">${wp != null ? fmtPrice(wp) : "—"} ${badge}</td>` +
       `<td>${chgCell(u.oldQty, u.newQty)}</td>` +
-      `<td><button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="لا تُحدّث هذا الصنف — اتركه كما هو في زد">✕ شيلها</button></td></tr>`;
+      `<td class="act-cell"><button class="mini-btn" onclick="downloadOne('${esc(u.skuN)}')" title="نزّل ملف اختبار يحوي هذا المنتج وحده لتجرّبه في زد قبل الاستيراد الكامل">🧪 جرّب</button>` +
+      `<button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="لا تُحدّث هذا الصنف — اتركه كما هو في زد">✕ شيلها</button></td></tr>`;
   }).join("");
   return `<table>
-    <colgroup><col class="c-sku"><col><col><col style="width:70px"><col style="width:110px"><col style="width:130px"><col style="width:96px"></colgroup>
+    <colgroup><col class="c-sku"><col><col><col style="width:70px"><col style="width:110px"><col style="width:130px"><col style="width:150px"></colgroup>
     <thead><tr><th>SKU زد</th><th>اسم المنتج (زد)</th><th>اسم المنتج (المستودع)</th><th>سعر زد</th><th>سعر المستودع</th><th>الكمية (السابق → الجديد)</th><th>إجراء</th></tr></thead>
     <tbody id="unBody">${rows}</tbody>
   </table>`;
@@ -1187,6 +1191,24 @@ function excludedBannerHTML() {
       <button class="mini-btn" onclick="restoreAllExcluded()">استعادة الكل</button></div>
     <div class="exc-chips">${chips}</div>
   </div>`;
+}
+// تنزيل ملف اختبار يحوي هذا المنتج وحده — من ملف الأسعار (بنية كاملة) إن تغيّر سعره، وإلا من ملف الكميات
+function downloadOne(skuN) {
+  const target = normCode(skuN);
+  const iSkuP = stData.header.indexOf("sku");
+  let hdr, row, kind;
+  if (lastPriceRows) { const r = lastPriceRows.find((rr, i) => i > 0 && normCode(rr[iSkuP]) === target); if (r) { hdr = lastPriceRows[0]; row = r; kind = "price"; } }
+  if (!row && lastQtyRows) { const r = lastQtyRows.find((rr, i) => i > 0 && normCode(rr[0]) === target); if (r) { hdr = lastQtyRows[0]; row = r; kind = "qty"; } }
+  if (!row) { showErr("هذا المنتج ليس ضمن ملفات التحديث — شغّل «طابق وأنشئ» أولاً."); return; }
+  const ws = XLSX.utils.aoa_to_sheet([hdr, row]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+  const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `zid_test_${kind}_${target}.xlsx`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function excludeUpdated(skuN) { excludedSet.add(normCode(skuN)); saveExcluded(); run(true); }
 function restoreExcluded(skuN) { excludedSet.delete(normCode(skuN)); saveExcluded(); run(true); }
