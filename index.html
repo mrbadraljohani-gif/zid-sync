@@ -261,6 +261,13 @@
   input[type=text]::placeholder { color: var(--muted-2); }
   input[type=text]:focus { border-color: var(--gold); background: rgba(255,255,255,.06); }
   .maprow { display: flex; gap: 8px; flex-wrap: wrap; }
+  .map-counter { display: inline-flex; align-items: center; gap: 8px; background: rgba(230,197,111,.10); border: 1px solid rgba(230,197,111,.35); border-radius: 20px; padding: 7px 15px; font-size: 13.5px; font-weight: 700; color: var(--gold-2); margin-bottom: 12px; }
+  .map-counter b { font-size: 16px; font-weight: 800; color: var(--gold-2); }
+  .repo-box { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .repo-status { margin-top: 10px; font-size: 13px; font-weight: 700; min-height: 1em; }
+  .repo-status.ok { color: #8fbf98; }
+  .repo-status.warn { color: var(--gold-2); }
+  .repo-status.fail { color: var(--danger); }
   .pills { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; }
   .pill { display: inline-flex; align-items: center; gap: 6px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 12.5px; }
   .pill button { border: none; background: none; cursor: pointer; color: var(--danger); font-size: 16px; line-height: 1; }
@@ -366,7 +373,7 @@
 
   <div class="section-head"><span class="n">٣</span><h2>ربط يدوي <span style="color:var(--muted-2);font-weight:600;font-size:13px">(اختياري)</span></h2><span class="line"></span></div>
   <div class="card">
-    <div class="clabel">يُحفظ في متصفحك — <span id="mapCount">0</span> ربط محفوظ</div>
+    <div class="map-counter">🔗 الروابط المحفوظة حالياً: <b id="mapCount">0</b></div>
     <p class="hint">للأصناف التي يختلف كودها بين المستودع وزد: ابحث في المستودع بالأسفل، اختر الصنف الصحيح ليُعبّأ كوده، ثم أدخل SKU زد واحفظ الربط. يُطبَّق تلقائياً في كل مطابقة.</p>
     <div class="wh-search-wrap">
       <input type="text" id="whSearch" placeholder="🔎 ابحث في ملف المستودع (بالاسم أو الكود)..." oninput="searchWarehouse()">
@@ -378,9 +385,21 @@
       <button class="btn-run sm" onclick="addMapping()">حفظ الربط</button>
     </div>
     <div class="pills" id="pills"></div>
+
+    <div class="repo-box">
+      <div class="clabel">☁ الحفظ المباشر في الريبو (GitHub)</div>
+      <p class="hint">الروابط تُحفظ في الريبو مباشرةً (لا في المتصفح) — تلقائياً بعد تحميل الملف المحدّث، فتبقى دائمة وتظهر على أي جهاز. أدخل رمز GitHub مرة واحدة (بصلاحية Contents: Read and write على مستودع <b>zid-sync</b> فقط)؛ يُخزَّن الرمز في متصفحك فقط ولا يُرفع لأي مكان.</p>
+      <div class="maprow">
+        <input type="password" id="ghToken" placeholder="رمز GitHub (github_pat_… أو ghp_…)">
+        <button class="btn-run sm" onclick="saveToken()">حفظ الرمز</button>
+        <button class="btn-run sm export-btn" onclick="saveToRepo('حفظ يدوي')">☁ حفظ الآن في الريبو</button>
+      </div>
+      <div id="repoStatus" class="repo-status"></div>
+    </div>
+
     <div class="export-row">
-      <button class="btn-run sm export-btn" onclick="exportConfig()">⬇ تصدير ملفات الإعداد (mapping.json + ignored.json)</button>
-      <span class="hint" style="margin:0">حمّل الملفين وارفعهما إلى جذر المشروع لمشاركة الروابط والتجاهلات مع الجميع.</span>
+      <button class="btn-run sm export-btn" onclick="exportConfig()">⬇ تصدير يدوي (mapping.json + ignored.json)</button>
+      <span class="hint" style="margin:0">بديل احتياطي بدون رمز: حمّل الملفين وارفعهما إلى جذر المشروع يدوياً.</span>
     </div>
   </div>
 
@@ -614,6 +633,60 @@ function exportConfig() {
   download("mapping.json", JSON.stringify(manualMap, null, 2));
   download("ignored.json", JSON.stringify([...ignoredSet].sort(), null, 2));
 }
+
+/* ---------- الحفظ المباشر في الريبو عبر GitHub API ---------- */
+const GH = { owner: "mrbadraljohani-gif", repo: "zid-sync", branch: "main" };
+const TOKEN_KEY = "zid-gh-token";
+let lastSavedSig = "";
+
+function repoStatus(cls, msg) {
+  const st = document.getElementById("repoStatus");
+  if (!st) return;
+  st.className = "repo-status" + (cls ? " " + cls : "");
+  st.textContent = msg;
+}
+function saveToken() {
+  const inp = document.getElementById("ghToken");
+  const t = (inp.value || "").trim();
+  if (!t) { repoStatus("warn", "⚠ الرجاء لصق رمز GitHub أولاً."); return; }
+  localStorage.setItem(TOKEN_KEY, t);
+  inp.value = "";
+  repoStatus("ok", "✓ حُفظ الرمز في متصفحك. سيُستخدم للحفظ في الريبو تلقائياً بعد تحميل الملف المحدّث.");
+}
+// ترميز Base64 يدعم العربية (UTF-8)
+function b64(s) { return btoa(unescape(encodeURIComponent(s))); }
+
+async function putFileToRepo(path, content, token, message) {
+  const base = `https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${path}`;
+  const headers = { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
+  let sha;
+  const g = await fetch(`${base}?ref=${GH.branch}`, { headers, cache: "no-store" });
+  if (g.ok) { sha = (await g.json()).sha; }
+  else if (g.status === 401 || g.status === 403) throw new Error("الرمز غير صالح أو لا يملك صلاحية الكتابة");
+  else if (g.status !== 404) throw new Error(`تعذّر قراءة ${path} (${g.status})`);
+  const body = { message, branch: GH.branch, content: b64(content) };
+  if (sha) body.sha = sha;
+  const p = await fetch(base, { method: "PUT", headers, body: JSON.stringify(body) });
+  if (!p.ok) { let m = p.status; try { m = (await p.json()).message || m; } catch {} throw new Error(`كتابة ${path}: ${m}`); }
+}
+
+async function saveToRepo(reason) {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) { repoStatus("warn", "⚠ لم تُدخل رمز GitHub بعد — الروابط محفوظة محلياً فقط. أدخل الرمز للحفظ في الريبو."); return; }
+  const mapping = JSON.stringify(manualMap, null, 2);
+  const ignored = JSON.stringify([...ignoredSet].sort(), null, 2);
+  const sig = mapping + " " + ignored;
+  if (sig === lastSavedSig) { repoStatus("ok", "✓ لا تغييرات جديدة — الريبو محدّث بالفعل."); return; }
+  repoStatus("", "⏳ جاري الحفظ في الريبو…");
+  try {
+    await putFileToRepo("mapping.json", mapping, token, `تحديث الروابط (${reason})`);
+    await putFileToRepo("ignored.json", ignored, token, `تحديث المتجاهلات (${reason})`);
+    lastSavedSig = sig;
+    repoStatus("ok", `✓ حُفظت الروابط في الريبو (${Object.keys(manualMap).length} ربط) — قد تظهر على الأجهزة الأخرى خلال دقيقة.`);
+  } catch (e) {
+    repoStatus("fail", "✗ فشل الحفظ في الريبو: " + e.message + " — تحقّق من الرمز وصلاحياته.");
+  }
+}
 // صمام الأمان: يتأكد أن المخرجات مطابقة للأصل ولم يتغير سوى الكمية والسعر
 function verifyOutput(orig, out, H) {
   if (out.length !== orig.length) return { ok: false, msg: `عدد الصفوف غير متطابق (${out.length} ≠ ${orig.length})` };
@@ -766,6 +839,8 @@ function run(reprocess) {
         { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       dl.href = URL.createObjectURL(blob);
       dl.style.display = "block";
+      // بعد تحميل الملف المحدّث: احفظ الروابط في الريبو مباشرةً
+      dl.onclick = () => { saveToRepo("بعد تحميل الملف المحدث"); };
       vm.className = "verify-ok"; vm.style.display = "block";
       vm.textContent = `✓ تم التحقق: ${verify.cols} عموداً مطابقاً للأصل — تحدّثت الكمية في ${qtyCount} صف والسعر في ${priceCount} صف`;
     } else {
@@ -1148,7 +1223,14 @@ function renderPills() {
 function delMap(s) { delete manualMap[s]; localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); renderPills(); }
 
 applyOpts();
-(async () => { await loadConfig(); renderPills(); })();
+(async () => {
+  await loadConfig();
+  renderPills();
+  // الحالة المحمّلة من الريبو هي المرجع الحالي — لا نعيد حفظها ما لم تتغيّر
+  lastSavedSig = JSON.stringify(manualMap, null, 2) + " " + JSON.stringify([...ignoredSet].sort(), null, 2);
+  if (localStorage.getItem(TOKEN_KEY)) repoStatus("ok", "✓ رمز GitHub محفوظ — ستُحفظ الروابط في الريبو تلقائياً بعد تحميل الملف المحدّث.");
+  else repoStatus("warn", "⚠ لم يُدخل رمز GitHub بعد — أدخله ليُحفظ الربط في الريبو مباشرةً.");
+})();
 </script>
 </body>
 </html>
