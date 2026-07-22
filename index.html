@@ -169,6 +169,7 @@
   .stat b { font-size: 26px; display: block; }
   .stat span { font-size: 12px; color: var(--muted); }
   .twrap { max-height: 65vh; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
+  .wh-name { color: var(--muted); }
   table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: fixed; }
   th { text-align: right; padding: 12px; background: #1b1710; position: sticky; top: 0; z-index: 3; color: var(--gold-2); font-weight: 800; white-space: nowrap; box-shadow: inset 0 -1px 0 var(--border-strong); }
   td { padding: 8px 12px; border-top: 1px solid var(--border); color: var(--text); vertical-align: top; word-wrap: break-word; overflow-wrap: anywhere; }
@@ -708,7 +709,7 @@ function run() {
       if (qtyChanged) qtyCount++;
       if (priceChanged) priceCount++;
       if (qtyChanged || priceChanged) {
-        updatedList.push({ sku: String(rawSku), skuN, name: row[iName] || "", oldQty, newQty: row[iQty], oldPrice, newPrice: row[iPrice] });
+        updatedList.push({ sku: String(rawSku), skuN, name: row[iName] || "", whName: wh.name || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), oldQty, newQty: row[iQty], oldPrice, newPrice: row[iPrice] });
         updated++;
       }
     }
@@ -812,8 +813,8 @@ function renderDetail() {
     updateBindAllCount();
   } else if (f === "updated") {
     bindBtn.style.display = "none";
-    title.textContent = `الأصناف المحدَّثة (${lastUpdated.length}${cap(lastUpdated.length)})`;
-    wrap.innerHTML = updatedTableHTML(lastUpdated.slice(0, 100));
+    title.textContent = `الأصناف المحدَّثة (${lastUpdated.length}) — كاملة`;
+    wrap.innerHTML = updatedTableHTML(lastUpdated);
   } else if (f === "infinite") {
     bindBtn.style.display = "none";
     title.textContent = `كمية غير محدودة — تُركت كما هي (${lastInfinite.length}${cap(lastInfinite.length)})`;
@@ -850,12 +851,21 @@ function chgCellPrice(oldV, newV) {
   return chgCell(o == null ? oldV : o, n == null ? newV : n);
 }
 function updatedTableHTML(list) {
-  const rows = list.map(u =>
-    `<tr data-search="${esc(normText(u.sku + " " + u.name))}"><td class="mono">${esc(u.sku)}</td><td>${esc(u.name) || "—"}</td>` +
-    `<td>${chgCell(u.oldQty, u.newQty)}</td><td>${chgCellPrice(u.oldPrice, u.newPrice)}</td></tr>`).join("");
+  const rows = list.map(u => {
+    const zp = priceInt(u.oldPrice);                                   // سعر زد (قبل التحديث)
+    const wp = priceInt(u.whPrice != null ? u.whPrice : u.newPrice);   // سعر المستودع
+    const badge = priceBadge(u.oldPrice, u.whPrice != null ? u.whPrice : u.newPrice); // مؤشر تطابق السعر للتحقق
+    return `<tr data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
+      `<td class="mono">${esc(u.sku)}</td>` +
+      `<td>${esc(u.name) || "—"}</td>` +
+      `<td class="wh-name">${esc(u.whName) || "—"}</td>` +
+      `<td class="mono">${zp != null ? fmtPrice(zp) : "—"}</td>` +
+      `<td class="mono">${wp != null ? fmtPrice(wp) : "—"} ${badge}</td>` +
+      `<td>${chgCell(u.oldQty, u.newQty)}</td></tr>`;
+  }).join("");
   return `<table>
-    <colgroup><col class="c-sku"><col><col style="width:150px"><col style="width:170px"></colgroup>
-    <thead><tr><th>SKU زد</th><th>اسم المنتج</th><th>الكمية (السابق → الجديد)</th><th>السعر (السابق → الجديد)</th></tr></thead>
+    <colgroup><col class="c-sku"><col><col><col style="width:80px"><col style="width:120px"><col style="width:150px"></colgroup>
+    <thead><tr><th>SKU زد</th><th>اسم المنتج (زد)</th><th>اسم المنتج (المستودع)</th><th>سعر زد</th><th>سعر المستودع</th><th>الكمية (السابق → الجديد)</th></tr></thead>
     <tbody id="unBody">${rows}</tbody>
   </table>`;
 }
