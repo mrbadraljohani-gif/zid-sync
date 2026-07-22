@@ -48,13 +48,13 @@
   .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; padding-bottom: 18px;
     border-bottom: 1px solid transparent; border-image: linear-gradient(90deg, transparent, rgba(230,197,111,.35), transparent) 1; }
   .brand { display: flex; align-items: center; gap: 13px; }
-  .brand .mark { width: 48px; height: 48px; border-radius: 50%; padding: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  .brand .mark { width: 48px; height: 48px; border-radius: 50%; padding: 0; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
     background: radial-gradient(circle at 34% 26%, #fffdf9, #efe7d6);
-    box-shadow: 0 4px 16px rgba(0,0,0,.45), 0 0 0 1px rgba(230,197,111,.45), 0 0 0 4px rgba(230,197,111,.08);
+    box-shadow: 0 4px 16px rgba(0,0,0,.45), 0 0 0 1.5px rgba(230,197,111,.7), 0 0 0 4px rgba(230,197,111,.09);
     transition: box-shadow .25s ease, transform .25s ease; }
-  .brand .mark:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.5), 0 0 0 1px rgba(230,197,111,.7), 0 0 0 5px rgba(230,197,111,.14); }
-  .brand .mark img, .brand .mark svg { width: 100%; height: 100%; object-fit: contain; }
-  .brand .mark svg { color: #b8860b; }
+  .brand .mark:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.5), 0 0 0 1.5px rgba(230,197,111,.95), 0 0 0 5px rgba(230,197,111,.15); }
+  .brand .mark img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.24) translateY(1.5%); }
+  .brand .mark svg { width: 100%; height: 100%; object-fit: contain; color: #b8860b; }
   .brand-divider { width: 1px; height: 30px; background: linear-gradient(180deg, transparent, rgba(230,197,111,.55), transparent); flex-shrink: 0; }
   .brand-txt { display: flex; flex-direction: column; line-height: 1; }
   .brand-txt b { font-family: var(--serif); font-size: 24px; font-weight: 700; letter-spacing: .18em;
@@ -74,11 +74,11 @@
   .hero-inner { display: flex; align-items: center; justify-content: space-between; gap: 30px; padding: 42px 40px; }
   .hero-content { min-width: 0; }
   .hero-logo { flex-shrink: 0; }
-  .medallion { width: 154px; height: 154px; border-radius: 50%; padding: 12px; display: flex; align-items: center; justify-content: center;
+  .medallion { width: 154px; height: 154px; border-radius: 50%; padding: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
     background: radial-gradient(circle at 34% 26%, #fffdf9, #efe7d6);
-    box-shadow: 0 14px 42px rgba(0,0,0,.5), 0 0 0 1px rgba(230,197,111,.45), 0 0 46px rgba(230,197,111,.18); }
-  .medallion img, .medallion svg { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }
-  .medallion svg { color: #b8860b; }
+    box-shadow: 0 14px 42px rgba(0,0,0,.5), 0 0 0 2px rgba(230,197,111,.6), 0 0 46px rgba(230,197,111,.2); }
+  .medallion img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.24) translateY(1.5%); }
+  .medallion svg { width: 100%; height: 100%; object-fit: contain; color: #b8860b; }
   @media (max-width: 620px) {
     .hero-inner { flex-direction: column-reverse; text-align: center; align-items: center; gap: 22px; padding: 34px 24px; }
     .hero .sub { margin-inline: auto; }
@@ -113,11 +113,11 @@
   .upload::after {
     content: ""; position: absolute; left: -18px; bottom: -22px; width: 188px; height: 188px;
     background-repeat: no-repeat; background-position: center; background-size: contain;
-    opacity: .18; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
-    filter: drop-shadow(0 0 2px rgba(230,197,111,.5));
+    opacity: .32; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+    filter: drop-shadow(0 0 2px rgba(230,197,111,.55));
   }
-  .upload:hover::after { opacity: .28; transform: scale(1.05); }
-  .upload.ok::after { opacity: .2; }
+  .upload:hover::after { opacity: .45; transform: scale(1.05); }
+  .upload.ok::after { opacity: .34; }
   #whCard::after {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e6c56f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 21V8.5L12 4l9 4.5V21'/%3E%3Cpath d='M2 21h20'/%3E%3Crect x='7' y='12' width='4' height='9'/%3E%3Crect x='13' y='12' width='4' height='9'/%3E%3Cpath d='M7 9h10'/%3E%3C/svg%3E");
   }
