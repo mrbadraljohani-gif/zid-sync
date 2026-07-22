@@ -86,6 +86,7 @@
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
+  body { overflow-x: hidden; }   /* أمان ضد أي فيض أفقي على الشاشات الصغيرة */
   .wrap { max-width: 1560px; margin: 0 auto; }
   /* كل الأقسام تملأ العرض الكامل (تصميم عريض) */
 
@@ -136,10 +137,16 @@
   .medallion img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.24) translateY(1.5%); filter: invert(1) hue-rotate(180deg); }
   .medallion svg { width: 100%; height: 100%; object-fit: contain; color: var(--gold-2); }
   @media (max-width: 620px) {
-    .hero-inner { flex-direction: column-reverse; text-align: center; align-items: center; gap: 22px; padding: 34px 24px; }
-    .hero .sub { margin-inline: auto; }
+    body { padding: 26px 13px 60px; }
+    .topbar { flex-wrap: wrap; gap: 12px; }
+    .topbar-side { flex: 1 1 100%; justify-content: space-between; }
+    .hero-inner { flex-direction: column-reverse; text-align: center; align-items: center; gap: 22px; padding: 30px 20px; }
+    .hero::after { display: none; }
+    h1 { font-size: 26px; }
+    .hero .sub { margin-inline: auto; font-size: 14px; }
     .hero .badges { justify-content: center; }
     .medallion { width: 124px; height: 124px; }
+    .maprow input, .maprow button { flex: 1 1 100%; }
   }
   .badges { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
   .badge { font-size: 12px; font-weight: 700; color: var(--muted); background: rgba(255,255,255,.07); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; display: inline-flex; align-items: center; gap: 6px; }
@@ -220,6 +227,7 @@
   }
   .btn-dl:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(123,168,132,.4); }
   .error { background: rgba(229,144,135,.12); color: var(--danger); border: 1px solid rgba(229,144,135,.28); padding: 11px 15px; border-radius: 10px; font-size: 13.5px; margin: 10px 0; display: none; }
+  .rebind-hint { background: rgba(230,197,111,.10); color: var(--gold-2); border: 1px solid var(--border-strong); border-radius: 10px; padding: 11px 15px; font-size: 13.5px; font-weight: 700; margin: 10px 0; }
   .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
   .stat { text-align: center; flex: 1; min-width: 90px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 8px; }
   .stat b { font-size: 26px; display: block; }
@@ -411,6 +419,7 @@
   </div>
 
   <button class="btn-run" id="runBtn" disabled onclick="run()">🔄 طابق وأنشئ الملف المحدث</button>
+  <div class="rebind-hint" id="rebindHint" style="display:none">⟳ عدّلت الروابط بعد آخر مطابقة — اضغط «طابق وأنشئ الملف المحدث» ليشمل الملفُ التغييرات قبل التحميل.</div>
   <div class="error" id="err"></div>
 
   <div class="card" id="result">
@@ -445,8 +454,8 @@
       <div id="whResults" class="wh-results"></div>
     </div>
     <div class="maprow">
-      <input type="text" id="mSku" placeholder="SKU في زد (مثال: 80207)">
-      <input type="text" id="mCode" placeholder="كود المستودع (اختره من البحث أعلاه)">
+      <input type="text" id="mSku" placeholder="SKU في زد (مثال: 80207)" onkeydown="if(event.key==='Enter')addMapping()">
+      <input type="text" id="mCode" placeholder="كود المستودع (اختره من البحث أعلاه)" onkeydown="if(event.key==='Enter')addMapping()">
       <button class="btn-run sm" onclick="addMapping()">حفظ الربط</button>
     </div>
     <div class="pills" id="pills"></div>
@@ -459,7 +468,7 @@
       <div class="repo-body" id="repoBody">
         <p class="hint">الروابط تُحفظ في الريبو مباشرةً (لا في المتصفح) — تلقائياً بعد تحميل الملف المحدّث، فتبقى دائمة وتظهر على أي جهاز. أدخل رمز GitHub مرة واحدة (بصلاحية Contents: Read and write على مستودع <b>zid-sync</b> فقط)؛ يُخزَّن الرمز في متصفحك فقط ولا يُرفع لأي مكان.</p>
         <div class="maprow">
-          <input type="password" id="ghToken" placeholder="رمز GitHub (github_pat_… أو ghp_…)">
+          <input type="password" id="ghToken" placeholder="رمز GitHub (github_pat_… أو ghp_…)" onkeydown="if(event.key==='Enter')saveToken()">
           <button class="btn-run sm" onclick="saveToken()">حفظ الرمز</button>
           <button class="btn-run sm export-btn" onclick="saveToRepo('حفظ يدوي')">☁ حفظ الآن في الريبو</button>
         </div>
@@ -865,6 +874,7 @@ function checkReady() { document.getElementById("runBtn").disabled = !(whRows &&
 
 function run(reprocess) {
   showErr("");
+  document.getElementById("rebindHint").style.display = "none";   // أُعيدت المطابقة ⇒ الملف محدّث
   try {
     const whIndex = {};
     for (const r of whRows) {
@@ -1229,6 +1239,13 @@ function applyBind(it) {
   manualMap[normCode(it.skuN)] = normCode(it.suggestion.code);
   boundSet.add(normCode(it.skuN));
   it.bound = true;
+  markDirty();
+}
+// تنبيه: تغيّرت الروابط بعد آخر مطابقة ⇒ الملف الحالي لا يعكسها حتى يُعاد التشغيل
+function markDirty() {
+  if (document.getElementById("result").style.display !== "block") return; // لا معنى له قبل أول مطابقة
+  const h = document.getElementById("rebindHint");
+  if (h) h.style.display = "block";
 }
 // إزالة صف بسلاسة دون إعادة ترتيب البقية (لا قفز للأعلى)
 function fadeRemoveRow(i) {
@@ -1309,6 +1326,7 @@ function addMapping() {
   document.getElementById("mSku").value = ""; document.getElementById("mCode").value = "";
   document.getElementById("whSearch").value = ""; document.getElementById("whResults").innerHTML = "";
   renderPills();
+  markDirty();
 }
 
 function renderPills() {
@@ -1316,7 +1334,7 @@ function renderPills() {
   document.getElementById("pills").innerHTML = Object.entries(manualMap)
     .map(([s, c]) => `<span class="pill"><span class="mono">${s} → ${c}</span><button onclick="delMap('${s}')">×</button></span>`).join("");
 }
-function delMap(s) { delete manualMap[s]; localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); renderPills(); }
+function delMap(s) { delete manualMap[s]; localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); renderPills(); markDirty(); }
 
 applyOpts();
 applyTheme(currentTheme());   // ضبط تسمية زر الوضع حسب الحالة المحفوظة
