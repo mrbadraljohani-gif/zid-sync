@@ -110,6 +110,20 @@
   .theme-btn { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: var(--gold-2); cursor: pointer; font-family: inherit;
     border: 1px solid var(--border-strong); border-radius: 20px; padding: 8px 14px; background: var(--panel); white-space: nowrap; transition: all .15s; }
   .theme-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--panel-2); }
+  .gh-menu { position: relative; }
+  .gh-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold-2); display: inline-block; flex-shrink: 0; }
+  .gh-dot.ok { background: #4fae63; box-shadow: 0 0 0 3px rgba(79,174,99,.18); }
+  .gh-dot.warn { background: var(--gold-2); }
+  .gh-dot.fail { background: var(--danger); box-shadow: 0 0 0 3px rgba(229,144,135,.18); }
+  .gh-panel { position: absolute; top: calc(100% + 8px); inset-inline-end: 0; z-index: 60; width: 330px; max-width: 88vw; text-align: start;
+    background: #1c1810; border: 1px solid var(--border-strong); border-radius: 14px; padding: 14px; box-shadow: 0 18px 46px rgba(0,0,0,.5); }
+  :root[data-theme="light"] .gh-panel { background: #fffdf7; border-color: rgba(150,108,24,.45); box-shadow: 0 18px 46px rgba(120,90,20,.18); }
+  .gh-panel .clabel { margin-bottom: 8px; }
+  .gh-panel .hint { margin: 0 0 10px; }
+  .gh-panel input { width: 100%; margin-bottom: 9px; }
+  .gh-panel-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .gh-panel-btns .btn-run { flex: 1 1 auto; margin: 0; }
+  .gh-export { width: 100%; margin-top: 10px !important; }
   .topbar-tag { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted);
     border: 1px solid var(--border); border-radius: 20px; padding: 8px 15px; white-space: nowrap; background: var(--panel); }
   .tag-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold-2); box-shadow: 0 0 0 3px rgba(230,197,111,.15); animation: tagPulse 2.4s ease-in-out infinite; }
@@ -371,6 +385,20 @@
     </div>
     <div class="topbar-side">
       <button type="button" class="theme-btn" id="themeBtn" onclick="toggleTheme()">☀ الوضع الفاتح</button>
+      <div class="gh-menu">
+        <button type="button" class="theme-btn" id="ghBtn" onclick="toggleGhMenu(event)"><span class="gh-dot" id="ghDot"></span>☁ الحفظ في الريبو</button>
+        <div class="gh-panel" id="ghPanel" style="display:none">
+          <div class="clabel">☁ الحفظ المباشر في الريبو (GitHub)</div>
+          <p class="hint">الروابط تُحفظ في الريبو تلقائياً بعد تحميل الملف المحدّث. أدخل رمز GitHub مرة واحدة (بصلاحية Contents: Read and write على مستودع <b>zid-sync</b>)؛ يُخزَّن في متصفحك فقط.</p>
+          <input type="password" id="ghToken" placeholder="رمز GitHub (github_pat_… أو ghp_…)" onkeydown="if(event.key==='Enter')saveToken()">
+          <div class="gh-panel-btns">
+            <button class="btn-run sm" onclick="saveToken()">حفظ الرمز</button>
+            <button class="btn-run sm export-btn" onclick="saveToRepo('حفظ يدوي')">☁ حفظ الآن</button>
+          </div>
+          <div id="repoStatus" class="repo-status"></div>
+          <button class="btn-run sm export-btn gh-export" onclick="exportConfig()">⬇ تصدير يدوي (بديل بدون رمز)</button>
+        </div>
+      </div>
       <div class="topbar-tag"><span class="tag-dot"></span>أداة مزامنة المخزون</div>
     </div>
   </header>
@@ -464,27 +492,6 @@
       <button class="btn-run sm" onclick="addMapping()">حفظ الربط</button>
     </div>
     <div class="pills" id="pills"></div>
-
-    <div class="repo-box">
-      <button type="button" class="repo-toggle" id="repoToggle" onclick="toggleRepoBox()">
-        <span>☁ إعداد الحفظ في الريبو (GitHub)</span>
-        <span class="repo-caret" id="repoCaret">▾</span>
-      </button>
-      <div class="repo-body" id="repoBody">
-        <p class="hint">الروابط تُحفظ في الريبو مباشرةً (لا في المتصفح) — تلقائياً بعد تحميل الملف المحدّث، فتبقى دائمة وتظهر على أي جهاز. أدخل رمز GitHub مرة واحدة (بصلاحية Contents: Read and write على مستودع <b>zid-sync</b> فقط)؛ يُخزَّن الرمز في متصفحك فقط ولا يُرفع لأي مكان.</p>
-        <div class="maprow">
-          <input type="password" id="ghToken" placeholder="رمز GitHub (github_pat_… أو ghp_…)" onkeydown="if(event.key==='Enter')saveToken()">
-          <button class="btn-run sm" onclick="saveToken()">حفظ الرمز</button>
-          <button class="btn-run sm export-btn" onclick="saveToRepo('حفظ يدوي')">☁ حفظ الآن في الريبو</button>
-        </div>
-      </div>
-      <div id="repoStatus" class="repo-status"></div>
-    </div>
-
-    <div class="export-row">
-      <button class="btn-run sm export-btn" onclick="exportConfig()">⬇ تصدير يدوي (mapping.json + ignored.json)</button>
-      <span class="hint" style="margin:0">بديل احتياطي بدون رمز: حمّل الملفين وارفعهما إلى جذر المشروع يدوياً.</span>
-    </div>
   </div>
 
   <details class="card" id="ignoredCard" style="display:none">
@@ -741,9 +748,8 @@ let lastSavedSig = "";
 
 function repoStatus(cls, msg) {
   const st = document.getElementById("repoStatus");
-  if (!st) return;
-  st.className = "repo-status" + (cls ? " " + cls : "");
-  st.textContent = msg;
+  if (st) { st.className = "repo-status" + (cls ? " " + cls : ""); st.textContent = msg || ""; }
+  setGhDot(cls);   // اعكس الحالة على المؤشر الأخضر/الكهرماني/الأحمر في الترويسة
 }
 // تبديل الوضع الفاتح/الغامق (يُحفظ الاختيار)
 const THEME_KEY = "zid-theme";
@@ -756,19 +762,13 @@ function applyTheme(t) {
 }
 function toggleTheme() { applyTheme(currentTheme() === "light" ? "dark" : "light"); }
 
-// طيّ/فتح قسم إعداد GitHub (يُحفظ الاختيار — إعداد لمرة واحدة)
-const REPO_COLLAPSE_KEY = "zid-repo-collapsed";
-function applyRepoCollapsed(collapsed) {
-  document.getElementById("repoBody").style.display = collapsed ? "none" : "";
-  document.getElementById("repoCaret").textContent = collapsed ? "▸" : "▾";
-  document.getElementById("repoToggle").classList.toggle("collapsed", collapsed);
-}
-function toggleRepoBox() {
-  const collapsed = localStorage.getItem(REPO_COLLAPSE_KEY) === "1";
-  localStorage.setItem(REPO_COLLAPSE_KEY, collapsed ? "0" : "1");
-  applyRepoCollapsed(!collapsed);
-}
-function expandRepoBox() { localStorage.setItem(REPO_COLLAPSE_KEY, "0"); applyRepoCollapsed(false); }
+// قائمة GitHub المنسدلة من الترويسة
+function toggleGhMenu(e) { if (e) e.stopPropagation(); const p = document.getElementById("ghPanel"); (p.style.display === "none") ? openGhMenu() : closeGhMenu(); }
+function openGhMenu() { document.getElementById("ghPanel").style.display = "block"; setTimeout(() => document.addEventListener("click", ghOutside), 0); }
+function closeGhMenu() { document.getElementById("ghPanel").style.display = "none"; document.removeEventListener("click", ghOutside); }
+function ghOutside(e) { if (!e.target.closest(".gh-menu")) closeGhMenu(); }
+// مؤشر حالة الرمز على زر الترويسة (أخضر = محفوظ، كهرماني = غير مُدخل، أحمر = فشل)
+function setGhDot(cls) { const d = document.getElementById("ghDot"); if (d) d.className = "gh-dot" + (cls ? " " + cls : ""); }
 
 function saveToken() {
   const inp = document.getElementById("ghToken");
@@ -810,7 +810,7 @@ async function saveToRepo(reason) {
     repoStatus("ok", `✓ حُفظت الروابط في الريبو (${Object.keys(manualMap).length} ربط) — قد تظهر على الأجهزة الأخرى خلال دقيقة.`);
   } catch (e) {
     repoStatus("fail", "✗ فشل الحفظ في الريبو: " + e.message + " — تحقّق من الرمز وصلاحياته.");
-    expandRepoBox();   // افتح القسم ليتمكّن من إصلاح الرمز
+    openGhMenu();   // افتح القائمة ليتمكّن من إصلاح الرمز
   }
 }
 // صمام الأمان: يتأكد أن المخرجات مطابقة للأصل ولم يتغير سوى الكمية والسعر
@@ -1366,12 +1366,9 @@ applyTheme(currentTheme());   // ضبط تسمية زر الوضع حسب الح
   renderPills();
   // الحالة المحمّلة من الريبو هي المرجع الحالي — لا نعيد حفظها ما لم تتغيّر
   lastSavedSig = JSON.stringify(manualMap, null, 2) + " " + JSON.stringify([...ignoredSet].sort(), null, 2);
+  // مؤشر أخضر فقط عند وجود رمز محفوظ (بدون نص)، وإلا كهرماني
   const hasToken = !!localStorage.getItem(TOKEN_KEY);
-  if (hasToken) repoStatus("ok", "✓ رمز GitHub محفوظ — ستُحفظ الروابط في الريبو تلقائياً بعد تحميل الملف المحدّث.");
-  else repoStatus("warn", "⚠ لم يُدخل رمز GitHub بعد — أدخله ليُحفظ الربط في الريبو مباشرةً.");
-  // الحالة الابتدائية للطيّ: احترم اختيار المستخدم إن وُجد، وإلا اطوِ تلقائياً متى وُجد رمز (الإعداد تمّ)
-  const pref = localStorage.getItem(REPO_COLLAPSE_KEY);
-  applyRepoCollapsed(pref != null ? pref === "1" : hasToken);
+  repoStatus(hasToken ? "ok" : "warn", "");
 })();
 </script>
 </body>
