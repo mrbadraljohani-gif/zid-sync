@@ -170,6 +170,16 @@
   .stat span { font-size: 12px; color: var(--muted); }
   .twrap { max-height: 65vh; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
   .wh-name { color: var(--muted); }
+  .row-warn td { background: rgba(229,144,135,.10); }
+  .warn-flag { display: inline-block; margin-inline-start: 8px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(229,144,135,.16); color: var(--danger); border: 1px solid rgba(229,144,135,.4); white-space: nowrap; }
+  .mini-btn { border: 1px solid var(--border-strong); background: transparent; color: var(--muted); border-radius: 8px; padding: 5px 9px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
+  .mini-btn:hover { border-color: var(--gold); color: var(--gold-2); }
+  .mini-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+  .exc-bar { background: rgba(229,144,135,.08); border: 1px solid rgba(229,144,135,.3); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+  .exc-head { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--danger); flex-wrap: wrap; }
+  .exc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .exc-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px; font-size: 12.5px; color: var(--text); }
+  .exc-undo { border: none; background: none; cursor: pointer; color: var(--gold-2); font-size: 15px; line-height: 1; padding: 0; }
   table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: fixed; }
   th { text-align: right; padding: 12px; background: #1b1710; position: sticky; top: 0; z-index: 3; color: var(--gold-2); font-weight: 800; white-space: nowrap; box-shadow: inset 0 -1px 0 var(--border-strong); }
   td { padding: 8px 12px; border-top: 1px solid var(--border); color: var(--text); vertical-align: top; word-wrap: break-word; overflow-wrap: anywhere; }
@@ -392,14 +402,16 @@
 <script>
 const MAP_KEY = "zid-manual-mapping-v1";
 const IGN_KEY = "zid-ignored-v1";
+const EXC_KEY = "zid-excluded-v1";
 const OPT_KEY = "zid-options-v1";
 let whRows = null, stData = null;
 let opts = { price: "incl", inf: "skip" };
 let manualMap = {};
 let ignoredSet = new Set();
+let excludedSet = new Set();           // أصناف استبعدها المستخدم يدوياً من المطابقة (تبقى كما هي)
 let boundSet = new Set();
 let lastWhList = [], lastUnmatchedRaw = [], lastUnmatched = [], lastIgnored = [];
-let lastUpdated = [], lastInfinite = [], currentFilter = "new";
+let lastUpdated = [], lastInfinite = [], lastExcluded = [], currentFilter = "new";
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
 
 // تحميل mapping.json و ignored.json عبر fetch، ودمجهما مع localStorage (يتعامل مع 404 بهدوء)
@@ -413,8 +425,12 @@ async function loadConfig() {
   manualMap = Object.assign({}, (baseMap && typeof baseMap === "object") ? baseMap : {}, localMap);
   const merged = [...(Array.isArray(baseIgn) ? baseIgn : []), ...(Array.isArray(localIgn) ? localIgn : [])];
   ignoredSet = new Set(merged.map(normCode).filter(Boolean));
+  let localExc = [];
+  try { localExc = JSON.parse(localStorage.getItem(EXC_KEY) || "[]"); } catch {}
+  excludedSet = new Set((Array.isArray(localExc) ? localExc : []).map(normCode).filter(Boolean));
 }
 function saveIgnored() { localStorage.setItem(IGN_KEY, JSON.stringify([...ignoredSet])); }
+function saveExcluded() { localStorage.setItem(EXC_KEY, JSON.stringify([...excludedSet])); }
 
 const normCode = v => {
   if (v === null || v === undefined) return "";
@@ -656,7 +672,7 @@ async function onStore(inp) {
 
 function checkReady() { document.getElementById("runBtn").disabled = !(whRows && stData); }
 
-function run() {
+function run(reprocess) {
   showErr("");
   try {
     const whIndex = {};
@@ -682,12 +698,14 @@ function run() {
     const iSku = H.indexOf("sku"), iQty = H.indexOf("quantity"), iPrice = H.indexOf("price"), iName = H.indexOf("name_ar");
     const out = stData.rows.map(r => [...r]);
     let updated = 0, skippedInf = 0, qtyCount = 0, priceCount = 0;
-    const unmatched = [], updatedList = [], infiniteList = [];
+    const unmatched = [], updatedList = [], infiniteList = [], excludedList = [];
 
     for (let i = 1; i < out.length; i++) {
       const row = out[i], rawSku = row[iSku];
       if (!rawSku) continue;
       const skuN = normCode(rawSku);
+      // مستبعد يدوياً من المطابقة: يبقى الصف كما هو في الملف دون أي تحديث
+      if (excludedSet.has(skuN)) { excludedList.push({ sku: String(rawSku), skuN, name: row[iName] || "" }); continue; }
       const isInf = String(row[iQty]).trim().toLowerCase() === "infinite";
       const whCode = manualMap[skuN] || (whIndex[skuN] ? skuN : null) || (whIndex[baseOf(rawSku)] ? baseOf(rawSku) : null);
       const wh = whCode ? whIndex[whCode] : null;
@@ -744,12 +762,12 @@ function run() {
     lastUnmatchedRaw = unmatched;
     lastUpdated = updatedList;
     lastInfinite = infiniteList;
-    boundSet = new Set();
-    currentFilter = "new";
+    lastExcluded = excludedList;
+    if (!reprocess) { boundSet = new Set(); currentFilter = "new"; }
     refreshUnmatchedUI();
 
     document.getElementById("result").style.display = "block";
-    document.getElementById("result").scrollIntoView({ behavior: "smooth" });
+    if (!reprocess) document.getElementById("result").scrollIntoView({ behavior: "smooth" });
   } catch (x) { showErr("خطأ أثناء المعالجة: " + x.message); }
 }
 
@@ -813,8 +831,9 @@ function renderDetail() {
     updateBindAllCount();
   } else if (f === "updated") {
     bindBtn.style.display = "none";
-    title.textContent = `الأصناف المحدَّثة (${lastUpdated.length}) — كاملة`;
-    wrap.innerHTML = updatedTableHTML(lastUpdated);
+    const susp = lastUpdated.filter(isSuspicious).length;
+    title.textContent = `الأصناف المحدَّثة (${lastUpdated.length}) — كاملة` + (susp ? ` · ⚠ ${susp} تحتاج مراجعة` : "");
+    wrap.innerHTML = excludedBannerHTML() + updatedTableHTML(lastUpdated);
   } else if (f === "infinite") {
     bindBtn.style.display = "none";
     title.textContent = `كمية غير محدودة — تُركت كما هي (${lastInfinite.length}${cap(lastInfinite.length)})`;
@@ -850,25 +869,52 @@ function chgCellPrice(oldV, newV) {
   const o = priceInt(oldV), n = priceInt(newV);
   return chgCell(o == null ? oldV : o, n == null ? newV : n);
 }
+// تشابه اسم المنتج بين زد والمستودع (بلا أرقام) — للكشف عن مطابقة كود خاطئة (اسمان مختلفان لنفس الكود)
+function updatedNameSim(u) {
+  const zc = coreTokens(nameTokens(u.name || "")), wc = coreTokens(nameTokens(u.whName || ""));
+  return (zc.length && wc.length) ? nameSimTokens(zc, wc) : (u.whName ? 0 : 1);
+}
+function isSuspicious(u) { return !!u.whName && updatedNameSim(u) < 0.34; }
+
 function updatedTableHTML(list) {
-  const rows = list.map(u => {
+  // ارصد المشبوهة (اسم مختلف رغم تطابق الكود) وارفعها لأعلى الجدول
+  const enr = list.map(u => ({ u, warn: isSuspicious(u), sim: updatedNameSim(u) }));
+  enr.sort((a, b) => (a.warn !== b.warn) ? (a.warn ? -1 : 1) : (a.warn ? a.sim - b.sim : 0));
+  const rows = enr.map(({ u, warn }) => {
     const zp = priceInt(u.oldPrice);                                   // سعر زد (قبل التحديث)
     const wp = priceInt(u.whPrice != null ? u.whPrice : u.newPrice);   // سعر المستودع
-    const badge = priceBadge(u.oldPrice, u.whPrice != null ? u.whPrice : u.newPrice); // مؤشر تطابق السعر للتحقق
-    return `<tr data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
+    const badge = priceBadge(u.oldPrice, u.whPrice != null ? u.whPrice : u.newPrice); // مؤشر تطابق السعر
+    const flag = warn ? `<span class="warn-flag" title="الكود مطابق لكن اسم المنتج مختلف — تحقق قبل الاعتماد">⚠ راجع</span>` : "";
+    return `<tr class="${warn ? "row-warn" : ""}" data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
       `<td class="mono">${esc(u.sku)}</td>` +
-      `<td>${esc(u.name) || "—"}</td>` +
+      `<td>${esc(u.name) || "—"}${flag}</td>` +
       `<td class="wh-name">${esc(u.whName) || "—"}</td>` +
       `<td class="mono">${zp != null ? fmtPrice(zp) : "—"}</td>` +
       `<td class="mono">${wp != null ? fmtPrice(wp) : "—"} ${badge}</td>` +
-      `<td>${chgCell(u.oldQty, u.newQty)}</td></tr>`;
+      `<td>${chgCell(u.oldQty, u.newQty)}</td>` +
+      `<td><button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="لا تُحدّث هذا الصنف — اتركه كما هو في زد">✕ شيلها</button></td></tr>`;
   }).join("");
   return `<table>
-    <colgroup><col class="c-sku"><col><col><col style="width:80px"><col style="width:120px"><col style="width:150px"></colgroup>
-    <thead><tr><th>SKU زد</th><th>اسم المنتج (زد)</th><th>اسم المنتج (المستودع)</th><th>سعر زد</th><th>سعر المستودع</th><th>الكمية (السابق → الجديد)</th></tr></thead>
+    <colgroup><col class="c-sku"><col><col><col style="width:70px"><col style="width:110px"><col style="width:130px"><col style="width:96px"></colgroup>
+    <thead><tr><th>SKU زد</th><th>اسم المنتج (زد)</th><th>اسم المنتج (المستودع)</th><th>سعر زد</th><th>سعر المستودع</th><th>الكمية (السابق → الجديد)</th><th>إجراء</th></tr></thead>
     <tbody id="unBody">${rows}</tbody>
   </table>`;
 }
+
+// شريط الأصناف المستبعدة يدوياً من المطابقة + استعادتها
+function excludedBannerHTML() {
+  if (!lastExcluded.length) return "";
+  const chips = lastExcluded.map(u =>
+    `<span class="exc-chip">${esc(u.name) || esc(u.sku)} <button class="exc-undo" onclick="restoreExcluded('${esc(u.skuN)}')" title="استعادة للمطابقة">↺</button></span>`).join("");
+  return `<div class="exc-bar">
+    <div class="exc-head">🚫 مستبعدة من المطابقة (${lastExcluded.length}) — تبقى كما هي في زد
+      <button class="mini-btn" onclick="restoreAllExcluded()">استعادة الكل</button></div>
+    <div class="exc-chips">${chips}</div>
+  </div>`;
+}
+function excludeUpdated(skuN) { excludedSet.add(normCode(skuN)); saveExcluded(); run(true); }
+function restoreExcluded(skuN) { excludedSet.delete(normCode(skuN)); saveExcluded(); run(true); }
+function restoreAllExcluded() { excludedSet.clear(); saveExcluded(); run(true); }
 
 function listTableHTML(list) {
   const rows = list.map(u => `<tr data-search="${esc(normText(u.sku + " " + u.name))}"><td class="mono">${esc(u.sku)}</td><td>${esc(u.name) || "—"}</td></tr>`).join("");
