@@ -312,6 +312,8 @@
   .chg { direction: ltr; unicode-bidi: isolate; display: inline-flex; align-items: center; gap: 7px; font-family: ui-monospace, Consolas, monospace; }
   .chg .old { color: var(--muted-2); text-decoration: line-through; }
   .chg .new { color: var(--green-2); font-weight: 800; }
+  .qty-cell .chg { font-size: 15.5px; gap: 9px; white-space: nowrap; }
+  .qty-cell .chg .new { font-size: 17px; }
   /* شارات الحالة + المقاس */
   .cat-badge { display: inline-block; padding: 3px 11px; border-radius: 20px; font-size: 12px; font-weight: 800; }
   .cat-upd { background: rgba(157,208,166,.16); color: var(--green-2); }
@@ -1153,29 +1155,42 @@ function updatedNameSim(u) {
   const zc = coreTokens(nameTokens(u.name || "")), wc = coreTokens(nameTokens(u.whName || ""));
   return (zc.length && wc.length) ? nameSimTokens(zc, wc) : (u.whName ? 0 : 1);
 }
-function isSuspicious(u) { return !!u.whName && updatedNameSim(u) < 0.34; }
+// أسباب «يحتاج مراجعة» المحددة لصنف محدّث (حسب المنطق الموجود) — تُعرض في tooltip الشارة
+function reviewReasons(u) {
+  const r = [];
+  if (u.whName && updatedNameSim(u) < 0.34)
+    r.push("الكود مطابق لكن اسم المنتج يختلف عن اسمه في المستودع — تأكّد أنهما نفس المنتج");
+  const pd = priceDiffPct(u.oldPrice, u.whPrice != null ? u.whPrice : u.newPrice);
+  if (pd != null && pd > 50)
+    r.push(`فرق سعري كبير بين زد (${fmtPrice(priceInt(u.oldPrice))}) والمستودع (${fmtPrice(priceInt(u.whPrice != null ? u.whPrice : u.newPrice))}) — ${Math.round(pd)}٪`);
+  if (Number(u.newQty) === 0)
+    r.push("الكمية الجديدة = 0، سيصبح المنتج غير متوفر في المتجر");
+  return r;
+}
+function isSuspicious(u) { return reviewReasons(u).length > 0; }
 
 function updatedTableHTML(list) {
-  // ارصد المشبوهة (اسم مختلف رغم تطابق الكود) وارفعها لأعلى الجدول
-  const enr = list.map(u => ({ u, warn: isSuspicious(u), sim: updatedNameSim(u) }));
-  enr.sort((a, b) => (a.warn !== b.warn) ? (a.warn ? -1 : 1) : (a.warn ? a.sim - b.sim : 0));
-  const rows = enr.map(({ u, warn }) => {
+  // ارصد الأصناف التي تحتاج مراجعة (اسم مختلف / فرق سعر كبير / كمية صفر) وارفعها لأعلى الجدول
+  const enr = list.map(u => ({ u, reasons: reviewReasons(u), sim: updatedNameSim(u) }));
+  enr.sort((a, b) => (!!a.reasons.length !== !!b.reasons.length) ? (a.reasons.length ? -1 : 1) : (a.reasons.length ? a.sim - b.sim : 0));
+  const rows = enr.map(({ u, reasons }) => {
+    const warn = reasons.length > 0;
     const zp = priceInt(u.oldPrice);                                   // سعر زد (قبل التحديث)
     const wp = priceInt(u.whPrice != null ? u.whPrice : u.newPrice);   // سعر المستودع
     const badge = priceBadge(u.oldPrice, u.whPrice != null ? u.whPrice : u.newPrice); // مؤشر تطابق السعر
-    const flag = warn ? `<span class="warn-flag" title="الكود مطابق لكن اسم المنتج مختلف — تحقق قبل الاعتماد">⚠ راجع</span>` : "";
+    const flag = warn ? `<span class="warn-flag" title="${esc("سبب المراجعة: " + reasons.join("  •  "))}">⚠ راجع</span>` : "";
     return `<tr class="${warn ? "row-warn" : ""}" data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
       `<td class="mono">${esc(u.sku)}</td>` +
       `<td><div class="prodcell">${thumb(u.img)}<span>${esc(u.name) || "—"}${flag}</span></div></td>` +
       `<td class="wh-name">${esc(u.whName) || "—"}</td>` +
       `<td class="mono">${zp != null ? fmtPrice(zp) : "—"}</td>` +
       `<td class="mono">${wp != null ? fmtPrice(wp) : "—"} ${badge}</td>` +
-      `<td>${chgCell(u.oldQty, u.newQty)}</td>` +
+      `<td class="qty-cell">${chgCell(u.oldQty, u.newQty)}</td>` +
       `<td class="act-cell"><button class="mini-btn" onclick="downloadOne('${esc(u.skuN)}')" title="نزّل ملف اختبار يحوي هذا المنتج وحده لتجرّبه في زد قبل الاستيراد الكامل">🧪 جرّب</button>` +
       `<button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="لا تُحدّث هذا الصنف — اتركه كما هو في زد">✕ شيلها</button></td></tr>`;
   }).join("");
   return `<table>
-    <colgroup><col class="c-sku"><col><col><col style="width:70px"><col style="width:110px"><col style="width:130px"><col style="width:150px"></colgroup>
+    <colgroup><col class="c-sku"><col><col><col style="width:70px"><col style="width:110px"><col style="width:190px"><col style="width:150px"></colgroup>
     <thead><tr><th>SKU زد</th><th>اسم المنتج (زد)</th><th>اسم المنتج (المستودع)</th><th>سعر زد</th><th>سعر المستودع</th><th>الكمية (السابق → الجديد)</th><th>إجراء</th></tr></thead>
     <tbody id="unBody">${rows}</tbody>
   </table>`;
