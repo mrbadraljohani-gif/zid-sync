@@ -86,9 +86,8 @@
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 1320px; margin: 0 auto; }
-  /* الأقسام العلوية بعرض مريح متمركز، وقسم النتائج يملأ العرض الكامل — الكل على محور واحد */
-  .wrap > *:not(#result) { max-width: 860px; margin-inline: auto; }
+  .wrap { max-width: 1560px; margin: 0 auto; }
+  /* كل الأقسام تملأ العرض الكامل (تصميم عريض) */
 
   /* Brand top bar */
   .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; padding-bottom: 18px;
@@ -121,7 +120,14 @@
       radial-gradient(680px 320px at 14% 22%, rgba(230,197,111,.16), transparent 62%),
       linear-gradient(135deg, #1e1911, #14110c 55%, #100d09);
     box-shadow: 0 22px 55px rgba(0,0,0,.4); }
-  .hero-inner { display: flex; align-items: center; justify-content: space-between; gap: 30px; padding: 42px 40px; }
+  /* علامة مائية خفيفة (مستودع ⇄ متجر) توازن الجهة الفارغة من الهيرو في العرض الكامل */
+  .hero::after {
+    content: ""; position: absolute; left: 40px; top: 50%; transform: translateY(-50%); z-index: 0;
+    width: min(46%, 560px); height: 78%; pointer-events: none; opacity: .07;
+    background: no-repeat left center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 48' fill='none' stroke='%23e6c56f' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 44V20L24 10l18 10v24'/%3E%3Cpath d='M4 44h40'/%3E%3Crect x='14' y='27' width='7' height='17'/%3E%3Crect x='27' y='27' width='7' height='17'/%3E%3Cpath d='M14 21h20'/%3E%3Cpath d='M58 16h10M58 16l4-4M58 16l4 4'/%3E%3Cpath d='M62 32H52M62 32l-4-4M62 32l-4 4' transform='translate(20 0)'/%3E%3Cpath d='M78 20h36l-2.4 8.4a5 5 0 0 1-4.8 3.6H85.2a5 5 0 0 1-4.8-3.6L78 20z'/%3E%3Cpath d='M82 32v12h28V32'/%3E%3Cpath d='M104 44v-8h6v8'/%3E%3Crect x='88' y='36' width='8' height='8'/%3E%3C/svg%3E");
+  }
+  :root[data-theme="light"] .hero::after { opacity: .10; }
+  .hero-inner { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 30px; padding: 42px 40px; }
   .hero-content { min-width: 0; }
   .hero-logo { flex-shrink: 0; }
   .medallion { width: 154px; height: 154px; border-radius: 50%; padding: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
