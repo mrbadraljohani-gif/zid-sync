@@ -435,6 +435,8 @@ function normText(s) {
   return s.toLowerCase().replace(/\s+/g, " ").trim();
 }
 function nameTokens(s) { const t = normText(s); return t ? t.split(" ").filter(Boolean) : []; }
+// كلمات المنتج بلا أرقام (تستبعد المقاسات والأكواد الرقمية) — لقياس تقارب الاسم الحقيقي
+function coreTokens(list) { return list.filter(t => !/^\d+(?:\.\d+)?$/.test(t)); }
 
 // مسافة Levenshtein بين كلمتين
 function lev(a, b) {
@@ -518,24 +520,31 @@ function sizesMatch(n1, n2) {
 // تماماً ⇒ نبحث عن أقرب اسم في المستودع ونطابق به (لا نعتمد على قرب الكود إطلاقاً)
 function suggestFor(skuN, nm, whList, zidPrice) {
   const nt = nameTokens(nm);
+  const ntCore = coreTokens(nt);
   const zp = priceInt(zidPrice);
   let best = null;
   for (const w of whList) {
     const ns = nameSimTokens(nt, w.tokens);
     if (ns <= 0) continue;
-    const match = sizesMatch(nm, w.name);       // نفس المقاس ⇒ ترجيح قوي
+    // تشابه الكلمات الحقيقي (بلا أرقام) — حتى لا يرفع المقاس المشترك وحده درجة التطابق
+    const nsCore = (ntCore.length && w.tokensCore.length) ? nameSimTokens(ntCore, w.tokensCore) : 0;
+    const match = sizesMatch(nm, w.name);       // نفس المقاس
     const conflict = sizesConflict(nm, w.name); // مقاس مختلف ⇒ خصم
     const wp = priceInt(w.price);
-    const priceEq = zp != null && wp != null && zp === wp; // نفس السعر ⇒ ترجيح إضافي
-    const score = ns + (match ? 1.0 : 0) - (conflict ? 0.5 : 0) + (priceEq ? 0.3 : 0);
-    if (!best || score > best.score) best = { w, ns, match, conflict, priceEq, score };
+    const pd = (zp != null && wp != null) ? Math.abs(zp - wp) / Math.max(zp, wp) : null;
+    const priceEq = pd != null && pd <= 0.05;   // نفس السعر تقريباً ⇒ ترجيح
+    const priceFar = pd != null && pd >= 0.55;  // فرق سعري كبير جداً (≈الضعف فأكثر) ⇒ غالباً منتج مختلف
+    // ترجيح المقاس يُعتمد فقط مع تقارب فعلي في الكلمات وعدم تباعد السعر بشكل كبير
+    const sizeTrust = match && nsCore >= 0.35 && !priceFar;
+    const score = ns + (sizeTrust ? 1.0 : (match ? 0.15 : 0)) - (conflict ? 0.5 : 0) + (priceEq ? 0.3 : 0) - (priceFar ? 0.3 : 0);
+    if (!best || score > best.score) best = { w, ns, nsCore, match, conflict, priceEq, priceFar, sizeTrust, score };
   }
-  // يُقبل التطابق إذا كان تشابه الاسم ≥60%، أو ≥45% مع تطابق المقاس
-  if (!best || !(best.ns >= 0.60 || (best.match && best.ns >= 0.45))) return null;
+  // يُقبل التطابق إذا كان تشابه الاسم ≥60%، أو ≥45% مع تطابق مقاس موثوق (كلمات متقاربة + سعر غير متباعد)
+  if (!best || !(best.ns >= 0.60 || (best.sizeTrust && best.ns >= 0.45))) return null;
   let sim = best.ns, sizeMismatch = false, sizeMatch = false;
-  if (best.match) { sim = Math.min(0.99, best.ns + 0.25); sizeMatch = true; }   // مكافأة تطابق المقاس
-  else if (best.conflict) { sim = Math.min(sim, 0.40); sizeMismatch = true; }   // عقوبة اختلاف المقاس
-  if (best.priceEq && !sizeMismatch) sim = Math.min(0.99, sim + 0.10);           // تطابق السعر يرفع الثقة
+  if (best.sizeTrust) { sim = Math.min(0.99, best.ns + 0.25); sizeMatch = true; }  // مكافأة تطابق المقاس الموثوق
+  else if (best.conflict) { sim = Math.min(sim, 0.40); sizeMismatch = true; }       // عقوبة اختلاف المقاس
+  if (best.priceEq && !sizeMismatch) sim = Math.min(0.99, sim + 0.10);              // تطابق السعر يرفع الثقة
   return { code: best.w.code, name: best.w.name, price: best.w.price, sim, ns: best.ns, by: "name", sizeMatch, sizeMismatch };
 }
 
@@ -666,7 +675,7 @@ function run() {
         name: kName ? String(r[kName]).trim() : "",
       };
     }
-    const whList = Object.keys(whIndex).map(code => ({ code, name: whIndex[code].name || "", tokens: nameTokens(whIndex[code].name || ""), price: whIndex[code].incl }));
+    const whList = Object.keys(whIndex).map(code => { const tk = nameTokens(whIndex[code].name || ""); return { code, name: whIndex[code].name || "", tokens: tk, tokensCore: coreTokens(tk), price: whIndex[code].incl }; });
 
     const H = stData.header;
     const iSku = H.indexOf("sku"), iQty = H.indexOf("quantity"), iPrice = H.indexOf("price"), iName = H.indexOf("name_ar");
