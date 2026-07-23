@@ -335,6 +335,15 @@
   .test-bar .btn-run.sm { margin: 0; }
   .chk-cell { text-align: center; }
   .test-chk { width: 17px; height: 17px; accent-color: var(--gold); cursor: pointer; }
+  /* تحذير تصادم التطبيع */
+  .col-warn { background: rgba(229,144,135,.12); border: 1px solid rgba(229,144,135,.5); border-radius: 12px; padding: 12px 15px; margin-bottom: 14px; }
+  .col-warn-head { color: var(--danger); font-weight: 800; font-size: 14px; line-height: 1.6; }
+  .col-warn details { margin-top: 8px; }
+  .col-warn summary { cursor: pointer; color: var(--gold-2); font-weight: 700; font-size: 13px; }
+  .col-list { margin-top: 8px; max-height: 260px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+  .col-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
+  .col-pill b { color: var(--danger); font-family: ui-monospace, Consolas, monospace; }
+  .col-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(229,144,135,.18); color: var(--danger); border: 1px solid rgba(229,144,135,.5); font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
   .exc-bar { background: rgba(229,144,135,.08); border: 1px solid rgba(229,144,135,.3); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
   .exc-head { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--danger); flex-wrap: wrap; }
   .exc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -544,6 +553,7 @@
   <div class="error" id="err"></div>
 
   <div class="card" id="result">
+    <div id="collisionWarn" style="display:none"></div>
     <div id="newAlert" class="alert-new" style="display:none" onclick="scrollToNew()"></div>
     <div class="clabel">النتيجة</div>
     <div class="stats">
@@ -641,6 +651,7 @@ let boundSet = new Set();
 let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [], lastIgnored = [];
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
 let lastUpdated = [], lastInfinite = [], lastExcluded = [], currentFilter = "new";
+let lastCollisions = [];   // مجموعات أكواد زد الخام المتصادمة بعد التطبيع
 let lastQtyRows = null, lastPriceRows = null;   // صفوف الملفين الناتجين (لتنزيل صف اختبار واحد)
 let testSelected = new Set();                   // أصناف محدّدة لتنزيل ملف اختبار جماعي
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
@@ -671,6 +682,20 @@ async function loadConfig() {
 function saveIgnored() { localStorage.setItem(IGN_KEY, JSON.stringify([...ignoredSet])); }
 function saveExcluded() { localStorage.setItem(EXC_KEY, JSON.stringify([...excludedSet])); }
 function saveOffsets() { localStorage.setItem(OFF_KEY, JSON.stringify(priceOffsets)); }
+// ترحيل mapping.json من المفاتيح المطبَّعة القديمة إلى مفاتيح SKU الخام (يعتمد الأصفار كما في زد)
+function migrateMapping(rawByNorm, rawSet) {
+  let changed = false;
+  const out = {};
+  for (const [k, v] of Object.entries(manualMap)) {
+    if (rawSet.has(k)) { out[k] = v; continue; }                 // مفتاح خام صحيح موجود بالملف
+    const grp = rawByNorm[normCode(k)];
+    const raws = grp ? Object.keys(grp) : [];
+    if (raws.length === 1) { out[raws[0]] = v; changed = true; } // ينطبق على كود خام واحد ⇒ حوّله تلقائياً
+    else if (raws.length > 1) { changed = true; }                // غامض (يتصادم) ⇒ أسقطه ليُعاد ربطه يدوياً
+    else { out[k] = v; }                                         // ليس في هذا الملف ⇒ أبقه كما هو
+  }
+  if (changed) { manualMap = out; localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); renderPills(); }
+}
 
 const normCode = v => {
   if (v === null || v === undefined) return "";
@@ -1085,6 +1110,22 @@ function run(reprocess) {
     const iImg = detectImageCol(H, rows0);                      // عمود صور زد (إن وُجد)
     const imgOf = row => (iImg >= 0 ? firstUrl(row[iImg]) : "");
 
+    // === كشف «تصادم التطبيع»: أكواد زد خام مختلفة تتطابق بعد normCode (مثل 80156 و080156) ===
+    const rawByNorm = {}, rawSet = new Set(), nameByRaw = {};
+    for (let i = 1; i < rows0.length; i++) {
+      const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue;
+      const raw = String(rs); rawSet.add(raw);
+      if (!(raw in nameByRaw)) nameByRaw[raw] = rows0[i][iName] || "";
+      const k = normCode(rs); (rawByNorm[k] || (rawByNorm[k] = {}))[raw] = true;
+    }
+    const collidedNorm = new Set();
+    lastCollisions = [];
+    for (const k in rawByNorm) {
+      const raws = Object.keys(rawByNorm[k]);
+      if (raws.length >= 2) { collidedNorm.add(k); lastCollisions.push({ norm: k, items: raws.map(s => ({ sku: s, name: nameByRaw[s] || "" })) }); }
+    }
+    migrateMapping(rawByNorm, rawSet);   // ترحيل mapping.json إلى مفاتيح SKU الخام
+
     let qtyCount = 0, priceCount = 0, infConverted = 0;
     const unmatched = [], updatedList = [], infiniteList = [], excludedList = [];
     // ملف الكميات: 4 أعمدة بالترتيب والتسميات الحرفية المطلوبة
@@ -1100,12 +1141,17 @@ function run(reprocess) {
       // مستبعد يدوياً من المطابقة: لا يُدرج في أي ملف
       if (excludedSet.has(skuN)) { excludedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "" }); continue; }
       const isInf = String(orig[iQty]).trim().toLowerCase() === "infinite";
-      const whCode = manualMap[skuN] || (whIndex[skuN] ? skuN : null) || (whIndex[baseOf(rawSku)] ? baseOf(rawSku) : null);
+      const rawKey = String(rawSku);
+      const collided = collidedNorm.has(skuN) ? Object.keys(rawByNorm[skuN]) : null;
+      // الربط اليدوي بالـSKU الخام أولاً؛ ثم — للأصناف غير المتصادمة فقط — المطابقة التلقائية بالكود
+      const mapped = manualMap[rawKey];
+      let whCode = mapped ? (whIndex[mapped] ? mapped : (whIndex[normCode(mapped)] ? normCode(mapped) : null)) : null;
+      if (!whCode && !collided) whCode = (whIndex[skuN] ? skuN : null) || (whIndex[baseOf(rawSku)] ? baseOf(rawSku) : null);
       const wh = whCode ? whIndex[whCode] : null;
       if (!wh) {
-        // غير محدود بلا مطابقة ⇒ لا يمكن استبداله بكمية حقيقية؛ غيره ⇒ يحتاج قرار/ربط
-        if (isInf) infiniteList.push({ sku: String(rawSku), skuN, name: orig[iName] || "" });
-        else unmatched.push({ sku: String(rawSku), skuN, name: orig[iName] || "", price: orig[iPrice], img: imgOf(orig) });
+        // كود متصادم بلا ربط يدوي ⇒ يحتاج قرار إلزامياً؛ غير محدود بلا مطابقة ⇒ قائمته؛ غيره ⇒ يحتاج قرار
+        if (isInf && !collided) infiniteList.push({ sku: rawKey, skuN, name: orig[iName] || "" });
+        else unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], img: imgOf(orig), collided });
         continue;
       }
       const oldQty = orig[iQty], oldPrice = orig[iPrice];
@@ -1183,10 +1229,23 @@ function run(reprocess) {
     lastExcluded = excludedList;
     if (!reprocess) { boundSet = new Set(); currentFilter = "new"; }
     refreshUnmatchedUI();
+    renderCollisionWarn();
 
     document.getElementById("result").style.display = "block";
     if (!reprocess) document.getElementById("result").scrollIntoView({ behavior: "smooth" });
   } catch (x) { showErr("خطأ أثناء المعالجة: " + x.message); }
+}
+function renderCollisionWarn() {
+  const el = document.getElementById("collisionWarn");
+  if (!el) return;
+  if (!lastCollisions.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+  const groups = lastCollisions.map(g =>
+    `<div class="col-row">${g.items.map(it => `<span class="col-pill"><b dir="ltr">${esc(it.sku)}</b> — ${esc(it.name) || "؟"}</span>`).join(" ⇄ ")}</div>`).join("");
+  el.style.display = "block";
+  el.innerHTML = `<div class="col-warn">
+    <div class="col-warn-head">⚠ يوجد ${lastCollisions.length} مجموعة من أكواد زد المتصادمة بعد التطبيع — المطابقة التلقائية بالكود معطّلة لها، اربطها يدوياً في «يحتاج قرار».</div>
+    <details><summary>عرض القائمة الكاملة (${lastCollisions.length} مجموعة)</summary><div class="col-list">${groups}</div></details>
+  </div>`;
 }
 
 /* ---------- تصنيف + عرض تفاصيل الفلاتر (البطاقات) ---------- */
@@ -1220,7 +1279,7 @@ function buildItems(raw) {
     let suggestion;
     if (suggCache.has(u.skuN)) suggestion = suggCache.get(u.skuN);
     else { suggestion = suggestFor(u.skuN, u.name, lastWhList, u.price); suggCache.set(u.skuN, suggestion); }
-    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, img: u.img || "", isZ, suggestion, bound: boundSet.has(normCode(u.skuN)), ignored: ignoredSet.has(normCode(u.skuN)) };
+    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, img: u.img || "", collided: u.collided || null, isZ, suggestion, bound: boundSet.has(String(u.sku)), ignored: ignoredSet.has(normCode(u.skuN)) };
   });
   // متغيّرات متعددة مرتبطة بنفس كود المستودع (نفس الاقتراح لأكثر من صنف) ⇒ 🔀
   const codeCount = {};
@@ -1243,7 +1302,7 @@ function renderDetail() {
   document.getElementById("unBlock").style.display = "block";
 
   if (f === "new" || f === "unmatched") {
-    const notBound = u => !boundSet.has(normCode(u.skuN));
+    const notBound = u => !boundSet.has(String(u.sku));
     const raw = (f === "new")
       ? lastUnmatchedRaw.filter(u => notBound(u) && !ignoredSet.has(normCode(u.skuN)))
       : lastUnmatchedRaw.filter(notBound);
@@ -1529,7 +1588,7 @@ function allTableHTML(list) {
 
 // شريط التنبيه البرتقالي + البطاقة الخامسة (يستبعد ما رُبط في هذه الجلسة)
 function updateNewCount() {
-  const newCount = lastUnmatchedRaw.filter(u => !ignoredSet.has(normCode(u.skuN)) && !boundSet.has(normCode(u.skuN))).length;
+  const newCount = lastUnmatchedRaw.filter(u => !ignoredSet.has(normCode(u.skuN)) && !boundSet.has(String(u.sku))).length;
   document.getElementById("sNew").textContent = newCount;
   const alert = document.getElementById("newAlert");
   if (newCount > 0) {
@@ -1566,11 +1625,12 @@ function cardHtml(it, i) {
   const pct = s ? Math.round(s.sim * 100) : 0;
   const reliable = !!s && pct >= 55;                 // أقل من 55% ⇒ لا يوجد اقتراح موثوق
   const autoTag = it.isZ ? `<span class="mc-auto" title="كود مُولّد آلياً من زد">كود آلي من زد</span>` : "";
+  const colTag = (it.collided && it.collided.length > 1) ? `<span class="col-tag" title="أكواد زد تتطابق بعد إزالة الأصفار — المطابقة التلقائية معطّلة، اربطه يدوياً">⚠ كود متصادم (${it.collided.map(esc).join(" / ")})</span>` : "";
   const zid = `<div class="mc-zid">
       <span class="mc-tag zid">ZID PRODUCT</span>
       <div class="mc-row">${thumb(it.img)}<div class="mc-txt">
         <div class="mc-name">${esc(it.name) || "—"}</div>
-        <div class="mc-sku">SKU: <span dir="ltr">${esc(it.sku)}</span>${autoTag}</div>
+        <div class="mc-sku">SKU: <span dir="ltr">${esc(it.sku)}</span>${autoTag}${colTag}</div>
         ${zidPrice != null ? `<div class="mc-sub">سعر زد: ${zidPrice} ر.س</div>` : ""}
       </div></div>
     </div>`;
@@ -1641,8 +1701,8 @@ function filterUnmatched() {
 }
 
 function applyBind(it) {
-  manualMap[normCode(it.skuN)] = normCode(it.suggestion.code);
-  boundSet.add(normCode(it.skuN));
+  manualMap[String(it.sku)] = normCode(it.suggestion.code);   // المفتاح = SKU الخام
+  boundSet.add(String(it.sku));
   it.bound = true;
   markDirty();
 }
@@ -1726,7 +1786,7 @@ function addMapping() {
   const sku = document.getElementById("mSku").value.trim();
   const code = document.getElementById("mCode").value.trim();
   if (!sku || !code) return;
-  manualMap[normCode(sku)] = normCode(code);
+  manualMap[sku] = normCode(code);   // المفتاح = SKU الخام كما في زد (بالأصفار)
   localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
   document.getElementById("mSku").value = ""; document.getElementById("mCode").value = "";
   document.getElementById("whSearch").value = ""; document.getElementById("whResults").innerHTML = "";
