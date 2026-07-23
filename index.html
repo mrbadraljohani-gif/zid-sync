@@ -1327,9 +1327,9 @@ function updatedTableHTML(list) {
     const flag = warn ? `<span class="warn-flag" title="${esc("سبب المراجعة: " + reasons.join("  •  "))}">⚠ راجع</span>` : "";
     const isVar = String(u.sku).includes(".");
     const offBtn = isVar ? `<button class="mini-btn" onclick="openOffset('${esc(u.skuN)}')" title="زيادة سعر لهذا المتغير عن سعر المستودع (إضافات مدفوعة)">⚙ زيادة</button>` : "";
-    const chk = testSelected.has(normCode(u.skuN)) ? "checked" : "";
+    const chk = testSelected.has(String(u.sku)) ? "checked" : "";
     return `<tr class="${warn ? "row-warn" : ""}" data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
-      `<td class="chk-cell"><input type="checkbox" class="test-chk" data-sku="${esc(u.skuN)}" ${chk} onchange="toggleTest('${esc(u.skuN)}', this.checked)"></td>` +
+      `<td class="chk-cell"><input type="checkbox" class="test-chk" data-sku="${esc(u.sku)}" ${chk} onchange="toggleTest('${esc(u.sku)}', this.checked)"></td>` +
       `<td class="mono">${esc(u.sku)}</td>` +
       `<td><div class="prodcell">${thumb(u.img)}<span>${esc(u.name) || "—"}${flag}</span></div></td>` +
       `<td class="wh-name">${esc(u.whName) || "—"}${(u.whBarcode || u.whCode) ? `<div class="wh-bar">باركود المستودع: <span dir="ltr">${esc(u.whBarcode || u.whCode)}</span></div>` : ""}</td>` +
@@ -1351,7 +1351,7 @@ function updatedTableHTML(list) {
   </table>`;
 }
 function toggleTest(sku, on) {
-  const k = normCode(sku);
+  const k = String(sku);   // نستخدم SKU الخام (فريد لكل صف) لا الكود المُطبَّع
   if (on) testSelected.add(k); else testSelected.delete(k);
   const n = document.getElementById("testN"); if (n) n.textContent = testSelected.size;
 }
@@ -1364,7 +1364,7 @@ function toggleAllTest() {
 function downloadSelected() {
   if (!testSelected.size) { showErr("حدّد صنفاً واحداً على الأقل من القائمة أولاً."); return; }
   const iSkuP = stData.header.indexOf("sku");
-  const inSel = sk => testSelected.has(normCode(sk));
+  const inSel = sk => testSelected.has(String(sk));
   const qtySel = (lastQtyRows || []).filter((r, i) => i > 0 && inSel(r[0]));
   const priceSel = (lastPriceRows || []).filter((r, i) => i > 0 && inSel(r[iSkuP]));
   const files = [];
