@@ -1007,6 +1007,14 @@ function run(reprocess) {
     const iName = H.indexOf("name_ar"), iNameEn = H.indexOf("name_en");
     const iImg = detectImageCol(H, rows0);                      // عمود صور زد (إن وُجد)
     const imgOf = row => (iImg >= 0 ? firstUrl(row[iImg]) : "");
+    // تشخيص مؤقت لعمود الصور
+    let imgDiag;
+    if (iImg < 0) imgDiag = "🖼️ لم يُكتشف عمود صور";
+    else {
+      let sample = "", withImg = 0;
+      for (let r = 1; r < rows0.length; r++) { const u = imgOf(rows0[r]); if (u) { withImg++; if (!sample) sample = u; } }
+      imgDiag = `🖼️ عمود الصور: "${H[iImg]}" (عمود ${iImg}) — ${withImg} صنف له صورة` + (sample ? ` — مثال: ${sample.slice(0, 60)}…` : " — لا روابط");
+    }
 
     let qtyCount = 0, priceCount = 0, infConverted = 0;
     const unmatched = [], updatedList = [], infiniteList = [], excludedList = [];
@@ -1082,7 +1090,7 @@ function run(reprocess) {
 
     if (vq.ok && vp.ok) {
       vm.className = "verify-ok"; vm.style.display = "block";
-      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف`;
+      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + `  ·  ${imgDiag}`;
     } else {
       vm.className = "verify-fail"; vm.style.display = "block";
       vm.textContent = "✗ تم إيقاف التحميل — " + [!vq.ok ? "ملف الكميات: " + vq.msg : "", !vp.ok ? "ملف الأسعار: " + vp.msg : ""].filter(Boolean).join(" | ");
