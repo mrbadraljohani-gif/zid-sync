@@ -718,14 +718,14 @@ function firstUrl(v) {
 }
 function imgExtUrl(v) { const m = String(v == null ? "" : v).match(/https?:\/\/[^\s,;|"'\[\]]+\.(?:jpe?g|png|webp|gif|avif)(?:\?[^\s,;|"'\[\]]*)?/i); return m ? m[0] : ""; }
 function detectImageCol(H, rows) {
-  const n = Math.min(rows.length, 200);
+  const n = rows.length;   // امسح كل الصفوف — الصور قد تكون متفرّقة بعد أول مئات المنتجات
   const nameHit = h => /image|images|img|photo|picture|صور|صوره|صورة|gallery|media/i.test(String(h));
   const hasUrls = c => { for (let r = 1; r < n; r++) if (firstUrl(rows[r][c])) return true; return false; };
   // 1) عمود اسمه صور/صورة ويحتوي روابط فعلاً (يتجاوز أعمدة الصور الفارغة قبله)
   for (let c = 0; c < H.length; c++) if (nameHit(H[c]) && hasUrls(c)) return c;
-  // 2) أي عمود يحتوي روابط صور فعلية (بامتداد صورة) حتى لو لم يطابق اسمه
+  // 2) أي عمود يحتوي روابط صور فعلية (بامتداد صورة) حتى لو لم يطابق اسمه — مسحٌ كامل بلا اعتماد على اسم العمود
   for (let c = 0; c < H.length; c++) for (let r = 1; r < n; r++) if (imgExtUrl(rows[r][c])) return c;
-  // 3) احتياط: أول عمود اسمه صور حتى لو بدا فارغاً في العيّنة
+  // 3) احتياط: أول عمود اسمه صور حتى لو بدا فارغاً
   return H.findIndex(nameHit);
 }
 // صورة مصغّرة — عند الفشل أو الغياب: placeholder رمادي بأيقونة 📦 (لا تظهر أبداً أيقونة صورة مكسورة)
