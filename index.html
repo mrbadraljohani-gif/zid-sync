@@ -1011,13 +1011,16 @@ function run(reprocess) {
     const iName = H.indexOf("name_ar"), iNameEn = H.indexOf("name_en");
     const iImg = detectImageCol(H, rows0);                      // عمود صور زد (إن وُجد)
     const imgOf = row => (iImg >= 0 ? firstUrl(row[iImg]) : "");
-    // تشخيص مؤقت لعمود الصور
+    // تشخيص مؤقت: اسرد كل الأعمدة التي فيها روابط لأعرف عمود صور المنتج الصحيح
     let imgDiag;
-    if (iImg < 0) imgDiag = "🖼️ لم يُكتشف عمود صور";
-    else {
-      let sample = "", withImg = 0;
-      for (let r = 1; r < rows0.length; r++) { const u = imgOf(rows0[r]); if (u) { withImg++; if (!sample) sample = u; } }
-      imgDiag = `🖼️ عمود الصور: "${H[iImg]}" (عمود ${iImg}) — ${withImg} صنف له صورة` + (sample ? ` — مثال: ${sample.slice(0, 60)}…` : " — لا روابط");
+    {
+      const cols = [];
+      for (let c = 0; c < H.length; c++) {
+        let cnt = 0, sample = "";
+        for (let r = 1; r < rows0.length; r++) { const u = firstUrl(rows0[r][c]); if (u) { cnt++; if (!sample) sample = u; } }
+        if (cnt) cols.push(`[${c}] "${H[c]}" ×${cnt} → ${sample.slice(0, 40)}`);
+      }
+      imgDiag = `🖼️ المختار: عمود ${iImg} "${H[iImg] || "؟"}" · أعمدة الروابط: ${cols.join("  ||  ") || "لا شيء"}`;
     }
 
     let qtyCount = 0, priceCount = 0, infConverted = 0;
