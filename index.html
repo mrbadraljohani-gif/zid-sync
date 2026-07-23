@@ -719,13 +719,17 @@ function firstUrl(v) {
 function imgExtUrl(v) { const m = String(v == null ? "" : v).match(/https?:\/\/[^\s,;|"'\[\]]+\.(?:jpe?g|png|webp|gif|avif)(?:\?[^\s,;|"'\[\]]*)?/i); return m ? m[0] : ""; }
 function detectImageCol(H, rows) {
   const n = rows.length;   // امسح كل الصفوف — الصور قد تكون متفرّقة بعد أول مئات المنتجات
-  const nameHit = h => /image|images|img|photo|picture|صور|صوره|صورة|gallery|media/i.test(String(h));
+  const isCat = h => /categor|قسم|تصنيف|فئة/i.test(String(h));   // أعمدة صور الأقسام تُستبعد
+  const nameHit = h => /image|images|img|photo|picture|صور|صوره|صورة|gallery/i.test(String(h)) && !isCat(h);
+  const exact = h => /^(images?|product_images?|main_image|photos?|صور(?:ة)?(?: المنتج)?)$/i.test(String(h).trim());
   const hasUrls = c => { for (let r = 1; r < n; r++) if (firstUrl(rows[r][c])) return true; return false; };
-  // 1) عمود اسمه صور/صورة ويحتوي روابط فعلاً (يتجاوز أعمدة الصور الفارغة قبله)
+  // 1) عمود صور المنتج بالاسم الصريح (images/photo…) ويحتوي روابط — يتجاوز categories_images
+  for (let c = 0; c < H.length; c++) if (exact(H[c]) && !isCat(H[c]) && hasUrls(c)) return c;
+  // 2) اسمه يدل على صور المنتج (وليس صور الأقسام) ويحتوي روابط
   for (let c = 0; c < H.length; c++) if (nameHit(H[c]) && hasUrls(c)) return c;
-  // 2) أي عمود يحتوي روابط صور فعلية (بامتداد صورة) حتى لو لم يطابق اسمه — مسحٌ كامل بلا اعتماد على اسم العمود
-  for (let c = 0; c < H.length; c++) for (let r = 1; r < n; r++) if (imgExtUrl(rows[r][c])) return c;
-  // 3) احتياط: أول عمود اسمه صور حتى لو بدا فارغاً
+  // 3) أي عمود (غير أعمدة الأقسام) فيه روابط صور فعلية بامتداد
+  for (let c = 0; c < H.length; c++) if (!isCat(H[c])) for (let r = 1; r < n; r++) if (imgExtUrl(rows[r][c])) return c;
+  // 4) احتياط
   return H.findIndex(nameHit);
 }
 // صورة مصغّرة — عند الفشل أو الغياب: placeholder رمادي بأيقونة 📦 (لا تظهر أبداً أيقونة صورة مكسورة)
