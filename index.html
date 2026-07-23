@@ -254,9 +254,55 @@
   .wh-name { color: var(--muted); }
   .prodcell { display: flex; align-items: center; gap: 10px; }
   .prodcell > span { min-width: 0; }
-  .thumb-link { flex-shrink: 0; line-height: 0; }
-  .thumb { width: 44px; height: 44px; border-radius: 9px; object-fit: cover; border: 1px solid var(--border-strong); background: var(--panel); display: block; transition: transform .15s ease; }
-  .thumb-link:hover .thumb { transform: scale(1.06); border-color: var(--gold); }
+  .thumb { width: 56px; height: 56px; border-radius: 12px; overflow: hidden; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--panel-2); border: 1px solid var(--border); font-size: 24px; line-height: 1; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb.thumb-ph { color: var(--muted-2); }
+  /* ===== بطاقات المطابقة ===== */
+  .mcards { display: flex; flex-direction: column; gap: 12px; padding: 2px; }
+  .mcard { display: flex; align-items: stretch; gap: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; transition: opacity .25s ease, transform .25s ease, border-color .15s; }
+  .mcard.zrow { background: rgba(147,162,181,.05); }
+  .mcard.variant { border-inline-start: 3px solid var(--gold); background: rgba(230,197,111,.055); }
+  .mcard.bound { opacity: .55; }
+  .mcard.removing { opacity: 0; transform: scale(.97); }
+  .mc-tag { display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .12em; padding: 3px 9px; border-radius: 20px; margin-bottom: 8px; }
+  .mc-tag.zid { background: rgba(230,197,111,.16); color: var(--gold-2); border: 1px solid var(--border-strong); }
+  .mc-tag.whs { background: rgba(157,208,166,.14); color: var(--green-2); border: 1px solid rgba(157,208,166,.35); }
+  .mc-zid { flex: 1 1 34%; min-width: 0; }
+  .mc-row { display: flex; align-items: flex-start; gap: 11px; }
+  .mc-txt { min-width: 0; }
+  .mc-name { font-weight: 700; font-size: 14px; color: var(--text); line-height: 1.35; }
+  .mc-sku { font-family: ui-monospace, Consolas, monospace; direction: ltr; unicode-bidi: embed; font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .mc-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .mc-auto { display: inline-block; margin-inline-start: 6px; padding: 1px 7px; border-radius: 20px; font-size: 10px; font-weight: 800; background: rgba(147,162,181,.16); color: #a9b6c6; border: 1px solid rgba(147,162,181,.4); font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
+  .mc-mid { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 0 6px; border-inline: 1px dashed var(--border); }
+  .mc-mid .simbadge { margin: 0; font-size: 14px; padding: 3px 12px; }
+  .mc-mid .pbadge { margin: 0; }
+  .mc-arrow { font-size: 18px; color: var(--muted-2); margin-top: 2px; }
+  .mc-arrow.variant { font-size: 17px; }
+  .mc-none { font-size: 12.5px; color: var(--muted-2); font-weight: 700; white-space: nowrap; }
+  .ntag { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; }
+  .ntag.bad { background: rgba(229,144,135,.16); color: var(--danger); border: 1px solid rgba(229,144,135,.4); }
+  .ntag.ok { background: rgba(157,208,166,.16); color: var(--green-2); border: 1px solid rgba(157,208,166,.4); }
+  .mc-wh { flex: 1 1 30%; min-width: 0; }
+  .mc-wh-empty { opacity: 0; }
+  .mc-actions { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+  .mc-btn { border: none; border-radius: 9px; padding: 9px 16px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
+  .mc-btn.bind.gold { background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #0a1622; }
+  .mc-btn.bind.gold:hover { filter: brightness(1.06); }
+  .mc-btn.bind.outline { background: transparent; border: 1px solid var(--gold); color: var(--gold-2); }
+  .mc-btn.bind.outline:hover { background: rgba(230,197,111,.1); }
+  .mc-btn.ignore { background: transparent; border: 1px solid var(--border-strong); color: var(--muted); }
+  .mc-btn.ignore:hover { border-color: var(--danger); color: var(--danger); }
+  .mc-btn:disabled { opacity: .5; cursor: default; }
+  .sim-low { background: rgba(230,150,60,.18); color: #e6a34a; }
+  @media (max-width: 720px) {
+    .mcard { flex-wrap: wrap; }
+    .mc-mid { border-inline: none; border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border); width: 100%; flex-direction: row; padding: 8px 0; }
+    .mc-zid, .mc-wh { flex-basis: 100%; }
+    .mc-actions { flex-direction: row; flex-basis: 100%; }
+    .mc-btn { flex: 1; }
+    .mc-wh-empty { display: none; }
+  }
   .row-warn td { background: rgba(229,144,135,.10); }
   .warn-flag { display: inline-block; margin-inline-start: 8px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(229,144,135,.16); color: var(--danger); border: 1px solid rgba(229,144,135,.4); white-space: nowrap; }
   .mini-btn { border: 1px solid var(--border-strong); background: transparent; color: var(--muted); border-radius: 8px; padding: 5px 9px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
@@ -660,8 +706,17 @@ function sizesMatch(n1, n2) {
 }
 
 // كشف عمود صور المنتجات في تصدير زد (بالاسم أولاً ثم بفحص القيم) + استخراج أول رابط
-function firstUrl(v) { const m = String(v == null ? "" : v).match(/https?:\/\/[^\s,;|"']+/i); return m ? m[0] : ""; }
-function imgExtUrl(v) { const m = String(v == null ? "" : v).match(/https?:\/\/[^\s,;|"']+\.(?:jpe?g|png|webp|gif|avif)(?:\?[^\s,;|"']*)?/i); return m ? m[0] : ""; }
+// استخراج أول رابط صورة — يدعم صيغة زد "[رابط1], [رابط2]": يزيل الأقواس، يقسّم على الفاصلة، يأخذ الأول
+function firstUrl(v) {
+  if (v == null) return "";
+  let s = String(v).trim();
+  if (!s || /^none$/i.test(s)) return "";
+  s = s.replace(/[\[\]]/g, " ");
+  const first = s.split(",")[0].trim();
+  const m = first.match(/https?:\/\/[^\s,;|"'()]+/i);
+  return m ? m[0] : "";
+}
+function imgExtUrl(v) { const m = String(v == null ? "" : v).match(/https?:\/\/[^\s,;|"'\[\]]+\.(?:jpe?g|png|webp|gif|avif)(?:\?[^\s,;|"'\[\]]*)?/i); return m ? m[0] : ""; }
 function detectImageCol(H, rows) {
   let idx = H.findIndex(h => /image|images|img|photo|picture|صور|صوره|صورة/i.test(String(h)));
   if (idx >= 0) return idx;
@@ -669,10 +724,10 @@ function detectImageCol(H, rows) {
   for (let c = 0; c < H.length; c++) for (let r = 1; r < n; r++) if (imgExtUrl(rows[r][c])) return c;
   return -1;
 }
-// صورة مصغّرة قابلة للتكبير بالضغط (تُخفى تلقائياً إن فشل تحميلها)
+// صورة مصغّرة — عند الفشل أو الغياب: placeholder رمادي بأيقونة 📦 (لا تظهر أبداً أيقونة صورة مكسورة)
 function thumb(url) {
-  if (!url) return "";
-  return `<a class="thumb-link" href="${esc(url)}" target="_blank" rel="noopener"><img class="thumb" src="${esc(url)}" loading="lazy" referrerpolicy="no-referrer" alt="" onerror="this.closest('a').remove()"></a>`;
+  if (!url) return `<span class="thumb thumb-ph">📦</span>`;
+  return `<span class="thumb"><img src="${esc(url)}" loading="lazy" referrerpolicy="no-referrer" alt="" onerror="this.parentNode.classList.add('thumb-ph');this.parentNode.textContent='📦'"></span>`;
 }
 
 // فهرس معكوس: كلمة ⇒ عناصر المستودع التي تحتويها — لتقليص المرشحين وتسريع المطابقة الشاملة
@@ -725,7 +780,7 @@ function suggestFor(skuN, nm, whList, zidPrice) {
   if (best.sizeTrust) { sim = Math.min(0.99, best.ns + 0.25); sizeMatch = true; }  // مكافأة تطابق المقاس الموثوق
   else if (best.conflict) { sim = Math.min(sim, 0.40); sizeMismatch = true; }       // عقوبة اختلاف المقاس
   if (best.priceEq && !sizeMismatch) sim = Math.min(0.99, sim + 0.10);              // تطابق السعر يرفع الثقة
-  return { code: best.w.code, name: best.w.name, price: best.w.price, sim, ns: best.ns, by: "name", sizeMatch, sizeMismatch };
+  return { code: best.w.code, name: best.w.name, price: best.w.price, qty: best.w.qty, sim, ns: best.ns, by: "name", sizeMatch, sizeMismatch };
 }
 
 // تحليل الأسعار ومؤشر التطابق السعري
@@ -940,7 +995,7 @@ function run(reprocess) {
         name: kName ? String(r[kName]).trim() : "",
       };
     }
-    const whList = Object.keys(whIndex).map(code => { const tk = nameTokens(whIndex[code].name || ""); return { code, name: whIndex[code].name || "", tokens: tk, tokensCore: coreTokens(tk), price: whIndex[code].incl }; });
+    const whList = Object.keys(whIndex).map(code => { const tk = nameTokens(whIndex[code].name || ""); return { code, name: whIndex[code].name || "", tokens: tk, tokensCore: coreTokens(tk), price: whIndex[code].incl, qty: whIndex[code].qty }; });
 
     const H = stData.header;
     const rows0 = stData.rows;                                  // الصفوف الأصلية (لا تُعدّل)
@@ -1081,8 +1136,12 @@ function buildItems(raw) {
     let suggestion;
     if (suggCache.has(u.skuN)) suggestion = suggCache.get(u.skuN);
     else { suggestion = suggestFor(u.skuN, u.name, lastWhList, u.price); suggCache.set(u.skuN, suggestion); }
-    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, isZ, suggestion, bound: boundSet.has(normCode(u.skuN)), ignored: ignoredSet.has(normCode(u.skuN)) };
+    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, img: u.img || "", isZ, suggestion, bound: boundSet.has(normCode(u.skuN)), ignored: ignoredSet.has(normCode(u.skuN)) };
   });
+  // متغيّرات متعددة مرتبطة بنفس كود المستودع (نفس الاقتراح لأكثر من صنف) ⇒ 🔀
+  const codeCount = {};
+  items.forEach(it => { if (it.suggestion) codeCount[it.suggestion.code] = (codeCount[it.suggestion.code] || 0) + 1; });
+  items.forEach(it => { it.variant = !!(it.suggestion && codeCount[it.suggestion.code] > 1); });
   items.sort((a, b) => {
     const ra = sortRank(a), rb = sortRank(b);
     if (ra !== rb) return ra - rb;
@@ -1108,7 +1167,7 @@ function renderDetail() {
     lastUnmatched = items;
     bindBtn.style.display = (f === "new") ? "" : "none";
     title.textContent = (f === "new" ? "منتجات جديدة تحتاج قرارك" : "كل الأصناف بدون ربط") + ` (${raw.length}) — كاملة — اربطها أو تجاهلها`;
-    wrap.innerHTML = suggestionsTableHTML(items);
+    wrap.innerHTML = suggestionsCardsHTML(items);
     updateBindAllCount();
   } else if (f === "updated") {
     bindBtn.style.display = "none";
@@ -1132,13 +1191,6 @@ function renderDetail() {
   filterUnmatched();
 }
 
-function suggestionsTableHTML(items) {
-  return `<table>
-    <colgroup><col class="c-sku"><col><col><col class="c-act"><col class="c-act"></colgroup>
-    <thead><tr><th>SKU زد</th><th>اسم المنتج بزد</th><th>اسم المنتج في المستودع</th><th>ربط</th><th>تجاهل</th></tr></thead>
-    <tbody id="unBody">${items.map(rowHtml).join("")}</tbody>
-  </table>`;
-}
 
 function chgCell(oldV, newV) {
   const o = esc(String(oldV)), n = esc(String(newV));
@@ -1289,45 +1341,63 @@ function unignore(i) {
 
 function scrollToNew() { document.getElementById("unBlock").scrollIntoView({ behavior: "smooth", block: "start" }); }
 
-function rowHtml(it, i) {
+// بطاقة مطابقة: كتلة زد (يمين) · مؤشر (وسط) · مستودع (يسار الوسط) · أزرار (أقصى اليسار)
+function cardHtml(it, i) {
   const zidPrice = priceInt(it.price);
-  const nameCell = `<div class="prodcell">${thumb(it.img)}<span>${(esc(it.name) || "—") +
-    (zidPrice != null ? `<div class="price-line">سعر زد: ${zidPrice} ر.س</div>` : "")}</span></div>`;
-  let sugg, bind;
-  if (it.suggestion) {
-    const pct = Math.round(it.suggestion.sim * 100);
-    const cls = it.suggestion.sizeMismatch ? "sim-bad" : (pct >= 85 ? "sim-hi" : "sim-mid");
-    const whPrice = priceInt(it.suggestion.price);
-    const sizeTag = it.suggestion.sizeMismatch
-      ? `<span class="size-tag" title="المقاسات مختلفة بين المنتجين — تحقق قبل الربط">مقاس مختلف</span>`
-      : (it.suggestion.sizeMatch ? `<span class="size-ok" title="المقاس مطابق بين المنتجين">مقاس مطابق ✓</span>` : "");
-    const byTag = it.suggestion.by === "code" ? `<span class="by-code-tag" title="تشابه الاسم منخفض — التطابق بقرب الكود فقط، راجع الاسم">بالكود فقط</span>` : "";
-    sugg = `<span class="sugg-code">${esc(it.suggestion.code)}</span> <span class="sugg-name">${esc(it.suggestion.name)}</span>` +
-      `<span class="simbadge ${cls}">${pct}%</span>${priceBadge(it.price, it.suggestion.price)}${sizeTag}${byTag}` +
-      (whPrice != null ? `<div class="price-line">سعر المستودع: ${whPrice} ر.س</div>` : "");
-    bind = it.bound
-      ? `<button class="mini bind" disabled>مربوط ✓</button>`
-      : (it.ignored ? `<button class="mini bind" disabled>اربط ✓</button>` : `<button class="mini bind" onclick="bindRow(${i})">اربط ✓</button>`);
-  } else if (it.isZ) {
-    sugg = `<span class="sugg-note">كود آلي من زد — لا يوجد تطابق بالاسم</span>`;
-    bind = "";
+  const s = it.suggestion;
+  const pct = s ? Math.round(s.sim * 100) : 0;
+  const reliable = !!s && pct >= 55;                 // أقل من 55% ⇒ لا يوجد اقتراح موثوق
+  const autoTag = it.isZ ? `<span class="mc-auto" title="كود مُولّد آلياً من زد">كود آلي من زد</span>` : "";
+  const zid = `<div class="mc-zid">
+      <span class="mc-tag zid">ZID PRODUCT</span>
+      <div class="mc-row">${thumb(it.img)}<div class="mc-txt">
+        <div class="mc-name">${esc(it.name) || "—"}</div>
+        <div class="mc-sku">SKU: ${esc(it.sku)}${autoTag}</div>
+        ${zidPrice != null ? `<div class="mc-sub">سعر زد: ${zidPrice} ر.س</div>` : ""}
+      </div></div>
+    </div>`;
+  let mid, wh;
+  if (reliable) {
+    const simCls = pct >= 85 ? "sim-hi" : (pct >= 65 ? "sim-mid" : "sim-low");
+    const numTag = s.sizeMismatch ? `<span class="ntag bad" title="المقاسات مختلفة بين المنتجين">مقاس مختلف</span>`
+      : (s.sizeMatch ? `<span class="ntag ok" title="المقاس/الأرقام متطابقة بين المنتجين">الأرقام متطابقة</span>` : "");
+    const byTag = s.by === "code" ? `<span class="ntag bad" title="تشابه الاسم منخفض — التطابق بقرب الكود فقط">بالكود فقط</span>` : "";
+    const arrow = it.variant ? `<span class="mc-arrow variant" title="عدة متغيّرات مرتبطة بنفس كود المستودع">🔀</span>` : `<span class="mc-arrow">⇄</span>`;
+    mid = `<div class="mc-mid"><span class="simbadge ${simCls}">${pct}%</span>${priceBadge(it.price, s.price)}${numTag}${byTag}${arrow}</div>`;
+    const whPrice = priceInt(s.price);
+    wh = `<div class="mc-wh">
+        <span class="mc-tag whs">WAREHOUSE</span>
+        <div class="mc-name">${esc(s.name) || "—"}</div>
+        <div class="mc-sku">ID: ${esc(s.code)}</div>
+        ${whPrice != null ? `<div class="mc-sub">سعر المستودع: ${whPrice} ر.س</div>` : ""}
+        ${s.qty != null ? `<div class="mc-sub">الكمية: ${esc(String(s.qty))}</div>` : ""}
+      </div>`;
   } else {
-    sugg = `<span class="sugg-note">لا يوجد اقتراح مطابق بالاسم</span>`;
-    bind = "";
+    mid = `<div class="mc-mid"><span class="mc-none">لا يوجد اقتراح موثوق</span></div>`;
+    wh = `<div class="mc-wh mc-wh-empty"></div>`;
   }
-  const ignoreBtn = it.ignored
-    ? `<button class="mini ignore" disabled>متجاهَل</button>`
-    : (it.bound
-      ? `<button class="mini ignore" disabled>تجاهل ✗</button>`
-      : `<button class="mini ignore" onclick="ignoreRow(${i})">تجاهل ✗</button>`);
-  const search = esc(normText(it.sku + " " + it.name + " " + (it.suggestion ? it.suggestion.code + " " + it.suggestion.name : "")));
-  return `<tr id="un-${i}" class="${(it.isZ ? "zrow" : "") + (it.bound ? " bound" : "") + (it.ignored ? " ignored" : "")}" data-search="${search}">` +
-    `<td class="mono">${esc(it.sku)}</td>` +
-    `<td>${nameCell}</td>` +
-    `<td>${sugg}</td>` +
-    `<td>${bind}</td>` +
-    `<td>${ignoreBtn}</td>` +
-    `</tr>`;
+  let bindBtn;
+  if (it.bound) bindBtn = `<button class="mc-btn bind" disabled>مربوط ✓</button>`;
+  else if (reliable && pct >= 85) bindBtn = `<button class="mc-btn bind gold" onclick="bindRow(${i})">ربط المنتج</button>`;
+  else bindBtn = `<button class="mc-btn bind outline" onclick="startManualLink('${esc(it.skuN)}')">🔍 ربط يدوي</button>`;
+  const ignoreBtn = it.ignored ? `<button class="mc-btn ignore" disabled>متجاهَل</button>`
+    : `<button class="mc-btn ignore" onclick="ignoreRow(${i})">تجاهل</button>`;
+  const actions = `<div class="mc-actions">${bindBtn}${ignoreBtn}</div>`;
+  const search = esc(normText(it.sku + " " + it.name + " " + (s ? s.code + " " + s.name : "")));
+  const cls = "mcard" + (it.isZ ? " zrow" : "") + (it.bound ? " bound" : "") + (it.ignored ? " ignored" : "") + (it.variant ? " variant" : "");
+  return `<div id="un-${i}" class="${cls}" data-search="${search}">${zid}${mid}${wh}${actions}</div>`;
+}
+function suggestionsCardsHTML(items) {
+  return `<div class="mcards" id="unBody">${items.map(cardHtml).join("")}</div>`;
+}
+// فتح البحث الداخلي للربط اليدوي معبّأً بهذا الصنف (بكامل وظائف البحث الحالية)
+function startManualLink(skuN) {
+  const it = (lastUnmatched || []).find(x => normCode(x.skuN) === normCode(skuN));
+  document.getElementById("mSku").value = it ? it.sku : skuN;
+  const ws = document.getElementById("whSearch");
+  if (it && it.name) { ws.value = it.name; searchWarehouse(); }
+  document.getElementById("mSku").scrollIntoView({ behavior: "smooth", block: "center" });
+  ws.focus();
 }
 
 // صنف "مؤكد": تشابه اسم 90%+ وفرق سعري ≤5%
@@ -1340,9 +1410,9 @@ function isConfirmed(it) {
 
 function filterUnmatched() {
   const q = normText(document.getElementById("unSearch").value);
-  document.querySelectorAll("#unBody tr").forEach(tr => {
-    const hay = tr.getAttribute("data-search") || "";
-    tr.style.display = (!q || hay.includes(q)) ? "" : "none";
+  document.querySelectorAll("#unBody > *").forEach(el => {
+    const hay = el.getAttribute("data-search") || "";
+    el.style.display = (!q || hay.includes(q)) ? "" : "none";
   });
 }
 
