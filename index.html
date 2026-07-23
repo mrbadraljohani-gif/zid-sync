@@ -252,12 +252,20 @@
   .stat span { font-size: 12px; color: var(--muted); }
   .twrap { max-height: 65vh; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
   .wh-name { color: var(--muted); }
+  .wh-bar { font-size: 11.5px; color: var(--muted-2); margin-top: 3px; }
+  .wh-bar span { font-family: ui-monospace, Consolas, monospace; }
   .prodcell { display: flex; align-items: center; gap: 10px; }
   .prodcell > span { min-width: 0; }
   .thumb { width: 56px; height: 56px; border-radius: 12px; overflow: hidden; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--panel-2); border: 1px solid var(--border); font-size: 24px; line-height: 1; }
   .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .thumb.thumb-ph { color: var(--muted-2); }
   /* ===== بطاقات المطابقة ===== */
+  .mcards-head { display: flex; gap: 14px; padding: 6px 18px 6px; font-size: 11.5px; font-weight: 800; color: var(--gold); letter-spacing: .04em; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .mcards-head .mh-zid { flex: 1 1 34%; }
+  .mcards-head .mh-mid { flex: 0 0 auto; min-width: 96px; text-align: center; }
+  .mcards-head .mh-wh { flex: 1 1 30%; }
+  .mcards-head .mh-act { flex: 0 0 auto; min-width: 118px; text-align: center; }
+  @media (max-width: 720px) { .mcards-head { display: none; } }
   .mcards { display: flex; flex-direction: column; gap: 12px; padding: 2px; }
   .mcard { display: flex; align-items: stretch; gap: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; transition: opacity .25s ease, transform .25s ease, border-color .15s; }
   .mcard.zrow { background: rgba(147,162,181,.05); }
@@ -271,7 +279,8 @@
   .mc-row { display: flex; align-items: flex-start; gap: 11px; }
   .mc-txt { min-width: 0; }
   .mc-name { font-weight: 700; font-size: 14px; color: var(--text); line-height: 1.35; }
-  .mc-sku { font-family: ui-monospace, Consolas, monospace; direction: ltr; unicode-bidi: embed; font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .mc-sku { font-size: 12px; color: var(--muted); margin-top: 3px; text-align: start; }
+  .mc-sku span { font-family: ui-monospace, Consolas, monospace; }
   .mc-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
   .mc-auto { display: inline-block; margin-inline-start: 6px; padding: 1px 7px; border-radius: 20px; font-size: 10px; font-weight: 800; background: rgba(147,162,181,.16); color: #a9b6c6; border: 1px solid rgba(147,162,181,.4); font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
   .mc-mid { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 0 6px; border-inline: 1px dashed var(--border); }
@@ -994,6 +1003,7 @@ function run(reprocess) {
       const kIncl = keys.find(k => k.includes("شامل"));
       const kExcl = keys.find(k => k.includes("قبل"));
       const kName = keys.find(k => k.includes("اسم") || k.toLowerCase() === "name");
+      const kBar = keys.find(k => k.includes("باركود") || k.toLowerCase() === "barcode");
       const code = normCode(r[kCode]);
       if (!code) continue;
       whIndex[code] = {
@@ -1001,6 +1011,7 @@ function run(reprocess) {
         incl: kIncl ? (Number(r[kIncl]) || null) : null,
         excl: kExcl ? (Number(r[kExcl]) || null) : null,
         name: kName ? String(r[kName]).trim() : "",
+        barcode: kBar ? String(r[kBar]).trim() : "",
       };
     }
     const whList = Object.keys(whIndex).map(code => { const tk = nameTokens(whIndex[code].name || ""); return { code, name: whIndex[code].name || "", tokens: tk, tokensCore: coreTokens(tk), price: whIndex[code].incl, qty: whIndex[code].qty }; });
@@ -1062,7 +1073,7 @@ function run(reprocess) {
       }
       // جدول العرض للتحقق البصري
       if (qtyChanged || priceChanged) {
-        updatedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "", whName: wh.name || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), oldQty, newQty, oldPrice, newPrice, img: imgOf(orig) });
+        updatedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "", whName: wh.name || "", whCode, whBarcode: wh.barcode || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), oldQty, newQty, oldPrice, newPrice, img: imgOf(orig) });
       }
     }
 
@@ -1242,7 +1253,7 @@ function updatedTableHTML(list) {
     return `<tr class="${warn ? "row-warn" : ""}" data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
       `<td class="mono">${esc(u.sku)}</td>` +
       `<td><div class="prodcell">${thumb(u.img)}<span>${esc(u.name) || "—"}${flag}</span></div></td>` +
-      `<td class="wh-name">${esc(u.whName) || "—"}</td>` +
+      `<td class="wh-name">${esc(u.whName) || "—"}${(u.whBarcode || u.whCode) ? `<div class="wh-bar">باركود المستودع: <span dir="ltr">${esc(u.whBarcode || u.whCode)}</span></div>` : ""}</td>` +
       `<td class="mono">${zp != null ? fmtPrice(zp) : "—"}</td>` +
       `<td class="mono">${wp != null ? fmtPrice(wp) : "—"} ${badge}</td>` +
       `<td class="qty-cell">${chgCell(u.oldQty, u.newQty)}</td>` +
@@ -1360,7 +1371,7 @@ function cardHtml(it, i) {
       <span class="mc-tag zid">ZID PRODUCT</span>
       <div class="mc-row">${thumb(it.img)}<div class="mc-txt">
         <div class="mc-name">${esc(it.name) || "—"}</div>
-        <div class="mc-sku">SKU: ${esc(it.sku)}${autoTag}</div>
+        <div class="mc-sku">SKU: <span dir="ltr">${esc(it.sku)}</span>${autoTag}</div>
         ${zidPrice != null ? `<div class="mc-sub">سعر زد: ${zidPrice} ر.س</div>` : ""}
       </div></div>
     </div>`;
@@ -1376,7 +1387,7 @@ function cardHtml(it, i) {
     wh = `<div class="mc-wh">
         <span class="mc-tag whs">WAREHOUSE</span>
         <div class="mc-name">${esc(s.name) || "—"}</div>
-        <div class="mc-sku">ID: ${esc(s.code)}</div>
+        <div class="mc-sku">باركود المستودع: <span dir="ltr">${esc(s.code)}</span></div>
         ${whPrice != null ? `<div class="mc-sub">سعر المستودع: ${whPrice} ر.س</div>` : ""}
         ${s.qty != null ? `<div class="mc-sub">الكمية: ${esc(String(s.qty))}</div>` : ""}
       </div>`;
@@ -1396,7 +1407,13 @@ function cardHtml(it, i) {
   return `<div id="un-${i}" class="${cls}" data-search="${search}">${zid}${mid}${wh}${actions}</div>`;
 }
 function suggestionsCardsHTML(items) {
-  return `<div class="mcards" id="unBody">${items.map(cardHtml).join("")}</div>`;
+  return `<div class="mcards-head">
+      <span class="mh-zid">منتج زد</span>
+      <span class="mh-mid">المطابقة</span>
+      <span class="mh-wh">صنف المستودع</span>
+      <span class="mh-act">الإجراء</span>
+    </div>
+    <div class="mcards" id="unBody">${items.map(cardHtml).join("")}</div>`;
 }
 // فتح البحث الداخلي للربط اليدوي معبّأً بهذا الصنف (بكامل وظائف البحث الحالية)
 function startManualLink(skuN) {
