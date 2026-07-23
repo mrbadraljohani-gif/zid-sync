@@ -65,9 +65,11 @@
   :root[data-theme="light"] .cat-ign,
   :root[data-theme="light"] .btn-run:disabled { background: rgba(42,34,22,.06); }
   :root[data-theme="light"] input[type=text],
-  :root[data-theme="light"] input[type=password] { background: rgba(42,34,22,.04); }
+  :root[data-theme="light"] input[type=password],
+  :root[data-theme="light"] input[type=number] { background: rgba(42,34,22,.04); }
   :root[data-theme="light"] input[type=text]:focus,
-  :root[data-theme="light"] input[type=password]:focus { background: rgba(42,34,22,.07); }
+  :root[data-theme="light"] input[type=password]:focus,
+  :root[data-theme="light"] input[type=number]:focus { background: rgba(42,34,22,.07); }
   /* نصوص أزرار التعبئة الذهبية/الخضراء تصبح فاتحة لتباين أعلى فوق التدرّج الأغمق في الوضع الفاتح */
   :root[data-theme="light"] .btn-run:not(:disabled),
   :root[data-theme="light"] .step,
@@ -410,12 +412,13 @@
   details#ignoredCard summary::-webkit-details-marker { display: none; }
   details#ignoredCard[open] summary { color: var(--text); }
   #ignoredBody td { font-size: 14px; }
-  input[type=text] {
+  input[type=text], input[type=password], input[type=number] {
     padding: 11px 13px; border-radius: 10px; border: 1px solid var(--border-strong); font-size: 14px;
     background: rgba(255,255,255,.04); color: var(--text); outline: none; flex: 1; min-width: 150px; font-family: inherit; transition: border-color .15s;
   }
-  input[type=text]::placeholder { color: var(--muted-2); }
-  input[type=text]:focus { border-color: var(--gold); background: rgba(255,255,255,.06); }
+  input::placeholder { color: var(--muted-2); }
+  input[type=text]:focus, input[type=password]:focus, input[type=number]:focus { border-color: var(--gold); background: rgba(255,255,255,.06); }
+  .off-inline { min-width: 0; width: 96px; padding: 6px 9px; font-size: 13px; text-align: center; }
   .maprow { display: flex; gap: 8px; flex-wrap: wrap; }
   .map-counter { display: inline-flex; align-items: center; gap: 8px; background: rgba(230,197,111,.10); border: 1px solid rgba(230,197,111,.35); border-radius: 20px; padding: 7px 15px; font-size: 13.5px; font-weight: 700; color: var(--gold-2); margin-bottom: 12px; }
   .map-counter b { font-size: 16px; font-weight: 800; color: var(--gold-2); }
@@ -519,6 +522,18 @@
     </div>
     <p class="hint" style="margin:12px 2px 0">منتجات «الكمية غير المحدودة» المطابِقة تُستبدل تلقائياً بالكمية الحقيقية من المستودع في ملف الكميات.</p>
   </div>
+
+  <details class="card" id="offsetsCard" style="margin-top:14px" ontoggle="if(this.open)renderOffsetsList()">
+    <summary>⚙ الزيادات المحفوظة (<span id="offCount">0</span>) — اضغط للعرض والتعديل</summary>
+    <div style="margin-top:12px">
+      <input type="text" id="offSearch" placeholder="🔎 ابحث بالكود أو الاسم..." oninput="renderOffsetsList()">
+      <div class="twrap" style="max-height:340px;margin-top:10px"><table>
+        <colgroup><col class="c-sku"><col><col style="width:150px"><col style="width:90px"></colgroup>
+        <thead><tr><th>SKU زد</th><th>اسم المنتج</th><th>الزيادة (ر.س)</th><th>حذف</th></tr></thead>
+        <tbody id="offBody"></tbody>
+      </table></div>
+    </div>
+  </details>
 
   <button class="btn-run" id="runBtn" disabled onclick="run()">🔄 طابق وأنشئ الملف المحدث</button>
   <div class="rebind-hint" id="rebindHint" style="display:none">⟳ عدّلت الروابط بعد آخر مطابقة — اضغط «طابق وأنشئ الملف المحدث» ليشمل الملفُ التغييرات قبل التحميل.</div>
@@ -1397,9 +1412,51 @@ function saveOffset() {
   if (v > 0) priceOffsets[offsetCtx.skuN] = v; else delete priceOffsets[offsetCtx.skuN];
   saveOffsets();
   closeOffset();
+  renderOffsetsList();
   run(true);          // أعِد الحساب ليعكس الزيادة في الملف والجدول (وتُدفع للريبو عند التحميل التالي)
 }
 function closeOffset() { offsetCtx = null; document.getElementById("offOverlay").style.display = "none"; }
+
+// ===== قسم «الزيادات المحفوظة» (عرض/تعديل/حذف مباشر) =====
+function offsetNameMap() {   // خريطة skuN ⇒ اسم المنتج من تصدير زد (إن كان محمّلاً)
+  const m = {};
+  if (stData) {
+    const iSku = stData.header.indexOf("sku"), iName = stData.header.indexOf("name_ar");
+    if (iSku >= 0) for (let r = 1; r < stData.rows.length; r++) { const sk = normCode(stData.rows[r][iSku]); if (sk && !(sk in m)) m[sk] = iName >= 0 ? stData.rows[r][iName] : ""; }
+  }
+  return m;
+}
+function renderOffsetsList() {
+  const keys = Object.keys(priceOffsets);
+  const cnt = document.getElementById("offCount"); if (cnt) cnt.textContent = keys.length;
+  const body = document.getElementById("offBody"); if (!body) return;
+  const nm = offsetNameMap();
+  const q = normText((document.getElementById("offSearch") || {}).value || "");
+  const rows = keys
+    .map(sk => ({ sk, name: nm[sk] || "", val: priceOffsets[sk] }))
+    .filter(o => !q || normText(o.sk + " " + o.name).includes(q))
+    .sort((a, b) => String(a.sk).localeCompare(String(b.sk)))
+    .map(o => `<tr>` +
+      `<td class="mono">${esc(o.sk)}</td>` +
+      `<td>${esc(o.name) || "—"}</td>` +
+      `<td><input type="number" class="off-inline" value="${esc(String(o.val))}" onchange="editOffsetInline('${esc(o.sk)}', this.value)" onkeydown="if(event.key==='Enter')this.blur()"> ＋ر.س</td>` +
+      `<td><button class="mini-btn danger" onclick="deleteOffset('${esc(o.sk)}')" title="حذف الزيادة">✕</button></td>` +
+      `</tr>`).join("");
+  body.innerHTML = rows || `<tr><td colspan="4" style="color:var(--muted-2);padding:12px">لا توجد زيادات محفوظة بعد — أضِفها من زر «⚙ زيادة» في جدول «تم تحديثه».</td></tr>`;
+}
+function editOffsetInline(sk, value) {
+  const k = normCode(sk), v = Math.round(Number(value) || 0);
+  if (v > 0) priceOffsets[k] = v; else delete priceOffsets[k];
+  saveOffsets();
+  renderOffsetsList();
+  if (document.getElementById("result").style.display === "block") run(true);
+}
+function deleteOffset(sk) {
+  delete priceOffsets[normCode(sk)];
+  saveOffsets();
+  renderOffsetsList();
+  if (document.getElementById("result").style.display === "block") run(true);
+}
 
 function listTableHTML(list) {
   const rows = list.map(u => `<tr data-search="${esc(normText(u.sku + " " + u.name))}"><td class="mono">${esc(u.sku)}</td><td>${esc(u.name) || "—"}</td></tr>`).join("");
@@ -1643,8 +1700,9 @@ applyTheme(currentTheme());   // ضبط تسمية زر الوضع حسب الح
 (async () => {
   await loadConfig();
   renderPills();
+  renderOffsetsList();
   // الحالة المحمّلة من الريبو هي المرجع الحالي — لا نعيد حفظها ما لم تتغيّر
-  lastSavedSig = JSON.stringify(manualMap, null, 2) + " " + JSON.stringify([...ignoredSet].sort(), null, 2);
+  lastSavedSig = JSON.stringify(manualMap, null, 2) + " " + JSON.stringify([...ignoredSet].sort(), null, 2) + " " + JSON.stringify(priceOffsets, null, 2);
   // مؤشر أخضر فقط عند وجود رمز محفوظ (بدون نص)، وإلا كهرماني
   const hasToken = !!localStorage.getItem(TOKEN_KEY);
   repoStatus(hasToken ? "ok" : "warn", "");
