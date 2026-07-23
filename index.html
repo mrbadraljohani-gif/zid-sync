@@ -331,6 +331,10 @@
   .mini-btn:hover { border-color: var(--gold); color: var(--gold-2); }
   .mini-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
   .act-cell { display: flex; gap: 6px; flex-wrap: wrap; }
+  .test-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; padding: 10px 12px; background: rgba(230,197,111,.08); border: 1px solid var(--border-strong); border-radius: 10px; }
+  .test-bar .btn-run.sm { margin: 0; }
+  .chk-cell { text-align: center; }
+  .test-chk { width: 17px; height: 17px; accent-color: var(--gold); cursor: pointer; }
   .exc-bar { background: rgba(229,144,135,.08); border: 1px solid rgba(229,144,135,.3); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
   .exc-head { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--danger); flex-wrap: wrap; }
   .exc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -638,6 +642,7 @@ let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatch
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
 let lastUpdated = [], lastInfinite = [], lastExcluded = [], currentFilter = "new";
 let lastQtyRows = null, lastPriceRows = null;   // صفوف الملفين الناتجين (لتنزيل صف اختبار واحد)
+let testSelected = new Set();                   // أصناف محدّدة لتنزيل ملف اختبار جماعي
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
 
 // تحميل mapping.json و ignored.json عبر fetch، ودمجهما مع localStorage (يتعامل مع 404 بهدوء)
@@ -1171,7 +1176,7 @@ function run(reprocess) {
     // === تصنيف الأصناف بدون ربط + بيانات الفلاتر ===
     lastWhList = whList;
     lastWhTokenIndex = buildWhTokenIndex(whList);
-    if (!reprocess) suggCache = new Map();   // بيانات جديدة ⇒ أعِد بناء ذاكرة الاقتراحات
+    if (!reprocess) { suggCache = new Map(); testSelected = new Set(); }   // بيانات جديدة ⇒ أعِد بناء الذاكرة والتحديد
     lastUnmatchedRaw = unmatched;
     lastUpdated = updatedList;
     lastInfinite = infiniteList;
@@ -1322,7 +1327,9 @@ function updatedTableHTML(list) {
     const flag = warn ? `<span class="warn-flag" title="${esc("سبب المراجعة: " + reasons.join("  •  "))}">⚠ راجع</span>` : "";
     const isVar = String(u.sku).includes(".");
     const offBtn = isVar ? `<button class="mini-btn" onclick="openOffset('${esc(u.skuN)}')" title="زيادة سعر لهذا المتغير عن سعر المستودع (إضافات مدفوعة)">⚙ زيادة</button>` : "";
+    const chk = testSelected.has(normCode(u.skuN)) ? "checked" : "";
     return `<tr class="${warn ? "row-warn" : ""}" data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
+      `<td class="chk-cell"><input type="checkbox" class="test-chk" data-sku="${esc(u.skuN)}" ${chk} onchange="toggleTest('${esc(u.skuN)}', this.checked)"></td>` +
       `<td class="mono">${esc(u.sku)}</td>` +
       `<td><div class="prodcell">${thumb(u.img)}<span>${esc(u.name) || "—"}${flag}</span></div></td>` +
       `<td class="wh-name">${esc(u.whName) || "—"}${(u.whBarcode || u.whCode) ? `<div class="wh-bar">باركود المستودع: <span dir="ltr">${esc(u.whBarcode || u.whCode)}</span></div>` : ""}</td>` +
@@ -1332,11 +1339,50 @@ function updatedTableHTML(list) {
       `<td class="act-cell">${offBtn}<button class="mini-btn" onclick="downloadOne('${esc(u.skuN)}')" title="نزّل ملف اختبار يحوي هذا المنتج وحده لتجرّبه في زد قبل الاستيراد الكامل">🧪 جرّب</button>` +
       `<button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="لا تُحدّث هذا الصنف — اتركه كما هو في زد">✕ شيلها</button></td></tr>`;
   }).join("");
-  return `<table>
-    <colgroup><col class="c-sku"><col><col><col style="width:70px"><col style="width:110px"><col style="width:190px"><col style="width:150px"></colgroup>
-    <thead><tr><th>SKU زد</th><th>اسم المنتج (زد)</th><th>اسم المنتج (المستودع)</th><th>سعر زد</th><th>سعر المستودع</th><th>الكمية (السابق → الجديد)</th><th>إجراء</th></tr></thead>
+  return `<div class="test-bar">
+      <button class="btn-run sm" onclick="downloadSelected()">⬇ نزّل المحدّد للتجربة (<span id="testN">${testSelected.size}</span>)</button>
+      <button class="mini-btn" onclick="toggleAllTest()">تحديد/إلغاء المعروض</button>
+      <span class="hint" style="margin:0">حدّد أصنافاً ثم نزّلها في ملف اختبار واحد (كميات و/أو أسعار) لتجربتها دفعة واحدة في زد.</span>
+    </div>
+    <table>
+    <colgroup><col style="width:36px"><col class="c-sku"><col><col><col style="width:70px"><col style="width:110px"><col style="width:190px"><col style="width:150px"></colgroup>
+    <thead><tr><th></th><th>SKU زد</th><th>اسم المنتج (زد)</th><th>اسم المنتج (المستودع)</th><th>سعر زد</th><th>سعر المستودع</th><th>الكمية (السابق → الجديد)</th><th>إجراء</th></tr></thead>
     <tbody id="unBody">${rows}</tbody>
   </table>`;
+}
+function toggleTest(sku, on) {
+  const k = normCode(sku);
+  if (on) testSelected.add(k); else testSelected.delete(k);
+  const n = document.getElementById("testN"); if (n) n.textContent = testSelected.size;
+}
+function toggleAllTest() {
+  const chks = [...document.querySelectorAll("#unBody input.test-chk")].filter(c => { const tr = c.closest("tr"); return tr && tr.style.display !== "none"; });
+  const allOn = chks.length && chks.every(c => c.checked);
+  chks.forEach(c => { c.checked = !allOn; toggleTest(c.dataset.sku, c.checked); });
+}
+// تنزيل ملف اختبار جماعي للأصناف المحددة (كميات + أسعار حسب ما تغيّر)
+function downloadSelected() {
+  if (!testSelected.size) { showErr("حدّد صنفاً واحداً على الأقل من القائمة أولاً."); return; }
+  const iSkuP = stData.header.indexOf("sku");
+  const inSel = sk => testSelected.has(normCode(sk));
+  const qtySel = (lastQtyRows || []).filter((r, i) => i > 0 && inSel(r[0]));
+  const priceSel = (lastPriceRows || []).filter((r, i) => i > 0 && inSel(r[iSkuP]));
+  const files = [];
+  if (qtySel.length) files.push({ hdr: lastQtyRows[0], rows: qtySel, kind: "qty" });
+  if (priceSel.length) files.push({ hdr: lastPriceRows[0], rows: priceSel, kind: "price" });
+  if (!files.length) { showErr("الأصناف المحددة لم تتغيّر كميتها أو سعرها."); return; }
+  files.forEach((f, idx) => {
+    const ws = XLSX.utils.aoa_to_sheet([f.hdr, ...f.rows]);
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    setTimeout(() => {
+      const a = document.createElement("a");
+      a.href = url; a.download = `zid_test_${f.kind}_selected_${f.rows.length}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, idx * 500);
+  });
 }
 
 // شريط الأصناف المستبعدة يدوياً من المطابقة + استعادتها
