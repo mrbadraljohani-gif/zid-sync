@@ -450,6 +450,10 @@
   .pill { display: inline-flex; align-items: center; gap: 6px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 12.5px; }
   .pill button { border: none; background: none; cursor: pointer; color: var(--danger); font-size: 16px; line-height: 1; }
   footer { font-size: 12px; color: var(--muted-2); margin-top: 20px; line-height: 1.8; border-top: 1px solid var(--border); padding-top: 18px; }
+  .fingerprint { font-size: 12px; color: var(--muted); margin-top: 22px; padding: 9px 13px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; line-height: 1.9; }
+  .fingerprint b { color: var(--gold-2); }
+  .fingerprint .mono { font-family: ui-monospace, Consolas, monospace; color: var(--gold-2); }
+  .fp-warn { font-size: 13px; font-weight: 700; color: var(--gold-2); background: rgba(230,197,111,.12); border: 1px solid var(--border-strong); border-radius: 10px; padding: 11px 14px; margin-top: 18px; line-height: 1.7; }
   /* قسم النتائج يملأ عرض الحاوية الكامل (حتى 1320px) ويبقى متمركزاً */
   #result { display: none; }
 </style>
@@ -627,6 +631,9 @@
     </table></div>
   </details>
 
+  <div id="fpWarn" class="fp-warn" style="display:none"></div>
+  <div id="fingerprint" class="fingerprint"></div>
+
   <footer>
     المطابقة: الربط اليدوي أولاً ← ثم SKU الكامل ← ثم الكود الأساسي (مع تجاهل الأصفار البادئة مثل 080158 = 80158).
     الملف الناتج يحافظ على جميع الأعمدة ويغيّر الكمية والسعر فقط. جميع المعالجة تتم في متصفحك — لا تُرفع ملفاتك لأي خادم.
@@ -634,6 +641,8 @@
 </div>
 
 <script>
+// نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
+const APP_VERSION = "d422319";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -644,6 +653,7 @@ const OPT_KEY = "zid-options-v1";
 let whRows = null, stData = null;
 let opts = { price: "incl", inf: "skip" };
 let manualMap = {};
+let baseMap = {}, baseIgnSet = new Set();   // نسخة الملف (mapping.json/ignored.json) للتمييز عن المحلي غير المصدَّر
 let priceOffsets = {};                  // زيادة سعر المتغيرات: skuN ⇒ قيمة الزيادة (ر.س)
 let ignoredSet = new Set();
 let excludedSet = new Set();           // أصناف استبعدها المستخدم يدوياً من المطابقة (تبقى كما هي)
@@ -658,14 +668,16 @@ try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}
 
 // تحميل mapping.json و ignored.json عبر fetch، ودمجهما مع localStorage (يتعامل مع 404 بهدوء)
 async function loadConfig() {
-  let baseMap = {}, baseIgn = [];
-  try { const r = await fetch("mapping.json", { cache: "no-store" }); if (r.ok) baseMap = await r.json(); } catch {}
-  try { const r = await fetch("ignored.json", { cache: "no-store" }); if (r.ok) baseIgn = await r.json(); } catch {}
+  let fileMap = {}, fileIgn = [];
+  try { const r = await fetch("mapping.json", { cache: "no-store" }); if (r.ok) fileMap = await r.json(); } catch {}
+  try { const r = await fetch("ignored.json", { cache: "no-store" }); if (r.ok) fileIgn = await r.json(); } catch {}
   let localMap = {}, localIgn = [];
   try { localMap = JSON.parse(localStorage.getItem(MAP_KEY) || "{}"); } catch {}
   try { localIgn = JSON.parse(localStorage.getItem(IGN_KEY) || "[]"); } catch {}
-  manualMap = Object.assign({}, (baseMap && typeof baseMap === "object") ? baseMap : {}, localMap);
-  const merged = [...(Array.isArray(baseIgn) ? baseIgn : []), ...(Array.isArray(localIgn) ? localIgn : [])];
+  baseMap = (fileMap && typeof fileMap === "object") ? fileMap : {};                 // نسخة الملف (للتشخيص)
+  baseIgnSet = new Set((Array.isArray(fileIgn) ? fileIgn : []).map(normCode).filter(Boolean));
+  manualMap = Object.assign({}, baseMap, localMap);
+  const merged = [...(Array.isArray(fileIgn) ? fileIgn : []), ...(Array.isArray(localIgn) ? localIgn : [])];
   ignoredSet = new Set(merged.map(normCode).filter(Boolean));
   let localExc = [];
   try { localExc = JSON.parse(localStorage.getItem(EXC_KEY) || "[]"); } catch {}
@@ -981,6 +993,8 @@ async function saveToRepo(reason) {
     await putFileToRepo("ignored.json", ignored, token, `تحديث المتجاهلات (${reason})`);
     await putFileToRepo("price-offsets.json", offsets, token, `تحديث زيادات الأسعار (${reason})`);
     lastSavedSig = sig;
+    baseMap = { ...manualMap }; baseIgnSet = new Set(ignoredSet);   // صار كل المحلي مصدَّراً للريبو
+    renderFingerprint();
     repoStatus("ok", `✓ حُفظت الإعدادات في الريبو (${Object.keys(manualMap).length} ربط · ${Object.keys(priceOffsets).length} زيادة سعر) — قد تظهر على الأجهزة الأخرى خلال دقيقة.`);
   } catch (e) {
     repoStatus("fail", "✗ فشل الحفظ في الريبو: " + e.message + " — تحقّق من الرمز وصلاحياته.");
@@ -1230,6 +1244,7 @@ function run(reprocess) {
     if (!reprocess) { boundSet = new Set(); currentFilter = "new"; }
     refreshUnmatchedUI();
     renderCollisionWarn();
+    renderFingerprint();
 
     document.getElementById("result").style.display = "block";
     if (!reprocess) document.getElementById("result").scrollIntoView({ behavior: "smooth" });
@@ -1614,6 +1629,7 @@ function unignore(i) {
   ignoredSet.delete(normCode(u.skuN));
   saveIgnored();
   refreshUnmatchedUI();
+  renderFingerprint();
 }
 
 function scrollToNew() { document.getElementById("unBlock").scrollIntoView({ behavior: "smooth", block: "start" }); }
@@ -1741,6 +1757,7 @@ function ignoreRow(i) {
   renderIgnored(lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN))));
   updateBindAllCount();
   updateNewCount();
+  renderFingerprint();
 }
 
 function updateBindAllCount() {
@@ -1798,8 +1815,32 @@ function renderPills() {
   document.getElementById("mapCount").textContent = Object.keys(manualMap).length;
   document.getElementById("pills").innerHTML = Object.entries(manualMap)
     .map(([s, c]) => `<span class="pill"><span class="mono">${s} → ${c}</span><button onclick="delMap('${s}')">×</button></span>`).join("");
+  renderFingerprint();
 }
 function delMap(s) { delete manualMap[s]; localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); renderPills(); markDirty(); }
+
+// بصمة الجلسة: تشخيص اختلاف النتائج بين الأجهزة (ملف مقابل محلي غير مصدَّر)
+function renderFingerprint() {
+  const el = document.getElementById("fingerprint"); if (!el) return;
+  const fileMap = Object.keys(baseMap).length;
+  const localMapExtra = Object.keys(manualMap).filter(k => baseMap[k] !== manualMap[k]).length;
+  const fileIgn = baseIgnSet.size;
+  const localIgnExtra = [...ignoredSet].filter(k => !baseIgnSet.has(k)).length;
+  const zid = stData ? (stData.rows.length - 1) : 0;
+  const wh = whRows ? whRows.length : 0;
+  el.innerHTML = `🔎 بصمة الجلسة · ` +
+    `الروابط: ${fileMap} بالملف` + (localMapExtra ? ` <b>+${localMapExtra} محلي غير مصدَّر</b>` : ` · 0 محلي`) + ` · ` +
+    `التجاهلات: ${fileIgn} بالملف` + (localIgnExtra ? ` <b>+${localIgnExtra} محلي غير مصدَّر</b>` : ` · 0 محلي`) + ` · ` +
+    `صفوف زد: ${zid} · صفوف المستودع: ${wh} · ` +
+    `النسخة: <span class="mono">${APP_VERSION}</span>`;
+  const warn = document.getElementById("fpWarn");
+  if (warn) {
+    if (localMapExtra || localIgnExtra) {
+      warn.style.display = "block";
+      warn.innerHTML = `⚠ لديك ${localMapExtra} ربطاً و${localIgnExtra} تجاهلاً محلياً غير محفوظ في الريبو — صدّرها/احفظها في الريبو (زر «☁ الحفظ في الريبو»)، وإلا لن تظهر على أجهزتك الأخرى.`;
+    } else { warn.style.display = "none"; warn.innerHTML = ""; }
+  }
+}
 
 applyOpts();
 applyTheme(currentTheme());   // ضبط تسمية زر الوضع حسب الحالة المحفوظة
