@@ -671,7 +671,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "e721295";
+const APP_VERSION = "b106d2b";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -699,6 +699,7 @@ let lastCollisions = [];   // مجموعات أكواد زد الخام المت
 let lastVariantGroups = [];   // مجموعات «أب/خيار» المكتشفة والمعالَجة تلقائياً
 let lastQtyRows = null, lastPriceRows = null;   // صفوف الملفين الناتجين (لتنزيل صف اختبار واحد)
 let testSelected = new Set();                   // أصناف محدّدة لتنزيل ملف اختبار جماعي
+let zeroSelected = new Set();                   // أصناف محدّدة لتصفير كميتها (in-memory للجلسة فقط — التوفر بالفروع يتغيّر)
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
 
 // تحميل mapping.json و ignored.json عبر fetch، ودمجهما مع localStorage (يتعامل مع 404 بهدوء)
@@ -1255,12 +1256,13 @@ function run(reprocess) {
         // بلا مطابقة في الملف الحالي: نميّز الغائب (له تاريخ) عن الجديد فعلاً
         const waiting = waitingSet.has(skuN);
         const hasHistory = !!manualMap[rawKey] || matchedHistory.has(skuN);
+        const noWhCode = !whIndex[skuN] && !whIndex[baseOf(rawSku)];   // كوده غير موجود في ملف المستودع أصلاً
         if (waiting) {
           // بانتظار التوفر: يُستثنى من تنبيه الجديد، ويبقى ظاهراً في «بدون ربط» بشارته
-          unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], img: imgOf(orig), collided, waiting: true });
+          unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, waiting: true, noWhCode });
         } else if (hasHistory) {
           // غائب عن ملف المستودع (قد يكون متوفراً في فرع آخر — المرحلة 1)
-          absentList.push({ sku: rawKey, skuN, name: orig[iName] || "", mappedCode: manualMap[rawKey] || null });
+          absentList.push({ sku: rawKey, skuN, name: orig[iName] || "", mappedCode: manualMap[rawKey] || null, price: orig[iPrice], qty: orig[iQty], img: imgOf(orig) });
           if (opts.absent === "zero") {   // صفّر كميته فقط (خيار «كامل المخزون»)
             qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", 0]);
             qtyCount++;
@@ -1268,7 +1270,7 @@ function run(reprocess) {
         } else if (isInf && !collided) {
           infiniteList.push({ sku: rawKey, skuN, name: orig[iName] || "" });
         } else {
-          unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], img: imgOf(orig), collided });
+          unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, noWhCode });
         }
         continue;
       }
@@ -1350,7 +1352,7 @@ function run(reprocess) {
     // === تصنيف الأصناف بدون ربط + بيانات الفلاتر ===
     lastWhList = whList;
     lastWhTokenIndex = buildWhTokenIndex(whList);
-    if (!reprocess) { suggCache = new Map(); testSelected = new Set(); excludedSet = new Set(); }   // بيانات جديدة ⇒ أعِد بناء الذاكرة والتحديد وصفّر الاستبعاد المؤقت
+    if (!reprocess) { suggCache = new Map(); testSelected = new Set(); excludedSet = new Set(); zeroSelected = new Set(); }   // بيانات جديدة ⇒ أعِد بناء الذاكرة والتحديد وصفّر الاستبعاد والتصفير المؤقتين
     lastUnmatchedRaw = unmatched;
     lastUpdated = updatedList;
     lastInfinite = infiniteList;
@@ -1404,16 +1406,83 @@ function renderReactivated() {
   el.innerHTML = `✅ عاد للتوفر: <b>${lastReactivated.length}</b> صنف — ظهرت أكوادها في ملف المستودع، فأُزيلت من الانتظار وحُدّثت تلقائياً: ` +
     lastReactivated.slice(0, 30).map(r => `<span class="mono" dir="ltr">${esc(r.sku)}</span>`).join("، ") + (lastReactivated.length > 30 ? " …" : "");
 }
-// جدول «الغائب عن الملف»
-function absentTableHTML(list) {
-  const rows = list.map(u => `<tr data-search="${esc(normText(u.sku + " " + u.name))}">` +
-    `<td class="mono">${esc(u.sku)}</td><td>${esc(u.name) || "—"}</td>` +
-    `<td>${u.mappedCode ? `ربط يدوي بـ <span class="mono" dir="ltr">${esc(u.mappedCode)}</span>` : "مطابقة كود سابقة"}</td></tr>`).join("");
-  return `<table>
-    <colgroup><col class="c-sku"><col><col style="width:190px"></colgroup>
-    <thead><tr><th>SKU زد</th><th>اسم المنتج</th><th>سبب اعتباره غائباً</th></tr></thead>
+// مرشّحو التصفير: (أ) الغائبون عن الملف + (ب) «يحتاج قرار» بلا اقتراح موثوق ولا كود في المستودع (يشمل المتجاهَل والمنتظِر)
+function zeroCandidates() {
+  const a = lastAbsent.map(u => ({ sku: u.sku, skuN: u.skuN, name: u.name, img: u.img || "", qty: u.qty, price: u.price, cat: "absent", tag: "" }));
+  const b = [];
+  for (const u of lastUnmatchedRaw) {
+    if (!u.noWhCode) continue;   // كوده موجود في المستودع (متصادم مثلاً) ⇒ ليس مرشّح تصفير
+    let sug = suggCache.get(u.skuN);
+    if (sug === undefined) { sug = suggestFor(u.skuN, u.name, lastWhList, u.price); suggCache.set(u.skuN, sug); }
+    if (sug && Math.round(sug.sim * 100) >= 55) continue;   // له اقتراح موثوق ⇒ يُربط لا يُصفَّر
+    const tag = ignoredSet.has(normCode(u.skuN)) ? "ignored" : (waitingSet.has(normCode(u.skuN)) ? "waiting" : "");
+    b.push({ sku: u.sku, skuN: u.skuN, name: u.name, img: u.img || "", qty: u.qty, price: u.price, cat: "candidate", tag });
+  }
+  return [...a, ...b];
+}
+function zeroTableHTML(list) {
+  const catLabel = c => c === "absent" ? `<span class="cat-badge cat-abs">غائب 📭</span>` : `<span class="cat-badge cat-new">مرشّح</span>`;
+  const tagLabel = t => t === "ignored" ? `<span class="wait-tag">متجاهَل</span>` : (t === "waiting" ? `<span class="wait-tag">⏳ بانتظار</span>` : "");
+  const rows = list.map(u => {
+    const chk = zeroSelected.has(String(u.sku)) ? "checked" : "";
+    const zp = priceInt(u.price);
+    return `<tr data-search="${esc(normText(u.sku + " " + u.name))}">` +
+      `<td class="chk-cell"><input type="checkbox" class="zero-chk" data-sku="${esc(u.sku)}" ${chk} onchange="toggleZero('${esc(u.sku)}', this.checked)"></td>` +
+      `<td class="mono">${esc(u.sku)}</td>` +
+      `<td>${thumb(u.img)}</td>` +
+      `<td><div class="prodcell"><span>${esc(u.name) || "—"} ${tagLabel(u.tag)}</span></div></td>` +
+      `<td>${catLabel(u.cat)}</td>` +
+      `<td class="mono">${esc(String(u.qty == null ? "" : u.qty))}</td>` +
+      `<td class="mono">${zp != null ? fmtPrice(zp) : "—"}</td></tr>`;
+  }).join("");
+  return `<div class="test-bar">
+      <button class="btn-run sm" onclick="downloadZeroAbsent()">⬇ ملف تصفير الغائب (<span id="zeroN">${zeroSelected.size}</span> صنف)</button>
+      <button class="mini-btn" onclick="selectVisibleZero()">تحديد المعروض</button>
+      <button class="mini-btn" onclick="clearZeroSel()">إلغاء الكل</button>
+      <span class="hint" style="margin:0">حدّد الأصناف النافدة/المتوفّرة بالفروع لتصفيرها في زد. ابحث بالأعلى لتصفية الجدول (التحديد يطبَّق على المعروض فقط).</span>
+    </div>
+    <div class="dl-sub" style="margin:0 2px 10px">يُرفع في زد: استيراد ← تحديث كميات المنتجات الحالية فقط</div>
+    <table>
+    <colgroup><col style="width:36px"><col class="c-sku"><col style="width:58px"><col><col style="width:100px"><col style="width:110px"><col style="width:80px"></colgroup>
+    <thead><tr><th></th><th>SKU زد</th><th>الصورة</th><th>اسم المنتج</th><th>الفئة</th><th>كمية زد الحالية</th><th>سعر زد</th></tr></thead>
     <tbody id="unBody">${rows}</tbody>
   </table>`;
+}
+function toggleZero(sku, on) {
+  const k = String(sku);
+  if (on) zeroSelected.add(k); else zeroSelected.delete(k);
+  const n = document.getElementById("zeroN"); if (n) n.textContent = zeroSelected.size;
+}
+function selectVisibleZero() {   // يطبّق على المعروض فقط (بعد البحث)
+  document.querySelectorAll("#unBody input.zero-chk").forEach(c => {
+    const tr = c.closest("tr");
+    if (tr && tr.style.display !== "none") { c.checked = true; toggleZero(c.dataset.sku, true); }
+  });
+}
+function clearZeroSel() {
+  zeroSelected = new Set();
+  document.querySelectorAll("#unBody input.zero-chk").forEach(c => c.checked = false);
+  const n = document.getElementById("zeroN"); if (n) n.textContent = 0;
+}
+// ملف تصفير مستقل تماماً: نموذج الكميات الرسمي، المحدد فقط بكمية 0 (لا يمس الأسعار)
+function downloadZeroAbsent() {
+  if (!zeroSelected.size) { showErr("حدّد صنفاً واحداً على الأقل من الجدول أولاً."); return; }
+  if (!stData) { showErr("شغّل «طابق وأنشئ» أولاً."); return; }
+  const H = stData.header, iSku = H.indexOf("sku"), iName = H.indexOf("name_ar"), iNameEn = H.indexOf("name_en");
+  const byRaw = {};
+  for (let r = 1; r < stData.rows.length; r++) { const raw = String(stData.rows[r][iSku]); if (!(raw in byRaw)) byRaw[raw] = stData.rows[r]; }
+  const rows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
+  zeroSelected.forEach(sk => { const row = byRaw[String(sk)]; if (row) rows.push([String(sk), iName >= 0 ? row[iName] : "", iNameEn >= 0 ? row[iNameEn] : "", 0]); });
+  const v = verifyQuantities(rows);   // صمام الأمان نفسه (4 أعمدة، sku غير فارغ، كميات صحيحة ≥ 0)
+  if (!v.ok) { showErr("تعذّر إنشاء ملف التصفير — " + v.msg); return; }
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+  const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `zid_zero_absent_${rows.length - 1}.xlsx`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /* ---------- تصنيف + عرض تفاصيل الفلاتر (البطاقات) ---------- */
@@ -1491,8 +1560,9 @@ function renderDetail() {
     wrap.innerHTML = listTableHTML(lastInfinite);
   } else if (f === "absent") {
     bindBtn.style.display = "none";
-    title.textContent = `غائب عن ملف المستودع (${lastAbsent.length}) — له تاريخ مطابقة لكنه غير موجود في الملف المرفوع` + (opts.absent === "zero" ? " · ستُصفَّر كميته" : " · تُرك كما هو في زد (قد يكون متوفراً بفرع)");
-    wrap.innerHTML = absentTableHTML(lastAbsent);
+    const cands = zeroCandidates();
+    title.textContent = `مرشّحو تصفير الكمية (${cands.length}) — غائب عن الملف + «يحتاج قرار» بلا اقتراح موثوق ولا كود في المستودع`;
+    wrap.innerHTML = zeroTableHTML(cands);
   } else { // all
     bindBtn.style.display = "none";
     const catOf = u => ignoredSet.has(normCode(u.skuN)) ? "ignored" : (waitingSet.has(normCode(u.skuN)) ? "waiting" : "new");
