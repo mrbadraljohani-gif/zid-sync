@@ -418,6 +418,9 @@
   .reactivated-msg { background: rgba(157,208,166,.14); border: 1px solid rgba(157,208,166,.5); color: var(--green-2); border-radius: 12px; padding: 11px 15px; margin-bottom: 14px; font-weight: 700; font-size: 13.5px; line-height: 1.7; }
   .wait-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(201,154,60,.14); color: var(--gold-2); border: 1px solid var(--border-strong); font-family: 'Segoe UI', Tahoma, sans-serif; }
   .pub-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(157,208,166,.16); color: var(--green-2); border: 1px solid rgba(157,208,166,.5); font-family: 'Segoe UI', Tahoma, sans-serif; }
+  .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px); z-index: 200; max-width: 90vw; padding: 12px 20px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: var(--text); background: #1c1810; border: 1px solid var(--border-strong); box-shadow: 0 14px 40px rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+  :root[data-theme="light"] .toast { background: #fffdf7; box-shadow: 0 14px 40px rgba(120,90,20,.18); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .mc-btn.wait { border-color: var(--border-strong); color: var(--gold-2); }
   .mc-btn.wait.on { background: rgba(201,154,60,.16); }
   .mcard.waiting { opacity: .82; }
@@ -622,6 +625,8 @@
     </div>
   </div>
 
+  <div id="toast" class="toast"></div>
+
   <!-- لوحة زيادة سعر المتغير -->
   <div id="offOverlay" class="off-overlay" style="display:none" onclick="if(event.target===this)closeOffset()">
     <div class="off-box">
@@ -675,7 +680,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "8126508";
+const APP_VERSION = "aa96686";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -701,7 +706,7 @@ let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقترا
 let lastUpdated = [], lastInfinite = [], currentFilter = "new";
 let lastCollisions = [];   // مجموعات أكواد زد الخام المتصادمة بعد التطبيع (الصعبة فقط — تحذير أحمر)
 let lastVariantGroups = [];   // مجموعات «أب/خيار» المكتشفة والمعالَجة تلقائياً
-let lastQtyRows = null, lastPriceRows = null;   // صفوف الملفين الناتجين (لتنزيل صف اختبار واحد)
+let lastQtyRows = null, lastPriceRows = null, lastPriceOrig = null;   // صفوف الملفين الناتجين + أصل صفوف الأسعار (للتحقق عند التنزيل التجريبي)
 let testSelected = new Set();                   // أصناف محدّدة لتنزيل ملف اختبار جماعي
 let zeroSelected = new Set();                   // أصناف محدّدة لتصفير كميتها (in-memory للجلسة فقط — التوفر بالفروع يتغيّر)
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
@@ -766,6 +771,11 @@ const normCode = v => {
 };
 const baseOf = sku => normCode(String(sku).split(".")[0]);
 const showErr = m => { const e = document.getElementById("err"); e.textContent = m; e.style.display = m ? "block" : "none"; };
+function showToast(msg) {
+  const t = document.getElementById("toast"); if (!t) return;
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove("show"), 4500);
+}
 
 /* ---------- الاقتراح الذكي للربط: تطبيع + تشابه نصي ---------- */
 // تطبيع النص العربي قبل المقارنة
@@ -1328,7 +1338,7 @@ function run(reprocess) {
     }
 
     // === صمامات الأمان + إنشاء الملفين ===
-    lastQtyRows = qtyRows; lastPriceRows = priceRows;   // للتنزيل التجريبي لصف واحد
+    lastQtyRows = qtyRows; lastPriceRows = priceRows; lastPriceOrig = priceOrig;   // للتنزيل التجريبي (صف واحد أو المحدد) مع التحقق
     const mkBlob = aoa => { const ws = XLSX.utils.aoa_to_sheet(aoa); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1"); return new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }); };
     const vq = verifyQuantities(qtyRows);
     const vp = verifyPrices(priceRows, priceOrig, H);
@@ -1665,9 +1675,9 @@ function updatedTableHTML(list) {
   const excCount = list.filter(u => u.excluded).length;
   const sessBar = excCount ? `<div class="sess-bar">⏸ مستبعد من هذه الجلسة: <b>${excCount}</b> — <button class="mini-btn" onclick="restoreAllExcluded()">استعادة الكل</button></div>` : "";
   return sessBar + `<div class="test-bar">
-      <button class="btn-run sm" onclick="downloadSelected()">⬇ نزّل المحدّد للتجربة (<span id="testN">${testSelected.size}</span>)</button>
+      <button class="btn-run sm" onclick="downloadSelected()">⬇ نزّل المحدّد للتجربة (كميات ＋ أسعار) (<span id="testN">${testSelected.size}</span>)</button>
       <button class="mini-btn" onclick="toggleAllTest()">تحديد/إلغاء المعروض</button>
-      <span class="hint" style="margin:0">حدّد أصنافاً ثم نزّلها في ملف اختبار واحد (كميات و/أو أسعار) لتجربتها دفعة واحدة في زد.</span>
+      <span class="hint" style="margin:0">ينزل ملفان معاً: <b>test_quantities</b> (زد: استيراد ← تحديث الكميات فقط) و<b>test_prices</b> (زد: استيراد ← تحديث المنتجات ← حدّد حقلَي السعر ومنشور ← تجاهل الفراغات). إن لم يكن في المحدد تغيّر سعر/نشر يُنزَّل ملف الكميات فقط.</span>
     </div>
     <table>
     <colgroup><col style="width:36px"><col class="c-sku"><col><col><col style="width:70px"><col style="width:110px"><col style="width:190px"><col style="width:150px"></colgroup>
@@ -1685,25 +1695,45 @@ function toggleAllTest() {
   const allOn = chks.length && chks.every(c => c.checked);
   chks.forEach(c => { c.checked = !allOn; toggleTest(c.dataset.sku, c.checked); });
 }
-// تنزيل ملف اختبار جماعي للأصناف المحددة (كميات + أسعار حسب ما تغيّر)
+// تنزيل ملفَي اختبار للأصناف المحددة معاً: الكميات + الأسعار (بالأسعار النهائية شاملة الزيادات وتعديلات النشر)
 function downloadSelected() {
   if (!testSelected.size) { showErr("حدّد صنفاً واحداً على الأقل من القائمة أولاً."); return; }
   const iSkuP = stData.header.indexOf("sku");
   const inSel = sk => testSelected.has(String(sk));
+  // ملف الكميات: صفوف المحدد التي تغيّرت كميتها
   const qtySel = (lastQtyRows || []).filter((r, i) => i > 0 && inSel(r[0]));
-  const priceSel = (lastPriceRows || []).filter((r, i) => i > 0 && inSel(r[iSkuP]));
+  // ملف الأسعار: صفوف المحدد التي تغيّر سعرها أو نشرها (+ الأصل المحاذي للتحقق)
+  const priceSel = [], priceOrigSel = [];
+  if (lastPriceRows) for (let i = 1; i < lastPriceRows.length; i++) {
+    if (inSel(lastPriceRows[i][iSkuP])) { priceSel.push(lastPriceRows[i]); priceOrigSel.push(lastPriceOrig[i]); }
+  }
+  if (!qtySel.length && !priceSel.length) { showErr("الأصناف المحددة لم تتغيّر كميتها ولا سعرها/نشرها."); return; }
   const files = [];
-  if (qtySel.length) files.push({ hdr: lastQtyRows[0], rows: qtySel, kind: "qty" });
-  if (priceSel.length) files.push({ hdr: lastPriceRows[0], rows: priceSel, kind: "price" });
-  if (!files.length) { showErr("الأصناف المحددة لم تتغيّر كميتها أو سعرها."); return; }
+  // الكميات
+  if (qtySel.length) {
+    const rows = [lastQtyRows[0], ...qtySel];
+    const v = verifyQuantities(rows);   // صمام أمان الكميات
+    if (!v.ok) { showErr("تعذّر إنشاء ملف الكميات التجريبي — " + v.msg); return; }
+    files.push({ rows, name: "test_quantities.xlsx" });
+  }
+  // الأسعار
+  if (priceSel.length) {
+    const rows = [lastPriceRows[0], ...priceSel];
+    const orig = [lastPriceOrig[0], ...priceOrigSel];
+    const v = verifyPrices(rows, orig, stData.header);   // صمام أمان الأسعار (price + published فقط)
+    if (!v.ok) { showErr("تعذّر إنشاء ملف الأسعار التجريبي — " + v.msg); return; }
+    files.push({ rows, name: "test_prices.xlsx" });
+  } else if (qtySel.length) {
+    showToast("المحدد ليس فيه تغييرات أسعار — نزل ملف الكميات فقط");
+  }
   files.forEach((f, idx) => {
-    const ws = XLSX.utils.aoa_to_sheet([f.hdr, ...f.rows]);
+    const ws = XLSX.utils.aoa_to_sheet(f.rows);
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
     const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
     setTimeout(() => {
       const a = document.createElement("a");
-      a.href = url; a.download = `zid_test_${f.kind}_selected_${f.rows.length}.xlsx`;
+      a.href = url; a.download = f.name;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }, idx * 500);
