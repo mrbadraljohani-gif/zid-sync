@@ -481,7 +481,7 @@
   .fingerprint b { color: var(--gold-2); }
   .fingerprint .mono { font-family: ui-monospace, Consolas, monospace; color: var(--gold-2); }
   .fp-warn { font-size: 13px; font-weight: 700; color: var(--gold-2); background: rgba(230,197,111,.12); border: 1px solid var(--border-strong); border-radius: 10px; padding: 11px 14px; margin-top: 18px; line-height: 1.7; }
-  #mWhCard::after, #mQtyCard::after { display: none; }   /* لا أيقونة خلفية لبطاقات الدمج */
+  #mWhCard::after, #mBrCard::after { display: none; }   /* لا أيقونة خلفية لبطاقات الدمج */
   .merge-summary { margin-top: 12px; font-size: 13.5px; font-weight: 700; color: #8fbf98; background: rgba(123,168,132,.12); border: 1px solid rgba(123,168,132,.35); border-radius: 10px; padding: 10px 14px; }
   /* قسم النتائج يملأ عرض الحاوية الكامل (حتى 1320px) ويبقى متمركزاً */
   #result { display: none; }
@@ -543,19 +543,19 @@
   <details class="card" id="mergeCard" style="margin-bottom:16px">
     <summary>🔗 دمج المستودع مع الفروع (اختياري) — أنشئ ملفاً موحّداً للفحص</summary>
     <div style="margin-top:12px">
-      <p class="hint">ادمج ملف أسعار المستودع مع ملف الكميات الإجمالية (مستودع ＋ فروع) في ملف موحّد بثلاث أوراق — جاهز لرفعه كـ«ملف المستودع» في الأداة.</p>
+      <p class="hint">اتحاد كامل بجمع الكميات: كل صنف في الملفين تُجمع كميتاه في صف واحد (الاسم والسعر من المستودع). الملفان من نفس النظام. الملف قد يكون كاملاً (٥ أعمدة) أو مختصراً (كود · اسم · كمية) — والمختصر يأخذ سعره من الملف الآخر.</p>
       <div class="grid2">
         <label class="upload" id="mWhCard">
           <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeWh(this)">
-          <div class="utitle">ملف المستودع (الأسعار)</div>
+          <div class="utitle">ملف المستودع</div>
           <div class="hint">رقم الصنف · الاسم · الكمية · السعر شامل/قبل الضريبة</div>
           <div class="ustatus" id="mWhStatus">اضغط لاختيار الملف</div>
         </label>
-        <label class="upload" id="mQtyCard">
-          <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeQty(this)">
-          <div class="utitle">ملف الكميات الإجمالية (مستودع ＋ فروع)</div>
-          <div class="hint">٣ أعمدة بلا رأس: الكود · الاسم · الكمية</div>
-          <div class="ustatus" id="mQtyStatus">اضغط لاختيار الملف</div>
+        <label class="upload" id="mBrCard">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeBranch(this)">
+          <div class="utitle">ملف الفرع</div>
+          <div class="hint">بنفس الأعمدة — كامل أو مختصر (كود · اسم · كمية)</div>
+          <div class="ustatus" id="mBrStatus">اضغط لاختيار الملف</div>
         </label>
       </div>
       <button class="btn-run sm" id="mergeBtn" disabled onclick="downloadMerge()" style="margin-top:12px">🔗 دمج وتنزيل الملف الموحّد</button>
@@ -1194,80 +1194,108 @@ async function onStore(inp) {
 
 function checkReady() { document.getElementById("runBtn").disabled = !(whRows && stData); }
 
-/* ========== دمج المستودع مع الفروع (مرحلة أولى: ملف موحّد للفحص) ========== */
-let mergeWh = null, mergeQty = null;
-function checkMergeReady() { const b = document.getElementById("mergeBtn"); if (b) b.disabled = !(mergeWh && mergeQty); }
+/* ========== دمج المستودع مع الفروع (اتحاد كامل بجمع الكميات — مرحلة أولى) ========== */
+let mergeWh = null, mergeBranches = [];   // مصفوفة فروع (قابلة للتوسّع لأكثر من فرع)
+function checkMergeReady() { const b = document.getElementById("mergeBtn"); if (b) b.disabled = !(mergeWh && mergeBranches.length); }
+// قارئ مرن: يكتشف الأعمدة بالاسم (رأس موجود) أو بالموضع (بلا رأس)، كامل (5) أو مختصر (3)
+function parseInvRows(aoa) {
+  if (!aoa || !aoa.length) return [];
+  const first = (aoa[0] || []).map(c => String(c == null ? "" : c).trim());
+  const looksHeader = first.some(c => /رقم الصنف|كود|اسم|كمية|سعر|شامل|قبل|code|name|qty|quantity|price/i.test(c));
+  let ci = 0, ni = 1, qi = 2, ii = -1, ei = -1, start = 0;
+  if (looksHeader) {
+    start = 1;
+    const find = re => first.findIndex(c => re.test(c));
+    ci = find(/رقم الصنف|كود|code|sku/i); if (ci < 0) ci = 0;
+    ni = find(/اسم|name/i); if (ni < 0) ni = 1;
+    qi = find(/كمية|qty|quantity/i); if (qi < 0) qi = 2;
+    ii = find(/شامل|incl/i);
+    ei = find(/قبل|excl/i);
+  } else if ((aoa[0] || []).length >= 5) { ii = 3; ei = 4; }   // مختصر بلا رأس وكامل ⇒ موضعي
+  const out = [];
+  for (let r = start; r < aoa.length; r++) {
+    const row = aoa[r] || []; const code = String(row[ci] == null ? "" : row[ci]).trim();
+    if (!code) continue;
+    out.push({
+      code, name: (ni >= 0 && row[ni] != null) ? String(row[ni]).trim() : "",
+      qty: qi >= 0 ? row[qi] : "", incl: ii >= 0 ? row[ii] : "", excl: ei >= 0 ? row[ei] : ""
+    });
+  }
+  return out;
+}
+async function readInvFile(f) { const wb = await readWB(f); return parseInvRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" })); }
 async function onMergeWh(inp) {
   const f = inp.files[0]; if (!f) return; showErr("");
   try {
-    const wb = await readWB(f);
-    const js = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
-    if (!js.length) throw new Error("الملف فارغ");
-    const keys = Object.keys(js[0]);
-    const kCode = keys.find(k => k.includes("رقم الصنف") || k.toLowerCase() === "code" || k.toLowerCase() === "sku");
-    const kName = keys.find(k => k.includes("اسم") || k.toLowerCase() === "name");
-    const kQty = keys.find(k => k.includes("الكمية") || k.toLowerCase() === "qty" || k.toLowerCase() === "quantity");
-    const kIncl = keys.find(k => k.includes("شامل"));
-    const kExcl = keys.find(k => k.includes("قبل"));
-    if (!kCode) throw new Error("لم أجد عمود «رقم الصنف»");
-    mergeWh = js.map(r => ({ code: String(r[kCode]).trim(), name: kName ? String(r[kName]).trim() : "", qtyWh: kQty ? r[kQty] : "", incl: kIncl ? r[kIncl] : "", excl: kExcl ? r[kExcl] : "" })).filter(x => x.code);
+    mergeWh = await readInvFile(f); if (!mergeWh.length) throw new Error("لا أصناف صالحة في الملف");
     document.getElementById("mWhStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${mergeWh.length} صنف</span>`;
     document.getElementById("mWhCard").classList.add("ok");
-  } catch (x) { mergeWh = null; document.getElementById("mWhCard").classList.remove("ok"); showErr("ملف المستودع (الدمج): " + x.message); }
+  } catch (x) { mergeWh = null; document.getElementById("mWhCard").classList.remove("ok"); showErr("ملف المستودع: " + x.message); }
   inp.value = ""; checkMergeReady();
 }
-async function onMergeQty(inp) {
+async function onMergeBranch(inp) {
   const f = inp.files[0]; if (!f) return; showErr("");
   try {
-    const wb = await readWB(f);
-    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
-    if (!rows.length) throw new Error("الملف فارغ");
-    // صمام أمان: إن كان الصف الأول رأساً (عمود الكمية ليس رقماً) تجاهله تلقائياً
-    const qNum = r => Number(String((r || [])[2]).replace(/[^\d.\-]/g, ""));
-    const data = (rows[0] && !Number.isFinite(qNum(rows[0]))) ? rows.slice(1) : rows;
-    mergeQty = data.map(r => ({ code: String(r[0]).trim(), name: String(r[1] || "").trim(), qty: r[2] })).filter(x => x.code);
-    document.getElementById("mQtyStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${mergeQty.length} سطر</span>`;
-    document.getElementById("mQtyCard").classList.add("ok");
-  } catch (x) { mergeQty = null; document.getElementById("mQtyCard").classList.remove("ok"); showErr("ملف الكميات الإجمالية: " + x.message); }
+    const list = await readInvFile(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
+    mergeBranches = [list];   // فرع واحد حالياً؛ الدالة تدعم أكثر من فرع لاحقاً
+    document.getElementById("mBrStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${list.length} صنف</span>`;
+    document.getElementById("mBrCard").classList.add("ok");
+  } catch (x) { mergeBranches = []; document.getElementById("mBrCard").classList.remove("ok"); showErr("ملف الفرع: " + x.message); }
   inp.value = ""; checkMergeReady();
 }
-// دالة الدمج النقية القابلة لإعادة الاستخدام — تُرجع البيانات الموحّدة والفئات (لا تحميل هنا)
-function mergeInventory(whList, qtyList) {
-  const qtyMap = new Map();
-  for (const q of qtyList) if (!qtyMap.has(q.code)) qtyMap.set(q.code, q);   // المطابقة بالكود بعد trim، بلا تطبيع أصفار
-  const whCodes = new Set(whList.map(w => w.code));
-  const unified = [], noBranch = [];
-  let matched = 0;
-  for (const w of whList) {
-    const q = qtyMap.get(w.code);
-    if (q) { matched++; unified.push({ code: w.code, name: w.name, qty: q.qty, incl: w.incl, excl: w.excl, source: "مستودع ＋ فروع" }); }
-    else { unified.push({ code: w.code, name: w.name, qty: w.qtyWh, incl: w.incl, excl: w.excl, source: "المخزن فقط" }); noBranch.push(w); }
+const hasVal = v => v !== "" && v != null;
+// دالة الدمج النقية: اتحاد كامل بجمع الكميات عبر المستودع + كل الفروع (تقبل مصفوفة فروع)
+function mergeInventory(whList, branchLists) {
+  branchLists = branchLists || [];
+  const map = new Map();   // code ⇒ سجل موحّد
+  const add = (list, isWh) => {
+    for (const it of list || []) {
+      let e = map.get(it.code);
+      if (!e) { e = { code: it.code, name: "", qty: 0, incl: "", excl: "", inWh: false, inBranch: false }; map.set(it.code, e); }
+      const q = Number(String(it.qty).replace(/[^\d.\-]/g, "")); if (Number.isFinite(q)) e.qty += q;   // جمع الكميات
+      if (isWh) e.inWh = true; else e.inBranch = true;
+      // الاسم والسعر: أولوية المستودع، ثم يُملأ من الفرع إن غاب
+      if (isWh) {
+        if (hasVal(it.name)) e.name = String(it.name).trim();
+        if (hasVal(it.incl)) e.incl = it.incl;
+        if (hasVal(it.excl)) e.excl = it.excl;
+      } else {
+        if (!hasVal(e.name) && hasVal(it.name)) e.name = String(it.name).trim();
+        if (!hasVal(e.incl) && hasVal(it.incl)) e.incl = it.incl;
+        if (!hasVal(e.excl) && hasVal(it.excl)) e.excl = it.excl;
+      }
+    }
+  };
+  add(whList, true);
+  for (const b of branchLists) add(b, false);
+  const unified = [], noPrice = [];
+  let both = 0, whOnly = 0, brOnly = 0;
+  for (const e of map.values()) {
+    const source = (e.inWh && e.inBranch) ? "مستودع ＋ فرع (مجموعة)" : (e.inWh ? "مستودع فقط" : "فرع فقط");
+    if (e.inWh && e.inBranch) both++; else if (e.inWh) whOnly++; else brOnly++;
+    const rec = { code: e.code, name: e.name, qty: e.qty, incl: e.incl, excl: e.excl, source };
+    if (hasVal(e.incl) || hasVal(e.excl)) unified.push(rec); else noPrice.push(rec);   // بلا سعر ⇒ يُستبعد من الرئيسية
   }
-  const noPrice = qtyList.filter(q => !whCodes.has(q.code));   // كمية بلا سعر ⇒ تُستبعد من الورقة الرئيسية
-  const rate = whList.length ? matched / whList.length : 0;
-  return { unified, noBranch, noPrice, matched, whCount: whList.length, qtyCount: qtyList.length, rate };
+  return { unified, noPrice, both, whOnly, brOnly, total: map.size };
 }
 // طبقة التنزيل فوق دالة الدمج
 function downloadMerge() {
-  if (!mergeWh || !mergeQty) { showErr("ارفع الملفين أولاً."); return; }
-  const res = mergeInventory(mergeWh, mergeQty);
+  if (!mergeWh || !mergeBranches.length) { showErr("ارفع ملف المستودع وملف الفرع أولاً."); return; }
+  const res = mergeInventory(mergeWh, mergeBranches);
   const main = [["رقم الصنف", "اسم الصنف", "الكمية", "سعر البيع شامل الضريبة", "سعر البيع قبل الضريبة", "مصدر الكمية"]];
   res.unified.forEach(u => main.push([u.code, u.name, u.qty, u.incl, u.excl, u.source]));
-  const nb = [["رقم الصنف", "اسم الصنف", "الكمية (المخزن)", "سعر البيع شامل الضريبة", "سعر البيع قبل الضريبة"]];
-  res.noBranch.forEach(w => nb.push([w.code, w.name, w.qtyWh, w.incl, w.excl]));
-  const np = [["الكود", "الاسم", "الكمية"]];
-  res.noPrice.forEach(q => np.push([q.code, q.name, q.qty]));
+  const np = [["رقم الصنف", "اسم الصنف", "الكمية", "مصدر الكمية"]];
+  res.noPrice.forEach(u => np.push([u.code, u.name, u.qty, u.source]));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(main), "تقرير عن المخزون");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(nb), "بدون كمية فروع");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(np), "كمية بلا سعر");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(np), "بلا سعر — للتسعير");
   const sm = document.getElementById("mergeSummary");
   sm.style.display = "block";
-  sm.textContent = `موحّد: ${res.unified.length} · بدون كمية فروع: ${res.noBranch.length} · بلا سعر: ${res.noPrice.length}`;
+  sm.textContent = `موحّد: ${res.unified.length} · مشترك (جُمعت كمياته): ${res.both} · مستودع فقط: ${res.whOnly} · فرع فقط: ${res.brOnly} · بلا سعر: ${res.noPrice.length}`;
   const warn = document.getElementById("mergeWarn");
-  if (res.rate < 0.5) {
+  if (res.total && res.both === 0) {
     warn.style.display = "block";
-    warn.innerHTML = `⚠ نسبة التطابق بين الملفين ${Math.round(res.rate * 100)}٪ فقط (${res.matched} من ${res.whCount}) — تأكّد أنك رفعت الملفين الصحيحين قبل الاعتماد على الناتج.`;
+    warn.innerHTML = `⚠ لا يوجد أي كود مشترك بين الملفين — تأكّد أنهما من نفس النظام (قد تكون رفعت ملفاً خاطئاً).`;
   } else { warn.style.display = "none"; warn.innerHTML = ""; }
   const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const url = URL.createObjectURL(blob);
