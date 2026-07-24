@@ -417,6 +417,7 @@
   .cat-wait { background: rgba(201,154,60,.10); color: var(--gold); }
   .reactivated-msg { background: rgba(157,208,166,.14); border: 1px solid rgba(157,208,166,.5); color: var(--green-2); border-radius: 12px; padding: 11px 15px; margin-bottom: 14px; font-weight: 700; font-size: 13.5px; line-height: 1.7; }
   .wait-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(201,154,60,.14); color: var(--gold-2); border: 1px solid var(--border-strong); font-family: 'Segoe UI', Tahoma, sans-serif; }
+  .pub-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(157,208,166,.16); color: var(--green-2); border: 1px solid rgba(157,208,166,.5); font-family: 'Segoe UI', Tahoma, sans-serif; }
   .mc-btn.wait { border-color: var(--border-strong); color: var(--gold-2); }
   .mc-btn.wait.on { background: rgba(201,154,60,.16); }
   .mcard.waiting { opacity: .82; }
@@ -604,7 +605,7 @@
       </div>
       <div class="dl-group">
         <a class="btn-dl" id="dlPrice" download="zid_prices_update.xlsx">⬇ ملف الأسعار (<span id="priceN">0</span> صنف)</a>
-        <div class="dl-sub">يُرفع في زد: استيراد ← تحديث المنتجات الحالية ← حدّد حقل السعر فقط ← تجاهل الحقول الفارغة</div>
+        <div class="dl-sub">يُرفع في زد: استيراد ← تحديث المنتجات الحالية ← حدّد حقلَي (السعر) و(منشور) ← تجاهل الحقول الفارغة</div>
       </div>
     </div>
     <div id="verifyMsg" style="display:none"></div>
@@ -671,7 +672,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "0eb4c33";
+const APP_VERSION = "e25d3ba";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1072,13 +1073,17 @@ function verifyPrices(rows, orig, H) {
   if (oh.length !== nh.length) return { ok: false, msg: `عدد الأعمدة غير متطابق (${nh.length} ≠ ${oh.length})` };
   for (let c = 0; c < oh.length; c++)
     if (String(oh[c]) !== String(nh[c])) return { ok: false, msg: `اسم/ترتيب العمود رقم ${c + 1} تغيّر` };
-  const iPrice = H.indexOf("price");
+  const iPrice = H.indexOf("price"), iPub = H.indexOf("published");
   for (let r = 1; r < rows.length; r++) {
     for (let c = 0; c < oh.length; c++) {
-      if (c === iPrice) continue; // يُسمح بتغيير السعر فقط (بقية الأعمدة ومنها quantity/sku/barcode ثابتة)
-      if (String(orig[r][c]) !== String(rows[r][c])) return { ok: false, msg: `العمود "${H[c]}" تغيّر في صف — يُسمح بتغيير السعر فقط` };
+      if (c === iPrice || c === iPub) continue; // يُسمح بتغيير السعر و published فقط (بقية الأعمدة ومنها quantity/sku/barcode ثابتة)
+      if (String(orig[r][c]) !== String(rows[r][c])) return { ok: false, msg: `العمود "${H[c]}" تغيّر في صف — يُسمح بتغيير السعر و«منشور» فقط` };
     }
     if (!Number.isFinite(Number(rows[r][iPrice]))) return { ok: false, msg: `قيمة سعر غير رقمية` };
+    if (iPub >= 0) {   // published: يُسمح بـ No→Yes فقط، لا أي اتجاه آخر
+      const o = String(orig[r][iPub]).trim().toLowerCase(), n = String(rows[r][iPub]).trim().toLowerCase();
+      if (o !== n && !(o === "no" && n === "yes")) return { ok: false, msg: `عمود «منشور» تغيّر باتجاه غير مسموح (يُسمح No→Yes فقط)` };
+    }
   }
   return { ok: true, cols: oh.length };
 }
@@ -1178,7 +1183,7 @@ function run(reprocess) {
     const H = stData.header;
     const rows0 = stData.rows;                                  // الصفوف الأصلية (لا تُعدّل)
     const iSku = H.indexOf("sku"), iQty = H.indexOf("quantity"), iPrice = H.indexOf("price");
-    const iName = H.indexOf("name_ar"), iNameEn = H.indexOf("name_en");
+    const iName = H.indexOf("name_ar"), iNameEn = H.indexOf("name_en"), iPublished = H.indexOf("published");
     const iImg = detectImageCol(H, rows0);                      // عمود صور زد (إن وُجد)
     const imgOf = row => (iImg >= 0 ? firstUrl(row[iImg]) : "");
 
@@ -1229,7 +1234,7 @@ function run(reprocess) {
     }
     migrateMapping(rawByNorm, rawSet);   // ترحيل mapping.json إلى مفاتيح SKU الخام
 
-    let qtyCount = 0, priceCount = 0, infConverted = 0;
+    let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0;
     const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [];
     let histChanged = false, waitChanged = false;
     // ملف الكميات: 4 أعمدة بالترتيب والتسميات الحرفية المطلوبة
@@ -1293,23 +1298,29 @@ function run(reprocess) {
           priceChanged = String(oldPrice) !== String(newPrice);
         }
       }
+      // إعادة النشر: صنف ستصبح كميته > 0 وهو حالياً published=No ⇒ يُعاد نشره (No→Yes فقط، لا عكس)
+      const needsPublish = iPublished >= 0 && newQty > 0 && String(orig[iPublished]).trim().toLowerCase() === "no";
       // استبعاد مؤقت للجلسة: يبقى الصنف في «تم تحديثه» لكنه يُستثنى من ملفي التنزيل وعدّاديهما
       const isExc = excludedSet.has(skuN);
+      const republish = needsPublish && !isExc;
       // ملف الكميات (يشمل تحويل "غير محدود" لكمية حقيقية)
       if (qtyChanged && !isExc) {
         qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", newQty]);
         qtyCount++;
         if (isInf) infConverted++;
       }
-      // ملف الأسعار (السعر فقط؛ الكمية وبقية الأعمدة تبقى كما هي)
-      if (priceChanged && !isExc) {
-        const pr = [...orig]; pr[iPrice] = newPrice;
+      // ملف الأسعار (السعر و/أو published؛ يُضمّ الصنف حتى لو لم يتغيّر سعره إذا لزم إعادة نشره)
+      if ((priceChanged || republish) && !isExc) {
+        const pr = [...orig];
+        if (priceChanged) pr[iPrice] = newPrice;
+        if (republish) pr[iPublished] = "Yes";
         priceRows.push(pr); priceOrig.push(orig);
         priceCount++;
+        if (republish) republishCount++;
       }
       // جدول العرض للتحقق البصري (يشمل المستبعد بمظهر باهت — لا يتغيّر تصنيفه)
-      if (qtyChanged || priceChanged) {
-        updatedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "", whName: wh.name || "", whCode, whBarcode: wh.barcode || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), whBase, offset, oldQty, newQty, oldPrice, newPrice, img: imgOf(orig), excluded: isExc });
+      if (qtyChanged || priceChanged || republish) {
+        updatedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "", whName: wh.name || "", whCode, whBarcode: wh.barcode || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), whBase, offset, oldQty, newQty, oldPrice, newPrice, img: imgOf(orig), excluded: isExc, republish });
       }
     }
 
@@ -1333,7 +1344,7 @@ function run(reprocess) {
 
     if (vq.ok && vp.ok) {
       vm.className = "verify-ok"; vm.style.display = "block";
-      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف`;
+      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "");
     } else {
       vm.className = "verify-fail"; vm.style.display = "block";
       vm.textContent = "✗ تم إيقاف التحميل — " + [!vq.ok ? "ملف الكميات: " + vq.msg : "", !vp.ok ? "ملف الأسعار: " + vp.msg : ""].filter(Boolean).join(" | ");
@@ -1629,6 +1640,7 @@ function updatedTableHTML(list) {
       : `${finalP != null ? fmtPrice(finalP) : "—"} ${badge}`;
     const flag = warn ? `<span class="warn-flag" title="${esc("سبب المراجعة: " + reasons.join("  •  "))}">⚠ راجع</span>` : "";
     const excFlag = u.excluded ? `<span class="sess-tag" title="مستبعد مؤقتاً من ملفي التنزيل في هذه الجلسة فقط — لن يُنزَّل حتى تستعيده">⏸ مستبعد من هذه الجلسة</span>` : "";
+    const pubFlag = u.republish ? `<span class="pub-tag" title="حالته published=No وكميته ستصبح > 0 — سيُغيَّر إلى Yes في ملف الأسعار">🔆 سيُعاد نشره</span>` : "";
     const isVar = String(u.sku).includes(".");
     const offBtn = isVar ? `<button class="mini-btn" onclick="openOffset('${esc(u.skuN)}')" title="زيادة سعر لهذا المتغير عن سعر المستودع (إضافات مدفوعة)">⚙ زيادة</button>` : "";
     const chk = testSelected.has(String(u.sku)) ? "checked" : "";
@@ -1640,7 +1652,7 @@ function updatedTableHTML(list) {
     return `<tr class="${warn ? "row-warn " : ""}${u.excluded ? "row-excluded" : ""}" data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
       `<td class="chk-cell">${chkCell}</td>` +
       `<td class="mono">${esc(u.sku)}</td>` +
-      `<td><div class="prodcell">${thumb(u.img)}<span>${esc(u.name) || "—"}${flag}${excFlag}</span></div></td>` +
+      `<td><div class="prodcell">${thumb(u.img)}<span>${esc(u.name) || "—"}${flag}${excFlag}${pubFlag}</span></div></td>` +
       `<td class="wh-name">${esc(u.whName) || "—"}${(u.whBarcode || u.whCode) ? `<div class="wh-bar">باركود المستودع: <span dir="ltr">${esc(u.whBarcode || u.whCode)}</span></div>` : ""}</td>` +
       `<td class="mono">${zp != null ? fmtPrice(zp) : "—"}</td>` +
       `<td class="mono">${priceCell}</td>` +
