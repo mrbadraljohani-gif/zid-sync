@@ -420,6 +420,8 @@
   .pub-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(157,208,166,.16); color: var(--green-2); border: 1px solid rgba(157,208,166,.5); font-family: 'Segoe UI', Tahoma, sans-serif; }
   .zero-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(147,162,181,.16); color: #a9b6c6; border: 1px solid rgba(147,162,181,.45); font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
   .opt-num { min-width: 0; width: 68px; padding: 6px 8px; font-size: 13px; text-align: center; }
+  .dist-tag { cursor: help; font-size: 14px; }
+  .from-merge { color: #9dd0a6; font-weight: 800; }
   .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px); z-index: 200; max-width: 90vw; padding: 12px 20px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: var(--text); background: #1c1810; border: 1px solid var(--border-strong); box-shadow: 0 14px 40px rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
   :root[data-theme="light"] .toast { background: #fffdf7; box-shadow: 0 14px 40px rgba(120,90,20,.18); }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -560,7 +562,10 @@
           <div class="ustatus" id="mBrStatus">اضغط لاختيار الملف</div>
         </label>
       </div>
-      <button class="btn-run sm" id="mergeBtn" disabled onclick="downloadMerge()" style="margin-top:12px">🔗 دمج وتنزيل الملف الموحّد</button>
+      <div class="maprow" style="margin-top:12px">
+        <button class="btn-run sm" id="mergeBtn" disabled onclick="doMerge()">🔗 دمج واعتماد كملف المستودع</button>
+        <button class="btn-run sm export-btn" id="mergeDlBtn" disabled onclick="downloadMerge()">⬇ تنزيل الملف الموحّد (اختياري)</button>
+      </div>
       <div id="mergeSummary" class="merge-summary" style="display:none"></div>
       <div id="mergeWarn" class="fp-warn" style="display:none"></div>
     </div>
@@ -598,6 +603,11 @@
       <button class="chip" data-group="absent" data-v="zero" onclick="setOpt(this)">صفّر كميتها في زد</button>
     </div>
     <p class="hint danger-hint" id="absentWarn" style="margin:8px 2px 0;display:none">⚠ «صفّر كميتها» استخدمه فقط عندما يمثّل ملفك كامل مخزونك (مستودع ＋ فروع). في المرحلة 1 (المستودع الرئيسي فقط) قد تكون هذه الأصناف متوفرة في الفروع — اترك «كما هي».</p>
+    <div class="optrow" style="margin-top:12px">
+      <span class="optlabel">توزيع كمية المستودع على المتغيرات:</span>
+      <button class="chip on" data-group="split" data-v="equal" onclick="setOpt(this)">قسّم بالتساوي</button>
+      <button class="chip" data-group="split" data-v="full" onclick="setOpt(this)">الكمية الكاملة لكل متغير</button>
+    </div>
     <div class="optrow" style="margin-top:12px; flex-wrap:wrap">
       <span class="optlabel">تصفير الكميات المنخفضة القيمة:</span>
       <button class="chip on" data-group="lowzero" data-v="on" onclick="setOpt(this)">مفعّل</button>
@@ -727,7 +737,7 @@ const HIST_KEY = "zid-matched-history-v1";   // أكواد سبق أن طوبق�
 const WAIT_KEY = "zid-waiting-v1";            // أصناف «غير متوفر حالياً» بانتظار ظهور كودها
 const OPT_KEY = "zid-options-v1";
 let whRows = null, stData = null;
-let opts = { price: "incl", inf: "skip", absent: "keep", lowzero: "on", lowPrice: 400, lowQty: 3 };
+let opts = { price: "incl", inf: "skip", absent: "keep", lowzero: "on", lowPrice: 400, lowQty: 3, split: "equal" };
 let manualMap = {};
 let baseMap = {}, baseIgnSet = new Set();   // نسخة الملف (mapping.json/ignored.json) للتمييز عن المحلي غير المصدَّر
 let matchedHistory = new Set();   // skuN لكل صنف طوبق سابقاً (يتراكم عبر الجلسات — منظومة matched-history.json)
@@ -1145,7 +1155,7 @@ function setOpt(btn) {
   opts[g] = btn.dataset.v;
   localStorage.setItem(OPT_KEY, JSON.stringify(opts));
   syncAbsentWarn();
-  if ((g === "absent" || g === "lowzero") && document.getElementById("result").style.display === "block") run(true);   // أعِد بناء الملفين فوراً
+  if ((g === "absent" || g === "lowzero" || g === "split") && document.getElementById("result").style.display === "block") run(true);   // أعِد بناء الملفين فوراً
 }
 function setLowThreshold() {
   const p = Math.round(Number((document.getElementById("lowPriceInp") || {}).value) || 0);
@@ -1217,7 +1227,7 @@ function checkReady() { document.getElementById("runBtn").disabled = !(whRows &&
 
 /* ========== دمج المستودع مع الفروع (اتحاد كامل بجمع الكميات — مرحلة أولى) ========== */
 let mergeWh = null, mergeBranches = [];   // مصفوفة فروع (قابلة للتوسّع لأكثر من فرع)
-function checkMergeReady() { const b = document.getElementById("mergeBtn"); if (b) b.disabled = !(mergeWh && mergeBranches.length); }
+function checkMergeReady() { const ok = !!(mergeWh && mergeBranches.length); ["mergeBtn", "mergeDlBtn"].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = !ok; }); }
 // قارئ مرن: يكتشف الأعمدة بالاسم (رأس موجود) أو بالموضع (بلا رأس)، كامل (5) أو مختصر (3)
 function parseInvRows(aoa) {
   if (!aoa || !aoa.length) return [];
@@ -1299,7 +1309,28 @@ function mergeInventory(whList, branchLists) {
   }
   return { unified, noPrice, both, whOnly, brOnly, total: map.size };
 }
-// طبقة التنزيل فوق دالة الدمج
+function showMergeSummary(res) {
+  const sm = document.getElementById("mergeSummary");
+  sm.style.display = "block";
+  sm.textContent = `موحّد: ${res.unified.length} · مشترك (جُمعت كمياته): ${res.both} · مستودع فقط: ${res.whOnly} · فرع فقط: ${res.brOnly} · بلا سعر: ${res.noPrice.length}`;
+  const warn = document.getElementById("mergeWarn");
+  if (res.total && res.both === 0) {
+    warn.style.display = "block";
+    warn.innerHTML = `⚠ لا يوجد أي كود مشترك بين الملفين — تأكّد أنهما من نفس النظام (قد تكون رفعت ملفاً خاطئاً).`;
+  } else { warn.style.display = "none"; warn.innerHTML = ""; }
+}
+// المرحلة الثانية: اعتماد ناتج الدمج مباشرةً كملف المستودع للمطابقة (نفس مسار البيانات — بلا تنزيل/إعادة رفع)
+function doMerge() {
+  if (!mergeWh || !mergeBranches.length) { showErr("ارفع ملف المستودع وملف الفرع أولاً."); return; }
+  const res = mergeInventory(mergeWh, mergeBranches);
+  whRows = res.unified.map(u => ({ "رقم الصنف": u.code, "اسم الصنف": u.name, "الكمية": u.qty, "سعر البيع شامل الضريبة": u.incl, "سعر البيع قبل الضريبة": u.excl }));
+  document.getElementById("whStatus").innerHTML = `<span class="from-merge">✓ من الدمج: مستودع ＋ فرع — ${res.unified.length} صنف</span>`;
+  document.getElementById("whCard").classList.add("ok");
+  showMergeSummary(res);
+  showErr("");
+  checkReady();
+}
+// طبقة التنزيل الاختيارية فوق دالة الدمج (للفحص اليدوي)
 function downloadMerge() {
   if (!mergeWh || !mergeBranches.length) { showErr("ارفع ملف المستودع وملف الفرع أولاً."); return; }
   const res = mergeInventory(mergeWh, mergeBranches);
@@ -1310,14 +1341,7 @@ function downloadMerge() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(main), "تقرير عن المخزون");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(np), "بلا سعر — للتسعير");
-  const sm = document.getElementById("mergeSummary");
-  sm.style.display = "block";
-  sm.textContent = `موحّد: ${res.unified.length} · مشترك (جُمعت كمياته): ${res.both} · مستودع فقط: ${res.whOnly} · فرع فقط: ${res.brOnly} · بلا سعر: ${res.noPrice.length}`;
-  const warn = document.getElementById("mergeWarn");
-  if (res.total && res.both === 0) {
-    warn.style.display = "block";
-    warn.innerHTML = `⚠ لا يوجد أي كود مشترك بين الملفين — تأكّد أنهما من نفس النظام (قد تكون رفعت ملفاً خاطئاً).`;
-  } else { warn.style.display = "none"; warn.innerHTML = ""; }
+  showMergeSummary(res);
   const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a"); a.href = url; a.download = "merged_inventory.xlsx";
@@ -1404,6 +1428,27 @@ function run(reprocess) {
     }
     migrateMapping(rawByNorm, rawSet);   // ترحيل mapping.json إلى مفاتيح SKU الخام
 
+    // === توزيع كمية كود المستودع الواحد على متغيرات زد المتعددة ===
+    // تمريرة أولى: أي كود مستودع يُطابَق بأكثر من متغيّر (غير الآباء)؟ احسب حصة كل متغيّر
+    const whMembers = new Map();   // whCode ⇒ [rawKey,...] بترتيب الظهور
+    for (let i = 1; i < rows0.length; i++) {
+      const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue;
+      const rk = String(rs); if (parentRaws.has(rk)) continue;
+      const sk = normCode(rs), col = collidedNorm.has(sk), mp = manualMap[rk];
+      let wc = mp ? (whIndex[mp] ? mp : (whIndex[normCode(mp)] ? normCode(mp) : null)) : null;
+      if (!wc && !col) wc = (whIndex[sk] ? sk : null) || (whIndex[baseOf(rs)] ? baseOf(rs) : null);
+      if (wc && whIndex[wc]) { if (!whMembers.has(wc)) whMembers.set(wc, []); whMembers.get(wc).push(rk); }
+    }
+    const shareByRaw = new Map(), distByRaw = new Map();
+    for (const [wc, members] of whMembers) {
+      const full = Math.max(0, Math.round(Number(whIndex[wc].qty) || 0));
+      if (opts.split === "full" || members.length <= 1) { members.forEach(rk => shareByRaw.set(rk, full)); }
+      else {   // قسّم بالتساوي: قسمة صحيحة والباقي للمتغيّر الأول (7 على 3 = 3+2+2)
+        const n = members.length, base = Math.floor(full / n), rem = full % n;
+        members.forEach((rk, idx) => { shareByRaw.set(rk, base + (idx === 0 ? rem : 0)); distByRaw.set(rk, { total: full, count: n }); });
+      }
+    }
+
     let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0;
     const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [];
     let histChanged = false, waitChanged = false;
@@ -1453,7 +1498,9 @@ function run(reprocess) {
       if (!matchedHistory.has(skuN)) { matchedHistory.add(skuN); histChanged = true; }
       if (waitingSet.has(skuN)) { waitingSet.delete(skuN); waitChanged = true; reactivated.push({ sku: rawKey, skuN, name: orig[iName] || "" }); }
       const oldQty = orig[iQty], oldPrice = orig[iPrice];
-      const whQtyReal = Math.max(0, Math.round(Number(wh.qty) || 0));   // كمية المستودع الحقيقية (حصة المتغير بعد التوزيع إن وُجد)
+      // الكمية الفعلية = حصة المتغيّر بعد توزيع كمية الكود (أو الكمية الكاملة إن كان الكود لمتغيّر واحد/وضع «الكمية الكاملة»)
+      const whQtyReal = shareByRaw.has(rawKey) ? shareByRaw.get(rawKey) : Math.max(0, Math.round(Number(wh.qty) || 0));
+      const dist = distByRaw.get(rawKey) || null;   // معلومات التوزيع (للأيقونة 🔀)
       const offset = priceOffsets[skuN] || 0;                 // زيادة المتغير (0 افتراضياً)
       // قاعدة تصفير الكميات المنخفضة القيمة: سعر نهائي (شامل الزيادة) < الحد وكمية ≤ الحد ⇒ تُصدَّر الكمية 0
       const whInclR = wh.incl != null ? Math.round(wh.incl) : (wh.excl != null ? Math.round(wh.excl) : null);
@@ -1496,7 +1543,7 @@ function run(reprocess) {
       }
       // جدول العرض للتحقق البصري (يشمل المستبعد بمظهر باهت — لا يتغيّر تصنيفه)
       if (qtyChanged || priceChanged || republish) {
-        updatedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "", whName: wh.name || "", whCode, whBarcode: wh.barcode || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), whBase, offset, oldQty, newQty, whQtyReal, zeroedLowValue: lowValZero, oldPrice, newPrice, img: imgOf(orig), excluded: isExc, republish });
+        updatedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "", whName: wh.name || "", whCode, whBarcode: wh.barcode || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), whBase, offset, oldQty, newQty, whQtyReal, zeroedLowValue: lowValZero, dist, oldPrice, newPrice, img: imgOf(orig), excluded: isExc, republish });
       }
     }
 
@@ -1833,7 +1880,7 @@ function updatedTableHTML(list) {
       `<td class="wh-name">${esc(u.whName) || "—"}${(u.whBarcode || u.whCode) ? `<div class="wh-bar">باركود المستودع: <span dir="ltr">${esc(u.whBarcode || u.whCode)}</span></div>` : ""}</td>` +
       `<td class="mono">${zp != null ? fmtPrice(zp) : "—"}</td>` +
       `<td class="mono">${priceCell}</td>` +
-      `<td class="qty-cell">${chgCell(u.oldQty, u.newQty)}${u.zeroedLowValue ? `<div class="off-line">المستودع: <span dir="ltr">${esc(String(u.whQtyReal))} ← 0</span></div>` : ""}</td>` +
+      `<td class="qty-cell">${chgCell(u.oldQty, u.newQty)}${u.dist ? ` <span class="dist-tag" title="كمية الكود (${esc(String(u.dist.total))}) موزّعة على ${esc(String(u.dist.count))} متغيّراً — حصة هذا المتغيّر: ${esc(String(u.whQtyReal))}">🔀</span>` : ""}${u.zeroedLowValue ? `<div class="off-line">المستودع: <span dir="ltr">${esc(String(u.whQtyReal))} ← 0</span></div>` : ""}</td>` +
       `<td class="act-cell">${actCell}</td></tr>`;
   }).join("");
   const excCount = list.filter(u => u.excluded).length;
