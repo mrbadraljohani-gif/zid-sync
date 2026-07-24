@@ -437,6 +437,9 @@
   .wh-results:empty { display: none; }
   .wh-row { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 6px; background: var(--panel); font-size: 13.5px; }
   .wh-row .wh-price { color: var(--muted); font-size: 12.5px; }
+  .wh-row .wh-qty { font-size: 12.5px; font-weight: 700; }
+  .wh-row .wh-qty.in { color: var(--green-2); }
+  .wh-row .wh-qty.out { color: var(--muted-2); }
   .wh-row .mini { margin-inline-start: auto; flex-shrink: 0; }
   .wh-empty { color: var(--muted-2); font-size: 13px; padding: 8px 4px; }
   .export-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
@@ -672,7 +675,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "e25d3ba";
+const APP_VERSION = "8126508";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2055,10 +2058,13 @@ function searchWarehouse() {
   if (!lastWhList.length) { box.innerHTML = '<div class="wh-empty">شغّل «طابق وأنشئ الملف» أولاً لتحميل بيانات المستودع</div>'; whResultsList = []; return; }
   whResultsList = lastWhList.filter(w => normText(w.code + " " + w.name).includes(q)).slice(0, 25);
   if (!whResultsList.length) { box.innerHTML = '<div class="wh-empty">لا نتائج مطابقة في ملف المستودع</div>'; return; }
-  box.innerHTML = whResultsList.map((w, i) =>
-    `<div class="wh-row"><span class="sugg-code">${esc(w.code)}</span> <span class="sugg-name">${esc(w.name)}</span>` +
-    (w.price != null ? ` <span class="wh-price">${priceInt(w.price)} ر.س</span>` : "") +
-    `<button class="mini bind" onclick="pickWh(${i})">اختر ←</button></div>`).join("");
+  box.innerHTML = whResultsList.map((w, i) => {
+    const q = Number(w.qty) || 0;
+    return `<div class="wh-row"><span class="sugg-code">${esc(w.code)}</span> <span class="sugg-name">${esc(w.name)}</span>` +
+      (w.price != null ? ` <span class="wh-price">${priceInt(w.price)} ر.س</span>` : "") +
+      ` <span class="wh-qty ${q > 0 ? "in" : "out"}">الكمية: ${q}</span>` +
+      `<button class="mini bind" onclick="pickWh(${i})">اختر ←</button></div>`;
+  }).join("");
 }
 function pickWh(i) {
   const w = whResultsList[i];
