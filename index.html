@@ -413,6 +413,14 @@
   .cat-new { background: rgba(230,163,74,.16); color: #f0b46a; }
   .cat-ign { background: rgba(255,255,255,.06); color: var(--muted-2); }
   .cat-inf { background: rgba(147,162,181,.16); color: #a9b6c6; }
+  .cat-abs { background: rgba(201,154,60,.16); color: var(--gold-2); }
+  .cat-wait { background: rgba(201,154,60,.10); color: var(--gold); }
+  .reactivated-msg { background: rgba(157,208,166,.14); border: 1px solid rgba(157,208,166,.5); color: var(--green-2); border-radius: 12px; padding: 11px 15px; margin-bottom: 14px; font-weight: 700; font-size: 13.5px; line-height: 1.7; }
+  .wait-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(201,154,60,.14); color: var(--gold-2); border: 1px solid var(--border-strong); font-family: 'Segoe UI', Tahoma, sans-serif; }
+  .mc-btn.wait { border-color: var(--border-strong); color: var(--gold-2); }
+  .mc-btn.wait.on { background: rgba(201,154,60,.16); }
+  .mcard.waiting { opacity: .82; }
+  .danger-hint { color: var(--danger); font-weight: 700; }
   .sim-bad { background: rgba(229,144,135,.18); color: var(--danger); }
   .size-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(229,144,135,.16); color: var(--danger); border: 1px solid rgba(229,144,135,.4); }
   .by-code-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(147,162,181,.16); color: #a9b6c6; border: 1px solid rgba(147,162,181,.4); }
@@ -549,6 +557,12 @@
       <button class="chip" data-group="price" data-v="excl" onclick="setOpt(this)">قبل الضريبة</button>
       <button class="chip" data-group="price" data-v="none" onclick="setOpt(this)">لا تحدّث الأسعار</button>
     </div>
+    <div class="optrow" style="margin-top:12px">
+      <span class="optlabel">الأصناف الغائبة عن الملف:</span>
+      <button class="chip on" data-group="absent" data-v="keep" onclick="setOpt(this)">اتركها كما هي في زد</button>
+      <button class="chip" data-group="absent" data-v="zero" onclick="setOpt(this)">صفّر كميتها في زد</button>
+    </div>
+    <p class="hint danger-hint" id="absentWarn" style="margin:8px 2px 0;display:none">⚠ «صفّر كميتها» استخدمه فقط عندما يمثّل ملفك كامل مخزونك (مستودع ＋ فروع). في المرحلة 1 (المستودع الرئيسي فقط) قد تكون هذه الأصناف متوفرة في الفروع — اترك «كما هي».</p>
     <p class="hint" style="margin:12px 2px 0">منتجات «الكمية غير المحدودة» المطابِقة تُستبدل تلقائياً بالكمية الحقيقية من المستودع في ملف الكميات.</p>
   </div>
 
@@ -571,6 +585,7 @@
   <div class="card" id="result">
     <div id="collisionWarn" style="display:none"></div>
     <div id="variantInfo" style="display:none"></div>
+    <div id="reactivatedMsg" class="reactivated-msg" style="display:none"></div>
     <div id="newAlert" class="alert-new" style="display:none" onclick="scrollToNew()"></div>
     <div class="clabel">النتيجة</div>
     <div class="stats">
@@ -578,6 +593,7 @@
       <div class="stat" data-filter="new" onclick="selectCard('new')"><b style="color:#e6a34a" id="sNew">0</b><span>جديد يحتاج قراراً</span></div>
       <div class="stat" data-filter="unmatched" onclick="selectCard('unmatched')"><b style="color:#e3c88c" id="sUn">0</b><span>بدون ربط</span></div>
       <div class="stat" data-filter="infinite" onclick="selectCard('infinite')"><b style="color:#93a2b5" id="sInf">0</b><span>غير محدود بلا مطابقة</span></div>
+      <div class="stat" data-filter="absent" onclick="selectCard('absent')"><b style="color:#c99a3c" id="sAbsent">0</b><span>غائب عن الملف 📭</span></div>
       <div class="stat" data-filter="all" onclick="selectCard('all')"><b style="color:#f1e9d8" id="sTot">0</b><span>إجمالي الأسطر</span></div>
     </div>
     <p class="stats-hint">اضغط أي بطاقة لعرض تفاصيلها في الجدول بالأسفل</p>
@@ -655,17 +671,23 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "55dc765";
+const APP_VERSION = "e721295";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
 const IGN_KEY = "zid-ignored-v1";
 const OFF_KEY = "zid-offsets-v1";
+const HIST_KEY = "zid-matched-history-v1";   // أكواد سبق أن طوبقت (لتمييز «الغائب» عن «الجديد»)
+const WAIT_KEY = "zid-waiting-v1";            // أصناف «غير متوفر حالياً» بانتظار ظهور كودها
 const OPT_KEY = "zid-options-v1";
 let whRows = null, stData = null;
-let opts = { price: "incl", inf: "skip" };
+let opts = { price: "incl", inf: "skip", absent: "keep" };
 let manualMap = {};
 let baseMap = {}, baseIgnSet = new Set();   // نسخة الملف (mapping.json/ignored.json) للتمييز عن المحلي غير المصدَّر
+let matchedHistory = new Set();   // skuN لكل صنف طوبق سابقاً (يتراكم عبر الجلسات — منظومة matched-history.json)
+let waitingSet = new Set();       // skuN لأصناف بانتظار التوفر (waiting.json)
+let baseHistSet = new Set(), baseWaitSet = new Set();
+let lastAbsent = [], lastReactivated = [];   // الغائبون عن الملف + من عاد للتوفر هذه المطابقة
 let priceOffsets = {};                  // زيادة سعر المتغيرات: skuN ⇒ قيمة الزيادة (ر.س)
 let ignoredSet = new Set();
 let excludedSet = new Set();           // استبعاد مؤقت للجلسة فقط (in-memory): يُستثنى الصنف من ملفي التنزيل — لا يُحفظ ويُصفَّر عند إعادة التحميل أو مطابقة جديدة
@@ -692,6 +714,17 @@ async function loadConfig() {
   manualMap = Object.assign({}, baseMap, localMap);
   const merged = [...(Array.isArray(fileIgn) ? fileIgn : []), ...(Array.isArray(localIgn) ? localIgn : [])];
   ignoredSet = new Set(merged.map(normCode).filter(Boolean));
+  // تاريخ المطابقة + قائمة الانتظار (نفس منظومة الإعدادات: ملف الريبو + localStorage)
+  const loadSet = async (path, key, setBase) => {
+    let file = [], loc = [];
+    try { const r = await fetch(path, { cache: "no-store" }); if (r.ok) file = await r.json(); } catch {}
+    try { loc = JSON.parse(localStorage.getItem(key) || "[]"); } catch {}
+    const base = new Set((Array.isArray(file) ? file : []).map(normCode).filter(Boolean));
+    setBase(base);
+    return new Set([...(Array.isArray(file) ? file : []), ...(Array.isArray(loc) ? loc : [])].map(normCode).filter(Boolean));
+  };
+  matchedHistory = await loadSet("matched-history.json", HIST_KEY, s => baseHistSet = s);
+  waitingSet = await loadSet("waiting.json", WAIT_KEY, s => baseWaitSet = s);
   // زيادات أسعار المتغيرات (price-offsets.json + localStorage) — المفاتيح تُطبَّع بـ normCode
   let baseOff = {}, localOff = {};
   try { const r = await fetch("price-offsets.json", { cache: "no-store" }); if (r.ok) baseOff = await r.json(); } catch {}
@@ -703,6 +736,8 @@ async function loadConfig() {
 }
 function saveIgnored() { localStorage.setItem(IGN_KEY, JSON.stringify([...ignoredSet])); }
 function saveOffsets() { localStorage.setItem(OFF_KEY, JSON.stringify(priceOffsets)); }
+function saveMatchedHistory() { localStorage.setItem(HIST_KEY, JSON.stringify([...matchedHistory])); }
+function saveWaiting() { localStorage.setItem(WAIT_KEY, JSON.stringify([...waitingSet])); }
 // ترحيل mapping.json من المفاتيح المطبَّعة القديمة إلى مفاتيح SKU الخام (يعتمد الأصفار كما في زد)
 function migrateMapping(rawByNorm, rawSet) {
   let changed = false;
@@ -932,6 +967,8 @@ function exportConfig() {
   download("mapping.json", JSON.stringify(manualMap, null, 2));
   download("ignored.json", JSON.stringify([...ignoredSet].sort(), null, 2));
   download("price-offsets.json", JSON.stringify(priceOffsets, null, 2));
+  download("matched-history.json", JSON.stringify([...matchedHistory].sort(), null, 2));
+  download("waiting.json", JSON.stringify([...waitingSet].sort(), null, 2));
 }
 
 /* ---------- الحفظ المباشر في الريبو عبر GitHub API ---------- */
@@ -994,17 +1031,21 @@ async function saveToRepo(reason) {
   const mapping = JSON.stringify(manualMap, null, 2);
   const ignored = JSON.stringify([...ignoredSet].sort(), null, 2);
   const offsets = JSON.stringify(priceOffsets, null, 2);
-  const sig = mapping + " " + ignored + " " + offsets;
+  const history = JSON.stringify([...matchedHistory].sort(), null, 2);
+  const waiting = JSON.stringify([...waitingSet].sort(), null, 2);
+  const sig = mapping + " " + ignored + " " + offsets + " " + history + " " + waiting;
   if (sig === lastSavedSig) { repoStatus("ok", "✓ لا تغييرات جديدة — الريبو محدّث بالفعل."); return; }
   repoStatus("", "⏳ جاري الحفظ في الريبو…");
   try {
     await putFileToRepo("mapping.json", mapping, token, `تحديث الروابط (${reason})`);
     await putFileToRepo("ignored.json", ignored, token, `تحديث المتجاهلات (${reason})`);
     await putFileToRepo("price-offsets.json", offsets, token, `تحديث زيادات الأسعار (${reason})`);
+    await putFileToRepo("matched-history.json", history, token, `تحديث تاريخ المطابقة (${reason})`);
+    await putFileToRepo("waiting.json", waiting, token, `تحديث قائمة الانتظار (${reason})`);
     lastSavedSig = sig;
-    baseMap = { ...manualMap }; baseIgnSet = new Set(ignoredSet);   // صار كل المحلي مصدَّراً للريبو
+    baseMap = { ...manualMap }; baseIgnSet = new Set(ignoredSet); baseHistSet = new Set(matchedHistory); baseWaitSet = new Set(waitingSet);   // صار كل المحلي مصدَّراً للريبو
     renderFingerprint();
-    repoStatus("ok", `✓ حُفظت الإعدادات في الريبو (${Object.keys(manualMap).length} ربط · ${Object.keys(priceOffsets).length} زيادة سعر) — قد تظهر على الأجهزة الأخرى خلال دقيقة.`);
+    repoStatus("ok", `✓ حُفظت الإعدادات في الريبو (${Object.keys(manualMap).length} ربط · ${Object.keys(priceOffsets).length} زيادة سعر · ${waitingSet.size} بانتظار) — قد تظهر على الأجهزة الأخرى خلال دقيقة.`);
   } catch (e) {
     repoStatus("fail", "✗ فشل الحفظ في الريبو: " + e.message + " — تحقّق من الرمز وصلاحياته.");
     openGhMenu();   // افتح القائمة ليتمكّن من إصلاح الرمز
@@ -1047,6 +1088,12 @@ function setOpt(btn) {
   btn.classList.add("on");
   opts[g] = btn.dataset.v;
   localStorage.setItem(OPT_KEY, JSON.stringify(opts));
+  syncAbsentWarn();
+  if (g === "absent" && document.getElementById("result").style.display === "block") run(true);   // أعِد بناء الملفين فوراً
+}
+function syncAbsentWarn() {
+  const w = document.getElementById("absentWarn");
+  if (w) w.style.display = opts.absent === "zero" ? "block" : "none";
 }
 
 // مزامنة أزرار الخيارات مع القيم المحفوظة
@@ -1054,6 +1101,7 @@ function applyOpts() {
   document.querySelectorAll(".chip[data-group]").forEach(b => {
     b.classList.toggle("on", opts[b.dataset.group] === b.dataset.v);
   });
+  syncAbsentWarn();
 }
 
 function readWB(file) {
@@ -1181,7 +1229,8 @@ function run(reprocess) {
     migrateMapping(rawByNorm, rawSet);   // ترحيل mapping.json إلى مفاتيح SKU الخام
 
     let qtyCount = 0, priceCount = 0, infConverted = 0;
-    const unmatched = [], updatedList = [], infiniteList = [];
+    const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [];
+    let histChanged = false, waitChanged = false;
     // ملف الكميات: 4 أعمدة بالترتيب والتسميات الحرفية المطلوبة
     const qtyRows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
     // ملف الأسعار: نفس بنية تصدير زد كاملة (رأس + الصفوف المتغيّر سعرها فقط)
@@ -1203,11 +1252,29 @@ function run(reprocess) {
       if (!whCode && !collided) whCode = (whIndex[skuN] ? skuN : null) || (whIndex[baseOf(rawSku)] ? baseOf(rawSku) : null);
       const wh = whCode ? whIndex[whCode] : null;
       if (!wh) {
-        // كود متصادم بلا ربط يدوي ⇒ يحتاج قرار إلزامياً؛ غير محدود بلا مطابقة ⇒ قائمته؛ غيره ⇒ يحتاج قرار
-        if (isInf && !collided) infiniteList.push({ sku: rawKey, skuN, name: orig[iName] || "" });
-        else unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], img: imgOf(orig), collided });
+        // بلا مطابقة في الملف الحالي: نميّز الغائب (له تاريخ) عن الجديد فعلاً
+        const waiting = waitingSet.has(skuN);
+        const hasHistory = !!manualMap[rawKey] || matchedHistory.has(skuN);
+        if (waiting) {
+          // بانتظار التوفر: يُستثنى من تنبيه الجديد، ويبقى ظاهراً في «بدون ربط» بشارته
+          unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], img: imgOf(orig), collided, waiting: true });
+        } else if (hasHistory) {
+          // غائب عن ملف المستودع (قد يكون متوفراً في فرع آخر — المرحلة 1)
+          absentList.push({ sku: rawKey, skuN, name: orig[iName] || "", mappedCode: manualMap[rawKey] || null });
+          if (opts.absent === "zero") {   // صفّر كميته فقط (خيار «كامل المخزون»)
+            qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", 0]);
+            qtyCount++;
+          }
+        } else if (isInf && !collided) {
+          infiniteList.push({ sku: rawKey, skuN, name: orig[iName] || "" });
+        } else {
+          unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], img: imgOf(orig), collided });
+        }
         continue;
       }
+      // مطابقة ناجحة: سجّلها في تاريخ المطابقة، وأعِد تفعيل ما كان بانتظار التوفر
+      if (!matchedHistory.has(skuN)) { matchedHistory.add(skuN); histChanged = true; }
+      if (waitingSet.has(skuN)) { waitingSet.delete(skuN); waitChanged = true; reactivated.push({ sku: rawKey, skuN, name: orig[iName] || "" }); }
       const oldQty = orig[iQty], oldPrice = orig[iPrice];
       const newQty = Math.max(0, Math.round(Number(wh.qty) || 0));   // كمية حقيقية عدد صحيح ≥ 0
       const qtyChanged = String(oldQty) !== String(newQty);          // "Infinite" ≠ رقم ⇒ يُستبدل دائماً
@@ -1270,9 +1337,14 @@ function run(reprocess) {
       vm.textContent = "✗ تم إيقاف التحميل — " + [!vq.ok ? "ملف الكميات: " + vq.msg : "", !vp.ok ? "ملف الأسعار: " + vp.msg : ""].filter(Boolean).join(" | ");
     }
 
+    // احفظ تاريخ المطابقة وقائمة الانتظار محلياً إن تغيّرا (تُصدَّر/تُحفظ في الريبو ضمن المنظومة)
+    if (histChanged) saveMatchedHistory();
+    if (waitChanged) saveWaiting();
+
     document.getElementById("sUpd").textContent = updatedList.length;
     document.getElementById("sUn").textContent = unmatched.length;
     document.getElementById("sInf").textContent = infiniteList.length;
+    document.getElementById("sAbsent").textContent = absentList.length;
     document.getElementById("sTot").textContent = rows0.length - 1;
 
     // === تصنيف الأصناف بدون ربط + بيانات الفلاتر ===
@@ -1282,10 +1354,13 @@ function run(reprocess) {
     lastUnmatchedRaw = unmatched;
     lastUpdated = updatedList;
     lastInfinite = infiniteList;
+    lastAbsent = absentList;
+    lastReactivated = reactivated;
     if (!reprocess) { boundSet = new Set(); currentFilter = "new"; }
     refreshUnmatchedUI();
     renderCollisionWarn();
     renderVariantInfo();
+    renderReactivated();
     renderFingerprint();
 
     document.getElementById("result").style.display = "block";
@@ -1320,6 +1395,26 @@ function renderVariantInfo() {
     <details><summary>عرض المجموعات (${lastVariantGroups.length})</summary><div class="vg-list">${rows}</div></details>
   </div>`;
 }
+// إشعار أخضر: أصناف كانت بانتظار التوفر وظهرت أكوادها في الملف فعُلّقت وحُدّثت تلقائياً
+function renderReactivated() {
+  const el = document.getElementById("reactivatedMsg");
+  if (!el) return;
+  if (!lastReactivated.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+  el.style.display = "block";
+  el.innerHTML = `✅ عاد للتوفر: <b>${lastReactivated.length}</b> صنف — ظهرت أكوادها في ملف المستودع، فأُزيلت من الانتظار وحُدّثت تلقائياً: ` +
+    lastReactivated.slice(0, 30).map(r => `<span class="mono" dir="ltr">${esc(r.sku)}</span>`).join("، ") + (lastReactivated.length > 30 ? " …" : "");
+}
+// جدول «الغائب عن الملف»
+function absentTableHTML(list) {
+  const rows = list.map(u => `<tr data-search="${esc(normText(u.sku + " " + u.name))}">` +
+    `<td class="mono">${esc(u.sku)}</td><td>${esc(u.name) || "—"}</td>` +
+    `<td>${u.mappedCode ? `ربط يدوي بـ <span class="mono" dir="ltr">${esc(u.mappedCode)}</span>` : "مطابقة كود سابقة"}</td></tr>`).join("");
+  return `<table>
+    <colgroup><col class="c-sku"><col><col style="width:190px"></colgroup>
+    <thead><tr><th>SKU زد</th><th>اسم المنتج</th><th>سبب اعتباره غائباً</th></tr></thead>
+    <tbody id="unBody">${rows}</tbody>
+  </table>`;
+}
 
 /* ---------- تصنيف + عرض تفاصيل الفلاتر (البطاقات) ---------- */
 function refreshUnmatchedUI() {
@@ -1352,7 +1447,7 @@ function buildItems(raw) {
     let suggestion;
     if (suggCache.has(u.skuN)) suggestion = suggCache.get(u.skuN);
     else { suggestion = suggestFor(u.skuN, u.name, lastWhList, u.price); suggCache.set(u.skuN, suggestion); }
-    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, img: u.img || "", collided: u.collided || null, isZ, suggestion, bound: boundSet.has(String(u.sku)), ignored: ignoredSet.has(normCode(u.skuN)) };
+    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, img: u.img || "", collided: u.collided || null, isZ, suggestion, bound: boundSet.has(String(u.sku)), ignored: ignoredSet.has(normCode(u.skuN)), waiting: waitingSet.has(normCode(u.skuN)) };
   });
   // متغيّرات متعددة مرتبطة بنفس كود المستودع (نفس الاقتراح لأكثر من صنف) ⇒ 🔀
   const codeCount = {};
@@ -1377,7 +1472,7 @@ function renderDetail() {
   if (f === "new" || f === "unmatched") {
     const notBound = u => !boundSet.has(String(u.sku));
     const raw = (f === "new")
-      ? lastUnmatchedRaw.filter(u => notBound(u) && !ignoredSet.has(normCode(u.skuN)))
+      ? lastUnmatchedRaw.filter(u => notBound(u) && !ignoredSet.has(normCode(u.skuN)) && !waitingSet.has(normCode(u.skuN)))
       : lastUnmatchedRaw.filter(notBound);
     const items = buildItems(raw);
     lastUnmatched = items;
@@ -1394,11 +1489,17 @@ function renderDetail() {
     bindBtn.style.display = "none";
     title.textContent = `كمية غير محدودة — تُركت كما هي (${lastInfinite.length})`;
     wrap.innerHTML = listTableHTML(lastInfinite);
+  } else if (f === "absent") {
+    bindBtn.style.display = "none";
+    title.textContent = `غائب عن ملف المستودع (${lastAbsent.length}) — له تاريخ مطابقة لكنه غير موجود في الملف المرفوع` + (opts.absent === "zero" ? " · ستُصفَّر كميته" : " · تُرك كما هو في زد (قد يكون متوفراً بفرع)");
+    wrap.innerHTML = absentTableHTML(lastAbsent);
   } else { // all
     bindBtn.style.display = "none";
+    const catOf = u => ignoredSet.has(normCode(u.skuN)) ? "ignored" : (waitingSet.has(normCode(u.skuN)) ? "waiting" : "new");
     const all = [
       ...lastUpdated.map(u => ({ sku: u.sku, name: u.name, skuN: u.skuN, _cat: "updated" })),
-      ...lastUnmatchedRaw.map(u => ({ sku: u.sku, name: u.name, skuN: u.skuN, _cat: ignoredSet.has(normCode(u.skuN)) ? "ignored" : "new" })),
+      ...lastUnmatchedRaw.map(u => ({ sku: u.sku, name: u.name, skuN: u.skuN, _cat: catOf(u) })),
+      ...lastAbsent.map(u => ({ sku: u.sku, name: u.name, skuN: u.skuN, _cat: "absent" })),
       ...lastInfinite.map(u => ({ sku: u.sku, name: u.name, skuN: u.skuN, _cat: "infinite" })),
     ];
     title.textContent = `كل الأسطر المصنّفة (${all.length}${all.length > 200 ? " — تُعرض أول ٢٠٠" : ""})`;
@@ -1648,7 +1749,7 @@ function listTableHTML(list) {
 }
 
 function catBadge(cat) {
-  const map = { updated: ["محدّث", "cat-upd"], new: ["جديد", "cat-new"], ignored: ["متجاهل", "cat-ign"], infinite: ["غير محدود", "cat-inf"] };
+  const map = { updated: ["محدّث", "cat-upd"], new: ["جديد", "cat-new"], ignored: ["متجاهل", "cat-ign"], infinite: ["غير محدود", "cat-inf"], absent: ["غائب 📭", "cat-abs"], waiting: ["بانتظار ⏳", "cat-wait"] };
   const [t, c] = map[cat] || ["—", ""];
   return `<span class="cat-badge ${c}">${t}</span>`;
 }
@@ -1663,7 +1764,7 @@ function allTableHTML(list) {
 
 // شريط التنبيه البرتقالي + البطاقة الخامسة (يستبعد ما رُبط في هذه الجلسة)
 function updateNewCount() {
-  const newCount = lastUnmatchedRaw.filter(u => !ignoredSet.has(normCode(u.skuN)) && !boundSet.has(String(u.sku))).length;
+  const newCount = lastUnmatchedRaw.filter(u => !ignoredSet.has(normCode(u.skuN)) && !boundSet.has(String(u.sku)) && !waitingSet.has(normCode(u.skuN))).length;
   document.getElementById("sNew").textContent = newCount;
   const alert = document.getElementById("newAlert");
   if (newCount > 0) {
@@ -1702,11 +1803,12 @@ function cardHtml(it, i) {
   const reliable = !!s && pct >= 55;                 // أقل من 55% ⇒ لا يوجد اقتراح موثوق
   const autoTag = it.isZ ? `<span class="mc-auto" title="كود مُولّد آلياً من زد">كود آلي من زد</span>` : "";
   const colTag = (it.collided && it.collided.length > 1) ? `<span class="col-tag" title="أكواد زد تتطابق بعد إزالة الأصفار — المطابقة التلقائية معطّلة، اربطه يدوياً">⚠ كود متصادم (${it.collided.map(esc).join(" / ")})</span>` : "";
+  const waitTag = it.waiting ? `<span class="wait-tag" title="بانتظار ظهور كوده في ملف المستودع">⏳ بانتظار التوفر</span>` : "";
   const zid = `<div class="mc-zid">
       <span class="mc-tag zid">ZID PRODUCT</span>
       <div class="mc-row">${thumb(it.img)}<div class="mc-txt">
         <div class="mc-name">${esc(it.name) || "—"}</div>
-        <div class="mc-sku">SKU: <span dir="ltr">${esc(it.sku)}</span>${autoTag}${colTag}</div>
+        <div class="mc-sku">SKU: <span dir="ltr">${esc(it.sku)}</span>${autoTag}${colTag}${waitTag}</div>
         ${zidPrice != null ? `<div class="mc-sub">سعر زد: ${zidPrice} ر.س</div>` : ""}
       </div></div>
     </div>`;
@@ -1736,9 +1838,12 @@ function cardHtml(it, i) {
   else bindBtn = `<button class="mc-btn bind outline" onclick="startManualLink('${esc(it.skuN)}')">🔍 ربط يدوي</button>`;
   const ignoreBtn = it.ignored ? `<button class="mc-btn ignore" disabled>متجاهَل</button>`
     : `<button class="mc-btn ignore" onclick="ignoreRow(${i})">تجاهل</button>`;
-  const actions = `<div class="mc-actions">${bindBtn}${ignoreBtn}</div>`;
+  const waitBtn = it.waiting
+    ? `<button class="mc-btn wait on" onclick="unwaitRow(${i})" title="أزِله من قائمة الانتظار">⏳ بانتظار التوفر — إلغاء</button>`
+    : `<button class="mc-btn wait" onclick="waitRow(${i})" title="سجّله «غير متوفر حالياً»: يُستثنى من تنبيه الجديد، ويُفعَّل تلقائياً فور ظهور كوده في ملف المستودع">⏳ غير متوفر حالياً</button>`;
+  const actions = `<div class="mc-actions">${bindBtn}${ignoreBtn}${waitBtn}</div>`;
   const search = esc(normText(it.sku + " " + it.name + " " + (s ? s.code + " " + s.name : "")));
-  const cls = "mcard" + (it.isZ ? " zrow" : "") + (it.bound ? " bound" : "") + (it.ignored ? " ignored" : "") + (it.variant ? " variant" : "");
+  const cls = "mcard" + (it.isZ ? " zrow" : "") + (it.bound ? " bound" : "") + (it.ignored ? " ignored" : "") + (it.variant ? " variant" : "") + (it.waiting ? " waiting" : "");
   return `<div id="un-${i}" class="${cls}" data-search="${search}">${zid}${mid}${wh}${actions}</div>`;
 }
 function suggestionsCardsHTML(items) {
@@ -1762,7 +1867,7 @@ function startManualLink(skuN) {
 
 // صنف "مؤكد": تشابه اسم 90%+ وفرق سعري ≤5%
 function isConfirmed(it) {
-  if (!it.suggestion || it.isZ || it.bound || it.ignored) return false;
+  if (!it.suggestion || it.isZ || it.bound || it.ignored || it.waiting) return false;
   if (it.suggestion.ns < 0.90) return false;
   const d = priceDiffPct(it.price, it.suggestion.price);
   return d != null && d <= 5;
@@ -1817,6 +1922,27 @@ function ignoreRow(i) {
   renderIgnored(lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN))));
   updateBindAllCount();
   updateNewCount();
+  renderFingerprint();
+}
+
+// «غير متوفر حالياً»: يسجّله في قائمة الانتظار (يختفي من «جديد»، يُفعّل تلقائياً عند ظهور كوده)
+function waitRow(i) {
+  const it = lastUnmatched[i];
+  if (!it || it.waiting) return;
+  waitingSet.add(normCode(it.skuN));
+  it.waiting = true;
+  saveWaiting();
+  fadeRemoveRow(i);
+  updateBindAllCount();
+  updateNewCount();
+  renderFingerprint();
+}
+function unwaitRow(i) {
+  const it = lastUnmatched[i];
+  if (!it) return;
+  waitingSet.delete(normCode(it.skuN));
+  saveWaiting();
+  refreshUnmatchedUI();
   renderFingerprint();
 }
 
@@ -1887,18 +2013,22 @@ function renderFingerprint() {
   const localMapExtra = Object.keys(manualMap).filter(k => baseMap[k] !== manualMap[k]).length;
   const fileIgn = baseIgnSet.size;
   const localIgnExtra = [...ignoredSet].filter(k => !baseIgnSet.has(k)).length;
+  const localWaitExtra = [...waitingSet].filter(k => !baseWaitSet.has(k)).length;
+  const localHistExtra = [...matchedHistory].filter(k => !baseHistSet.has(k)).length;
   const zid = stData ? (stData.rows.length - 1) : 0;
   const wh = whRows ? whRows.length : 0;
   el.innerHTML = `🔎 بصمة الجلسة · ` +
     `الروابط: ${fileMap} بالملف` + (localMapExtra ? ` <b>+${localMapExtra} محلي غير مصدَّر</b>` : ` · 0 محلي`) + ` · ` +
     `التجاهلات: ${fileIgn} بالملف` + (localIgnExtra ? ` <b>+${localIgnExtra} محلي غير مصدَّر</b>` : ` · 0 محلي`) + ` · ` +
+    `الانتظار: ${waitingSet.size}` + (localWaitExtra ? ` <b>(+${localWaitExtra} غير مصدَّر)</b>` : ``) + ` · ` +
+    `تاريخ المطابقة: ${matchedHistory.size}` + (localHistExtra ? ` <b>(+${localHistExtra} غير مصدَّر)</b>` : ``) + ` · ` +
     `صفوف زد: ${zid} · صفوف المستودع: ${wh} · ` +
     `النسخة: <span class="mono">${APP_VERSION}</span>`;
   const warn = document.getElementById("fpWarn");
   if (warn) {
-    if (localMapExtra || localIgnExtra) {
+    if (localMapExtra || localIgnExtra || localWaitExtra || localHistExtra) {
       warn.style.display = "block";
-      warn.innerHTML = `⚠ لديك ${localMapExtra} ربطاً و${localIgnExtra} تجاهلاً محلياً غير محفوظ في الريبو — صدّرها/احفظها في الريبو (زر «☁ الحفظ في الريبو»)، وإلا لن تظهر على أجهزتك الأخرى.`;
+      warn.innerHTML = `⚠ لديك تغييرات محلية غير محفوظة في الريبو (روابط ${localMapExtra} · تجاهلات ${localIgnExtra} · انتظار ${localWaitExtra} · تاريخ مطابقة ${localHistExtra}) — احفظها في الريبو (زر «☁ الحفظ في الريبو»)، وإلا لن تظهر على أجهزتك الأخرى.`;
     } else { warn.style.display = "none"; warn.innerHTML = ""; }
   }
 }
@@ -1910,7 +2040,7 @@ applyTheme(currentTheme());   // ضبط تسمية زر الوضع حسب الح
   renderPills();
   renderOffsetsList();
   // الحالة المحمّلة من الريبو هي المرجع الحالي — لا نعيد حفظها ما لم تتغيّر
-  lastSavedSig = JSON.stringify(manualMap, null, 2) + " " + JSON.stringify([...ignoredSet].sort(), null, 2) + " " + JSON.stringify(priceOffsets, null, 2);
+  lastSavedSig = JSON.stringify(manualMap, null, 2) + " " + JSON.stringify([...ignoredSet].sort(), null, 2) + " " + JSON.stringify(priceOffsets, null, 2) + " " + JSON.stringify([...matchedHistory].sort(), null, 2) + " " + JSON.stringify([...waitingSet].sort(), null, 2);
   // مؤشر أخضر فقط عند وجود رمز محفوظ (بدون نص)، وإلا كهرماني
   const hasToken = !!localStorage.getItem(TOKEN_KEY);
   repoStatus(hasToken ? "ok" : "warn", "");
