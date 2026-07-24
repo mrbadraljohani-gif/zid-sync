@@ -341,6 +341,14 @@
   .col-warn details { margin-top: 8px; }
   .col-warn summary { cursor: pointer; color: var(--gold-2); font-weight: 700; font-size: 13px; }
   .col-list { margin-top: 8px; max-height: 260px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+  .vg-info { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 15px; margin-bottom: 14px; }
+  .vg-head { color: var(--muted); font-weight: 700; font-size: 13.5px; line-height: 1.6; }
+  .vg-info details { margin-top: 8px; }
+  .vg-info summary { cursor: pointer; color: var(--muted-2); font-weight: 700; font-size: 13px; }
+  .vg-list { margin-top: 8px; max-height: 260px; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+  .vg-row { display: flex; flex-direction: column; gap: 3px; padding: 7px 10px; border-radius: 9px; background: var(--panel-2); }
+  .vg-opts { color: var(--muted); font-size: 12.5px; }
+  .parent-badge { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(133,123,100,.18); color: var(--muted); border: 1px solid var(--muted-2); }
   .col-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
   .col-pill b { color: var(--danger); font-family: ui-monospace, Consolas, monospace; }
   .col-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(229,144,135,.18); color: var(--danger); border: 1px solid rgba(229,144,135,.5); font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
@@ -562,6 +570,7 @@
 
   <div class="card" id="result">
     <div id="collisionWarn" style="display:none"></div>
+    <div id="variantInfo" style="display:none"></div>
     <div id="newAlert" class="alert-new" style="display:none" onclick="scrollToNew()"></div>
     <div class="clabel">النتيجة</div>
     <div class="stats">
@@ -646,7 +655,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "d1fd487";
+const APP_VERSION = "55dc765";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -664,7 +673,8 @@ let boundSet = new Set();
 let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [], lastIgnored = [];
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
 let lastUpdated = [], lastInfinite = [], currentFilter = "new";
-let lastCollisions = [];   // مجموعات أكواد زد الخام المتصادمة بعد التطبيع
+let lastCollisions = [];   // مجموعات أكواد زد الخام المتصادمة بعد التطبيع (الصعبة فقط — تحذير أحمر)
+let lastVariantGroups = [];   // مجموعات «أب/خيار» المكتشفة والمعالَجة تلقائياً
 let lastQtyRows = null, lastPriceRows = null;   // صفوف الملفين الناتجين (لتنزيل صف اختبار واحد)
 let testSelected = new Set();                   // أصناف محدّدة لتنزيل ملف اختبار جماعي
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
@@ -1131,11 +1141,42 @@ function run(reprocess) {
       if (!(raw in nameByRaw)) nameByRaw[raw] = rows0[i][iName] || "";
       const k = normCode(rs); (rawByNorm[k] || (rawByNorm[k] = {}))[raw] = true;
     }
-    const collidedNorm = new Set();
+    // نمط زد لمتعدد الخيارات: الأب كوده بصفر بادئ إضافي (060175) وخياراته بدونه (60175). نكشفه ونعالجه تلقائياً.
+    const leadingZeros = s => { const m = String(s).match(/^0+(?=\d)/); return m ? m[0].length : 0; };
+    const iHasVar = H.findIndex(h => String(h).toLowerCase().replace(/\s+/g, "_").includes("has_variant"));
+    const isYesVar = v => { const s = String(v == null ? "" : v).trim().toLowerCase(); return s === "yes" || s === "true" || s === "1" || s === "نعم"; };
+    const rowByRawSku = {};
+    for (let i = 1; i < rows0.length; i++) { const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue; const raw = String(rs); if (!(raw in rowByRawSku)) rowByRawSku[raw] = rows0[i]; }
+
+    const collidedNorm = new Set();   // تصادمات صعبة (أسماء مختلفة جوهرياً) ⇒ تحذير أحمر + ربط يدوي إلزامي
+    const parentRaws = new Set();     // أكواد آباء زد (بالصفر البادئ) ⇒ تُستبعد تلقائياً من الملفين
     lastCollisions = [];
+    lastVariantGroups = [];
     for (const k in rawByNorm) {
       const raws = Object.keys(rawByNorm[k]);
-      if (raws.length >= 2) { collidedNorm.add(k); lastCollisions.push({ norm: k, items: raws.map(s => ({ sku: s, name: nameByRaw[s] || "" })) }); }
+      if (raws.length < 2) continue;
+      const maxZ = Math.max(...raws.map(leadingZeros));
+      const parents = raws.filter(r => leadingZeros(r) === maxZ);   // الأكثر أصفاراً بادئة
+      const options = raws.filter(r => leadingZeros(r) < maxZ);
+      const parentRaw = parents.length === 1 ? parents[0] : null;   // أب واحد فريد بصفر بادئ إضافي
+      let isVariantGroup = false;
+      if (parentRaw && options.length >= 1) {
+        const prow = rowByRawSku[parentRaw];
+        const parentHasVar = iHasVar >= 0 && prow && isYesVar(prow[iHasVar]);   // has_variants = Yes
+        const pName = coreTokens(nameTokens(nameByRaw[parentRaw] || ""));       // أو اسم عام لنفس المنتج
+        const namesSimilar = pName.length > 0 && options.every(o => {
+          const oName = coreTokens(nameTokens(nameByRaw[o] || ""));
+          return oName.length > 0 && nameSimTokens(pName, oName) >= 0.7;
+        });
+        isVariantGroup = parentHasVar || namesSimilar;
+      }
+      if (isVariantGroup) {
+        parentRaws.add(parentRaw);   // الأب يُستبعد؛ الخيارات تُطابَق تلقائياً (لا تُضاف إلى collidedNorm)
+        lastVariantGroups.push({ norm: k, parent: { sku: parentRaw, name: nameByRaw[parentRaw] || "" }, options: options.map(s => ({ sku: s, name: nameByRaw[s] || "" })) });
+      } else {
+        collidedNorm.add(k);
+        lastCollisions.push({ norm: k, items: raws.map(s => ({ sku: s, name: nameByRaw[s] || "" })) });
+      }
     }
     migrateMapping(rawByNorm, rawSet);   // ترحيل mapping.json إلى مفاتيح SKU الخام
 
@@ -1153,6 +1194,8 @@ function run(reprocess) {
       const skuN = normCode(rawSku);
       const isInf = String(orig[iQty]).trim().toLowerCase() === "infinite";
       const rawKey = String(rawSku);
+      // منتج أب (بالصفر البادئ): مُستبعد تلقائياً من الملفين والعدّادات — خياراته هي التي تتحدث
+      if (parentRaws.has(rawKey)) continue;
       const collided = collidedNorm.has(skuN) ? Object.keys(rawByNorm[skuN]) : null;
       // الربط اليدوي بالـSKU الخام أولاً؛ ثم — للأصناف غير المتصادمة فقط — المطابقة التلقائية بالكود
       const mapped = manualMap[rawKey];
@@ -1242,6 +1285,7 @@ function run(reprocess) {
     if (!reprocess) { boundSet = new Set(); currentFilter = "new"; }
     refreshUnmatchedUI();
     renderCollisionWarn();
+    renderVariantInfo();
     renderFingerprint();
 
     document.getElementById("result").style.display = "block";
@@ -1256,8 +1300,24 @@ function renderCollisionWarn() {
     `<div class="col-row">${g.items.map(it => `<span class="col-pill"><b dir="ltr">${esc(it.sku)}</b> — ${esc(it.name) || "؟"}</span>`).join(" ⇄ ")}</div>`).join("");
   el.style.display = "block";
   el.innerHTML = `<div class="col-warn">
-    <div class="col-warn-head">⚠ يوجد ${lastCollisions.length} مجموعة من أكواد زد المتصادمة بعد التطبيع — المطابقة التلقائية بالكود معطّلة لها، اربطها يدوياً في «يحتاج قرار».</div>
+    <div class="col-warn-head">⚠ يوجد ${lastCollisions.length} مجموعة من أكواد زد المتصادمة بعد التطبيع (أسماء مختلفة) — المطابقة التلقائية بالكود معطّلة لها، اربطها يدوياً في «يحتاج قرار».</div>
     <details><summary>عرض القائمة الكاملة (${lastCollisions.length} مجموعة)</summary><div class="col-list">${groups}</div></details>
+  </div>`;
+}
+// لوحة رمادية: مجموعات «أب/خيار» عولجت تلقائياً (الأب مستبعد، خياراته تتحدث)
+function renderVariantInfo() {
+  const el = document.getElementById("variantInfo");
+  if (!el) return;
+  if (!lastVariantGroups.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+  const rows = lastVariantGroups.map(g =>
+    `<div class="vg-row">` +
+    `<span><span class="parent-badge">منتج أب — خياراته هي التي تتحدث</span> <b dir="ltr">${esc(g.parent.sku)}</b> — ${esc(g.parent.name) || "؟"}</span>` +
+    `<span class="vg-opts">الخيارات: ${g.options.map(o => `<b dir="ltr">${esc(o.sku)}</b>${o.name ? " (" + esc(o.name) + ")" : ""}`).join("، ")}</span>` +
+    `</div>`).join("");
+  el.style.display = "block";
+  el.innerHTML = `<div class="vg-info">
+    <div class="vg-head">🧩 عولجت تلقائياً ${lastVariantGroups.length} مجموعة «أب/خيار» — الأب (بالصفر البادئ) مُستبعد من ملفي التحديث، وخياراته تتحدث بالمطابقة التلقائية بالكود.</div>
+    <details><summary>عرض المجموعات (${lastVariantGroups.length})</summary><div class="vg-list">${rows}</div></details>
   </div>`;
 }
 
