@@ -1428,16 +1428,22 @@ function run(reprocess) {
     }
     migrateMapping(rawByNorm, rawSet);   // ترحيل mapping.json إلى مفاتيح SKU الخام
 
+    // دالة موحّدة لتحديد كود المستودع لأي صنف — تُستخدم في تمريرة العد والحلقة معاً (بلا أي اختلاف)
+    const resolveWhCode = (rawSku, skuN) => {
+      const rk = String(rawSku);
+      const mp = manualMap[rk];
+      let wc = mp ? (whIndex[mp] ? mp : (whIndex[normCode(mp)] ? normCode(mp) : null)) : null;
+      if (!wc && !collidedNorm.has(skuN)) wc = (whIndex[skuN] ? skuN : null) || (whIndex[baseOf(rawSku)] ? baseOf(rawSku) : null);
+      return wc && whIndex[wc] ? wc : null;
+    };
     // === توزيع كمية كود المستودع الواحد على متغيرات زد المتعددة ===
-    // تمريرة أولى: أي كود مستودع يُطابَق بأكثر من متغيّر (غير الآباء)؟ احسب حصة كل متغيّر
+    // تمريرة أولى: اجمع كل الأصناف (غير الآباء) حسب كود المستودع الذي ستأخذ كميتها منه
     const whMembers = new Map();   // whCode ⇒ [rawKey,...] بترتيب الظهور
     for (let i = 1; i < rows0.length; i++) {
       const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue;
       const rk = String(rs); if (parentRaws.has(rk)) continue;
-      const sk = normCode(rs), col = collidedNorm.has(sk), mp = manualMap[rk];
-      let wc = mp ? (whIndex[mp] ? mp : (whIndex[normCode(mp)] ? normCode(mp) : null)) : null;
-      if (!wc && !col) wc = (whIndex[sk] ? sk : null) || (whIndex[baseOf(rs)] ? baseOf(rs) : null);
-      if (wc && whIndex[wc]) { if (!whMembers.has(wc)) whMembers.set(wc, []); whMembers.get(wc).push(rk); }
+      const wc = resolveWhCode(rs, normCode(rs));
+      if (wc) { if (!whMembers.has(wc)) whMembers.set(wc, []); whMembers.get(wc).push(rk); }
     }
     const shareByRaw = new Map(), distByRaw = new Map();
     for (const [wc, members] of whMembers) {
@@ -1448,6 +1454,7 @@ function run(reprocess) {
         members.forEach((rk, idx) => { shareByRaw.set(rk, base + (idx === 0 ? rem : 0)); distByRaw.set(rk, { total: full, count: n }); });
       }
     }
+    const distItemCount = distByRaw.size, distGroupCount = [...whMembers.values()].filter(m => m.length > 1).length;
 
     let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0;
     const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [];
@@ -1469,8 +1476,7 @@ function run(reprocess) {
       const collided = collidedNorm.has(skuN) ? Object.keys(rawByNorm[skuN]) : null;
       // الربط اليدوي بالـSKU الخام أولاً؛ ثم — للأصناف غير المتصادمة فقط — المطابقة التلقائية بالكود
       const mapped = manualMap[rawKey];
-      let whCode = mapped ? (whIndex[mapped] ? mapped : (whIndex[normCode(mapped)] ? normCode(mapped) : null)) : null;
-      if (!whCode && !collided) whCode = (whIndex[skuN] ? skuN : null) || (whIndex[baseOf(rawSku)] ? baseOf(rawSku) : null);
+      const whCode = resolveWhCode(rawSku, skuN);   // نفس دالة تمريرة التوزيع بالضبط — لا اختلاف
       const wh = whCode ? whIndex[whCode] : null;
       if (!wh) {
         // بلا مطابقة في الملف الحالي: نميّز الغائب (له تاريخ) عن الجديد فعلاً
@@ -1567,7 +1573,7 @@ function run(reprocess) {
 
     if (vq.ok && vp.ok) {
       vm.className = "verify-ok"; vm.style.display = "block";
-      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "");
+      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "");
     } else {
       vm.className = "verify-fail"; vm.style.display = "block";
       vm.textContent = "✗ تم إيقاف التحميل — " + [!vq.ok ? "ملف الكميات: " + vq.msg : "", !vp.ok ? "ملف الأسعار: " + vp.msg : ""].filter(Boolean).join(" | ");
