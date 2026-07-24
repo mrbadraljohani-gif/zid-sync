@@ -344,6 +344,7 @@
   .col-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
   .col-pill b { color: var(--danger); font-family: ui-monospace, Consolas, monospace; }
   .col-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(229,144,135,.18); color: var(--danger); border: 1px solid rgba(229,144,135,.5); font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
+  .col-tag.exc-tag { background: rgba(230,197,111,.16); color: var(--gold-2); border-color: var(--border-strong); }
   .exc-bar { background: rgba(229,144,135,.08); border: 1px solid rgba(229,144,135,.3); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
   .exc-head { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--danger); flex-wrap: wrap; }
   .exc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -653,14 +654,14 @@ const OPT_KEY = "zid-options-v1";
 let whRows = null, stData = null;
 let opts = { price: "incl", inf: "skip" };
 let manualMap = {};
-let baseMap = {}, baseIgnSet = new Set();   // نسخة الملف (mapping.json/ignored.json) للتمييز عن المحلي غير المصدَّر
+let baseMap = {}, baseIgnSet = new Set(), baseExcSet = new Set();   // نسخة الملف (mapping.json/ignored.json/excluded.json) للتمييز عن المحلي غير المصدَّر
 let priceOffsets = {};                  // زيادة سعر المتغيرات: skuN ⇒ قيمة الزيادة (ر.س)
 let ignoredSet = new Set();
 let excludedSet = new Set();           // أصناف استبعدها المستخدم يدوياً من المطابقة (تبقى كما هي)
 let boundSet = new Set();
 let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [], lastIgnored = [];
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
-let lastUpdated = [], lastInfinite = [], lastExcluded = [], currentFilter = "new";
+let lastUpdated = [], lastInfinite = [], currentFilter = "new";
 let lastCollisions = [];   // مجموعات أكواد زد الخام المتصادمة بعد التطبيع
 let lastQtyRows = null, lastPriceRows = null;   // صفوف الملفين الناتجين (لتنزيل صف اختبار واحد)
 let testSelected = new Set();                   // أصناف محدّدة لتنزيل ملف اختبار جماعي
@@ -679,9 +680,11 @@ async function loadConfig() {
   manualMap = Object.assign({}, baseMap, localMap);
   const merged = [...(Array.isArray(fileIgn) ? fileIgn : []), ...(Array.isArray(localIgn) ? localIgn : [])];
   ignoredSet = new Set(merged.map(normCode).filter(Boolean));
-  let localExc = [];
+  let fileExc = [], localExc = [];
+  try { const r = await fetch("excluded.json", { cache: "no-store" }); if (r.ok) fileExc = await r.json(); } catch {}
   try { localExc = JSON.parse(localStorage.getItem(EXC_KEY) || "[]"); } catch {}
-  excludedSet = new Set((Array.isArray(localExc) ? localExc : []).map(normCode).filter(Boolean));
+  baseExcSet = new Set((Array.isArray(fileExc) ? fileExc : []).map(normCode).filter(Boolean));
+  excludedSet = new Set([...(Array.isArray(fileExc) ? fileExc : []), ...(Array.isArray(localExc) ? localExc : [])].map(normCode).filter(Boolean));
   // زيادات أسعار المتغيرات (price-offsets.json + localStorage) — المفاتيح تُطبَّع بـ normCode
   let baseOff = {}, localOff = {};
   try { const r = await fetch("price-offsets.json", { cache: "no-store" }); if (r.ok) baseOff = await r.json(); } catch {}
@@ -923,6 +926,7 @@ function exportConfig() {
   download("mapping.json", JSON.stringify(manualMap, null, 2));
   download("ignored.json", JSON.stringify([...ignoredSet].sort(), null, 2));
   download("price-offsets.json", JSON.stringify(priceOffsets, null, 2));
+  download("excluded.json", JSON.stringify([...excludedSet].sort(), null, 2));
 }
 
 /* ---------- الحفظ المباشر في الريبو عبر GitHub API ---------- */
@@ -985,17 +989,19 @@ async function saveToRepo(reason) {
   const mapping = JSON.stringify(manualMap, null, 2);
   const ignored = JSON.stringify([...ignoredSet].sort(), null, 2);
   const offsets = JSON.stringify(priceOffsets, null, 2);
-  const sig = mapping + " " + ignored + " " + offsets;
+  const excluded = JSON.stringify([...excludedSet].sort(), null, 2);
+  const sig = mapping + " " + ignored + " " + offsets + " " + excluded;
   if (sig === lastSavedSig) { repoStatus("ok", "✓ لا تغييرات جديدة — الريبو محدّث بالفعل."); return; }
   repoStatus("", "⏳ جاري الحفظ في الريبو…");
   try {
     await putFileToRepo("mapping.json", mapping, token, `تحديث الروابط (${reason})`);
     await putFileToRepo("ignored.json", ignored, token, `تحديث المتجاهلات (${reason})`);
     await putFileToRepo("price-offsets.json", offsets, token, `تحديث زيادات الأسعار (${reason})`);
+    await putFileToRepo("excluded.json", excluded, token, `تحديث المستبعدات (${reason})`);
     lastSavedSig = sig;
-    baseMap = { ...manualMap }; baseIgnSet = new Set(ignoredSet);   // صار كل المحلي مصدَّراً للريبو
+    baseMap = { ...manualMap }; baseIgnSet = new Set(ignoredSet); baseExcSet = new Set(excludedSet);   // صار كل المحلي مصدَّراً للريبو
     renderFingerprint();
-    repoStatus("ok", `✓ حُفظت الإعدادات في الريبو (${Object.keys(manualMap).length} ربط · ${Object.keys(priceOffsets).length} زيادة سعر) — قد تظهر على الأجهزة الأخرى خلال دقيقة.`);
+    repoStatus("ok", `✓ حُفظت الإعدادات في الريبو (${Object.keys(manualMap).length} ربط · ${Object.keys(priceOffsets).length} زيادة سعر · ${excludedSet.size} مستبعد) — قد تظهر على الأجهزة الأخرى خلال دقيقة.`);
   } catch (e) {
     repoStatus("fail", "✗ فشل الحفظ في الريبو: " + e.message + " — تحقّق من الرمز وصلاحياته.");
     openGhMenu();   // افتح القائمة ليتمكّن من إصلاح الرمز
@@ -1141,7 +1147,7 @@ function run(reprocess) {
     migrateMapping(rawByNorm, rawSet);   // ترحيل mapping.json إلى مفاتيح SKU الخام
 
     let qtyCount = 0, priceCount = 0, infConverted = 0;
-    const unmatched = [], updatedList = [], infiniteList = [], excludedList = [];
+    const unmatched = [], updatedList = [], infiniteList = [];
     // ملف الكميات: 4 أعمدة بالترتيب والتسميات الحرفية المطلوبة
     const qtyRows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
     // ملف الأسعار: نفس بنية تصدير زد كاملة (رأس + الصفوف المتغيّر سعرها فقط)
@@ -1152,8 +1158,8 @@ function run(reprocess) {
       const orig = rows0[i], rawSku = orig[iSku];
       if (!rawSku) continue;
       const skuN = normCode(rawSku);
-      // مستبعد يدوياً من المطابقة: لا يُدرج في أي ملف
-      if (excludedSet.has(skuN)) { excludedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "" }); continue; }
+      // مستبعد يدوياً: يعود إلى «يحتاج قراراً» بشارة، ولا يدخل أي ملف إخراج ولا عدّاد المحدَّث
+      if (excludedSet.has(skuN)) { unmatched.push({ sku: String(rawSku), skuN, name: orig[iName] || "", price: orig[iPrice], img: imgOf(orig), excluded: true }); continue; }
       const isInf = String(orig[iQty]).trim().toLowerCase() === "infinite";
       const rawKey = String(rawSku);
       const collided = collidedNorm.has(skuN) ? Object.keys(rawByNorm[skuN]) : null;
@@ -1240,7 +1246,6 @@ function run(reprocess) {
     lastUnmatchedRaw = unmatched;
     lastUpdated = updatedList;
     lastInfinite = infiniteList;
-    lastExcluded = excludedList;
     if (!reprocess) { boundSet = new Set(); currentFilter = "new"; }
     refreshUnmatchedUI();
     renderCollisionWarn();
@@ -1294,7 +1299,7 @@ function buildItems(raw) {
     let suggestion;
     if (suggCache.has(u.skuN)) suggestion = suggCache.get(u.skuN);
     else { suggestion = suggestFor(u.skuN, u.name, lastWhList, u.price); suggCache.set(u.skuN, suggestion); }
-    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, img: u.img || "", collided: u.collided || null, isZ, suggestion, bound: boundSet.has(String(u.sku)), ignored: ignoredSet.has(normCode(u.skuN)) };
+    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, img: u.img || "", collided: u.collided || null, isZ, suggestion, bound: boundSet.has(String(u.sku)), ignored: ignoredSet.has(normCode(u.skuN)), excluded: !!u.excluded };
   });
   // متغيّرات متعددة مرتبطة بنفس كود المستودع (نفس الاقتراح لأكثر من صنف) ⇒ 🔀
   const codeCount = {};
@@ -1331,7 +1336,7 @@ function renderDetail() {
     bindBtn.style.display = "none";
     const susp = lastUpdated.filter(isSuspicious).length;
     title.textContent = `الأصناف المحدَّثة (${lastUpdated.length}) — كاملة` + (susp ? ` · ⚠ ${susp} تحتاج مراجعة` : "");
-    wrap.innerHTML = excludedBannerHTML() + updatedTableHTML(lastUpdated);
+    wrap.innerHTML = updatedTableHTML(lastUpdated);
   } else if (f === "infinite") {
     bindBtn.style.display = "none";
     title.textContent = `كمية غير محدودة — تُركت كما هي (${lastInfinite.length})`;
@@ -1459,17 +1464,6 @@ function downloadSelected() {
   });
 }
 
-// شريط الأصناف المستبعدة يدوياً من المطابقة + استعادتها
-function excludedBannerHTML() {
-  if (!lastExcluded.length) return "";
-  const chips = lastExcluded.map(u =>
-    `<span class="exc-chip">${esc(u.name) || esc(u.sku)} <button class="exc-undo" onclick="restoreExcluded('${esc(u.skuN)}')" title="استعادة للمطابقة">↺</button></span>`).join("");
-  return `<div class="exc-bar">
-    <div class="exc-head">🚫 مستبعدة من المطابقة (${lastExcluded.length}) — تبقى كما هي في زد
-      <button class="mini-btn" onclick="restoreAllExcluded()">استعادة الكل</button></div>
-    <div class="exc-chips">${chips}</div>
-  </div>`;
-}
 // تنزيل ملف اختبار يحوي هذا المنتج وحده — ملف لكل نوع تغيّر (الكميات و/أو الأسعار) ليُجرَّب المساران في زد
 function downloadOne(skuN) {
   const target = normCode(skuN);
@@ -1493,9 +1487,14 @@ function downloadOne(skuN) {
     }, idx * 500);
   });
 }
-function excludeUpdated(skuN) { excludedSet.add(normCode(skuN)); saveExcluded(); run(true); }
+function excludeUpdated(skuN) {
+  // المستبعد لا يمكن أن يبقى ضمن «نزّل المحدّد للتجربة» — أزِل تحديده وحدّث العدّاد فوراً
+  const u = (lastUpdated || []).find(x => normCode(x.skuN) === normCode(skuN));
+  if (u) testSelected.delete(String(u.sku));
+  const n = document.getElementById("testN"); if (n) n.textContent = testSelected.size;
+  excludedSet.add(normCode(skuN)); saveExcluded(); run(true);
+}
 function restoreExcluded(skuN) { excludedSet.delete(normCode(skuN)); saveExcluded(); run(true); }
-function restoreAllExcluded() { excludedSet.clear(); saveExcluded(); run(true); }
 
 // ===== زيادة سعر المتغيرات (price offset) =====
 let offsetCtx = null;
@@ -1642,11 +1641,12 @@ function cardHtml(it, i) {
   const reliable = !!s && pct >= 55;                 // أقل من 55% ⇒ لا يوجد اقتراح موثوق
   const autoTag = it.isZ ? `<span class="mc-auto" title="كود مُولّد آلياً من زد">كود آلي من زد</span>` : "";
   const colTag = (it.collided && it.collided.length > 1) ? `<span class="col-tag" title="أكواد زد تتطابق بعد إزالة الأصفار — المطابقة التلقائية معطّلة، اربطه يدوياً">⚠ كود متصادم (${it.collided.map(esc).join(" / ")})</span>` : "";
+  const excludedTag = it.excluded ? `<span class="col-tag exc-tag" title="أُلغيت مطابقتها التلقائية يدوياً — لن تتحدّث كميتها أو سعرها حتى تُعاد المطابقة">↩ أُلغيت مطابقته يدوياً</span>` : "";
   const zid = `<div class="mc-zid">
       <span class="mc-tag zid">ZID PRODUCT</span>
       <div class="mc-row">${thumb(it.img)}<div class="mc-txt">
         <div class="mc-name">${esc(it.name) || "—"}</div>
-        <div class="mc-sku">SKU: <span dir="ltr">${esc(it.sku)}</span>${autoTag}${colTag}</div>
+        <div class="mc-sku">SKU: <span dir="ltr">${esc(it.sku)}</span>${autoTag}${colTag}${excludedTag}</div>
         ${zidPrice != null ? `<div class="mc-sub">سعر زد: ${zidPrice} ر.س</div>` : ""}
       </div></div>
     </div>`;
@@ -1671,7 +1671,8 @@ function cardHtml(it, i) {
     wh = `<div class="mc-wh mc-wh-empty"></div>`;
   }
   let bindBtn;
-  if (it.bound) bindBtn = `<button class="mc-btn bind" disabled>مربوط ✓</button>`;
+  if (it.excluded) bindBtn = `<button class="mc-btn bind gold" onclick="restoreExcluded('${esc(it.skuN)}')" title="استعادة المطابقة التلقائية وإرجاعه إلى الأصناف المحدَّثة">↩ استعادة المطابقة</button>`;
+  else if (it.bound) bindBtn = `<button class="mc-btn bind" disabled>مربوط ✓</button>`;
   else if (reliable && pct >= 85) bindBtn = `<button class="mc-btn bind gold" onclick="bindRow(${i})">ربط المنتج</button>`;
   else bindBtn = `<button class="mc-btn bind outline" onclick="startManualLink('${esc(it.skuN)}')">🔍 ربط يدوي</button>`;
   const ignoreBtn = it.ignored ? `<button class="mc-btn ignore" disabled>متجاهَل</button>`
@@ -1702,7 +1703,7 @@ function startManualLink(skuN) {
 
 // صنف "مؤكد": تشابه اسم 90%+ وفرق سعري ≤5%
 function isConfirmed(it) {
-  if (!it.suggestion || it.isZ || it.bound || it.ignored) return false;
+  if (!it.suggestion || it.isZ || it.bound || it.ignored || it.excluded) return false;
   if (it.suggestion.ns < 0.90) return false;
   const d = priceDiffPct(it.price, it.suggestion.price);
   return d != null && d <= 5;
@@ -1804,6 +1805,7 @@ function addMapping() {
   const code = document.getElementById("mCode").value.trim();
   if (!sku || !code) return;
   manualMap[sku] = normCode(code);   // المفتاح = SKU الخام كما في زد (بالأصفار)
+  if (excludedSet.delete(normCode(sku))) saveExcluded();   // الربط اليدوي قرار صريح يلغي الاستبعاد
   localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
   document.getElementById("mSku").value = ""; document.getElementById("mCode").value = "";
   document.getElementById("whSearch").value = ""; document.getElementById("whResults").innerHTML = "";
@@ -1826,18 +1828,21 @@ function renderFingerprint() {
   const localMapExtra = Object.keys(manualMap).filter(k => baseMap[k] !== manualMap[k]).length;
   const fileIgn = baseIgnSet.size;
   const localIgnExtra = [...ignoredSet].filter(k => !baseIgnSet.has(k)).length;
+  const fileExc = baseExcSet.size;
+  const localExcExtra = [...excludedSet].filter(k => !baseExcSet.has(k)).length;
   const zid = stData ? (stData.rows.length - 1) : 0;
   const wh = whRows ? whRows.length : 0;
   el.innerHTML = `🔎 بصمة الجلسة · ` +
     `الروابط: ${fileMap} بالملف` + (localMapExtra ? ` <b>+${localMapExtra} محلي غير مصدَّر</b>` : ` · 0 محلي`) + ` · ` +
     `التجاهلات: ${fileIgn} بالملف` + (localIgnExtra ? ` <b>+${localIgnExtra} محلي غير مصدَّر</b>` : ` · 0 محلي`) + ` · ` +
+    `المستبعدات: ${fileExc} بالملف` + (localExcExtra ? ` <b>+${localExcExtra} محلي غير مصدَّر</b>` : ` · 0 محلي`) + ` · ` +
     `صفوف زد: ${zid} · صفوف المستودع: ${wh} · ` +
     `النسخة: <span class="mono">${APP_VERSION}</span>`;
   const warn = document.getElementById("fpWarn");
   if (warn) {
-    if (localMapExtra || localIgnExtra) {
+    if (localMapExtra || localIgnExtra || localExcExtra) {
       warn.style.display = "block";
-      warn.innerHTML = `⚠ لديك ${localMapExtra} ربطاً و${localIgnExtra} تجاهلاً محلياً غير محفوظ في الريبو — صدّرها/احفظها في الريبو (زر «☁ الحفظ في الريبو»)، وإلا لن تظهر على أجهزتك الأخرى.`;
+      warn.innerHTML = `⚠ لديك ${localMapExtra} ربطاً و${localIgnExtra} تجاهلاً و${localExcExtra} استبعاداً محلياً غير محفوظ في الريبو — صدّرها/احفظها في الريبو (زر «☁ الحفظ في الريبو»)، وإلا لن تظهر على أجهزتك الأخرى.`;
     } else { warn.style.display = "none"; warn.innerHTML = ""; }
   }
 }
@@ -1849,7 +1854,7 @@ applyTheme(currentTheme());   // ضبط تسمية زر الوضع حسب الح
   renderPills();
   renderOffsetsList();
   // الحالة المحمّلة من الريبو هي المرجع الحالي — لا نعيد حفظها ما لم تتغيّر
-  lastSavedSig = JSON.stringify(manualMap, null, 2) + " " + JSON.stringify([...ignoredSet].sort(), null, 2) + " " + JSON.stringify(priceOffsets, null, 2);
+  lastSavedSig = JSON.stringify(manualMap, null, 2) + " " + JSON.stringify([...ignoredSet].sort(), null, 2) + " " + JSON.stringify(priceOffsets, null, 2) + " " + JSON.stringify([...excludedSet].sort(), null, 2);
   // مؤشر أخضر فقط عند وجود رمز محفوظ (بدون نص)، وإلا كهرماني
   const hasToken = !!localStorage.getItem(TOKEN_KEY);
   repoStatus(hasToken ? "ok" : "warn", "");
