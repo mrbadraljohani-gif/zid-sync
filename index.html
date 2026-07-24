@@ -481,6 +481,8 @@
   .fingerprint b { color: var(--gold-2); }
   .fingerprint .mono { font-family: ui-monospace, Consolas, monospace; color: var(--gold-2); }
   .fp-warn { font-size: 13px; font-weight: 700; color: var(--gold-2); background: rgba(230,197,111,.12); border: 1px solid var(--border-strong); border-radius: 10px; padding: 11px 14px; margin-top: 18px; line-height: 1.7; }
+  #mWhCard::after, #mQtyCard::after { display: none; }   /* لا أيقونة خلفية لبطاقات الدمج */
+  .merge-summary { margin-top: 12px; font-size: 13.5px; font-weight: 700; color: #8fbf98; background: rgba(123,168,132,.12); border: 1px solid rgba(123,168,132,.35); border-radius: 10px; padding: 10px 14px; }
   /* قسم النتائج يملأ عرض الحاوية الكامل (حتى 1320px) ويبقى متمركزاً */
   #result { display: none; }
 </style>
@@ -537,6 +539,30 @@
       </div>
     </div>
   </section>
+
+  <details class="card" id="mergeCard" style="margin-bottom:16px">
+    <summary>🔗 دمج المستودع مع الفروع (اختياري) — أنشئ ملفاً موحّداً للفحص</summary>
+    <div style="margin-top:12px">
+      <p class="hint">ادمج ملف أسعار المستودع مع ملف الكميات الإجمالية (مستودع ＋ فروع) في ملف موحّد بثلاث أوراق — جاهز لرفعه كـ«ملف المستودع» في الأداة.</p>
+      <div class="grid2">
+        <label class="upload" id="mWhCard">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeWh(this)">
+          <div class="utitle">ملف المستودع (الأسعار)</div>
+          <div class="hint">رقم الصنف · الاسم · الكمية · السعر شامل/قبل الضريبة</div>
+          <div class="ustatus" id="mWhStatus">اضغط لاختيار الملف</div>
+        </label>
+        <label class="upload" id="mQtyCard">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeQty(this)">
+          <div class="utitle">ملف الكميات الإجمالية (مستودع ＋ فروع)</div>
+          <div class="hint">٣ أعمدة بلا رأس: الكود · الاسم · الكمية</div>
+          <div class="ustatus" id="mQtyStatus">اضغط لاختيار الملف</div>
+        </label>
+      </div>
+      <button class="btn-run sm" id="mergeBtn" disabled onclick="downloadMerge()" style="margin-top:12px">🔗 دمج وتنزيل الملف الموحّد</button>
+      <div id="mergeSummary" class="merge-summary" style="display:none"></div>
+      <div id="mergeWarn" class="fp-warn" style="display:none"></div>
+    </div>
+  </details>
 
   <div class="section-head"><span class="n">١</span><h2>ارفع الملفات</h2><span class="line"></span></div>
   <div class="grid2">
@@ -1167,6 +1193,88 @@ async function onStore(inp) {
 }
 
 function checkReady() { document.getElementById("runBtn").disabled = !(whRows && stData); }
+
+/* ========== دمج المستودع مع الفروع (مرحلة أولى: ملف موحّد للفحص) ========== */
+let mergeWh = null, mergeQty = null;
+function checkMergeReady() { const b = document.getElementById("mergeBtn"); if (b) b.disabled = !(mergeWh && mergeQty); }
+async function onMergeWh(inp) {
+  const f = inp.files[0]; if (!f) return; showErr("");
+  try {
+    const wb = await readWB(f);
+    const js = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+    if (!js.length) throw new Error("الملف فارغ");
+    const keys = Object.keys(js[0]);
+    const kCode = keys.find(k => k.includes("رقم الصنف") || k.toLowerCase() === "code" || k.toLowerCase() === "sku");
+    const kName = keys.find(k => k.includes("اسم") || k.toLowerCase() === "name");
+    const kQty = keys.find(k => k.includes("الكمية") || k.toLowerCase() === "qty" || k.toLowerCase() === "quantity");
+    const kIncl = keys.find(k => k.includes("شامل"));
+    const kExcl = keys.find(k => k.includes("قبل"));
+    if (!kCode) throw new Error("لم أجد عمود «رقم الصنف»");
+    mergeWh = js.map(r => ({ code: String(r[kCode]).trim(), name: kName ? String(r[kName]).trim() : "", qtyWh: kQty ? r[kQty] : "", incl: kIncl ? r[kIncl] : "", excl: kExcl ? r[kExcl] : "" })).filter(x => x.code);
+    document.getElementById("mWhStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${mergeWh.length} صنف</span>`;
+    document.getElementById("mWhCard").classList.add("ok");
+  } catch (x) { mergeWh = null; document.getElementById("mWhCard").classList.remove("ok"); showErr("ملف المستودع (الدمج): " + x.message); }
+  inp.value = ""; checkMergeReady();
+}
+async function onMergeQty(inp) {
+  const f = inp.files[0]; if (!f) return; showErr("");
+  try {
+    const wb = await readWB(f);
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
+    if (!rows.length) throw new Error("الملف فارغ");
+    // صمام أمان: إن كان الصف الأول رأساً (عمود الكمية ليس رقماً) تجاهله تلقائياً
+    const qNum = r => Number(String((r || [])[2]).replace(/[^\d.\-]/g, ""));
+    const data = (rows[0] && !Number.isFinite(qNum(rows[0]))) ? rows.slice(1) : rows;
+    mergeQty = data.map(r => ({ code: String(r[0]).trim(), name: String(r[1] || "").trim(), qty: r[2] })).filter(x => x.code);
+    document.getElementById("mQtyStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${mergeQty.length} سطر</span>`;
+    document.getElementById("mQtyCard").classList.add("ok");
+  } catch (x) { mergeQty = null; document.getElementById("mQtyCard").classList.remove("ok"); showErr("ملف الكميات الإجمالية: " + x.message); }
+  inp.value = ""; checkMergeReady();
+}
+// دالة الدمج النقية القابلة لإعادة الاستخدام — تُرجع البيانات الموحّدة والفئات (لا تحميل هنا)
+function mergeInventory(whList, qtyList) {
+  const qtyMap = new Map();
+  for (const q of qtyList) if (!qtyMap.has(q.code)) qtyMap.set(q.code, q);   // المطابقة بالكود بعد trim، بلا تطبيع أصفار
+  const whCodes = new Set(whList.map(w => w.code));
+  const unified = [], noBranch = [];
+  let matched = 0;
+  for (const w of whList) {
+    const q = qtyMap.get(w.code);
+    if (q) { matched++; unified.push({ code: w.code, name: w.name, qty: q.qty, incl: w.incl, excl: w.excl, source: "مستودع ＋ فروع" }); }
+    else { unified.push({ code: w.code, name: w.name, qty: w.qtyWh, incl: w.incl, excl: w.excl, source: "المخزن فقط" }); noBranch.push(w); }
+  }
+  const noPrice = qtyList.filter(q => !whCodes.has(q.code));   // كمية بلا سعر ⇒ تُستبعد من الورقة الرئيسية
+  const rate = whList.length ? matched / whList.length : 0;
+  return { unified, noBranch, noPrice, matched, whCount: whList.length, qtyCount: qtyList.length, rate };
+}
+// طبقة التنزيل فوق دالة الدمج
+function downloadMerge() {
+  if (!mergeWh || !mergeQty) { showErr("ارفع الملفين أولاً."); return; }
+  const res = mergeInventory(mergeWh, mergeQty);
+  const main = [["رقم الصنف", "اسم الصنف", "الكمية", "سعر البيع شامل الضريبة", "سعر البيع قبل الضريبة", "مصدر الكمية"]];
+  res.unified.forEach(u => main.push([u.code, u.name, u.qty, u.incl, u.excl, u.source]));
+  const nb = [["رقم الصنف", "اسم الصنف", "الكمية (المخزن)", "سعر البيع شامل الضريبة", "سعر البيع قبل الضريبة"]];
+  res.noBranch.forEach(w => nb.push([w.code, w.name, w.qtyWh, w.incl, w.excl]));
+  const np = [["الكود", "الاسم", "الكمية"]];
+  res.noPrice.forEach(q => np.push([q.code, q.name, q.qty]));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(main), "تقرير عن المخزون");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(nb), "بدون كمية فروع");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(np), "كمية بلا سعر");
+  const sm = document.getElementById("mergeSummary");
+  sm.style.display = "block";
+  sm.textContent = `موحّد: ${res.unified.length} · بدون كمية فروع: ${res.noBranch.length} · بلا سعر: ${res.noPrice.length}`;
+  const warn = document.getElementById("mergeWarn");
+  if (res.rate < 0.5) {
+    warn.style.display = "block";
+    warn.innerHTML = `⚠ نسبة التطابق بين الملفين ${Math.round(res.rate * 100)}٪ فقط (${res.matched} من ${res.whCount}) — تأكّد أنك رفعت الملفين الصحيحين قبل الاعتماد على الناتج.`;
+  } else { warn.style.display = "none"; warn.innerHTML = ""; }
+  const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = "merged_inventory.xlsx";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 function run(reprocess) {
   showErr("");
