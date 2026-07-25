@@ -1130,22 +1130,34 @@ function verifyQuantities(rows) {
   }
   return { ok: true };
 }
-// صمام أمان ملف الأسعار: نفس أعمدة الأصل بالترتيب والتسميات، ولا يتغيّر سوى عمود السعر (sku/barcode/quantity ثابتة)
+// صمام أمان ملف الأسعار: نفس أعمدة الأصل بالترتيب والتسميات، ولا يتغيّر سوى price/published/sale_price (sku/barcode/quantity ثابتة)
 function verifyPrices(rows, orig, H) {
   const oh = stData.rows[0] || [], nh = rows[0] || [];
   if (oh.length !== nh.length) return { ok: false, msg: `عدد الأعمدة غير متطابق (${nh.length} ≠ ${oh.length})` };
   for (let c = 0; c < oh.length; c++)
     if (String(oh[c]) !== String(nh[c])) return { ok: false, msg: `اسم/ترتيب العمود رقم ${c + 1} تغيّر` };
-  const iPrice = H.indexOf("price"), iPub = H.indexOf("published");
+  const iPrice = H.indexOf("price"), iPub = H.indexOf("published"), iSale = H.indexOf("sale_price");
   for (let r = 1; r < rows.length; r++) {
     for (let c = 0; c < oh.length; c++) {
-      if (c === iPrice || c === iPub) continue; // يُسمح بتغيير السعر و published فقط (بقية الأعمدة ومنها quantity/sku/barcode ثابتة)
-      if (String(orig[r][c]) !== String(rows[r][c])) return { ok: false, msg: `العمود "${H[c]}" تغيّر في صف — يُسمح بتغيير السعر و«منشور» فقط` };
+      if (c === iPrice || c === iPub || c === iSale) continue; // يُسمح بتغيير السعر و published و sale_price فقط (بقية الأعمدة ومنها quantity/sku/barcode ثابتة)
+      if (String(orig[r][c]) !== String(rows[r][c])) return { ok: false, msg: `العمود "${H[c]}" تغيّر في صف — يُسمح بتغيير السعر و«منشور» و«سعر التخفيض» فقط` };
     }
     if (!Number.isFinite(Number(rows[r][iPrice]))) return { ok: false, msg: `قيمة سعر غير رقمية` };
     if (iPub >= 0) {   // published: يُسمح بـ No→Yes فقط، لا أي اتجاه آخر
       const o = String(orig[r][iPub]).trim().toLowerCase(), n = String(rows[r][iPub]).trim().toLowerCase();
       if (o !== n && !(o === "no" && n === "yes")) return { ok: false, msg: `عمود «منشور» تغيّر باتجاه غير مسموح (يُسمح No→Yes فقط)` };
+    }
+    if (iSale >= 0) {   // sale_price: يُسمح فقط بتفريغه أو إبقائه — وإن كان غير فارغ فيجب أن يكون رقماً < السعر (شرط زد)
+      const sv = rows[r][iSale];
+      if (sv !== "" && sv != null) {
+        const svn = Number(sv), pv = Number(rows[r][iPrice]);
+        if (!Number.isFinite(svn) || svn < 0) return { ok: false, msg: `سعر التخفيض غير رقمي` };
+        if (Number.isFinite(pv) && svn >= pv) return { ok: false, msg: `سعر التخفيض (${svn}) ليس أقل من السعر (${pv}) — يجب تفريغه` };
+      }
+      // لا نسمح بزيادة سعر التخفيض عن قيمته الأصلية (نحن فقط نُفرّغه؛ لا نرفعه)
+      const on = Number(orig[r][iSale]), nn = Number(sv);
+      if (String(orig[r][iSale]) !== String(sv) && !(sv === "" || sv == null) && Number.isFinite(on) && Number.isFinite(nn) && nn > on)
+        return { ok: false, msg: `سعر التخفيض زاد عن الأصل — غير مسموح` };
     }
   }
   return { ok: true, cols: oh.length };
@@ -1381,6 +1393,7 @@ function run(reprocess) {
     const rows0 = stData.rows;                                  // الصفوف الأصلية (لا تُعدّل)
     const iSku = H.indexOf("sku"), iQty = H.indexOf("quantity"), iPrice = H.indexOf("price");
     const iName = H.indexOf("name_ar"), iNameEn = H.indexOf("name_en"), iPublished = H.indexOf("published");
+    const iSale = H.indexOf("sale_price");                      // سعر التخفيض — يجب أن يبقى < السعر وإلا رفضه زد
     const iImg = detectImageCol(H, rows0);                      // عمود صور زد (إن وُجد)
     const imgOf = row => (iImg >= 0 ? firstUrl(row[iImg]) : "");
 
@@ -1566,6 +1579,12 @@ function run(reprocess) {
         const pr = [...orig];
         if (priceChanged) pr[iPrice] = newPrice;
         if (republish) pr[iPublished] = "Yes";
+        // سعر التخفيض (sale_price) يجب أن يبقى أقل من السعر؛ إن أصبح السعر النهائي ≤ التخفيض الحالي نُفرّغه (خصم لم يعد صالحاً — زد يرفضه)
+        if (iSale >= 0) {
+          const finalPrice = priceChanged ? newPrice : Number(orig[iPrice]);
+          const sp = Number(orig[iSale]);
+          if (Number.isFinite(sp) && sp > 0 && Number.isFinite(finalPrice) && finalPrice <= sp) pr[iSale] = "";
+        }
         priceRows.push(pr); priceOrig.push(orig);
         priceCount++;
         if (republish) republishCount++;
