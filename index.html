@@ -277,12 +277,21 @@
   .bt-tab.on { background: var(--panel); color: var(--gold-2); border-bottom-color: transparent; }
   .batch-content { flex: 1; overflow: auto; padding: 14px 18px; }
   .bt-actionrow { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
-  .bt-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  .bt-table th, .bt-table td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: start; vertical-align: top; }
-  .bt-table th { color: var(--muted-2); font-weight: 700; position: sticky; top: 0; background: var(--panel); }
-  .bt-nm { color: var(--muted); font-size: 11.5px; margin-top: 2px; max-width: 320px; }
-  .bt-reason { color: #9dd0a6; font-size: 11.5px; }
-  .bt-alt { max-width: 260px; background: var(--panel-2); color: var(--fg); border: 1px solid var(--border); border-radius: 7px; padding: 3px 6px; font-size: 11.5px; }
+  .bt-table { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: fixed; }
+  .bt-table th, .bt-table td { border-bottom: 1px solid var(--border); padding: 7px 9px; text-align: start; vertical-align: top; overflow: hidden; word-break: break-word; }
+  .bt-table th { color: var(--muted-2); font-weight: 700; position: sticky; top: 0; background: var(--panel); z-index: 1; }
+  .bt-table td.bt-c-chk, .bt-table th.bt-c-chk { width: 30px; padding-inline: 4px; }
+  .bt-table .bt-c-size { width: 62px; }
+  .bt-table .bt-c-price { width: 96px; }
+  .bt-table .bt-c-reason { width: 118px; }
+  .bt-table .bt-c-act { width: 120px; }
+  .bt-table .bt-c-num { width: 70px; }
+  .bt-sku { font-family: var(--mono, monospace); font-size: 11px; direction: ltr; word-break: break-all; color: var(--fg); display: block; }
+  .bt-nm { color: var(--muted); font-size: 11.5px; margin-top: 3px; line-height: 1.45; }
+  .bt-reason { color: #9dd0a6; font-size: 11px; line-height: 1.5; }
+  .bt-cand-name { color: var(--muted); font-size: 11px; margin-top: 3px; line-height: 1.4; }
+  .bt-price2 { white-space: nowrap; }
+  .bt-alt { width: 100%; max-width: 100%; box-sizing: border-box; background: var(--panel-2); color: var(--fg); border: 1px solid var(--border); border-radius: 7px; padding: 4px 6px; font-size: 11px; }
   .bt-fam { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
   .bt-fam-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--panel-2); }
   .bt-fam-n { color: var(--muted); font-size: 12px; }
@@ -1259,15 +1268,17 @@ function renderBatchTab() {
 function renderGreen() {
   const list = batchData.green;
   if (!list.length) return `<div class="bt-empty">لا توجد مطابقات مؤكدة. جرّب تبويب 🟡.</div>`;
-  const rows = list.map((r, i) =>
-    `<tr><td><input type="checkbox" class="bt-g" data-sku="${esc(String(r.z.sku))}" data-code="${esc(String(r.best.code))}" checked></td>` +
-    `<td><span class="mono" dir="ltr">${esc(String(r.z.sku))}</span><div class="bt-nm">${esc(r.z.name)}</div></td>` +
-    `<td><span class="mono" dir="ltr">${esc(String(r.best.code))}</span><div class="bt-nm">${esc(r.best.name)}</div></td>` +
-    `<td dir="ltr">${esc(r.best.size || "—")}</td><td>${priceCell(r.z.price, r.best.price)}</td>` +
-    `<td class="bt-reason">${esc(reasonText(r.best))}</td></tr>`).join("");
+  const rows = list.map(r =>
+    `<tr><td class="bt-c-chk"><input type="checkbox" class="bt-g" data-sku="${esc(String(r.z.sku))}" data-code="${esc(String(r.best.code))}" checked></td>` +
+    `<td><span class="bt-sku">${esc(String(r.z.sku))}</span><div class="bt-nm">${esc(r.z.name)}</div></td>` +
+    `<td><span class="bt-sku">${esc(String(r.best.code))}</span><div class="bt-cand-name">${esc(r.best.name)}</div></td>` +
+    `<td class="bt-c-size" dir="ltr">${esc(r.best.size || "—")}</td>` +
+    `<td class="bt-c-price"><span class="bt-price2">${priceCell(r.z.price, r.best.price)}</span></td>` +
+    `<td class="bt-c-reason bt-reason">${esc(reasonText(r.best))}</td></tr>`).join("");
   return `<div class="bt-actionrow"><button class="btn-run sm" onclick="acceptGreen()">✓ اعتماد المحدد (<span id="btGN">${list.length}</span>)</button>
     <button class="mc-btn" onclick="btToggleAll('bt-g',true)">تحديد الكل</button><button class="mc-btn" onclick="btToggleAll('bt-g',false)">إلغاء الكل</button></div>
-    <div class="twrap"><table class="bt-table"><thead><tr><th></th><th>صنف زد</th><th>المرشّح (المستودع)</th><th>المقاس</th><th>السعران</th><th>السبب</th></tr></thead>
+    <div class="twrap"><table class="bt-table"><colgroup><col style="width:30px"><col><col><col style="width:62px"><col style="width:96px"><col style="width:118px"></colgroup>
+    <thead><tr><th class="bt-c-chk"></th><th>صنف زد</th><th>المرشّح (المستودع)</th><th>المقاس</th><th>السعران</th><th>السبب</th></tr></thead>
     <tbody onchange="btCount('bt-g','btGN')">${rows}</tbody></table></div>`;
 }
 // 🟡 مجمّع بالعائلة
@@ -1276,18 +1287,18 @@ function renderYellow() {
   if (!fams.length) return `<div class="bt-empty">لا مطابقات محتملة.</div>`;
   return fams.map((f, fi) => {
     const rows = f.rows.map((r, ri) => {
-      const alts = r.scored.map((s, si) => `<option value="${si}" ${s.code === (r.best && r.best.code) ? "selected" : ""}>${esc(s.code)} · ${esc(s.name.slice(0, 30))} (${s.score})</option>`).join("");
-      const gid = "y-" + fi + "-" + ri;
-      return `<tr id="${gid}"><td><input type="checkbox" class="bt-y" data-fam="${fi}" data-sku="${esc(String(r.z.sku))}" ${r.best ? "checked" : "disabled"}></td>` +
-        `<td><span class="mono" dir="ltr">${esc(String(r.z.sku))}</span><div class="bt-nm">${esc(r.z.name)}</div></td>` +
-        `<td dir="ltr">${esc(extractSize(r.z.name) || "—")}</td>` +
-        `<td>${r.scored.length ? `<select class="bt-alt" data-sku="${esc(String(r.z.sku))}" onchange="pickYellow(${fi},${ri},this.value)">${alts}</select>` : "<span class='bt-none'>—</span>"}</td>` +
-        `<td>${r.best ? priceCell(r.z.price, r.best.price) : "—"}</td>` +
-        `<td class="bt-reason">${r.best ? esc(reasonText(r.best)) : ""}</td></tr>`;
+      const alts = r.scored.map((s, si) => `<option value="${si}" ${s.code === (r.best && r.best.code) ? "selected" : ""}>${esc(s.code)} · ${esc(s.name.slice(0, 22))}${s.name.length > 22 ? "…" : ""} (${s.score})</option>`).join("");
+      return `<tr><td class="bt-c-chk"><input type="checkbox" class="bt-y" data-fam="${fi}" data-sku="${esc(String(r.z.sku))}" ${r.best ? "checked" : "disabled"}></td>` +
+        `<td><span class="bt-sku">${esc(String(r.z.sku))}</span><div class="bt-nm">${esc(r.z.name)}</div></td>` +
+        `<td class="bt-c-size" dir="ltr">${esc(extractSize(r.z.name) || "—")}</td>` +
+        `<td>${r.scored.length ? `<select class="bt-alt" data-sku="${esc(String(r.z.sku))}">${alts}</select>` : "<span class='bt-none'>—</span>"}</td>` +
+        `<td class="bt-c-price"><span class="bt-price2">${r.best ? priceCell(r.z.price, r.best.price) : "—"}</span></td>` +
+        `<td class="bt-c-reason bt-reason">${r.best ? esc(reasonText(r.best)) : ""}</td></tr>`;
     }).join("");
     return `<div class="bt-fam"><div class="bt-fam-head"><b>${esc(f.root)}</b> <span class="bt-fam-n">${f.rows.length} صنف</span>
       <button class="btn-run sm" onclick="acceptFamily(${fi})">✓ اعتماد العائلة</button></div>
-      <div class="twrap"><table class="bt-table"><thead><tr><th></th><th>صنف زد</th><th>المقاس</th><th>الاقتران (المستودع) — أفضل 5</th><th>السعران</th><th>السبب</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      <div class="twrap"><table class="bt-table"><colgroup><col style="width:30px"><col style="width:30%"><col style="width:62px"><col><col style="width:96px"><col style="width:118px"></colgroup>
+      <thead><tr><th class="bt-c-chk"></th><th>صنف زد</th><th>المقاس</th><th>الاقتران (المستودع) — أفضل 5</th><th>السعران</th><th>السبب</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
   }).join("");
 }
 // 🔴 بلا مرشح — تحديد جماعي + إجراءات
@@ -1295,14 +1306,15 @@ function renderRed() {
   const list = batchData.red;
   if (!list.length) return `<div class="bt-empty">لا شيء بلا مرشّح 🎉</div>`;
   const rows = list.map(r =>
-    `<tr><td><input type="checkbox" class="bt-r" data-sku="${esc(String(r.z.sku))}" data-skun="${esc(String(r.z.skuN))}" checked></td>` +
-    `<td><span class="mono" dir="ltr">${esc(String(r.z.sku))}</span><div class="bt-nm">${esc(r.z.name)}</div></td>` +
-    `<td dir="ltr">${priceInt(r.z.price) ?? "—"}</td><td>${esc(String(r.z.qty ?? ""))}</td>` +
-    `<td><button class="mc-btn" onclick="startManualLink('${esc(String(r.z.skuN))}');closeBatchAnalysis()">🔗 ربط يدوي</button></td></tr>`).join("");
+    `<tr><td class="bt-c-chk"><input type="checkbox" class="bt-r" data-sku="${esc(String(r.z.sku))}" data-skun="${esc(String(r.z.skuN))}" checked></td>` +
+    `<td><span class="bt-sku">${esc(String(r.z.sku))}</span><div class="bt-nm">${esc(r.z.name)}</div></td>` +
+    `<td class="bt-c-num" dir="ltr">${priceInt(r.z.price) ?? "—"}</td><td class="bt-c-num">${esc(String(r.z.qty ?? ""))}</td>` +
+    `<td class="bt-c-act"><button class="mc-btn" onclick="startManualLink('${esc(String(r.z.skuN))}');closeBatchAnalysis()">🔗 ربط يدوي</button></td></tr>`).join("");
   return `<div class="bt-actionrow"><button class="mc-btn ignore" onclick="acceptRed('ignore')">🚫 تجاهل المحدد</button>
     <button class="mc-btn wait" onclick="acceptRed('wait')">⏳ غير متوفر — المحدد</button>
     <button class="mc-btn" onclick="btToggleAll('bt-r',true)">تحديد الكل</button><button class="mc-btn" onclick="btToggleAll('bt-r',false)">إلغاء الكل</button></div>
-    <div class="twrap"><table class="bt-table"><thead><tr><th></th><th>صنف زد</th><th>السعر</th><th>الكمية</th><th>إجراء فردي</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <div class="twrap"><table class="bt-table"><colgroup><col style="width:30px"><col><col style="width:70px"><col style="width:70px"><col style="width:120px"></colgroup>
+    <thead><tr><th class="bt-c-chk"></th><th>صنف زد</th><th>السعر</th><th>الكمية</th><th>إجراء فردي</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function btToggleAll(cls, on) { document.querySelectorAll("#batchBody ." + cls).forEach(c => { if (!c.disabled) c.checked = on; }); if (cls === "bt-g") btCount("bt-g", "btGN"); }
 function btCount(cls, id) { const n = [...document.querySelectorAll("#batchBody ." + cls)].filter(c => c.checked).length; const el = document.getElementById(id); if (el) el.textContent = n; }
