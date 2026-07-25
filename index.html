@@ -754,6 +754,9 @@ let lastUpdated = [], lastInfinite = [], currentFilter = "new";
 let lastCollisions = [];   // مجموعات أكواد زد الخام المتصادمة بعد التطبيع (الصعبة فقط — تحذير أحمر)
 let lastVariantGroups = [];   // مجموعات «أب/خيار» المكتشفة والمعالَجة تلقائياً
 let lastQtyRows = null, lastPriceRows = null, lastPriceOrig = null;   // صفوف الملفين الناتجين + أصل صفوف الأسعار (للتحقق عند التنزيل التجريبي)
+let lastHasVarYes = new Set(), lastHvWouldEnter = [];   // أكواد زد has_variants=Yes (آباء) — لا تدخل أي ملف كميات إطلاقاً
+// فحص نهائي حاسم: يحذف أي صف كوده منتج أب (has_variants=Yes) من أي مصفوفة صفوف كميات قبل الكتابة (يحافظ على صف الرأس)
+function stripHasVar(rows) { return (!lastHasVarYes || !lastHasVarYes.size) ? rows : rows.filter((r, i) => i === 0 || !lastHasVarYes.has(String(r[0]))); }
 let testSelected = new Set();                   // أصناف محدّدة لتنزيل ملف اختبار جماعي
 let zeroSelected = new Set();                   // أصناف محدّدة لتصفير كميتها (in-memory للجلسة فقط — التوفر بالفروع يتغيّر)
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
@@ -1428,6 +1431,15 @@ function run(reprocess) {
     }
     migrateMapping(rawByNorm, rawSet);   // ترحيل mapping.json إلى مفاتيح SKU الخام
 
+    // === القاعدة الحاسمة من زد: كل صف has_variants=Yes منتج أب — يُستبعد من كل ملفات الكميات (شكل الكود لا يدل) ===
+    // يُضاف إلى parentRaws فلا يدخل الملفين ولا القسمة؛ كميته تُوزَّع على خياراته المكوّدة (إن وُجدت) بالمنطق الحالي.
+    const hasVarYesSet = new Set();
+    if (iHasVar >= 0) for (let i = 1; i < rows0.length; i++) {
+      const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue;
+      if (isYesVar(rows0[i][iHasVar])) { const rk = String(rs); hasVarYesSet.add(rk); parentRaws.add(rk); }
+    }
+    lastHasVarYes = hasVarYesSet;
+
     // دالة موحّدة لتحديد كود المستودع لأي صنف — تُستخدم في تمريرة العد والحلقة معاً (بلا أي اختلاف)
     const resolveWhCode = (rawSku, skuN) => {
       const rk = String(rawSku);
@@ -1471,7 +1483,7 @@ function run(reprocess) {
     const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [];
     let histChanged = false, waitChanged = false;
     // ملف الكميات: 4 أعمدة بالترتيب والتسميات الحرفية المطلوبة
-    const qtyRows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
+    let qtyRows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
     // ملف الأسعار: نفس بنية تصدير زد كاملة (رأس + الصفوف المتغيّر سعرها فقط)
     const priceRows = [[...rows0[0]]];
     const priceOrig = [rows0[0]];                               // أصل كل صف سعري (للتحقق)
@@ -1564,7 +1576,21 @@ function run(reprocess) {
       }
     }
 
+    // === معالجة الآباء has_variants=Yes: تقرير ما كان سيدخل + الأب بلا خيارات مكوّدة ⇒ يحتاج قراراً ===
+    const hvWouldEnter = [];
+    hasVarYesSet.forEach(P => {
+      const wc = resolveWhCode(P, normCode(P));
+      if (wc) hvWouldEnter.push(P);   // طابَق كود مستودع ⇒ لولا الاستبعاد لدخل ملف الكميات
+      const hasCodedOptions = wc && whMembers.has(wc) && whMembers.get(wc).length > 0;
+      if (!hasCodedOptions) {   // لا خيارات مكوّدة تتلقّى كميته ⇒ يُعالَج يدوياً في زد
+        const prow = rowByRawSku[P];
+        if (prow) unmatched.push({ sku: P, skuN: normCode(P), name: prow[iName] || "", price: prow[iPrice], qty: prow[iQty], img: imgOf(prow), collided: null, orphanParent: true });
+      }
+    });
+    lastHvWouldEnter = hvWouldEnter;
+
     // === صمامات الأمان + إنشاء الملفين ===
+    qtyRows = stripHasVar(qtyRows); qtyCount = qtyRows.length - 1;   // فحص نهائي حاسم: لا صف has_variants=Yes في ملف الكميات إطلاقاً
     lastQtyRows = qtyRows; lastPriceRows = priceRows; lastPriceOrig = priceOrig;   // للتنزيل التجريبي (صف واحد أو المحدد) مع التحقق
     const mkBlob = aoa => { const ws = XLSX.utils.aoa_to_sheet(aoa); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1"); return new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }); };
     const vq = verifyQuantities(qtyRows);
@@ -1594,6 +1620,8 @@ function run(reprocess) {
       vm.style.whiteSpace = "pre-wrap";
       const dbgGroups = [...whMembers.entries()].filter(([, m]) => m.length > 1).slice(0, 8).map(([wc, m]) => `${wc}(${whIndex[wc].qty})→[${m.map(x => shareByRaw.get(x)).join(",")}]`);
       vm.textContent += "\n\n⟪debug⟫"
+        + `\nأصناف has_variants=Yes (آباء) مُستبعَدة كليّاً من ملفات الكميات: ${lastHasVarYes.size}`
+        + `\nمنها كانت ستدخل ملف الكميات (طابقت المستودع): ${hvWouldEnter.length}` + (hvWouldEnter.length ? ` — أكواد: ${hvWouldEnter.join(" · ")}` : "")
         + `\nآباء منقّطون مكتشَفون بالقاعدة البنيوية: ${dottedParents.length}` + (dottedParents.length ? ` — عينة: ${dottedParents.slice(0, 15).join(" · ")}` : "")
         + `\nموزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود`
         + (dbgGroups.length ? `\nعيّنة مجموعات: ${dbgGroups.join("   ")}` : "");
@@ -1731,8 +1759,10 @@ function downloadZeroAbsent() {
   const H = stData.header, iSku = H.indexOf("sku"), iName = H.indexOf("name_ar"), iNameEn = H.indexOf("name_en");
   const byRaw = {};
   for (let r = 1; r < stData.rows.length; r++) { const raw = String(stData.rows[r][iSku]); if (!(raw in byRaw)) byRaw[raw] = stData.rows[r]; }
-  const rows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
+  let rows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
   zeroSelected.forEach(sk => { const row = byRaw[String(sk)]; if (row) rows.push([String(sk), iName >= 0 ? row[iName] : "", iNameEn >= 0 ? row[iNameEn] : "", 0]); });
+  rows = stripHasVar(rows);   // فحص نهائي حاسم: لا صف has_variants=Yes حتى في ملف التصفير
+  if (rows.length <= 1) { showErr("كل ما حدّدته منتجات أب (has_variants=Yes) — عالجها في زد؛ لا شيء لتصفيره."); return; }
   const v = verifyQuantities(rows);   // صمام الأمان نفسه (4 أعمدة، sku غير فارغ، كميات صحيحة ≥ 0)
   if (!v.ok) { showErr("تعذّر إنشاء ملف التصفير — " + v.msg); return; }
   const ws = XLSX.utils.aoa_to_sheet(rows);
@@ -1776,7 +1806,7 @@ function buildItems(raw) {
     let suggestion;
     if (suggCache.has(u.skuN)) suggestion = suggCache.get(u.skuN);
     else { suggestion = suggestFor(u.skuN, u.name, lastWhList, u.price); suggCache.set(u.skuN, suggestion); }
-    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, img: u.img || "", collided: u.collided || null, isZ, suggestion, bound: boundSet.has(String(u.sku)), ignored: ignoredSet.has(normCode(u.skuN)), waiting: waitingSet.has(normCode(u.skuN)) };
+    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, img: u.img || "", collided: u.collided || null, isZ, suggestion, bound: boundSet.has(String(u.sku)), ignored: ignoredSet.has(normCode(u.skuN)), waiting: waitingSet.has(normCode(u.skuN)), orphanParent: !!u.orphanParent };
   });
   // متغيّرات متعددة مرتبطة بنفس كود المستودع (نفس الاقتراح لأكثر من صنف) ⇒ 🔀
   const codeCount = {};
@@ -1937,8 +1967,8 @@ function downloadSelected() {
   if (!testSelected.size) { showErr("حدّد صنفاً واحداً على الأقل من القائمة أولاً."); return; }
   const iSkuP = stData.header.indexOf("sku");
   const inSel = sk => testSelected.has(String(sk));
-  // ملف الكميات: صفوف المحدد التي تغيّرت كميتها
-  const qtySel = (lastQtyRows || []).filter((r, i) => i > 0 && inSel(r[0]));
+  // ملف الكميات: صفوف المحدد التي تغيّرت كميتها (بعد الفحص الحاسم — لا آباء has_variants=Yes)
+  const qtySel = stripHasVar((lastQtyRows || []).filter((r, i) => i === 0 || inSel(r[0]))).filter((r, i) => i > 0);
   // ملف الأسعار: صفوف المحدد التي تغيّر سعرها أو نشرها (+ الأصل المحاذي للتحقق)
   const priceSel = [], priceOrigSel = [];
   if (lastPriceRows) for (let i = 1; i < lastPriceRows.length; i++) {
@@ -2156,11 +2186,12 @@ function cardHtml(it, i) {
   const autoTag = it.isZ ? `<span class="mc-auto" title="كود مُولّد آلياً من زد">كود آلي من زد</span>` : "";
   const colTag = (it.collided && it.collided.length > 1) ? `<span class="col-tag" title="أكواد زد تتطابق بعد إزالة الأصفار — المطابقة التلقائية معطّلة، اربطه يدوياً">⚠ كود متصادم (${it.collided.map(esc).join(" / ")})</span>` : "";
   const waitTag = it.waiting ? `<span class="wait-tag" title="بانتظار ظهور كوده في ملف المستودع">⏳ بانتظار التوفر</span>` : "";
+  const orphanTag = it.orphanParent ? `<span class="col-tag" title="منتج أب (has_variants=Yes) لا خيارات مكوّدة تحته تتلقّى كميته — لا يدخل ملف الكميات؛ عالج كمياته من خياراته داخل زد">🚫 أب بلا خيارات مكوّدة — عالجه في زد</span>` : "";
   const zid = `<div class="mc-zid">
       <span class="mc-tag zid">ZID PRODUCT</span>
       <div class="mc-row">${thumb(it.img)}<div class="mc-txt">
         <div class="mc-name">${esc(it.name) || "—"}</div>
-        <div class="mc-sku">SKU: <span dir="ltr">${esc(it.sku)}</span>${autoTag}${colTag}${waitTag}</div>
+        <div class="mc-sku">SKU: <span dir="ltr">${esc(it.sku)}</span>${autoTag}${colTag}${waitTag}${orphanTag}</div>
         ${zidPrice != null ? `<div class="mc-sub">سعر زد: ${zidPrice} ر.س</div>` : ""}
       </div></div>
     </div>`;
