@@ -246,6 +246,10 @@
   .dl-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 6px; }
   .dl-group { flex: 1 1 320px; }
   .dl-sub { font-size: 12px; color: var(--muted); margin: 7px 4px 0; text-align: center; line-height: 1.5; }
+  .tpl-btn { display: inline-block; cursor: pointer; padding: 3px 10px; border-radius: 8px; border: 1px solid var(--gold-2, #c9a54a); color: var(--gold-2, #c9a54a); font-weight: 700; }
+  .tpl-btn:hover { background: rgba(201,165,74,.12); }
+  .tpl-status { font-size: 11.5px; }
+  .tpl-status.ok { color: #9dd0a6; font-weight: 700; }
   .error { background: rgba(229,144,135,.12); color: var(--danger); border: 1px solid rgba(229,144,135,.28); padding: 11px 15px; border-radius: 10px; font-size: 13.5px; margin: 10px 0; display: none; }
   .rebind-hint { background: rgba(230,197,111,.10); color: var(--gold-2); border: 1px solid var(--border-strong); border-radius: 10px; padding: 11px 15px; font-size: 13.5px; font-weight: 700; margin: 10px 0; }
   .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -659,6 +663,11 @@
       <div class="dl-group">
         <a class="btn-dl" id="dlPrice" download="zid_prices_update.xlsx">⬇ ملف الأسعار (<span id="priceN">0</span> صنف)</a>
         <div class="dl-sub">يُرفع في زد: استيراد ← تحديث المنتجات الحالية ← حدّد حقلَي (السعر) و(منشور) ← تجاهل الحقول الفارغة</div>
+        <div class="dl-sub" style="margin-top:6px">
+          نموذج زد الرسمي للأسعار (111 عموداً):
+          <label class="tpl-btn">⬆ ارفع النموذج<input type="file" accept=".xlsx,.xls" style="display:none" onchange="onPriceTemplate(this)"></label>
+          <span id="tplStatus" class="tpl-status">— بدونه يُنتَج نموذج مصغّر (5 أعمدة)</span>
+        </div>
       </div>
     </div>
     <div id="verifyMsg" style="display:none"></div>
@@ -736,6 +745,8 @@ const OFF_KEY = "zid-offsets-v1";
 const HIST_KEY = "zid-matched-history-v1";   // أكواد سبق أن طوبقت (لتمييز «الغائب» عن «الجديد»)
 const WAIT_KEY = "zid-waiting-v1";            // أصناف «غير متوفر حالياً» بانتظار ظهور كودها
 const OPT_KEY = "zid-options-v1";
+const TPL_KEY = "zid-price-template-v1";   // نموذج زد الرسمي لملف الأسعار (صفّا الرأس + مواضع الحقول)
+let priceTemplate = null;   // { row1, row2, iSku, iName, iNameEn, iPrice, iPub, ncols } — إن وُجد يُنتَج الملف بالبنية الكاملة
 let whRows = null, stData = null;
 let opts = { price: "incl", inf: "skip", absent: "keep", lowzero: "on", lowPrice: 400, lowQty: 3, split: "equal" };
 let manualMap = {};
@@ -760,6 +771,39 @@ function stripHasVar(rows) { return (!lastHasVarYes || !lastHasVarYes.size) ? ro
 let testSelected = new Set();                   // أصناف محدّدة لتنزيل ملف اختبار جماعي
 let zeroSelected = new Set();                   // أصناف محدّدة لتصفير كميتها (in-memory للجلسة فقط — التوفر بالفروع يتغيّر)
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
+// استرجاع نموذج الأسعار الرسمي المحفوظ (صفّا الرأس فقط — نعيد حساب مواضع الحقول)
+try { const t = JSON.parse(localStorage.getItem(TPL_KEY) || "null"); if (t && t.row1 && t.row2) priceTemplate = buildPriceTemplate(t.row1, t.row2); } catch {}
+
+// يبني كائن النموذج من صفّي الرأس: يحدد مواضع sku/name_ar/name_en/price/published في صف الحقول (الصف الثاني)
+function buildPriceTemplate(row1, row2) {
+  const norm = v => String(v == null ? "" : v).trim().toLowerCase();
+  const find = name => row2.findIndex(h => norm(h) === name);
+  const iSku = find("sku"), iName = find("name_ar"), iNameEn = find("name_en"), iPrice = find("price"), iPub = find("published");
+  if (iSku < 0 || iPrice < 0 || iPub < 0) throw new Error("النموذج لا يحوي أعمدة sku/price/published في صف الحقول (الصف الثاني)");
+  return { row1: row1.slice(), row2: row2.slice(), iSku, iName, iNameEn, iPrice, iPub, ncols: Math.max(row1.length, row2.length) };
+}
+
+function setTplStatus() {
+  const el = document.getElementById("tplStatus"); if (!el) return;
+  if (priceTemplate) { el.textContent = `✓ محمّل (${priceTemplate.ncols} عموداً · published في العمود ${priceTemplate.iPub + 1})`; el.classList.add("ok"); }
+  else { el.textContent = "— بدونه يُنتَج نموذج مصغّر (5 أعمدة)"; el.classList.remove("ok"); }
+}
+
+async function onPriceTemplate(inp) {
+  const f = inp.files[0]; if (!f) return;
+  showErr("");
+  try {
+    const wb = await readWB(f);
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+    if (aoa.length < 2) throw new Error("النموذج يجب أن يحوي صفّي رأس على الأقل");
+    priceTemplate = buildPriceTemplate(aoa[0], aoa[1]);
+    localStorage.setItem(TPL_KEY, JSON.stringify({ row1: priceTemplate.row1, row2: priceTemplate.row2 }));
+    setTplStatus();
+    if (stData) run();   // أعِد التوليد فوراً بالبنية الجديدة إن كانت هناك مطابقة
+  } catch (x) { showErr("نموذج الأسعار: " + x.message); }
+  inp.value = "";
+}
 
 // تحميل mapping.json و ignored.json عبر fetch، ودمجهما مع localStorage (يتعامل مع 404 بهدوء)
 async function loadConfig() {
@@ -1130,24 +1174,51 @@ function verifyQuantities(rows) {
   }
   return { ok: true };
 }
-// صمام أمان ملف الأسعار: خمسة أعمدة فقط بالترتيب والتسميات — sku·name_ar·name_en·price·published
-// (النموذج المصغّر: زد يرفض النموذج الكامل ~76 عموداً لاحتوائه quantity=Infinite وأعمدة أخرى.
-//  السعر/النشر الفارغ ⇒ يُتجاهَل في زد فيبقى الحالي؛ published يُكتب «Yes» فقط أو فارغاً — لا يُخفَض النشر أبداً.)
+// ملف الأسعار: نموذجان — الرسمي الكامل (`priceTemplate`, 111 عموداً بصفّي رأس) إن رُفع، وإلا المصغّر (5 أعمدة).
+// كلاهما يُملأ فقط sku·name_ar·name_en·price·published؛ price فارغ إن لم يتغيّر (يُتجاهَل)، published «Yes» أو فارغ (لا يُخفَض).
 const PRICE_HDR = ["sku", "name_ar", "name_en", "price", "published"];
-function verifyPrices(rows) {
-  const nh = rows[0] || [];
-  if (nh.length !== PRICE_HDR.length) return { ok: false, msg: `عدد الأعمدة يجب أن يكون ${PRICE_HDR.length} (sku·name_ar·name_en·price·published)` };
-  for (let c = 0; c < PRICE_HDR.length; c++)
-    if (String(nh[c]) !== PRICE_HDR[c]) return { ok: false, msg: `اسم/ترتيب العمود رقم ${c + 1} يجب أن يكون "${PRICE_HDR[c]}"` };
-  for (let r = 1; r < rows.length; r++) {
-    if (rows[r][0] === "" || rows[r][0] == null) return { ok: false, msg: `sku فارغ في صف` };
-    const p = rows[r][3];
-    if (p !== "" && p != null && !(Number.isFinite(Number(p)) && Number(p) >= 0)) return { ok: false, msg: `قيمة سعر غير صحيحة (يجب رقماً ≥ 0 أو فارغاً)` };
-    const pub = String(rows[r][4] == null ? "" : rows[r][4]).trim().toLowerCase();
-    if (pub !== "" && pub !== "yes") return { ok: false, msg: `عمود «منشور» يجب أن يكون فارغاً أو Yes فقط (لا يُخفَض النشر)` };
-    if ((p === "" || p == null) && pub === "") return { ok: false, msg: `صف بلا سعر ولا نشر — لا معنى له` };
+const PT = () => priceTemplate;   // اختصار
+const priceHeaderRows = () => PT() ? [PT().row1.slice(), PT().row2.slice()] : [PRICE_HDR.slice()];
+const priceHeaderCount = () => PT() ? 2 : 1;
+const priceIdx = () => PT() ? { sku: PT().iSku, name: PT().iName, nameEn: PT().iNameEn, price: PT().iPrice, pub: PT().iPub } : { sku: 0, name: 1, nameEn: 2, price: 3, pub: 4 };
+// يبني صف بيانات سعري بالبنية الصحيحة (كامل النموذج أو مصغّر) — الحقول غير الخمسة فارغة
+function mkPriceRow(sku, nameAr, nameEn, priceVal, pubVal) {
+  const ix = priceIdx();
+  if (PT()) {
+    const r = new Array(PT().ncols).fill("");
+    r[ix.sku] = sku; if (ix.name >= 0) r[ix.name] = nameAr; if (ix.nameEn >= 0) r[ix.nameEn] = nameEn;
+    r[ix.price] = priceVal; r[ix.pub] = pubVal;
+    return r;
   }
-  return { ok: true, cols: PRICE_HDR.length };
+  return [sku, nameAr, nameEn, priceVal, pubVal];
+}
+const priceSkuOf = row => row[priceIdx().sku];
+function verifyPrices(rows) {
+  const ix = priceIdx(), hc = priceHeaderCount();
+  const h0 = rows[0] || [];
+  if (PT()) {   // النموذج الرسمي: تحقق من مطابقة صفّي الرأس للنموذج المحفوظ
+    if (rows.length < hc) return { ok: false, msg: `صفوف الرأس ناقصة (يلزم ${hc})` };
+    if ((rows[1] || []).length && String(rows[1][ix.sku]).trim().toLowerCase() !== "sku") return { ok: false, msg: `صف الحقول (الثاني) لا يطابق النموذج` };
+  } else {
+    if (h0.length !== PRICE_HDR.length) return { ok: false, msg: `عدد الأعمدة يجب أن يكون ${PRICE_HDR.length} (sku·name_ar·name_en·price·published)` };
+    for (let c = 0; c < PRICE_HDR.length; c++) if (String(h0[c]) !== PRICE_HDR[c]) return { ok: false, msg: `اسم/ترتيب العمود رقم ${c + 1} يجب أن يكون "${PRICE_HDR[c]}"` };
+  }
+  const allowed = new Set([ix.sku, ix.name, ix.nameEn, ix.price, ix.pub]);
+  for (let r = hc; r < rows.length; r++) {
+    const row = rows[r];
+    if (row[ix.sku] === "" || row[ix.sku] == null) return { ok: false, msg: `sku فارغ في صف` };
+    const p = row[ix.price];
+    if (p !== "" && p != null && !(Number.isFinite(Number(p)) && Number(p) >= 0)) return { ok: false, msg: `قيمة سعر غير صحيحة (رقم ≥ 0 أو فارغ)` };
+    const pub = String(row[ix.pub] == null ? "" : row[ix.pub]).trim().toLowerCase();
+    if (pub !== "" && pub !== "yes") return { ok: false, msg: `عمود «منشور» يجب فارغاً أو Yes فقط (لا يُخفَض النشر)` };
+    if ((p === "" || p == null) && pub === "") return { ok: false, msg: `صف بلا سعر ولا نشر — لا معنى له` };
+    for (let c = 0; c < row.length; c++) {
+      const cell = String(row[c] == null ? "" : row[c]);
+      if (cell.length >= 32000) return { ok: false, msg: `خلية تتجاوز 32000 حرف (حد إكسل)` };   // فحص طول الخلية
+      if (PT() && !allowed.has(c) && cell !== "") return { ok: false, msg: `عمود غير مسموح مملوء: ${PT().row2[c] || (c + 1)} — يُملأ فقط sku/name_ar/name_en/price/published` };
+    }
+  }
+  return { ok: true, cols: PT() ? PT().ncols : PRICE_HDR.length };
 }
 
 function setOpt(btn) {
@@ -1483,8 +1554,8 @@ function run(reprocess) {
     let histChanged = false, waitChanged = false;
     // ملف الكميات: 4 أعمدة بالترتيب والتسميات الحرفية المطلوبة
     let qtyRows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
-    // ملف الأسعار: نموذج مصغّر (sku·name_ar·name_en·price·published) — الصفوف المتغيّر سعرها/نشرها فقط
-    const priceRows = [PRICE_HDR.slice()];                     // نموذج مصغّر: sku·name_ar·name_en·price·published
+    // ملف الأسعار: النموذج الرسمي الكامل (إن رُفع) أو المصغّر — صفوف الرأس ثم الصفوف المتغيّر سعرها/نشرها فقط
+    const priceRows = priceHeaderRows();
 
     for (let i = 1; i < rows0.length; i++) {
       const orig = rows0[i], rawSku = orig[iSku];
@@ -1562,7 +1633,7 @@ function run(reprocess) {
       // ملف الأسعار المصغّر (سعر و/أو published فقط؛ يُضمّ الصنف حتى لو لم يتغيّر سعره إذا لزم إعادة نشره)
       // السعر فارغ إن لم يتغيّر (يُتجاهَل فيبقى الحالي)؛ published = «Yes» فقط عند إعادة النشر (فارغ = يُتجاهَل)
       if ((priceChanged || republish) && !isExc) {
-        priceRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", priceChanged ? newPrice : "", republish ? "Yes" : ""]);
+        priceRows.push(mkPriceRow(String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", priceChanged ? newPrice : "", republish ? "Yes" : ""));
         priceCount++;
         if (republish) republishCount++;
       }
@@ -1965,10 +2036,11 @@ function downloadSelected() {
   const inSel = sk => testSelected.has(String(sk));
   // ملف الكميات: صفوف المحدد التي تغيّرت كميتها (بعد الفحص الحاسم — لا آباء has_variants=Yes)
   const qtySel = stripHasVar((lastQtyRows || []).filter((r, i) => i === 0 || inSel(r[0]))).filter((r, i) => i > 0);
-  // ملف الأسعار المصغّر: صفوف المحدد التي تغيّر سعرها أو نشرها (sku في العمود 0)
+  // ملف الأسعار: صفوف المحدد التي تغيّر سعرها أو نشرها (يتخطّى صفوف الرأس؛ sku حسب بنية النموذج)
+  const phc = priceHeaderCount();
   const priceSel = [];
-  if (lastPriceRows) for (let i = 1; i < lastPriceRows.length; i++) {
-    if (inSel(lastPriceRows[i][0])) priceSel.push(lastPriceRows[i]);
+  if (lastPriceRows) for (let i = phc; i < lastPriceRows.length; i++) {
+    if (inSel(priceSkuOf(lastPriceRows[i]))) priceSel.push(lastPriceRows[i]);
   }
   if (!qtySel.length && !priceSel.length) { showErr("الأصناف المحددة لم تتغيّر كميتها ولا سعرها/نشرها."); return; }
   const files = [];
@@ -1981,8 +2053,8 @@ function downloadSelected() {
   }
   // الأسعار
   if (priceSel.length) {
-    const rows = [lastPriceRows[0], ...priceSel];
-    const v = verifyPrices(rows);   // صمام أمان الأسعار (نموذج مصغّر)
+    const rows = [...lastPriceRows.slice(0, phc), ...priceSel];
+    const v = verifyPrices(rows);   // صمام أمان الأسعار (نموذج رسمي أو مصغّر)
     if (!v.ok) { showErr("تعذّر إنشاء ملف الأسعار التجريبي — " + v.msg); return; }
     files.push({ rows, name: "test_prices.xlsx" });
   } else if (qtySel.length) {
@@ -2005,13 +2077,13 @@ function downloadSelected() {
 // تنزيل ملف اختبار يحوي هذا المنتج وحده — ملف لكل نوع تغيّر (الكميات و/أو الأسعار) ليُجرَّب المساران في زد
 function downloadOne(skuN) {
   const target = normCode(skuN);
-  const iSkuP = stData.header.indexOf("sku");
+  const phc = priceHeaderCount();
   const files = [];
-  if (lastQtyRows) { const r = lastQtyRows.find((rr, i) => i > 0 && normCode(rr[0]) === target); if (r) files.push({ hdr: lastQtyRows[0], row: r, kind: "qty" }); }
-  if (lastPriceRows) { const r = lastPriceRows.find((rr, i) => i > 0 && normCode(rr[0]) === target); if (r) files.push({ hdr: lastPriceRows[0], row: r, kind: "price" }); }
+  if (lastQtyRows) { const r = lastQtyRows.find((rr, i) => i > 0 && normCode(rr[0]) === target); if (r) files.push({ hdrRows: [lastQtyRows[0]], row: r, kind: "qty" }); }
+  if (lastPriceRows) { const r = lastPriceRows.find((rr, i) => i >= phc && normCode(priceSkuOf(rr)) === target); if (r) files.push({ hdrRows: lastPriceRows.slice(0, phc), row: r, kind: "price" }); }
   if (!files.length) { showErr("هذا المنتج ليس ضمن ملفات التحديث — شغّل «طابق وأنشئ» أولاً."); return; }
   files.forEach((f, idx) => {
-    const ws = XLSX.utils.aoa_to_sheet([f.hdr, f.row]);
+    const ws = XLSX.utils.aoa_to_sheet([...f.hdrRows, f.row]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
     const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -2416,6 +2488,7 @@ function renderFingerprint() {
 
 applyOpts();
 applyTheme(currentTheme());   // ضبط تسمية زر الوضع حسب الحالة المحفوظة
+setTplStatus();   // إظهار حالة نموذج الأسعار المحفوظ (إن وُجد)
 (async () => {
   await loadConfig();
   renderPills();
