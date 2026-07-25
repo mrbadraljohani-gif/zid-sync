@@ -347,6 +347,13 @@
   .vg-info summary { cursor: pointer; color: var(--muted-2); font-weight: 700; font-size: 13px; }
   .vg-list { margin-top: 8px; max-height: 260px; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
   .vg-row { display: flex; flex-direction: column; gap: 3px; padding: 7px 10px; border-radius: 9px; background: var(--panel-2); }
+  .sc-info { background: rgba(201,120,60,.10); border: 1px solid rgba(201,120,60,.45); border-radius: 12px; padding: 12px 15px; margin-bottom: 14px; }
+  .sc-head { color: #e0a878; font-weight: 800; font-size: 14px; }
+  .sc-sub { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin-top: 5px; }
+  .sc-info details { margin-top: 8px; }
+  .sc-info summary { cursor: pointer; color: var(--muted-2); font-weight: 700; font-size: 13px; }
+  .sc-list { margin-top: 8px; max-height: 260px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+  .sc-row { padding: 7px 10px; border-radius: 9px; background: var(--panel-2); font-size: 13px; }
   .vg-opts { color: var(--muted); font-size: 12.5px; }
   .parent-badge { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(133,123,100,.18); color: var(--muted); border: 1px solid var(--muted-2); }
   .col-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
@@ -640,6 +647,7 @@
     <div id="collisionWarn" style="display:none"></div>
     <div id="variantInfo" style="display:none"></div>
     <div id="reactivatedMsg" class="reactivated-msg" style="display:none"></div>
+    <div id="saleConflictMsg" style="display:none"></div>
     <div id="newAlert" class="alert-new" style="display:none" onclick="scrollToNew()"></div>
     <div class="clabel">النتيجة</div>
     <div class="stats">
@@ -744,6 +752,7 @@ let matchedHistory = new Set();   // skuN لكل صنف طوبق سابقاً (�
 let waitingSet = new Set();       // skuN لأصناف بانتظار التوفر (waiting.json)
 let baseHistSet = new Set(), baseWaitSet = new Set();
 let lastAbsent = [], lastReactivated = [];   // الغائبون عن الملف + من عاد للتوفر هذه المطابقة
+let lastSaleConflicts = [];   // أصناف تخفيضها المخزَّن ≥ سعرها الجديد ⇒ مُستبعَدة من ملف الأسعار (تُعالَج يدوياً في زد)
 let priceOffsets = {};                  // زيادة سعر المتغيرات: skuN ⇒ قيمة الزيادة (ر.س)
 let ignoredSet = new Set();
 let excludedSet = new Set();           // استبعاد مؤقت للجلسة فقط (in-memory): يُستثنى الصنف من ملفي التنزيل — لا يُحفظ ويُصفَّر عند إعادة التحميل أو مطابقة جديدة
@@ -1130,7 +1139,7 @@ function verifyQuantities(rows) {
   }
   return { ok: true };
 }
-// صمام أمان ملف الأسعار: نفس أعمدة الأصل بالترتيب والتسميات، ولا يتغيّر سوى price/published/sale_price (sku/barcode/quantity ثابتة)
+// صمام أمان ملف الأسعار: نفس أعمدة الأصل بالترتيب والتسميات، ولا يتغيّر سوى price/published (بقية الأعمدة ثابتة إلا خلية قُصّت لتجاوزها 32767 حرفاً)
 function verifyPrices(rows, orig, H) {
   const oh = stData.rows[0] || [], nh = rows[0] || [];
   if (oh.length !== nh.length) return { ok: false, msg: `عدد الأعمدة غير متطابق (${nh.length} ≠ ${oh.length})` };
@@ -1139,25 +1148,22 @@ function verifyPrices(rows, orig, H) {
   const iPrice = H.indexOf("price"), iPub = H.indexOf("published"), iSale = H.indexOf("sale_price");
   for (let r = 1; r < rows.length; r++) {
     for (let c = 0; c < oh.length; c++) {
-      if (c === iPrice || c === iPub || c === iSale) continue; // يُسمح بتغيير السعر و published و sale_price فقط (بقية الأعمدة ومنها quantity/sku/barcode ثابتة)
-      if (String(orig[r][c]) !== String(rows[r][c])) return { ok: false, msg: `العمود "${H[c]}" تغيّر في صف — يُسمح بتغيير السعر و«منشور» و«سعر التخفيض» فقط` };
+      if (c === iPrice || c === iPub) continue; // يُسمح بتغيير السعر و published فقط (بقية الأعمدة ومنها quantity/sku/barcode/sale_price ثابتة)
+      const ov = String(orig[r][c] == null ? "" : orig[r][c]), nv = String(rows[r][c] == null ? "" : rows[r][c]);
+      if (ov !== nv) {
+        if (ov.length > 32767 && nv === ov.slice(0, 32767)) continue;   // خلية قُصّت لحد إكسل — مسموح
+        return { ok: false, msg: `العمود "${H[c]}" تغيّر في صف — يُسمح بتغيير السعر و«منشور» فقط` };
+      }
     }
     if (!Number.isFinite(Number(rows[r][iPrice]))) return { ok: false, msg: `قيمة سعر غير رقمية` };
     if (iPub >= 0) {   // published: يُسمح بـ No→Yes فقط، لا أي اتجاه آخر
       const o = String(orig[r][iPub]).trim().toLowerCase(), n = String(rows[r][iPub]).trim().toLowerCase();
       if (o !== n && !(o === "no" && n === "yes")) return { ok: false, msg: `عمود «منشور» تغيّر باتجاه غير مسموح (يُسمح No→Yes فقط)` };
     }
-    if (iSale >= 0) {   // sale_price: يُسمح فقط بتفريغه أو إبقائه — وإن كان غير فارغ فيجب أن يكون رقماً < السعر (شرط زد)
-      const sv = rows[r][iSale];
-      if (sv !== "" && sv != null) {
-        const svn = Number(sv), pv = Number(rows[r][iPrice]);
-        if (!Number.isFinite(svn) || svn < 0) return { ok: false, msg: `سعر التخفيض غير رقمي` };
-        if (Number.isFinite(pv) && svn >= pv) return { ok: false, msg: `سعر التخفيض (${svn}) ليس أقل من السعر (${pv}) — يجب تفريغه` };
-      }
-      // لا نسمح بزيادة سعر التخفيض عن قيمته الأصلية (نحن فقط نُفرّغه؛ لا نرفعه)
-      const on = Number(orig[r][iSale]), nn = Number(sv);
-      if (String(orig[r][iSale]) !== String(sv) && !(sv === "" || sv == null) && Number.isFinite(on) && Number.isFinite(nn) && nn > on)
-        return { ok: false, msg: `سعر التخفيض زاد عن الأصل — غير مسموح` };
+    if (iSale >= 0) {   // تحقق دفاعي: أي صف تخفيضه ≥ سعره كان يجب استبعاده (تعارض تخفيض) — لا يُسمح بمروره
+      const svn = Number(rows[r][iSale]), pv = Number(rows[r][iPrice]);
+      if (Number.isFinite(svn) && svn > 0 && Number.isFinite(pv) && svn >= pv)
+        return { ok: false, msg: `سعر التخفيض (${svn}) ≥ السعر (${pv}) — كان يجب استبعاد الصنف (تعارض تخفيض)` };
     }
   }
   return { ok: true, cols: oh.length };
@@ -1493,7 +1499,7 @@ function run(reprocess) {
     const distItemCount = distByRaw.size, distGroupCount = [...whMembers.values()].filter(m => m.length > 1).length;
 
     let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0;
-    const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [];
+    const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [], saleConflicts = [];
     let histChanged = false, waitChanged = false;
     // ملف الكميات: 4 أعمدة بالترتيب والتسميات الحرفية المطلوبة
     let qtyRows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
@@ -1576,18 +1582,22 @@ function run(reprocess) {
       }
       // ملف الأسعار (السعر و/أو published؛ يُضمّ الصنف حتى لو لم يتغيّر سعره إذا لزم إعادة نشره)
       if ((priceChanged || republish) && !isExc) {
-        const pr = [...orig];
-        if (priceChanged) pr[iPrice] = newPrice;
-        if (republish) pr[iPublished] = "Yes";
-        // سعر التخفيض (sale_price) يجب أن يبقى أقل من السعر؛ إن أصبح السعر النهائي ≤ التخفيض الحالي نُفرّغه (خصم لم يعد صالحاً — زد يرفضه)
-        if (iSale >= 0) {
-          const finalPrice = priceChanged ? newPrice : Number(orig[iPrice]);
-          const sp = Number(orig[iSale]);
-          if (Number.isFinite(sp) && sp > 0 && Number.isFinite(finalPrice) && finalPrice <= sp) pr[iSale] = "";
+        // تعارض التخفيض: زد يتحقق من السعر النهائي مقابل سعر التخفيض **المخزَّن لديه** (تفريغ الخلية لا يزيله مع «تجاهل الفارغة»).
+        // فأي صنف تخفيضه المخزَّن ≥ سعره النهائي يُستبعَد كليّاً من ملف الأسعار ويُدرَج في قائمة «تعارض تخفيض» ليُعالَج يدوياً في زد.
+        const finalPrice = priceChanged ? newPrice : Number(orig[iPrice]);
+        const storedSale = iSale >= 0 ? Number(orig[iSale]) : NaN;
+        if (Number.isFinite(storedSale) && storedSale > 0 && Number.isFinite(finalPrice) && storedSale >= finalPrice) {
+          saleConflicts.push({ sku: String(rawSku), name: orig[iName] || "", newPrice: finalPrice, storedSale, oldPrice: Number(oldPrice) });
+        } else {
+          const pr = [...orig];
+          if (priceChanged) pr[iPrice] = newPrice;
+          if (republish) pr[iPublished] = "Yes";
+          // حماية إكسل: أي خلية تتجاوز 32767 حرفاً تُقصّ لحد إكسل الصلب (تمنع تلف الملف) — لا تخص التسعير
+          for (let c = 0; c < pr.length; c++) { const s = String(pr[c] == null ? "" : pr[c]); if (s.length > 32767) pr[c] = s.slice(0, 32767); }
+          priceRows.push(pr); priceOrig.push(orig);
+          priceCount++;
+          if (republish) republishCount++;
         }
-        priceRows.push(pr); priceOrig.push(orig);
-        priceCount++;
-        if (republish) republishCount++;
       }
       // جدول العرض للتحقق البصري (يشمل المستبعد بمظهر باهت — لا يتغيّر تصنيفه)
       if (qtyChanged || priceChanged || republish) {
@@ -1665,11 +1675,13 @@ function run(reprocess) {
     lastInfinite = infiniteList;
     lastAbsent = absentList;
     lastReactivated = reactivated;
+    lastSaleConflicts = saleConflicts;
     if (!reprocess) { boundSet = new Set(); currentFilter = "new"; }
     refreshUnmatchedUI();
     renderCollisionWarn();
     renderVariantInfo();
     renderReactivated();
+    renderSaleConflicts();
     renderFingerprint();
 
     document.getElementById("result").style.display = "block";
@@ -1712,6 +1724,21 @@ function renderReactivated() {
   el.style.display = "block";
   el.innerHTML = `✅ عاد للتوفر: <b>${lastReactivated.length}</b> صنف — ظهرت أكوادها في ملف المستودع، فأُزيلت من الانتظار وحُدّثت تلقائياً: ` +
     lastReactivated.slice(0, 30).map(r => `<span class="mono" dir="ltr">${esc(r.sku)}</span>`).join("، ") + (lastReactivated.length > 30 ? " …" : "");
+}
+// تعارض التخفيض: السعر الجديد ≤ سعر التخفيض المخزَّن في زد ⇒ استُبعد الصنف من ملف الأسعار (زد يرفض الاستيراد وإلا) — يُعالَج يدوياً
+function renderSaleConflicts() {
+  const el = document.getElementById("saleConflictMsg");
+  if (!el) return;
+  if (!lastSaleConflicts.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+  const rows = lastSaleConflicts.map(c =>
+    `<div class="sc-row"><span class="mono" dir="ltr">${esc(c.sku)}</span> — ${esc(c.name) || "؟"} — ` +
+    `<span dir="ltr">السعر الجديد <b>${esc(String(c.newPrice))}</b> · التخفيض المخزَّن <b>${esc(String(c.storedSale))}</b></span></div>`).join("");
+  el.style.display = "block";
+  el.innerHTML = `<div class="sc-info">
+    <div class="sc-head">⚠ تعارض تخفيض — عالجه يدوياً في زد (${lastSaleConflicts.length})</div>
+    <div class="sc-sub">هذه الأصناف سعرها الجديد ≤ سعر التخفيض المخزَّن في زد، فلو رُفعت لرفض زد الملف كله (سعر التخفيض يجب أن يكون أقل من السعر). <b>استُبعدت من ملف الأسعار.</b> عدّل أو احذف تخفيضها في لوحة زد ثم حدّث سعرها.</div>
+    <details><summary>عرض الأصناف (${lastSaleConflicts.length})</summary><div class="sc-list">${rows}</div></details>
+  </div>`;
 }
 // مرشّحو التصفير: (أ) الغائبون عن الملف + (ب) «يحتاج قرار» بلا اقتراح موثوق ولا كود في المستودع (يشمل المتجاهَل والمنتظِر)
 function zeroCandidates() {
