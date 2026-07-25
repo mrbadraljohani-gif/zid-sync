@@ -262,6 +262,33 @@
   .off-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 20px; }
   .off-box { width: 420px; max-width: 92vw; background: #1c1810; border: 1px solid var(--border-strong); border-radius: 16px; padding: 18px; box-shadow: 0 24px 60px rgba(0,0,0,.55); text-align: start; }
   :root[data-theme="light"] .off-box { background: #fffdf7; }
+  .btn-run.sm.batch { background: linear-gradient(120deg,#4a7fb5,#3a6ea5); color:#fff; }
+  .batch-overlay { position: fixed; inset: 0; z-index: 250; background: rgba(0,0,0,.62); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .batch-box { width: 1180px; max-width: 97vw; height: 90vh; background: #1a160f; border: 1px solid var(--border-strong); border-radius: 16px; box-shadow: 0 24px 60px rgba(0,0,0,.6); display: flex; flex-direction: column; text-align: start; overflow: hidden; }
+  :root[data-theme="light"] .batch-box { background: #fffdf7; }
+  .batch-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .batch-title { font-weight: 800; font-size: 16px; color: var(--gold-2); }
+  .batch-sub { color: var(--muted); font-size: 12.5px; }
+  .batch-close { background: transparent; border: 1px solid var(--border-strong); color: var(--muted-2); border-radius: 9px; padding: 5px 12px; cursor: pointer; font-weight: 700; }
+  .bt-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 18px; background: var(--panel-2); border-bottom: 1px solid var(--border); font-size: 13px; flex-wrap: wrap; }
+  .bt-bar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .batch-tabs { display: flex; gap: 8px; padding: 10px 18px 0; }
+  .bt-tab { background: transparent; border: 1px solid var(--border); color: var(--muted-2); border-radius: 10px 10px 0 0; padding: 7px 16px; cursor: pointer; font-weight: 700; font-size: 13.5px; }
+  .bt-tab.on { background: var(--panel); color: var(--gold-2); border-bottom-color: transparent; }
+  .batch-content { flex: 1; overflow: auto; padding: 14px 18px; }
+  .bt-actionrow { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+  .bt-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .bt-table th, .bt-table td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: start; vertical-align: top; }
+  .bt-table th { color: var(--muted-2); font-weight: 700; position: sticky; top: 0; background: var(--panel); }
+  .bt-nm { color: var(--muted); font-size: 11.5px; margin-top: 2px; max-width: 320px; }
+  .bt-reason { color: #9dd0a6; font-size: 11.5px; }
+  .bt-alt { max-width: 260px; background: var(--panel-2); color: var(--fg); border: 1px solid var(--border); border-radius: 7px; padding: 3px 6px; font-size: 11.5px; }
+  .bt-fam { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
+  .bt-fam-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--panel-2); }
+  .bt-fam-n { color: var(--muted); font-size: 12px; }
+  .bt-fam-head .btn-run { margin-inline-start: auto; }
+  .bt-empty { color: var(--muted); text-align: center; padding: 40px; }
+  .bt-none { color: var(--muted-2); }
   .off-title { font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--gold-2); margin-bottom: 8px; }
   .off-box .hint { margin: 0 0 12px; }
   .off-box input { width: 100%; }
@@ -680,6 +707,7 @@
       <div class="clabel" style="margin-top:18px" id="unTitle"></div>
       <div class="unbar">
         <input type="text" id="unSearch" placeholder="🔍 ابحث في منتجات زد (بالكود أو الاسم)..." oninput="filterUnmatched()">
+        <button class="btn-run sm batch" id="batchBtn" onclick="openBatchAnalysis()" style="display:none">🤖 تحليل الكل</button>
         <button class="btn-run sm bindall" id="bindAllBtn" onclick="bindAll90()">اربط الاقتراحات المؤكدة</button>
       </div>
       <div class="twrap" id="detailTable"></div>
@@ -687,6 +715,19 @@
   </div>
 
   <div id="toast" class="toast"></div>
+
+  <!-- لوحة الربط الدفعي الذكي -->
+  <div id="batchOverlay" class="batch-overlay" style="display:none">
+    <div class="batch-box">
+      <div class="batch-head">
+        <div><span class="batch-title">🤖 الربط الدفعي الذكي</span> <span class="batch-sub">مطابقة «جديد يحتاج قراراً» بالمقاس والسعر والاسم</span></div>
+        <button class="batch-close" onclick="closeBatchAnalysis()">✕ إغلاق</button>
+      </div>
+      <div id="batchBar"></div>
+      <div id="batchTabs" class="batch-tabs"></div>
+      <div id="batchBody" class="batch-content"></div>
+    </div>
+  </div>
 
   <!-- لوحة زيادة سعر المتغير -->
   <div id="offOverlay" class="off-overlay" style="display:none" onclick="if(event.target===this)closeOffset()">
@@ -749,6 +790,8 @@ const IGN_KEY = "zid-ignored-v1";
 const OFF_KEY = "zid-offsets-v1";
 const HIST_KEY = "zid-matched-history-v1";   // أكواد سبق أن طوبقت (لتمييز «الغائب» عن «الجديد»)
 const WAIT_KEY = "zid-waiting-v1";            // أصناف «غير متوفر حالياً» بانتظار ظهور كودها
+const ALIAS_KEY = "zid-aliases-v1";          // أزواج «جذر زد|||جذر مستودع» المتعلَّمة (aliases.json)
+const TAGS_KEY = "zid-link-tags-v1";         // {sku:{tag,date}} وسم كل رابط (link-tags.json)
 const OPT_KEY = "zid-options-v1";
 let whRows = null, stData = null;
 let opts = { price: "incl", inf: "skip", absent: "keep", lowzero: "on", lowPrice: 400, lowQty: 3, split: "equal" };
@@ -759,6 +802,12 @@ let waitingSet = new Set();       // skuN لأصناف بانتظار التوف
 let baseHistSet = new Set(), baseWaitSet = new Set();
 let lastAbsent = [], lastReactivated = [];   // الغائبون عن الملف + من عاد للتوفر هذه المطابقة
 let lastSaleConflicts = [];   // أصناف تخفيضها المخزَّن ≥ سعرها الجديد ⇒ مُستبعَدة من ملف الأسعار (تُعالَج يدوياً في زد)
+let lastMatchedWhCodes = new Set();   // أكواد المستودع المطابَقة في آخر تشغيل (تُستبعد من مرشّحي الربط الدفعي)
+let batchAliases = new Set();          // aliases.json: مجموعة «جذر زد|||جذر مستودع» — تمنح +40 للأزواج المعروفة
+let linkTags = {};                     // link-tags.json: {sku:{tag:auto-confirmed|auto-approved|manual, date}}
+let lastBatchUndo = null;              // {entries:[{sku,prev}], count, tag} — للتراجع عن آخر اعتماد دفعي
+let batchData = null;                  // نتائج آخر تحليل دفعي {green,yellow,red}
+let batchTab = "green";                // التبويب النشط في لوحة الربط الدفعي
 let lastParentPublish = [], lastParentCol = "";   // آباء نُقل إليهم النشر من متغيّراتهم + اسم عمود مرجع الأب (تشخيص)
 let priceOffsets = {};                  // زيادة سعر المتغيرات: skuN ⇒ قيمة الزيادة (ر.س)
 let ignoredSet = new Set();
@@ -809,11 +858,19 @@ async function loadConfig() {
   for (const src of [baseOff, localOff]) {
     if (src && typeof src === "object") for (const k in src) { const v = Number(src[k]); if (Number.isFinite(v) && v !== 0) priceOffsets[normCode(k)] = Math.round(v); }
   }
+  // aliases.json (تعلُّم الربط الدفعي) + link-tags.json (وسوم الروابط) — نفس منظومة الملف + localStorage
+  batchAliases = new Set(); linkTags = {};
+  try { const r = await fetch("aliases.json", { cache: "no-store" }); if (r.ok) { const a = await r.json(); if (Array.isArray(a)) a.forEach(k => batchAliases.add(String(k))); } } catch {}
+  try { const loc = JSON.parse(localStorage.getItem(ALIAS_KEY) || "[]"); if (Array.isArray(loc)) loc.forEach(k => batchAliases.add(String(k))); } catch {}
+  try { const r = await fetch("link-tags.json", { cache: "no-store" }); if (r.ok) { const o = await r.json(); if (o && typeof o === "object") Object.assign(linkTags, o); } } catch {}
+  try { const loc = JSON.parse(localStorage.getItem(TAGS_KEY) || "{}"); if (loc && typeof loc === "object") Object.assign(linkTags, loc); } catch {}
 }
 function saveIgnored() { localStorage.setItem(IGN_KEY, JSON.stringify([...ignoredSet])); }
 function saveOffsets() { localStorage.setItem(OFF_KEY, JSON.stringify(priceOffsets)); }
 function saveMatchedHistory() { localStorage.setItem(HIST_KEY, JSON.stringify([...matchedHistory])); }
 function saveWaiting() { localStorage.setItem(WAIT_KEY, JSON.stringify([...waitingSet])); }
+function saveAliases() { localStorage.setItem(ALIAS_KEY, JSON.stringify([...batchAliases])); }
+function saveLinkTags() { localStorage.setItem(TAGS_KEY, JSON.stringify(linkTags)); }
 // ترحيل mapping.json من المفاتيح المطبَّعة القديمة إلى مفاتيح SKU الخام (يعتمد الأصفار كما في زد)
 function migrateMapping(rawByNorm, rawSet) {
   let changed = false;
@@ -1021,6 +1078,267 @@ function suggestFor(skuN, nm, whList, zidPrice) {
   return { code: best.w.code, name: best.w.name, price: best.w.price, qty: best.w.qty, sim, ns: best.ns, by: "name", sizeMatch, sizeMismatch };
 }
 
+/* ================= الربط الدفعي الذكي (Smart Batch Linking) ================= */
+// محرك الاستخراج والتطبيع — دوال نقية قابلة للاختبار
+// المقاس الأساسي: يوحّد * × x، يرتّب الأبعاد تصاعدياً، يدعم الثنائي والثلاثي (2*3*4). يعيد "6x120" أو null.
+function extractSize(name) {
+  const s = String(name || "").replace(/[×xX✕╳]/g, "*");
+  let m = s.match(/(\d+(?:\.\d+)?)\s*\*\s*(\d+(?:\.\d+)?)\s*\*\s*(\d+(?:\.\d+)?)/);
+  if (m) return [m[1], m[2], m[3]].map(parseFloat).sort((a, b) => a - b).join("x");
+  m = s.match(/(\d+(?:\.\d+)?)\s*\*\s*(\d+(?:\.\d+)?)/);
+  if (m) return [parseFloat(m[1]), parseFloat(m[2])].sort((a, b) => a - b).join("x");
+  return null;
+}
+// تطبيع الاسم: إزالة المقاس والتشكيل وأل التعريف والرموز، توحيد الهمزات والتاء المربوطة، ضغط المسافات
+function normalizeName(name) {
+  let s = String(name || "").replace(/[×xX✕╳]/g, "*");
+  s = s.replace(/\d+(?:\.\d+)?(?:\s*\*\s*\d+(?:\.\d+)?)+/g, " ");      // إزالة المقاسات المركّبة
+  s = s.replace(/[ً-ْٰـ]/g, "");                   // تشكيل + تطويل
+  s = s.replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/ؤ/g, "و").replace(/ئ/g, "ي");
+  s = s.replace(/[^\p{L}\p{N}\s]/gu, " ").toLowerCase();              // رموز (- / _ …)
+  return s.split(/\s+/).map(w => w.replace(/^ال/, "")).filter(Boolean).join(" ").trim();   // أل التعريف
+}
+function batchBigrams(s) { const b = new Map(); for (let i = 0; i < s.length - 1; i++) { const g = s.slice(i, i + 2); b.set(g, (b.get(g) || 0) + 1); } return b; }
+// تشابه Dice على ثنائيات الحروف بعد التطبيع (0-1)
+function nameSimilarity(a, b) {
+  const A = normalizeName(a).replace(/\s+/g, ""), B = normalizeName(b).replace(/\s+/g, "");
+  if (!A.length || !B.length) return 0;
+  if (A === B) return 1;
+  if (A.length < 2 || B.length < 2) return 0;
+  const ba = batchBigrams(A), bb = batchBigrams(B);
+  let inter = 0, total = 0;
+  for (const [g, c] of ba) { total += c; if (bb.has(g)) inter += Math.min(c, bb.get(g)); }
+  for (const [, c] of bb) total += c;
+  return total ? (2 * inter) / total : 0;
+}
+// تطابق السعر: فرق ≤ 5% أو ≤ 2 ريال
+function priceMatch(zidPrice, whPrice) { const z = priceInt(zidPrice), w = priceInt(whPrice); if (z == null || w == null) return false; const d = Math.abs(z - w); return d <= 2 || d <= 0.05 * Math.max(z, w); }
+// جذر الاسم (للعائلة والأسماء البديلة) = أول 3 كلمات مطبَّعة بلا مقاس
+function nameRoot(name) { return normalizeName(name).split(" ").filter(Boolean).slice(0, 3).join(" "); }
+
+// درجة المرشح: مقاس +50 · سعر +30 · تشابه اسم ≥0.5 حتى +20 · زوج معروف في aliases +40
+function scoreCandidate(z, wh) {
+  const zS = extractSize(z.name), wS = extractSize(wh.name);
+  const sizeM = !!(zS && wS && zS === wS), priceM = priceMatch(z.price, wh.price), sim = nameSimilarity(z.name, wh.name);
+  const aliasHit = batchAliases.has(nameRoot(z.name) + "|||" + nameRoot(wh.name));
+  let score = 0; if (sizeM) score += 50; if (priceM) score += 30; if (sim >= 0.5) score += Math.round(20 * sim); if (aliasHit) score += 40;
+  return { code: wh.code, name: wh.name, price: wh.price, qty: wh.qty, size: wS, sizeM, priceM, sim: +sim.toFixed(2), aliasHit, score };
+}
+// تصنيف أفضل مرشح: 🟢 مؤكد (مقاس+سعر، أو ≥80 وفارق ≥20) · 🟡 محتمل (40-79 أو مؤكد بمنافس قريب) · 🔴 (<40)
+function classifyBatch(best, second) {
+  if (!best || best.score < 40) return "red";
+  const margin = best.score - (second ? second.score : 0);
+  const confirmed = (best.sizeM && best.priceM) || (best.score >= 80 && margin >= 20);
+  return (confirmed && margin >= 20) ? "green" : "yellow";
+}
+
+// محرك الترشيح لكل صنف في «جديد يحتاج قراراً» + حلّ التنازع + التصنيف
+function analyzeBatch() {
+  const items = lastUnmatchedRaw.filter(u => !boundSet.has(String(u.sku)) && !ignoredSet.has(normCode(u.skuN)) && !waitingSet.has(normCode(u.skuN)) && !u.orphanParent);
+  const taken = new Set([...lastMatchedWhCodes, ...Object.values(manualMap).map(normCode)]);   // أكواد مربوطة/مطابَقة ⇒ خارج الترشيح
+  const avail = lastWhList.filter(w => !taken.has(normCode(w.code)));
+  const bySize = new Map(), byTok = new Map();
+  for (const w of avail) {
+    const sz = extractSize(w.name); if (sz) { let a = bySize.get(sz); if (!a) bySize.set(sz, a = []); a.push(w); }
+    for (const t of coreTokens(nameTokens(w.name))) { let a = byTok.get(t); if (!a) byTok.set(t, a = []); a.push(w); }
+  }
+  const results = items.map(z => {
+    const zSize = extractSize(z.name), cand = new Set();
+    if (zSize && bySize.has(zSize)) for (const w of bySize.get(zSize)) cand.add(w);
+    for (const t of coreTokens(nameTokens(z.name))) { const a = byTok.get(t); if (a) for (const w of a) cand.add(w); }
+    const scored = [...cand].map(w => scoreCandidate(z, w)).filter(s => s.score > 0).sort((a, b) => b.score - a.score);
+    return { z, scored: scored.slice(0, 5), best: scored[0] || null, second: scored[1] || null, demoted: false };
+  });
+  // قاعدة السلامة: كود مستودع واحد لا يُعتمد تلقائياً لأكثر من صنف زد (إلا متغيّرات نفس الأساس) — الأعلى درجة يفوز والباقي يهبط
+  const byCode = new Map();
+  for (const r of results) if (r.best) { let a = byCode.get(r.best.code); if (!a) byCode.set(r.best.code, a = []); a.push(r); }
+  for (const [code, claimants] of byCode) {
+    if (claimants.length < 2) continue;
+    const b0 = baseOf(claimants[0].z.sku);
+    if (b0 && claimants.every(r => baseOf(r.z.sku) === b0)) continue;   // متغيّرات نفس الأساس ⇒ توزيع مسموح
+    claimants.sort((a, b) => b.best.score - a.best.score);
+    for (let i = 1; i < claimants.length; i++) {
+      const r = claimants[i]; r.demoted = true;
+      r.best = r.scored.find(s => s.code !== code) || null;
+      r.second = r.scored.filter(s => r.best && s.code !== r.best.code)[0] || null;
+    }
+  }
+  const green = [], yellow = [], red = [];
+  for (const r of results) {
+    let cls = classifyBatch(r.best, r.second);
+    if (r.demoted && cls === "green") cls = "yellow";
+    r.cls = cls;
+    (cls === "green" ? green : cls === "yellow" ? yellow : red).push(r);
+  }
+  return { green, yellow, red, total: results.length };
+}
+function batchFamilies(list) {
+  const fam = new Map();
+  for (const r of list) { const root = nameRoot(r.z.name) || "—"; let a = fam.get(root); if (!a) fam.set(root, a = []); a.push(r); }
+  return [...fam.entries()].map(([root, rows]) => ({ root, rows })).sort((a, b) => b.rows.length - a.rows.length);
+}
+
+// اعتماد دفعة روابط: يكتب mapping.json، يسجّل التراجع، يتعلّم alias، يضع الوسم
+function batchApply(pairs, tag) {
+  if (!pairs.length) return;
+  const undo = [];
+  for (const { sku, code } of pairs) {
+    undo.push({ sku: String(sku), prev: (String(sku) in manualMap) ? manualMap[String(sku)] : null });
+    manualMap[String(sku)] = normCode(code);
+    boundSet.add(String(sku));
+    excludedSet.delete(normCode(sku));
+    linkTags[String(sku)] = { tag, date: new Date().toISOString() };
+    const z = lastUnmatchedRaw.find(u => String(u.sku) === String(sku));
+    const w = lastWhList.find(x => normCode(x.code) === normCode(code));
+    if (z && w) { const zr = nameRoot(z.name), wr = nameRoot(w.name); if (zr && wr) batchAliases.add(zr + "|||" + wr); }
+  }
+  lastBatchUndo = { entries: undo, count: pairs.length, tag };
+  localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
+  saveAliases(); saveLinkTags();
+  renderPills(); markDirty(); updateNewCount();
+  if (currentFilter === "new" || currentFilter === "unmatched") renderDetail();   // أزِل المعتمدين من جدول البطاقة الخلفي فوراً
+  batchData = analyzeBatch();
+  renderBatchTab();
+  showToast(`✓ اعتُمد ${pairs.length} رابط (${tag === "auto-confirmed" ? "🟢 مؤكد" : tag === "auto-approved" ? "🟡 معتمد" : "يدوي"}) — لا تنسَ ☁ الحفظ في الريبو.`);
+}
+function undoLastBatch() {
+  if (!lastBatchUndo) { showToast("لا يوجد اعتماد دفعي للتراجع عنه."); return; }
+  for (const e of lastBatchUndo.entries) {
+    if (e.prev === null) delete manualMap[e.sku]; else manualMap[e.sku] = e.prev;
+    boundSet.delete(e.sku); delete linkTags[e.sku];
+  }
+  const n = lastBatchUndo.count; lastBatchUndo = null;
+  localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
+  saveLinkTags();
+  renderPills(); markDirty(); updateNewCount();
+  if (currentFilter === "new" || currentFilter === "unmatched") renderDetail();
+  batchData = analyzeBatch(); renderBatchTab();
+  showToast(`↩ تم التراجع عن آخر اعتماد (${n} رابط).`);
+}
+
+// فتح/إغلاق اللوحة
+function openBatchAnalysis() {
+  if (!lastWhList.length) { showToast("شغّل «طابق وأنشئ» أولاً."); return; }
+  batchData = analyzeBatch();
+  batchTab = batchData.green.length ? "green" : (batchData.yellow.length ? "yellow" : "red");
+  document.getElementById("batchOverlay").style.display = "flex";
+  renderBatchTab();
+}
+function closeBatchAnalysis() { document.getElementById("batchOverlay").style.display = "none"; }
+function switchBatchTab(t) { batchTab = t; renderBatchTab(); }
+
+function batchTabBtns() {
+  const g = batchData.green.length, y = batchData.yellow.length, r = batchData.red.length;
+  const mk = (id, label, n) => `<button class="bt-tab ${batchTab === id ? "on" : ""}" onclick="switchBatchTab('${id}')">${label} <b>${n}</b></button>`;
+  return mk("green", "🟢 مؤكد", g) + mk("yellow", "🟡 محتمل", y) + mk("red", "🔴 بلا مرشح", r);
+}
+function batchBar() {
+  const g = batchData.green.length, y = batchData.yellow.length, r = batchData.red.length;
+  const remaining = g + y + r;
+  return `<div class="bt-bar">
+    <span>المتبقّي: <b>${remaining}</b> · 🟢 ${g} · 🟡 ${y} · 🔴 ${r}</span>
+    <span class="bt-bar-actions">
+      <button class="mc-btn" onclick="undoLastBatch()" ${lastBatchUndo ? "" : "disabled"}>↩ تراجع عن آخر اعتماد${lastBatchUndo ? " (" + lastBatchUndo.count + ")" : ""}</button>
+      <button class="btn-run sm export-btn" onclick="saveToRepo('اعتماد ربط دفعي')">☁ احفظ في الريبو</button>
+    </span></div>`;
+}
+const priceCell = (z, w) => `<span dir="ltr">${priceInt(z) ?? "—"} / ${priceInt(w) ?? "—"}</span>${priceBadge(z, w)}`;
+const reasonText = b => [b.sizeM ? "مقاس✓" : "", b.priceM ? "سعر✓" : "", b.sim >= 0.5 ? "اسم " + Math.round(b.sim * 100) + "٪" : "", b.aliasHit ? "زوج معروف" : ""].filter(Boolean).join(" · ");
+
+function renderBatchTab() {
+  const g = batchData.green.length, y = batchData.yellow.length, r = batchData.red.length;
+  document.getElementById("batchTabs").innerHTML = batchTabBtns();
+  document.getElementById("batchBar").innerHTML = batchBar();
+  const wrap = document.getElementById("batchBody");
+  if (batchTab === "green") wrap.innerHTML = renderGreen();
+  else if (batchTab === "yellow") wrap.innerHTML = renderYellow();
+  else wrap.innerHTML = renderRed();
+}
+
+// 🟢 جدول مضغوط — الكل محدد افتراضياً
+function renderGreen() {
+  const list = batchData.green;
+  if (!list.length) return `<div class="bt-empty">لا توجد مطابقات مؤكدة. جرّب تبويب 🟡.</div>`;
+  const rows = list.map((r, i) =>
+    `<tr><td><input type="checkbox" class="bt-g" data-sku="${esc(String(r.z.sku))}" data-code="${esc(String(r.best.code))}" checked></td>` +
+    `<td><span class="mono" dir="ltr">${esc(String(r.z.sku))}</span><div class="bt-nm">${esc(r.z.name)}</div></td>` +
+    `<td><span class="mono" dir="ltr">${esc(String(r.best.code))}</span><div class="bt-nm">${esc(r.best.name)}</div></td>` +
+    `<td dir="ltr">${esc(r.best.size || "—")}</td><td>${priceCell(r.z.price, r.best.price)}</td>` +
+    `<td class="bt-reason">${esc(reasonText(r.best))}</td></tr>`).join("");
+  return `<div class="bt-actionrow"><button class="btn-run sm" onclick="acceptGreen()">✓ اعتماد المحدد (<span id="btGN">${list.length}</span>)</button>
+    <button class="mc-btn" onclick="btToggleAll('bt-g',true)">تحديد الكل</button><button class="mc-btn" onclick="btToggleAll('bt-g',false)">إلغاء الكل</button></div>
+    <div class="twrap"><table class="bt-table"><thead><tr><th></th><th>صنف زد</th><th>المرشّح (المستودع)</th><th>المقاس</th><th>السعران</th><th>السبب</th></tr></thead>
+    <tbody onchange="btCount('bt-g','btGN')">${rows}</tbody></table></div>`;
+}
+// 🟡 مجمّع بالعائلة
+function renderYellow() {
+  const fams = batchFamilies(batchData.yellow);
+  if (!fams.length) return `<div class="bt-empty">لا مطابقات محتملة.</div>`;
+  return fams.map((f, fi) => {
+    const rows = f.rows.map((r, ri) => {
+      const alts = r.scored.map((s, si) => `<option value="${si}" ${s.code === (r.best && r.best.code) ? "selected" : ""}>${esc(s.code)} · ${esc(s.name.slice(0, 30))} (${s.score})</option>`).join("");
+      const gid = "y-" + fi + "-" + ri;
+      return `<tr id="${gid}"><td><input type="checkbox" class="bt-y" data-fam="${fi}" data-sku="${esc(String(r.z.sku))}" ${r.best ? "checked" : "disabled"}></td>` +
+        `<td><span class="mono" dir="ltr">${esc(String(r.z.sku))}</span><div class="bt-nm">${esc(r.z.name)}</div></td>` +
+        `<td dir="ltr">${esc(extractSize(r.z.name) || "—")}</td>` +
+        `<td>${r.scored.length ? `<select class="bt-alt" data-sku="${esc(String(r.z.sku))}" onchange="pickYellow(${fi},${ri},this.value)">${alts}</select>` : "<span class='bt-none'>—</span>"}</td>` +
+        `<td>${r.best ? priceCell(r.z.price, r.best.price) : "—"}</td>` +
+        `<td class="bt-reason">${r.best ? esc(reasonText(r.best)) : ""}</td></tr>`;
+    }).join("");
+    return `<div class="bt-fam"><div class="bt-fam-head"><b>${esc(f.root)}</b> <span class="bt-fam-n">${f.rows.length} صنف</span>
+      <button class="btn-run sm" onclick="acceptFamily(${fi})">✓ اعتماد العائلة</button></div>
+      <div class="twrap"><table class="bt-table"><thead><tr><th></th><th>صنف زد</th><th>المقاس</th><th>الاقتران (المستودع) — أفضل 5</th><th>السعران</th><th>السبب</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  }).join("");
+}
+// 🔴 بلا مرشح — تحديد جماعي + إجراءات
+function renderRed() {
+  const list = batchData.red;
+  if (!list.length) return `<div class="bt-empty">لا شيء بلا مرشّح 🎉</div>`;
+  const rows = list.map(r =>
+    `<tr><td><input type="checkbox" class="bt-r" data-sku="${esc(String(r.z.sku))}" data-skun="${esc(String(r.z.skuN))}" checked></td>` +
+    `<td><span class="mono" dir="ltr">${esc(String(r.z.sku))}</span><div class="bt-nm">${esc(r.z.name)}</div></td>` +
+    `<td dir="ltr">${priceInt(r.z.price) ?? "—"}</td><td>${esc(String(r.z.qty ?? ""))}</td>` +
+    `<td><button class="mc-btn" onclick="startManualLink('${esc(String(r.z.skuN))}');closeBatchAnalysis()">🔗 ربط يدوي</button></td></tr>`).join("");
+  return `<div class="bt-actionrow"><button class="mc-btn ignore" onclick="acceptRed('ignore')">🚫 تجاهل المحدد</button>
+    <button class="mc-btn wait" onclick="acceptRed('wait')">⏳ غير متوفر — المحدد</button>
+    <button class="mc-btn" onclick="btToggleAll('bt-r',true)">تحديد الكل</button><button class="mc-btn" onclick="btToggleAll('bt-r',false)">إلغاء الكل</button></div>
+    <div class="twrap"><table class="bt-table"><thead><tr><th></th><th>صنف زد</th><th>السعر</th><th>الكمية</th><th>إجراء فردي</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function btToggleAll(cls, on) { document.querySelectorAll("#batchBody ." + cls).forEach(c => { if (!c.disabled) c.checked = on; }); if (cls === "bt-g") btCount("bt-g", "btGN"); }
+function btCount(cls, id) { const n = [...document.querySelectorAll("#batchBody ." + cls)].filter(c => c.checked).length; const el = document.getElementById(id); if (el) el.textContent = n; }
+function pickYellow(fi, ri, si) {
+  const r = batchData.yellow.length ? batchFamilies(batchData.yellow)[fi].rows[ri] : null;
+  if (r) { r.best = r.scored[Number(si)] || r.best; }   // ملاحظة: التحديد الفعلي يُقرأ من select عند الاعتماد
+}
+function acceptGreen() {
+  const pairs = [...document.querySelectorAll("#batchBody .bt-g")].filter(c => c.checked).map(c => ({ sku: c.dataset.sku, code: c.dataset.code }));
+  if (!pairs.length) { showToast("لم تحدد شيئاً."); return; }
+  batchApply(pairs, "auto-confirmed");
+}
+function acceptFamily(fi) {
+  const boxes = [...document.querySelectorAll(`#batchBody .bt-y[data-fam="${fi}"]`)].filter(c => c.checked && !c.disabled);
+  const pairs = boxes.map(c => {
+    const sel = document.querySelector(`#batchBody .bt-alt[data-sku="${CSS.escape(c.dataset.sku)}"]`);
+    const fams = batchFamilies(batchData.yellow); const fam = fams[fi];
+    const row = fam.rows.find(r => String(r.z.sku) === c.dataset.sku);
+    let code = row && row.best && row.best.code;
+    if (sel && row) { const s = row.scored[Number(sel.value)]; if (s) code = s.code; }
+    return code ? { sku: c.dataset.sku, code } : null;
+  }).filter(Boolean);
+  if (!pairs.length) { showToast("لا صفوف محددة في هذه العائلة."); return; }
+  batchApply(pairs, "auto-approved");
+}
+function acceptRed(action) {
+  const boxes = [...document.querySelectorAll("#batchBody .bt-r")].filter(c => c.checked);
+  if (!boxes.length) { showToast("لم تحدد شيئاً."); return; }
+  boxes.forEach(c => { const skuN = c.dataset.skun; if (action === "ignore") ignoredSet.add(normCode(skuN)); else waitingSet.add(normCode(skuN)); });
+  if (action === "ignore") saveIgnored(); else saveWaiting();
+  renderIgnored(lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN))));
+  updateNewCount(); renderFingerprint();
+  batchData = analyzeBatch(); renderBatchTab();
+  showToast(`${action === "ignore" ? "🚫 تجاهل" : "⏳ نقل للانتظار"}: ${boxes.length} صنف.`);
+}
+
 // تحليل الأسعار ومؤشر التطابق السعري
 function priceNum(v) { const n = Number(String(v == null ? "" : v).replace(/[^\d.\-]/g, "")); return Number.isFinite(n) && n > 0 ? n : null; }
 function priceInt(v) { const n = priceNum(v); return n == null ? null : Math.round(n); } // كل الأسعار أعداد صحيحة
@@ -1050,6 +1368,8 @@ function exportConfig() {
   download("price-offsets.json", JSON.stringify(priceOffsets, null, 2));
   download("matched-history.json", JSON.stringify([...matchedHistory].sort(), null, 2));
   download("waiting.json", JSON.stringify([...waitingSet].sort(), null, 2));
+  download("aliases.json", JSON.stringify([...batchAliases].sort(), null, 2));
+  download("link-tags.json", JSON.stringify(linkTags, null, 2));
 }
 
 /* ---------- الحفظ المباشر في الريبو عبر GitHub API ---------- */
@@ -1114,7 +1434,9 @@ async function saveToRepo(reason) {
   const offsets = JSON.stringify(priceOffsets, null, 2);
   const history = JSON.stringify([...matchedHistory].sort(), null, 2);
   const waiting = JSON.stringify([...waitingSet].sort(), null, 2);
-  const sig = mapping + " " + ignored + " " + offsets + " " + history + " " + waiting;
+  const aliases = JSON.stringify([...batchAliases].sort(), null, 2);
+  const tags = JSON.stringify(linkTags, null, 2);
+  const sig = mapping + " " + ignored + " " + offsets + " " + history + " " + waiting + " " + aliases + " " + tags;
   if (sig === lastSavedSig) { repoStatus("ok", "✓ لا تغييرات جديدة — الريبو محدّث بالفعل."); return; }
   repoStatus("", "⏳ جاري الحفظ في الريبو…");
   try {
@@ -1123,6 +1445,8 @@ async function saveToRepo(reason) {
     await putFileToRepo("price-offsets.json", offsets, token, `تحديث زيادات الأسعار (${reason})`);
     await putFileToRepo("matched-history.json", history, token, `تحديث تاريخ المطابقة (${reason})`);
     await putFileToRepo("waiting.json", waiting, token, `تحديث قائمة الانتظار (${reason})`);
+    if (batchAliases.size) await putFileToRepo("aliases.json", aliases, token, `تحديث الأسماء البديلة (${reason})`);
+    if (Object.keys(linkTags).length) await putFileToRepo("link-tags.json", tags, token, `تحديث وسوم الروابط (${reason})`);
     lastSavedSig = sig;
     baseMap = { ...manualMap }; baseIgnSet = new Set(ignoredSet); baseHistSet = new Set(matchedHistory); baseWaitSet = new Set(waitingSet);   // صار كل المحلي مصدَّراً للريبو
     renderFingerprint();
@@ -1532,6 +1856,7 @@ function run(reprocess) {
     let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0;
     const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [], saleConflicts = [];
     const parentsToPublish = new Map();   // كود الأب ⇒ {sku, name, variants[]} — نشر يُنقَل من المتغيّرات إلى صف الأب
+    const matchedWhCodes = new Set();     // أكواد المستودع المأخوذة (لاستبعادها من مرشّحي الربط الدفعي)
     let histChanged = false, waitChanged = false;
     // ملف الكميات: 4 أعمدة بالترتيب والتسميات الحرفية المطلوبة
     let qtyRows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
@@ -1575,6 +1900,7 @@ function run(reprocess) {
         continue;
       }
       // مطابقة ناجحة: سجّلها في تاريخ المطابقة، وأعِد تفعيل ما كان بانتظار التوفر
+      matchedWhCodes.add(normCode(whCode));   // كود المستودع صار مأخوذاً (يُستبعد من مرشّحي الربط الدفعي)
       if (!matchedHistory.has(skuN)) { matchedHistory.add(skuN); histChanged = true; }
       if (waitingSet.has(skuN)) { waitingSet.delete(skuN); waitChanged = true; reactivated.push({ sku: rawKey, skuN, name: orig[iName] || "" }); }
       const oldQty = orig[iQty], oldPrice = orig[iPrice];
@@ -1729,6 +2055,7 @@ function run(reprocess) {
     lastAbsent = absentList;
     lastReactivated = reactivated;
     lastSaleConflicts = saleConflicts;
+    lastMatchedWhCodes = matchedWhCodes;
     if (!reprocess) { boundSet = new Set(); currentFilter = "new"; }
     refreshUnmatchedUI();
     renderCollisionWarn();
@@ -1952,6 +2279,7 @@ function renderDetail() {
     const items = buildItems(raw);
     lastUnmatched = items;
     bindBtn.style.display = (f === "new") ? "" : "none";
+    { const bb = document.getElementById("batchBtn"); if (bb) bb.style.display = (f === "new") ? "" : "none"; }
     title.textContent = (f === "new" ? "منتجات جديدة تحتاج قرارك" : "كل الأصناف بدون ربط") + ` (${raw.length}) — كاملة — اربطها أو تجاهلها`;
     wrap.innerHTML = suggestionsCardsHTML(items);
     updateBindAllCount();
