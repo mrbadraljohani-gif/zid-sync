@@ -354,6 +354,11 @@
   .sc-info summary { cursor: pointer; color: var(--muted-2); font-weight: 700; font-size: 13px; }
   .sc-list { margin-top: 8px; max-height: 260px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
   .sc-row { padding: 7px 10px; border-radius: 9px; background: var(--panel-2); font-size: 13px; }
+  .pp-info { background: rgba(90,160,110,.10); border: 1px solid rgba(90,160,110,.42); border-radius: 12px; padding: 12px 15px; margin-bottom: 14px; }
+  .pp-head { color: #8fce9f; font-weight: 800; font-size: 14px; }
+  .pp-info details { margin-top: 8px; }
+  .pp-info summary { cursor: pointer; color: var(--muted-2); font-weight: 700; font-size: 13px; }
+  .pp-vars { color: var(--muted); }
   .vg-opts { color: var(--muted); font-size: 12.5px; }
   .parent-badge { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(133,123,100,.18); color: var(--muted); border: 1px solid var(--muted-2); }
   .col-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
@@ -648,6 +653,7 @@
     <div id="variantInfo" style="display:none"></div>
     <div id="reactivatedMsg" class="reactivated-msg" style="display:none"></div>
     <div id="saleConflictMsg" style="display:none"></div>
+    <div id="parentPublishMsg" style="display:none"></div>
     <div id="newAlert" class="alert-new" style="display:none" onclick="scrollToNew()"></div>
     <div class="clabel">النتيجة</div>
     <div class="stats">
@@ -753,6 +759,7 @@ let waitingSet = new Set();       // skuN لأصناف بانتظار التوف
 let baseHistSet = new Set(), baseWaitSet = new Set();
 let lastAbsent = [], lastReactivated = [];   // الغائبون عن الملف + من عاد للتوفر هذه المطابقة
 let lastSaleConflicts = [];   // أصناف تخفيضها المخزَّن ≥ سعرها الجديد ⇒ مُستبعَدة من ملف الأسعار (تُعالَج يدوياً في زد)
+let lastParentPublish = [], lastParentCol = "";   // آباء نُقل إليهم النشر من متغيّراتهم + اسم عمود مرجع الأب (تشخيص)
 let priceOffsets = {};                  // زيادة سعر المتغيرات: skuN ⇒ قيمة الزيادة (ر.س)
 let ignoredSet = new Set();
 let excludedSet = new Set();           // استبعاد مؤقت للجلسة فقط (in-memory): يُستثنى الصنف من ملفي التنزيل — لا يُحفظ ويُصفَّر عند إعادة التحميل أو مطابقة جديدة
@@ -1156,9 +1163,9 @@ function verifyPrices(rows, orig, H) {
       }
     }
     if (!Number.isFinite(Number(rows[r][iPrice]))) return { ok: false, msg: `قيمة سعر غير رقمية` };
-    if (iPub >= 0) {   // published: يُسمح بـ No→Yes فقط، لا أي اتجاه آخر
+    if (iPub >= 0) {   // published: يُسمح بـ No→Yes (نشر) أو بالتفريغ «» (صفوف المتغيّرات: لا تلمس النشر) فقط — لا Yes→No أبداً
       const o = String(orig[r][iPub]).trim().toLowerCase(), n = String(rows[r][iPub]).trim().toLowerCase();
-      if (o !== n && !(o === "no" && n === "yes")) return { ok: false, msg: `عمود «منشور» تغيّر باتجاه غير مسموح (يُسمح No→Yes فقط)` };
+      if (o !== n && n !== "" && !(o === "no" && n === "yes")) return { ok: false, msg: `عمود «منشور» تغيّر باتجاه غير مسموح (يُسمح No→Yes أو تفريغ فقط)` };
     }
     if (iSale >= 0) {   // تحقق دفاعي: أي صف تخفيضه ≥ سعره كان يجب استبعاده (تعارض تخفيض) — لا يُسمح بمروره
       const svn = Number(rows[r][iSale]), pv = Number(rows[r][iPrice]);
@@ -1459,6 +1466,30 @@ function run(reprocess) {
     }
     lastHasVarYes = hasVarYesSet;
 
+    // === ربط المتغيّر بأبيه (النشر في زد يُتحكَّم من الأب لا المتغيّر) ===
+    // نكتشف عمود «مرجع الأب» تلقائياً: العمود (غير sku) الذي تشير قيمه غالباً إلى sku صنفٍ has_variants=Yes (الأب).
+    const parentSkuByNorm = {};   // normCode(كود الأب) ⇒ كود الأب الخام
+    hasVarYesSet.forEach(s => { parentSkuByNorm[normCode(s)] = s; });
+    let parentCol = -1, bestHits = 0;
+    if (hasVarYesSet.size) for (let c = 0; c < H.length; c++) {
+      if (c === iSku) continue;
+      let hits = 0;
+      for (let i = 1; i < rows0.length; i++) {
+        const v = rows0[i][c]; if (v === "" || v == null) continue;
+        const vs = String(v).trim();
+        if (hasVarYesSet.has(vs) || parentSkuByNorm[normCode(vs)]) hits++;
+      }
+      if (hits > bestHits) { bestHits = hits; parentCol = c; }
+    }
+    const parentOf = {};   // كود المتغيّر الخام ⇒ كود أبيه الخام (من تصدير زد)
+    if (parentCol >= 0) for (let i = 1; i < rows0.length; i++) {
+      const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue;
+      const rk = String(rs), v = rows0[i][parentCol]; if (v === "" || v == null) continue;
+      const vs = String(v).trim(), pSku = hasVarYesSet.has(vs) ? vs : parentSkuByNorm[normCode(vs)];
+      if (pSku && pSku !== rk) parentOf[rk] = pSku;
+    }
+    lastParentCol = parentCol >= 0 ? String(H[parentCol]) : "";   // للتشخيص
+
     // دالة موحّدة لتحديد كود المستودع لأي صنف — تُستخدم في تمريرة العد والحلقة معاً (بلا أي اختلاف)
     const resolveWhCode = (rawSku, skuN) => {
       const rk = String(rawSku);
@@ -1500,6 +1531,7 @@ function run(reprocess) {
 
     let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0;
     const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [], saleConflicts = [];
+    const parentsToPublish = new Map();   // كود الأب ⇒ {sku, name, variants[]} — نشر يُنقَل من المتغيّرات إلى صف الأب
     let histChanged = false, waitChanged = false;
     // ملف الكميات: 4 أعمدة بالترتيب والتسميات الحرفية المطلوبة
     let qtyRows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
@@ -1568,11 +1600,21 @@ function run(reprocess) {
           priceChanged = String(oldPrice) !== String(newPrice);
         }
       }
-      // إعادة النشر: صنف ستصبح كميته > 0 وهو حالياً published=No ⇒ يُعاد نشره (المُصفَّر كميته 0 ⇒ لا يُعاد نشره)
-      const needsPublish = iPublished >= 0 && newQty > 0 && String(orig[iPublished]).trim().toLowerCase() === "no";
+      // إعادة النشر (النشر في زد يُتحكَّم من الأب لا المتغيّر):
+      // للمتغيّر ⇒ نفحص نشر **الأب** ونضع Yes على صف الأب؛ للبسيط ⇒ نفحص نشره ونضعه على صفّه. المُصفَّر كميته 0 ⇒ لا يُعاد نشره.
+      const parentSku = parentOf[rawKey];                                  // كود الأب إن كان هذا متغيّراً
+      const isVariantChild = !!(parentSku && rowByRawSku[parentSku]);
+      const effPubRow = isVariantChild ? rowByRawSku[parentSku] : orig;    // صف حالة النشر الفعّالة
+      const effPublished = iPublished >= 0 ? String(effPubRow[iPublished]).trim().toLowerCase() : "";
+      const wantsPublish = iPublished >= 0 && newQty > 0 && effPublished === "no";
       // استبعاد مؤقت للجلسة: يبقى الصنف في «تم تحديثه» لكنه يُستثنى من ملفي التنزيل وعدّاديهما
       const isExc = excludedSet.has(skuN);
-      const republish = needsPublish && !isExc;
+      const simpleRepublish = wantsPublish && !isExc && !isVariantChild;   // نشر على صف الصنف البسيط نفسه
+      if (wantsPublish && !isExc && isVariantChild) {                      // نشر يُنقَل إلى صف الأب (لا يُوضَع على المتغيّر أبداً)
+        if (!parentsToPublish.has(parentSku)) parentsToPublish.set(parentSku, { sku: parentSku, name: (rowByRawSku[parentSku][iName] || ""), variants: [] });
+        parentsToPublish.get(parentSku).variants.push(String(rawSku));
+      }
+      const republish = wantsPublish && !isExc;                           // للعرض/الشارة فقط (يشمل الحالتين)
       // ملف الكميات (يشمل تحويل "غير محدود" لكمية حقيقية، وتصفير المنخفض القيمة)
       if (qtyChanged && !isExc) {
         qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", newQty]);
@@ -1580,8 +1622,8 @@ function run(reprocess) {
         if (isInf) infConverted++;
         if (lowValZero) zeroLowCount++;
       }
-      // ملف الأسعار (السعر و/أو published؛ يُضمّ الصنف حتى لو لم يتغيّر سعره إذا لزم إعادة نشره)
-      if ((priceChanged || republish) && !isExc) {
+      // ملف الأسعار (السعر و/أو published على الصنف نفسه إن كان بسيطاً؛ نشر المتغيّر يُنقَل إلى صف الأب لاحقاً)
+      if ((priceChanged || simpleRepublish) && !isExc) {
         // تعارض التخفيض: زد يتحقق من السعر النهائي مقابل سعر التخفيض **المخزَّن لديه** (تفريغ الخلية لا يزيله مع «تجاهل الفارغة»).
         // فأي صنف تخفيضه المخزَّن ≥ سعره النهائي يُستبعَد كليّاً من ملف الأسعار ويُدرَج في قائمة «تعارض تخفيض» ليُعالَج يدوياً في زد.
         const finalPrice = priceChanged ? newPrice : Number(orig[iPrice]);
@@ -1591,12 +1633,13 @@ function run(reprocess) {
         } else {
           const pr = [...orig];
           if (priceChanged) pr[iPrice] = newPrice;
-          if (republish) pr[iPublished] = "Yes";
+          if (simpleRepublish) pr[iPublished] = "Yes";            // النشر على صف الصنف البسيط فقط
+          else if (isVariantChild && iPublished >= 0) pr[iPublished] = "";   // المتغيّر لا يحمل published إطلاقاً (بلا أثر ومضلل) — نُفرّغه
           // حماية إكسل: أي خلية تتجاوز 32767 حرفاً تُقصّ لحد إكسل الصلب (تمنع تلف الملف) — لا تخص التسعير
           for (let c = 0; c < pr.length; c++) { const s = String(pr[c] == null ? "" : pr[c]); if (s.length > 32767) pr[c] = s.slice(0, 32767); }
           priceRows.push(pr); priceOrig.push(orig);
           priceCount++;
-          if (republish) republishCount++;
+          if (simpleRepublish) republishCount++;
         }
       }
       // جدول العرض للتحقق البصري (يشمل المستبعد بمظهر باهت — لا يتغيّر تصنيفه)
@@ -1617,6 +1660,16 @@ function run(reprocess) {
       }
     });
     lastHvWouldEnter = hvWouldEnter;
+
+    // === نشر الآباء: لكل أب نُقل إليه النشر من متغيّراته، نضيف صفاً في ملف الأسعار بـsku الأب و published=Yes فقط (السعر فارغ) ===
+    lastParentPublish = [];
+    parentsToPublish.forEach((info, pSku) => {
+      const pr = new Array(H.length).fill(""); pr[iSku] = pSku; if (iPublished >= 0) pr[iPublished] = "Yes";
+      const po = new Array(H.length).fill(""); po[iSku] = pSku; if (iPublished >= 0) po[iPublished] = "No";   // حالته الحالية (يحتاج نشراً)
+      priceRows.push(pr); priceOrig.push(po);
+      priceCount++; republishCount++;
+      lastParentPublish.push({ sku: pSku, name: info.name, variants: info.variants });
+    });
 
     // === صمامات الأمان + إنشاء الملفين ===
     qtyRows = stripHasVar(qtyRows); qtyCount = qtyRows.length - 1;   // فحص نهائي حاسم: لا صف has_variants=Yes في ملف الكميات إطلاقاً
@@ -1682,6 +1735,7 @@ function run(reprocess) {
     renderVariantInfo();
     renderReactivated();
     renderSaleConflicts();
+    renderParentPublish();
     renderFingerprint();
 
     document.getElementById("result").style.display = "block";
@@ -1738,6 +1792,22 @@ function renderSaleConflicts() {
     <div class="sc-head">⚠ تعارض تخفيض — عالجه يدوياً في زد (${lastSaleConflicts.length})</div>
     <div class="sc-sub">هذه الأصناف سعرها الجديد ≤ سعر التخفيض المخزَّن في زد، فلو رُفعت لرفض زد الملف كله (سعر التخفيض يجب أن يكون أقل من السعر). <b>استُبعدت من ملف الأسعار.</b> عدّل أو احذف تخفيضها في لوحة زد ثم حدّث سعرها.</div>
     <details><summary>عرض الأصناف (${lastSaleConflicts.length})</summary><div class="sc-list">${rows}</div></details>
+  </div>`;
+}
+// نشر يُنقَل إلى الأب: النشر في زد يُتحكَّم من الأب لا المتغيّر، فصفوف الأسعار تضع published=Yes على صف الأب (بكوده) لا المتغيّر
+function renderParentPublish() {
+  const el = document.getElementById("parentPublishMsg");
+  if (!el) return;
+  if (!lastParentPublish.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+  const rows = lastParentPublish.map(p =>
+    `<div class="sc-row"><span class="mono" dir="ltr">${esc(p.sku)}</span> — ${esc(p.name) || "؟"} — ` +
+    `<span class="pp-vars">من متغيّراته: ${p.variants.slice(0, 8).map(v => `<span class="mono" dir="ltr">${esc(v)}</span>`).join("، ")}${p.variants.length > 8 ? " …" : ""}</span></div>`).join("");
+  el.style.display = "block";
+  el.innerHTML = `<div class="pp-info">
+    <div class="pp-head">🔆 نشر مُنقَل إلى الأب (${lastParentPublish.length}) — النشر في زد يُتحكَّم من المنتج الأب لا المتغيّر</div>
+    <div class="sc-sub">وُضِع <b>published = Yes على صف الأب</b> (بكوده) في ملف الأسعار — لا على المتغيّرات (وضعه عليها بلا أثر ويسبب التكرار). صف الأب يحمل sku و published فقط (السعر فارغ).${lastParentCol ? ` عمود مرجع الأب المكتشَف: <b dir="ltr">${esc(lastParentCol)}</b>.` : ""}</div>
+    <div class="sc-sub"><b>تنبيه:</b> إن رفض زد صف الأب في «تحديث المنتجات»، فعّل نشرهم يدوياً من هذه القائمة.</div>
+    <details><summary>عرض الآباء (${lastParentPublish.length})</summary><div class="sc-list">${rows}</div></details>
   </div>`;
 }
 // مرشّحو التصفير: (أ) الغائبون عن الملف + (ب) «يحتاج قرار» بلا اقتراح موثوق ولا كود في المستودع (يشمل المتجاهَل والمنتظِر)
