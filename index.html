@@ -1130,25 +1130,24 @@ function verifyQuantities(rows) {
   }
   return { ok: true };
 }
-// صمام أمان ملف الأسعار: نفس أعمدة الأصل بالترتيب والتسميات، ولا يتغيّر سوى عمود السعر (sku/barcode/quantity ثابتة)
-function verifyPrices(rows, orig, H) {
-  const oh = stData.rows[0] || [], nh = rows[0] || [];
-  if (oh.length !== nh.length) return { ok: false, msg: `عدد الأعمدة غير متطابق (${nh.length} ≠ ${oh.length})` };
-  for (let c = 0; c < oh.length; c++)
-    if (String(oh[c]) !== String(nh[c])) return { ok: false, msg: `اسم/ترتيب العمود رقم ${c + 1} تغيّر` };
-  const iPrice = H.indexOf("price"), iPub = H.indexOf("published");
+// صمام أمان ملف الأسعار: خمسة أعمدة فقط بالترتيب والتسميات — sku·name_ar·name_en·price·published
+// (النموذج المصغّر: زد يرفض النموذج الكامل ~76 عموداً لاحتوائه quantity=Infinite وأعمدة أخرى.
+//  السعر/النشر الفارغ ⇒ يُتجاهَل في زد فيبقى الحالي؛ published يُكتب «Yes» فقط أو فارغاً — لا يُخفَض النشر أبداً.)
+const PRICE_HDR = ["sku", "name_ar", "name_en", "price", "published"];
+function verifyPrices(rows) {
+  const nh = rows[0] || [];
+  if (nh.length !== PRICE_HDR.length) return { ok: false, msg: `عدد الأعمدة يجب أن يكون ${PRICE_HDR.length} (sku·name_ar·name_en·price·published)` };
+  for (let c = 0; c < PRICE_HDR.length; c++)
+    if (String(nh[c]) !== PRICE_HDR[c]) return { ok: false, msg: `اسم/ترتيب العمود رقم ${c + 1} يجب أن يكون "${PRICE_HDR[c]}"` };
   for (let r = 1; r < rows.length; r++) {
-    for (let c = 0; c < oh.length; c++) {
-      if (c === iPrice || c === iPub) continue; // يُسمح بتغيير السعر و published فقط (بقية الأعمدة ومنها quantity/sku/barcode ثابتة)
-      if (String(orig[r][c]) !== String(rows[r][c])) return { ok: false, msg: `العمود "${H[c]}" تغيّر في صف — يُسمح بتغيير السعر و«منشور» فقط` };
-    }
-    if (!Number.isFinite(Number(rows[r][iPrice]))) return { ok: false, msg: `قيمة سعر غير رقمية` };
-    if (iPub >= 0) {   // published: يُسمح بـ No→Yes فقط، لا أي اتجاه آخر
-      const o = String(orig[r][iPub]).trim().toLowerCase(), n = String(rows[r][iPub]).trim().toLowerCase();
-      if (o !== n && !(o === "no" && n === "yes")) return { ok: false, msg: `عمود «منشور» تغيّر باتجاه غير مسموح (يُسمح No→Yes فقط)` };
-    }
+    if (rows[r][0] === "" || rows[r][0] == null) return { ok: false, msg: `sku فارغ في صف` };
+    const p = rows[r][3];
+    if (p !== "" && p != null && !(Number.isFinite(Number(p)) && Number(p) >= 0)) return { ok: false, msg: `قيمة سعر غير صحيحة (يجب رقماً ≥ 0 أو فارغاً)` };
+    const pub = String(rows[r][4] == null ? "" : rows[r][4]).trim().toLowerCase();
+    if (pub !== "" && pub !== "yes") return { ok: false, msg: `عمود «منشور» يجب أن يكون فارغاً أو Yes فقط (لا يُخفَض النشر)` };
+    if ((p === "" || p == null) && pub === "") return { ok: false, msg: `صف بلا سعر ولا نشر — لا معنى له` };
   }
-  return { ok: true, cols: oh.length };
+  return { ok: true, cols: PRICE_HDR.length };
 }
 
 function setOpt(btn) {
@@ -1484,9 +1483,8 @@ function run(reprocess) {
     let histChanged = false, waitChanged = false;
     // ملف الكميات: 4 أعمدة بالترتيب والتسميات الحرفية المطلوبة
     let qtyRows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
-    // ملف الأسعار: نفس بنية تصدير زد كاملة (رأس + الصفوف المتغيّر سعرها فقط)
-    const priceRows = [[...rows0[0]]];
-    const priceOrig = [rows0[0]];                               // أصل كل صف سعري (للتحقق)
+    // ملف الأسعار: نموذج مصغّر (sku·name_ar·name_en·price·published) — الصفوف المتغيّر سعرها/نشرها فقط
+    const priceRows = [PRICE_HDR.slice()];                     // نموذج مصغّر: sku·name_ar·name_en·price·published
 
     for (let i = 1; i < rows0.length; i++) {
       const orig = rows0[i], rawSku = orig[iSku];
@@ -1561,12 +1559,10 @@ function run(reprocess) {
         if (isInf) infConverted++;
         if (lowValZero) zeroLowCount++;
       }
-      // ملف الأسعار (السعر و/أو published؛ يُضمّ الصنف حتى لو لم يتغيّر سعره إذا لزم إعادة نشره)
+      // ملف الأسعار المصغّر (سعر و/أو published فقط؛ يُضمّ الصنف حتى لو لم يتغيّر سعره إذا لزم إعادة نشره)
+      // السعر فارغ إن لم يتغيّر (يُتجاهَل فيبقى الحالي)؛ published = «Yes» فقط عند إعادة النشر (فارغ = يُتجاهَل)
       if ((priceChanged || republish) && !isExc) {
-        const pr = [...orig];
-        if (priceChanged) pr[iPrice] = newPrice;
-        if (republish) pr[iPublished] = "Yes";
-        priceRows.push(pr); priceOrig.push(orig);
+        priceRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", priceChanged ? newPrice : "", republish ? "Yes" : ""]);
         priceCount++;
         if (republish) republishCount++;
       }
@@ -1591,10 +1587,10 @@ function run(reprocess) {
 
     // === صمامات الأمان + إنشاء الملفين ===
     qtyRows = stripHasVar(qtyRows); qtyCount = qtyRows.length - 1;   // فحص نهائي حاسم: لا صف has_variants=Yes في ملف الكميات إطلاقاً
-    lastQtyRows = qtyRows; lastPriceRows = priceRows; lastPriceOrig = priceOrig;   // للتنزيل التجريبي (صف واحد أو المحدد) مع التحقق
+    lastQtyRows = qtyRows; lastPriceRows = priceRows;   // للتنزيل التجريبي (صف واحد أو المحدد) مع التحقق
     const mkBlob = aoa => { const ws = XLSX.utils.aoa_to_sheet(aoa); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1"); return new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }); };
     const vq = verifyQuantities(qtyRows);
-    const vp = verifyPrices(priceRows, priceOrig, H);
+    const vp = verifyPrices(priceRows);
     const vm = document.getElementById("verifyMsg");
     const wireDl = (id, ok, aoa, count, reason) => {
       const el = document.getElementById(id);
@@ -1969,10 +1965,10 @@ function downloadSelected() {
   const inSel = sk => testSelected.has(String(sk));
   // ملف الكميات: صفوف المحدد التي تغيّرت كميتها (بعد الفحص الحاسم — لا آباء has_variants=Yes)
   const qtySel = stripHasVar((lastQtyRows || []).filter((r, i) => i === 0 || inSel(r[0]))).filter((r, i) => i > 0);
-  // ملف الأسعار: صفوف المحدد التي تغيّر سعرها أو نشرها (+ الأصل المحاذي للتحقق)
-  const priceSel = [], priceOrigSel = [];
+  // ملف الأسعار المصغّر: صفوف المحدد التي تغيّر سعرها أو نشرها (sku في العمود 0)
+  const priceSel = [];
   if (lastPriceRows) for (let i = 1; i < lastPriceRows.length; i++) {
-    if (inSel(lastPriceRows[i][iSkuP])) { priceSel.push(lastPriceRows[i]); priceOrigSel.push(lastPriceOrig[i]); }
+    if (inSel(lastPriceRows[i][0])) priceSel.push(lastPriceRows[i]);
   }
   if (!qtySel.length && !priceSel.length) { showErr("الأصناف المحددة لم تتغيّر كميتها ولا سعرها/نشرها."); return; }
   const files = [];
@@ -1986,8 +1982,7 @@ function downloadSelected() {
   // الأسعار
   if (priceSel.length) {
     const rows = [lastPriceRows[0], ...priceSel];
-    const orig = [lastPriceOrig[0], ...priceOrigSel];
-    const v = verifyPrices(rows, orig, stData.header);   // صمام أمان الأسعار (price + published فقط)
+    const v = verifyPrices(rows);   // صمام أمان الأسعار (نموذج مصغّر)
     if (!v.ok) { showErr("تعذّر إنشاء ملف الأسعار التجريبي — " + v.msg); return; }
     files.push({ rows, name: "test_prices.xlsx" });
   } else if (qtySel.length) {
@@ -2013,7 +2008,7 @@ function downloadOne(skuN) {
   const iSkuP = stData.header.indexOf("sku");
   const files = [];
   if (lastQtyRows) { const r = lastQtyRows.find((rr, i) => i > 0 && normCode(rr[0]) === target); if (r) files.push({ hdr: lastQtyRows[0], row: r, kind: "qty" }); }
-  if (lastPriceRows) { const r = lastPriceRows.find((rr, i) => i > 0 && normCode(rr[iSkuP]) === target); if (r) files.push({ hdr: lastPriceRows[0], row: r, kind: "price" }); }
+  if (lastPriceRows) { const r = lastPriceRows.find((rr, i) => i > 0 && normCode(rr[0]) === target); if (r) files.push({ hdr: lastPriceRows[0], row: r, kind: "price" }); }
   if (!files.length) { showErr("هذا المنتج ليس ضمن ملفات التحديث — شغّل «طابق وأنشئ» أولاً."); return; }
   files.forEach((f, idx) => {
     const ws = XLSX.utils.aoa_to_sheet([f.hdr, f.row]);
