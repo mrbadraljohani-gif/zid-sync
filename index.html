@@ -290,6 +290,8 @@
   .bt-nm { color: var(--muted); font-size: 11.5px; margin-top: 3px; line-height: 1.45; }
   .bt-reason { color: #9dd0a6; font-size: 11px; line-height: 1.5; }
   .bt-cand-name { color: var(--muted); font-size: 11px; margin-top: 3px; line-height: 1.4; }
+  .bt-cand-full { font-size: 11.5px; line-height: 1.45; margin-bottom: 5px; word-break: break-word; color: var(--fg); }
+  .bt-cand-full .bt-sku { display: inline; margin-inline-end: 4px; }
   .bt-price2 { white-space: nowrap; }
   .bt-alt { width: 100%; max-width: 100%; box-sizing: border-box; background: var(--panel-2); color: var(--fg); border: 1px solid var(--border); border-radius: 7px; padding: 4px 6px; font-size: 11px; }
   .bt-fam { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
@@ -1287,18 +1289,23 @@ function renderYellow() {
   if (!fams.length) return `<div class="bt-empty">لا مطابقات محتملة.</div>`;
   return fams.map((f, fi) => {
     const rows = f.rows.map((r, ri) => {
-      const alts = r.scored.map((s, si) => `<option value="${si}" ${s.code === (r.best && r.best.code) ? "selected" : ""}>${esc(s.code)} · ${esc(s.name.slice(0, 22))}${s.name.length > 22 ? "…" : ""} (${s.score})</option>`).join("");
-      return `<tr><td class="bt-c-chk"><input type="checkbox" class="bt-y" data-fam="${fi}" data-sku="${esc(String(r.z.sku))}" ${r.best ? "checked" : "disabled"}></td>` +
+      const uid = fi + "_" + ri, b = r.best;
+      const alts = r.scored.map((s, si) => `<option value="${si}" ${b && s.code === b.code ? "selected" : ""}>${esc(s.code)} · ${esc(s.name.slice(0, 44))}${s.name.length > 44 ? "…" : ""} (${s.score})</option>`).join("");
+      const candCell = r.scored.length
+        ? `<div class="bt-cand-full" id="cand-${uid}"><span class="bt-sku">${esc(String(b.code))}</span> · ${esc(b.name)}</div>` +
+          `<select class="bt-alt" data-sku="${esc(String(r.z.sku))}" onchange="pickAlt('${uid}',${fi},${ri},this)" title="بدائل — أفضل 5">${alts}</select>`
+        : "<span class='bt-none'>لا مرشّح</span>";
+      return `<tr><td class="bt-c-chk"><input type="checkbox" class="bt-y" data-fam="${fi}" data-sku="${esc(String(r.z.sku))}" ${b ? "checked" : "disabled"}></td>` +
         `<td><span class="bt-sku">${esc(String(r.z.sku))}</span><div class="bt-nm">${esc(r.z.name)}</div></td>` +
         `<td class="bt-c-size" dir="ltr">${esc(extractSize(r.z.name) || "—")}</td>` +
-        `<td>${r.scored.length ? `<select class="bt-alt" data-sku="${esc(String(r.z.sku))}">${alts}</select>` : "<span class='bt-none'>—</span>"}</td>` +
-        `<td class="bt-c-price"><span class="bt-price2">${r.best ? priceCell(r.z.price, r.best.price) : "—"}</span></td>` +
-        `<td class="bt-c-reason bt-reason">${r.best ? esc(reasonText(r.best)) : ""}</td></tr>`;
+        `<td>${candCell}</td>` +
+        `<td class="bt-c-price" id="price-${uid}"><span class="bt-price2">${b ? priceCell(r.z.price, b.price) : "—"}</span></td>` +
+        `<td class="bt-c-reason bt-reason" id="reason-${uid}">${b ? esc(reasonText(b)) : ""}</td></tr>`;
     }).join("");
     return `<div class="bt-fam"><div class="bt-fam-head"><b>${esc(f.root)}</b> <span class="bt-fam-n">${f.rows.length} صنف</span>
       <button class="btn-run sm" onclick="acceptFamily(${fi})">✓ اعتماد العائلة</button></div>
-      <div class="twrap"><table class="bt-table"><colgroup><col style="width:30px"><col style="width:30%"><col style="width:62px"><col><col style="width:96px"><col style="width:118px"></colgroup>
-      <thead><tr><th class="bt-c-chk"></th><th>صنف زد</th><th>المقاس</th><th>الاقتران (المستودع) — أفضل 5</th><th>السعران</th><th>السبب</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      <div class="twrap"><table class="bt-table"><colgroup><col style="width:30px"><col style="width:24%"><col style="width:56px"><col><col style="width:88px"><col style="width:100px"></colgroup>
+      <thead><tr><th class="bt-c-chk"></th><th>صنف زد</th><th>المقاس</th><th>الاقتران (المستودع) — كامل الاسم ＋ أفضل 5</th><th>السعران</th><th>السبب</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
   }).join("");
 }
 // 🔴 بلا مرشح — تحديد جماعي + إجراءات
@@ -1318,9 +1325,14 @@ function renderRed() {
 }
 function btToggleAll(cls, on) { document.querySelectorAll("#batchBody ." + cls).forEach(c => { if (!c.disabled) c.checked = on; }); if (cls === "bt-g") btCount("bt-g", "btGN"); }
 function btCount(cls, id) { const n = [...document.querySelectorAll("#batchBody ." + cls)].filter(c => c.checked).length; const el = document.getElementById(id); if (el) el.textContent = n; }
-function pickYellow(fi, ri, si) {
-  const r = batchData.yellow.length ? batchFamilies(batchData.yellow)[fi].rows[ri] : null;
-  if (r) { r.best = r.scored[Number(si)] || r.best; }   // ملاحظة: التحديد الفعلي يُقرأ من select عند الاعتماد
+// تبديل المرشّح من قائمة أفضل-5: يحدّث الاسم الكامل والسعر والسبب المعروضة (والاعتماد يقرأ قيمة select)
+function pickAlt(uid, fi, ri, sel) {
+  const fams = batchFamilies(batchData.yellow); const fam = fams[fi]; if (!fam) return;
+  const r = fam.rows[ri]; if (!r) return;
+  const s = r.scored[Number(sel.value)]; if (!s) return;
+  const cf = document.getElementById("cand-" + uid); if (cf) cf.innerHTML = `<span class="bt-sku">${esc(String(s.code))}</span> · ${esc(s.name)}`;
+  const pc = document.getElementById("price-" + uid); if (pc) pc.innerHTML = `<span class="bt-price2">${priceCell(r.z.price, s.price)}</span>`;
+  const rc = document.getElementById("reason-" + uid); if (rc) rc.textContent = reasonText(s);
 }
 function acceptGreen() {
   const pairs = [...document.querySelectorAll("#batchBody .bt-g")].filter(c => c.checked).map(c => ({ sku: c.dataset.sku, code: c.dataset.code }));
