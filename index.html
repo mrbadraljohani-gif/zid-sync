@@ -1455,6 +1455,10 @@ function run(reprocess) {
       }
     }
     const distItemCount = distByRaw.size, distGroupCount = [...whMembers.values()].filter(m => m.length > 1).length;
+    // === تشخيص مؤقت لعائلة 80151 ===
+    const DBGCODE = "80151";
+    const dbgPre = [...whMembers.entries()].filter(([wc, m]) => String(wc).includes(DBGCODE) || m.some(x => String(x).includes(DBGCODE))).map(([wc, m]) => `${wc}(كمية المستودع=${whIndex[wc].qty}, أعضاء=${m.length})→[${m.map(x => x + "=" + shareByRaw.get(x)).join(" · ")}]`);
+    window.__dbgLoop = [];
 
     let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0;
     const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [];
@@ -1513,6 +1517,7 @@ function run(reprocess) {
       const valForRule = whInclR != null ? whInclR + offset : null;
       const lowValZero = opts.lowzero !== "off" && valForRule != null && valForRule < (opts.lowPrice || 400) && whQtyReal <= (opts.lowQty != null ? opts.lowQty : 3);
       const newQty = lowValZero ? 0 : whQtyReal;                     // الكمية الفعلية المُصدَّرة
+      if (String(rawKey).includes("80151")) window.__dbgLoop.push(`${rawKey}: كود=${whCode} · has=${shareByRaw.has(rawKey)} · حصة=${shareByRaw.get(rawKey)} · whQtyReal=${whQtyReal} · newQty=${newQty}`);
       const qtyChanged = String(oldQty) !== String(newQty);          // "Infinite" ≠ رقم ⇒ يُستبدل دائماً
       // قاعدة الأسعار: السعر النهائي = تقريب سعر المستودع + زيادة المتغير (إن وجدت)، وتجاهل فرق < 1 ريال مقابل سعر زد
       let priceChanged = false, newPrice = oldPrice;
@@ -1578,6 +1583,9 @@ function run(reprocess) {
       vm.className = "verify-fail"; vm.style.display = "block";
       vm.textContent = "✗ تم إيقاف التحميل — " + [!vq.ok ? "ملف الكميات: " + vq.msg : "", !vp.ok ? "ملف الأسعار: " + vp.msg : ""].filter(Boolean).join(" | ");
     }
+    // === عرض التشخيص المؤقت (عائلة 80151) ===
+    vm.style.whiteSpace = "pre-wrap";
+    vm.textContent += "\n\n⟪تشخيص 80151⟫\nتمريرة العدّ: " + (dbgPre.length ? dbgPre.join("\n") : "(لا مجموعة فيها 80151)") + "\nالحلقة: " + (window.__dbgLoop.length ? window.__dbgLoop.join("\n") : "(لم يمرّ صنف فيه 80151)");
 
     // احفظ تاريخ المطابقة وقائمة الانتظار محلياً إن تغيّرا (تُصدَّر/تُحفظ في الريبو ضمن المنظومة)
     if (histChanged) saveMatchedHistory();
