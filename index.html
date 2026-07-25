@@ -1447,9 +1447,10 @@ function run(reprocess) {
     }
     // المنتج الأب بنمط الكود المنقّط: صنف زد بلا نقطة كوده = كود المستودع الأساس، وله متغيّرات منقّطة تشترك بنفس الكود
     // (مثل «80151» أباً و«80151.1..4» خياراته) ⇒ يُستبعد الأب من التوزيع والمخرجات؛ الكمية تُوزَّع على الخيارات فقط
+    const dottedParents = [];   // آباء اكتُشفوا بهذه القاعدة البنيوية (لم يكونوا في parentRaws من نمط الصفر البادئ)
     for (const [wc, members] of whMembers) {
       if (!members.some(rk => rk.includes("."))) continue;   // لا متغيّرات منقّطة ⇒ ليست عائلة أب/خيار منقّطة
-      members.forEach(rk => { if (!rk.includes(".") && normCode(rk) === wc) parentRaws.add(rk); });
+      members.forEach(rk => { if (!rk.includes(".") && normCode(rk) === wc && !parentRaws.has(rk)) { parentRaws.add(rk); dottedParents.push(rk); } });
     }
     for (const [wc, members] of [...whMembers]) {   // أزِل الآباء المكتشَفين من قوائم الأعضاء قبل القسمة (نسخة ثابتة)
       const kept = members.filter(rk => !parentRaws.has(rk));
@@ -1587,6 +1588,15 @@ function run(reprocess) {
     } else {
       vm.className = "verify-fail"; vm.style.display = "block";
       vm.textContent = "✗ تم إيقاف التحميل — " + [!vq.ok ? "ملف الكميات: " + vq.msg : "", !vp.ok ? "ملف الأسعار: " + vp.msg : ""].filter(Boolean).join(" | ");
+    }
+    // كتلة تشخيص اختيارية: تظهر فقط عند إضافة ?debug إلى الرابط (لا تُزعج السطر الأخضر في الاستخدام العادي)
+    if (/[?&]debug\b/.test(location.search)) {
+      vm.style.whiteSpace = "pre-wrap";
+      const dbgGroups = [...whMembers.entries()].filter(([, m]) => m.length > 1).slice(0, 8).map(([wc, m]) => `${wc}(${whIndex[wc].qty})→[${m.map(x => shareByRaw.get(x)).join(",")}]`);
+      vm.textContent += "\n\n⟪debug⟫"
+        + `\nآباء منقّطون مكتشَفون بالقاعدة البنيوية: ${dottedParents.length}` + (dottedParents.length ? ` — عينة: ${dottedParents.slice(0, 15).join(" · ")}` : "")
+        + `\nموزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود`
+        + (dbgGroups.length ? `\nعيّنة مجموعات: ${dbgGroups.join("   ")}` : "");
     }
 
     // احفظ تاريخ المطابقة وقائمة الانتظار محلياً إن تغيّرا (تُصدَّر/تُحفظ في الريبو ضمن المنظومة)
