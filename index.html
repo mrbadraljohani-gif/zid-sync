@@ -876,7 +876,7 @@ try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}
 /* ================= Supabase — المرحلة 1: قاعدة الروابط (mappings) هي المصدر الأساسي ================= */
 const SUPA_URL = "https://pfbcyxciqrttukayskkg.supabase.co";
 const SUPA_KEY = "sb_publishable_2HUBheWf6LHP9IRKcoeCvQ_Ms75eNZW";   // مفتاح النشر (آمن مع RLS) — لا secret key إطلاقاً
-let sb = null, dbOnline = false, dbMappings = [], preDbLocalMap = {}, authSession = null;
+let sb = null, dbOnline = false, dbMappings = [], bootLocalMap = {}, authSession = null;   // bootLocalMap = روابط المحلي (mapping.json+localStorage) وقت الإقلاع — لا تُمَسّ بعد ذلك (لكشف الترحيل)
 
 const db = {
   mappings: {
@@ -922,10 +922,9 @@ function hideLogin() { const o = document.getElementById("loginOverlay"); if (o)
 
 // تحميل الروابط من القاعدة واعتمادها مصدر الحقيقة؛ عند الفشل ⇒ وضع عدم الاتصال (قراءة محلية، منع الكتابة)
 async function loadMappingsFromDB() {
-  const localBefore = { ...manualMap };
   try {
     const rows = await db.mappings.getAll();
-    dbOnline = true; dbMappings = rows; preDbLocalMap = localBefore;
+    dbOnline = true; dbMappings = rows;
     manualMap = {}; rows.forEach(r => { if (r.zid_sku != null) manualMap[String(r.zid_sku)] = normCode(r.warehouse_code); });
     localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
     renderPills(); setDbBadge(true); checkMigration();
@@ -940,12 +939,12 @@ function setDbBadge(ok, extra) {
 function updateDbBadge() { setDbBadge(dbOnline); }
 function checkMigration() {
   const bar = document.getElementById("migrateBar"), btn = document.getElementById("migrateBtn"); if (!bar) return;
-  const n = Object.keys(preDbLocalMap || {}).length, show = dbOnline && dbMappings.length === 0 && n > 0;
+  const n = Object.keys(bootLocalMap || {}).length, show = dbOnline && dbMappings.length === 0 && n > 0;
   bar.style.display = show ? "flex" : "none";
   if (show && btn) btn.textContent = `⬆ ترحيل الروابط الحالية للقاعدة (${n})`;
 }
 async function doMigration() {
-  const entries = Object.entries(preDbLocalMap || {}); if (!entries.length) return;
+  const entries = Object.entries(bootLocalMap || {}); if (!entries.length) return;
   const btn = document.getElementById("migrateBtn"); if (btn) { btn.disabled = true; btn.textContent = "⏳ جارٍ الترحيل…"; }
   const rows = entries.map(([sku, code]) => ({ zid_sku: String(sku), warehouse_code: normCode(code), source: "imported" }));
   try { await db.mappings.bulkUpsert(rows); await loadMappingsFromDB(); showToast(`✓ رُحّل ${rows.length} رابط إلى القاعدة السحابية.`); document.getElementById("migrateBar").style.display = "none"; }
@@ -3011,6 +3010,7 @@ applyOpts();
 applyTheme(currentTheme());   // ضبط تسمية زر الوضع حسب الحالة المحفوظة
 (async () => {
   await loadConfig();
+  bootLocalMap = { ...manualMap };   // روابط المحلي (mapping.json ＋ localStorage) قبل أي تفاعل مع القاعدة — مرجع الترحيل الثابت
   renderPills();
   renderOffsetsList();
   initSupabase();   // بعد تحميل المحلي: أنشئ عميل القاعدة، وعند وجود جلسة اعتمد الروابط من القاعدة مصدراً للحقيقة
