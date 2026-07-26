@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>try{var _t=localStorage.getItem("zid-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
 <style>
   :root {
@@ -263,6 +264,20 @@
   .off-box { width: 420px; max-width: 92vw; background: #1c1810; border: 1px solid var(--border-strong); border-radius: 16px; padding: 18px; box-shadow: 0 24px 60px rgba(0,0,0,.55); text-align: start; }
   :root[data-theme="light"] .off-box { background: #fffdf7; }
   .btn-run.sm.batch { background: linear-gradient(120deg,#4a7fb5,#3a6ea5); color:#fff; }
+  .db-badge { font-size: 12.5px; font-weight: 700; padding: 5px 11px; border-radius: 9px; border: 1px solid var(--border-strong); white-space: nowrap; }
+  .db-badge.ok { color: #8fce9f; border-color: rgba(90,160,110,.5); background: rgba(90,160,110,.10); }
+  .db-badge.off { color: #e08a8a; border-color: rgba(200,90,90,.5); background: rgba(200,90,90,.10); }
+  .login-overlay { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(3px); }
+  .login-box { width: 380px; max-width: 94vw; background: #1c1810; border: 1px solid var(--border-strong); border-radius: 18px; padding: 26px 24px; box-shadow: 0 24px 60px rgba(0,0,0,.6); text-align: center; }
+  :root[data-theme="light"] .login-box { background: #fffdf7; }
+  .login-mark { font-size: 40px; margin-bottom: 6px; }
+  .login-title { font-family: var(--serif); font-size: 21px; font-weight: 800; color: var(--gold-2); }
+  .login-sub { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin: 8px 0 18px; }
+  .login-box input { width: 100%; margin-bottom: 11px; box-sizing: border-box; }
+  .login-box .btn-run { width: 100%; margin-top: 4px; }
+  .login-err { color: #e08a8a; font-size: 12.5px; margin-top: 12px; min-height: 16px; }
+  .login-offline { display: block; width: 100%; margin-top: 10px; background: transparent; border: none; color: var(--muted-2); font-size: 12px; cursor: pointer; text-decoration: underline; }
+  .migrate-bar { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 11px 18px; background: linear-gradient(120deg, rgba(201,154,60,.16), rgba(201,154,60,.08)); border-bottom: 1px solid rgba(201,154,60,.4); color: var(--gold-2); font-weight: 700; font-size: 13.5px; }
   .batch-overlay { position: fixed; inset: 0; z-index: 250; background: rgba(0,0,0,.62); display: flex; align-items: center; justify-content: center; padding: 16px; }
   .batch-box { width: 1180px; max-width: 97vw; height: 90vh; background: #1a160f; border: 1px solid var(--border-strong); border-radius: 16px; box-shadow: 0 24px 60px rgba(0,0,0,.6); display: flex; flex-direction: column; text-align: start; overflow: hidden; }
   :root[data-theme="light"] .batch-box { background: #fffdf7; }
@@ -560,6 +575,8 @@
       </div>
     </div>
     <div class="topbar-side">
+      <span class="db-badge" id="dbBadge" title="حالة الاتصال بقاعدة البيانات">⚪ …</span>
+      <button type="button" class="theme-btn" id="logoutBtn" onclick="doLogout()" style="display:none">🚪 خروج</button>
       <button type="button" class="theme-btn" id="themeBtn" onclick="toggleTheme()">☀ الوضع الفاتح</button>
       <div class="gh-menu">
         <button type="button" class="theme-btn" id="ghBtn" onclick="toggleGhMenu(event)"><span class="gh-dot" id="ghDot"></span>☁ الحفظ في الريبو</button>
@@ -578,6 +595,11 @@
       <div class="topbar-tag"><span class="tag-dot"></span>أداة مزامنة المخزون</div>
     </div>
   </header>
+
+  <div id="migrateBar" class="migrate-bar" style="display:none">
+    <span>📤 لديك روابط محلية غير مرحّلة إلى القاعدة السحابية.</span>
+    <button class="btn-run sm" id="migrateBtn" onclick="doMigration()">⬆ ترحيل الروابط الحالية للقاعدة</button>
+  </div>
 
   <section class="hero">
     <div class="hero-inner">
@@ -727,6 +749,20 @@
 
   <div id="toast" class="toast"></div>
 
+  <!-- شاشة تسجيل الدخول (Supabase Auth) -->
+  <div id="loginOverlay" class="login-overlay" style="display:none">
+    <div class="login-box">
+      <div class="login-mark">🔐</div>
+      <div class="login-title">تسجيل الدخول</div>
+      <p class="login-sub">قاعدة الروابط السحابية (Supabase). أدخل بريدك وكلمة المرور — تُحفظ الجلسة على هذا الجهاز.</p>
+      <input type="email" id="loginEmail" placeholder="البريد الإلكتروني" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+      <input type="password" id="loginPass" placeholder="كلمة المرور" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      <button class="btn-run" id="loginBtn" onclick="doLogin()">دخول</button>
+      <div id="loginErr" class="login-err"></div>
+      <button type="button" class="login-offline" onclick="continueOffline()">متابعة بلا اتصال (قراءة محلية فقط — لا كتابة روابط)</button>
+    </div>
+  </div>
+
   <!-- لوحة الربط الدفعي الذكي -->
   <div id="batchOverlay" class="batch-overlay" style="display:none">
     <div class="batch-box">
@@ -836,6 +872,85 @@ function stripHasVar(rows) { return (!lastHasVarYes || !lastHasVarYes.size) ? ro
 let testSelected = new Set();                   // أصناف محدّدة لتنزيل ملف اختبار جماعي
 let zeroSelected = new Set();                   // أصناف محدّدة لتصفير كميتها (in-memory للجلسة فقط — التوفر بالفروع يتغيّر)
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
+
+/* ================= Supabase — المرحلة 1: قاعدة الروابط (mappings) هي المصدر الأساسي ================= */
+const SUPA_URL = "https://pfbcyxciqrttukayskkg.supabase.co";
+const SUPA_KEY = "sb_publishable_2HUBheWf6LHP9IRKcoeCvQ_Ms75eNZW";   // مفتاح النشر (آمن مع RLS) — لا secret key إطلاقاً
+let sb = null, dbOnline = false, dbMappings = [], preDbLocalMap = {}, authSession = null;
+
+const db = {
+  mappings: {
+    async getAll() { const { data, error } = await sb.from("mappings").select("zid_sku,warehouse_code,source"); if (error) throw error; return data || []; },
+    async upsert(zid_sku, warehouse_code, source) { const { error } = await sb.from("mappings").upsert({ zid_sku: String(zid_sku), warehouse_code: normCode(warehouse_code), source: source || "manual" }, { onConflict: "zid_sku" }); if (error) throw error; },
+    async bulkUpsert(rows) { const { error } = await sb.from("mappings").upsert(rows, { onConflict: "zid_sku" }); if (error) throw error; },
+    async remove(zid_sku) { const { error } = await sb.from("mappings").delete().eq("zid_sku", String(zid_sku)); if (error) throw error; },
+    async bulkRemove(skus) { if (!skus.length) return; const { error } = await sb.from("mappings").delete().in("zid_sku", skus.map(String)); if (error) throw error; },
+  }
+};
+function requireOnline() { if (!dbOnline) { showToast("🔴 غير متصل بالقاعدة — الكتابة معطّلة لمنع تشعّب البيانات."); throw new Error("db-offline"); } }
+// كل كتابة: القاعدة أولاً، وعند النجاح فقط تحديث المحلي (الذاكرة ＋ localStorage)
+async function dbSetMapping(sku, code, source) { requireOnline(); await db.mappings.upsert(sku, code, source); manualMap[String(sku)] = normCode(code); localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge(); }
+async function dbSetMappings(pairs, source) { requireOnline(); const rows = pairs.map(p => ({ zid_sku: String(p.sku), warehouse_code: normCode(p.code), source: source || "manual" })); await db.mappings.bulkUpsert(rows); for (const p of pairs) manualMap[String(p.sku)] = normCode(p.code); localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge(); }
+async function dbDelMapping(sku) { requireOnline(); await db.mappings.remove(sku); delete manualMap[String(sku)]; localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge(); }
+
+function initSupabase() {
+  if (!window.supabase) { setDbBadge(false, "تعذّر تحميل مكتبة Supabase"); return; }
+  sb = window.supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+  sb.auth.onAuthStateChange((event, session) => {
+    authSession = session;
+    const lb = document.getElementById("logoutBtn");
+    if (!session) { showLogin(); if (lb) lb.style.display = "none"; setDbBadge(false, "بلا جلسة"); return; }
+    hideLogin(); if (lb) lb.style.display = "";
+    if (event === "INITIAL_SESSION" || event === "SIGNED_IN") loadMappingsFromDB();
+  });
+}
+async function doLogin() {
+  const email = document.getElementById("loginEmail").value.trim(), pass = document.getElementById("loginPass").value;
+  const err = document.getElementById("loginErr"), btn = document.getElementById("loginBtn");
+  if (!email || !pass) { err.textContent = "أدخل البريد وكلمة المرور."; return; }
+  if (!sb) { err.textContent = "لم تُحمّل مكتبة Supabase — تحقّق من الاتصال."; return; }
+  err.textContent = ""; btn.disabled = true; btn.textContent = "جارٍ الدخول…";
+  try { const { error } = await sb.auth.signInWithPassword({ email, password: pass }); if (error) throw error; }
+  catch (e) { err.textContent = "فشل الدخول: " + (e.message || e); }
+  btn.disabled = false; btn.textContent = "دخول";
+}
+async function doLogout() { if (sb) await sb.auth.signOut(); }
+// متابعة بلا اتصال: يُغلق شاشة الدخول ويعمل بالنسخة المحلية للقراءة فقط (الكتابة معطّلة، شارة 🔴)
+function continueOffline() { hideLogin(); dbOnline = false; setDbBadge(false, "وضع محلي"); }
+function showLogin() { const o = document.getElementById("loginOverlay"); if (o) o.style.display = "flex"; }
+function hideLogin() { const o = document.getElementById("loginOverlay"); if (o) o.style.display = "none"; }
+
+// تحميل الروابط من القاعدة واعتمادها مصدر الحقيقة؛ عند الفشل ⇒ وضع عدم الاتصال (قراءة محلية، منع الكتابة)
+async function loadMappingsFromDB() {
+  const localBefore = { ...manualMap };
+  try {
+    const rows = await db.mappings.getAll();
+    dbOnline = true; dbMappings = rows; preDbLocalMap = localBefore;
+    manualMap = {}; rows.forEach(r => { if (r.zid_sku != null) manualMap[String(r.zid_sku)] = normCode(r.warehouse_code); });
+    localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
+    renderPills(); setDbBadge(true); checkMigration();
+    if (document.getElementById("result").style.display === "block") markDirty();
+  } catch (e) { dbOnline = false; setDbBadge(false, e.message); console.warn("DB load failed:", e); }
+}
+function setDbBadge(ok, extra) {
+  const b = document.getElementById("dbBadge"); if (!b) return;
+  b.className = "db-badge " + (ok ? "ok" : "off");
+  b.textContent = ok ? `🟢 متصل بالقاعدة (${Object.keys(manualMap).length})` : "🔴 غير متصل" + (extra ? " — " + extra : "");
+}
+function updateDbBadge() { setDbBadge(dbOnline); }
+function checkMigration() {
+  const bar = document.getElementById("migrateBar"), btn = document.getElementById("migrateBtn"); if (!bar) return;
+  const n = Object.keys(preDbLocalMap || {}).length, show = dbOnline && dbMappings.length === 0 && n > 0;
+  bar.style.display = show ? "flex" : "none";
+  if (show && btn) btn.textContent = `⬆ ترحيل الروابط الحالية للقاعدة (${n})`;
+}
+async function doMigration() {
+  const entries = Object.entries(preDbLocalMap || {}); if (!entries.length) return;
+  const btn = document.getElementById("migrateBtn"); if (btn) { btn.disabled = true; btn.textContent = "⏳ جارٍ الترحيل…"; }
+  const rows = entries.map(([sku, code]) => ({ zid_sku: String(sku), warehouse_code: normCode(code), source: "imported" }));
+  try { await db.mappings.bulkUpsert(rows); await loadMappingsFromDB(); showToast(`✓ رُحّل ${rows.length} رابط إلى القاعدة السحابية.`); document.getElementById("migrateBar").style.display = "none"; }
+  catch (e) { showToast("✗ فشل الترحيل: " + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = "⬆ إعادة المحاولة"; } }
+}
 
 // تحميل mapping.json و ignored.json عبر fetch، ودمجهما مع localStorage (يتعامل مع 404 بهدوء)
 async function loadConfig() {
@@ -1190,12 +1305,12 @@ function batchFamilies(list) {
 }
 
 // اعتماد دفعة روابط: يكتب mapping.json، يسجّل التراجع، يتعلّم alias، يضع الوسم
-function batchApply(pairs, tag) {
+// اعتماد دفعة: القاعدة أولاً (bulkUpsert واحد)، وعند النجاح فقط تحديث المحلي والوسوم والتعلّم
+async function batchApply(pairs, tag) {
   if (!pairs.length) return;
-  const undo = [];
+  const undo = pairs.map(p => ({ sku: String(p.sku), prev: (String(p.sku) in manualMap) ? manualMap[String(p.sku)] : null }));
+  try { await dbSetMappings(pairs, tag); } catch { return; }   // طلب واحد للقاعدة؛ يحدّث manualMap+localStorage عند النجاح
   for (const { sku, code } of pairs) {
-    undo.push({ sku: String(sku), prev: (String(sku) in manualMap) ? manualMap[String(sku)] : null });
-    manualMap[String(sku)] = normCode(code);
     boundSet.add(String(sku));
     excludedSet.delete(normCode(sku));
     linkTags[String(sku)] = { tag, date: new Date().toISOString() };
@@ -1204,22 +1319,28 @@ function batchApply(pairs, tag) {
     if (z && w) { const zr = nameRoot(z.name), wr = nameRoot(w.name); if (zr && wr) batchAliases.add(zr + "|||" + wr); }
   }
   lastBatchUndo = { entries: undo, count: pairs.length, tag };
-  localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
   saveAliases(); saveLinkTags();
   renderPills(); markDirty(); updateNewCount();
-  if (currentFilter === "new" || currentFilter === "unmatched") renderDetail();   // أزِل المعتمدين من جدول البطاقة الخلفي فوراً
+  if (currentFilter === "new" || currentFilter === "unmatched") renderDetail();
   batchData = analyzeBatch();
   renderBatchTab();
-  showToast(`✓ اعتُمد ${pairs.length} رابط (${tag === "auto-confirmed" ? "🟢 مؤكد" : tag === "auto-approved" ? "🟡 معتمد" : "يدوي"}) — لا تنسَ ☁ الحفظ في الريبو.`);
+  showToast(`✓ اعتُمد ${pairs.length} رابط في القاعدة (${tag === "auto-confirmed" ? "🟢 مؤكد" : tag === "auto-approved" ? "🟡 معتمد" : "يدوي"}).`);
 }
-function undoLastBatch() {
+async function undoLastBatch() {
   if (!lastBatchUndo) { showToast("لا يوجد اعتماد دفعي للتراجع عنه."); return; }
+  const toDel = lastBatchUndo.entries.filter(e => e.prev === null).map(e => e.sku);
+  const toRestore = lastBatchUndo.entries.filter(e => e.prev !== null).map(e => ({ sku: e.sku, code: e.prev }));
+  try {
+    requireOnline();
+    await db.mappings.bulkRemove(toDel);
+    if (toRestore.length) await db.mappings.bulkUpsert(toRestore.map(r => ({ zid_sku: r.sku, warehouse_code: normCode(r.code), source: "imported" })));
+  } catch (e) { showToast("✗ تعذّر التراجع في القاعدة: " + (e.message || e)); return; }
   for (const e of lastBatchUndo.entries) {
     if (e.prev === null) delete manualMap[e.sku]; else manualMap[e.sku] = e.prev;
     boundSet.delete(e.sku); delete linkTags[e.sku];
   }
+  localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge();
   const n = lastBatchUndo.count; lastBatchUndo = null;
-  localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
   saveLinkTags();
   renderPills(); markDirty(); updateNewCount();
   if (currentFilter === "new" || currentFilter === "unmatched") renderDetail();
@@ -2732,8 +2853,8 @@ function filterUnmatched() {
   });
 }
 
-function applyBind(it) {
-  manualMap[String(it.sku)] = normCode(it.suggestion.code);   // المفتاح = SKU الخام
+// تحديث حالة الواجهة بعد نجاح كتابة القاعدة (manualMap/localStorage تُحدَّث داخل dbSet*)
+function applyBindLocal(it) {
   boundSet.add(String(it.sku));
   it.bound = true;
   markDirty();
@@ -2752,11 +2873,11 @@ function fadeRemoveRow(i) {
   setTimeout(() => tr.remove(), 260);
 }
 
-function bindRow(i) {
+async function bindRow(i) {
   const it = lastUnmatched[i];
   if (!it || !it.suggestion || it.bound) return;
-  applyBind(it);
-  localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
+  try { await dbSetMapping(it.sku, it.suggestion.code, "auto-approved"); } catch { return; }
+  applyBindLocal(it);
   renderPills();
   fadeRemoveRow(i);
   updateBindAllCount();
@@ -2804,12 +2925,12 @@ function updateBindAllCount() {
   b.disabled = c === 0;
 }
 
-function bindAll90() {
+async function bindAll90() {
   const targets = lastUnmatched.map((it, i) => ({ it, i })).filter(({ it }) => isConfirmed(it));
   if (!targets.length) return;
-  if (!confirm(`سيتم ربط ${targets.length} صنف مؤكد تلقائياً (تشابه اسم ٩٠٪ فأكثر وفرق سعري ٥٪ أو أقل).\nيُحفظ الربط في متصفحك ويُطبَّق في المطابقة التالية.\nهل تريد المتابعة؟`)) return;
-  for (const { it, i } of targets) { applyBind(it); fadeRemoveRow(i); }
-  localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
+  if (!confirm(`سيتم ربط ${targets.length} صنف مؤكد تلقائياً (تشابه اسم ٩٠٪ فأكثر وفرق سعري ٥٪ أو أقل).\nتُكتب الروابط في القاعدة السحابية دفعةً واحدة.\nهل تريد المتابعة؟`)) return;
+  try { await dbSetMappings(targets.map(({ it }) => ({ sku: it.sku, code: it.suggestion.code })), "auto-confirmed"); } catch { return; }
+  for (const { it, i } of targets) { applyBindLocal(it); fadeRemoveRow(i); }
   renderPills();
   updateBindAllCount();
   updateNewCount();
@@ -2839,13 +2960,12 @@ function pickWh(i) {
   document.getElementById("mSku").focus();
 }
 
-function addMapping() {
+async function addMapping() {
   const sku = document.getElementById("mSku").value.trim();
   const code = document.getElementById("mCode").value.trim();
   if (!sku || !code) return;
-  manualMap[sku] = normCode(code);   // المفتاح = SKU الخام كما في زد (بالأصفار)
+  try { await dbSetMapping(sku, code, "manual"); } catch { return; }   // القاعدة أولاً
   excludedSet.delete(normCode(sku));   // الربط اليدوي قرار صريح يلغي الاستبعاد المؤقت
-  localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
   document.getElementById("mSku").value = ""; document.getElementById("mCode").value = "";
   document.getElementById("whSearch").value = ""; document.getElementById("whResults").innerHTML = "";
   renderPills();
@@ -2858,7 +2978,7 @@ function renderPills() {
     .map(([s, c]) => `<span class="pill"><span class="mono">${s} → ${c}</span><button onclick="delMap('${s}')">×</button></span>`).join("");
   renderFingerprint();
 }
-function delMap(s) { delete manualMap[s]; localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); renderPills(); markDirty(); }
+async function delMap(s) { try { await dbDelMapping(s); } catch { return; } renderPills(); markDirty(); }
 
 // بصمة الجلسة: تشخيص اختلاف النتائج بين الأجهزة (ملف مقابل محلي غير مصدَّر)
 function renderFingerprint() {
@@ -2893,6 +3013,7 @@ applyTheme(currentTheme());   // ضبط تسمية زر الوضع حسب الح
   await loadConfig();
   renderPills();
   renderOffsetsList();
+  initSupabase();   // بعد تحميل المحلي: أنشئ عميل القاعدة، وعند وجود جلسة اعتمد الروابط من القاعدة مصدراً للحقيقة
   // الحالة المحمّلة من الريبو هي المرجع الحالي — لا نعيد حفظها ما لم تتغيّر
   lastSavedSig = JSON.stringify(manualMap, null, 2) + " " + JSON.stringify([...ignoredSet].sort(), null, 2) + " " + JSON.stringify(priceOffsets, null, 2) + " " + JSON.stringify([...matchedHistory].sort(), null, 2) + " " + JSON.stringify([...waitingSet].sort(), null, 2);
   // مؤشر أخضر فقط عند وجود رمز محفوظ (بدون نص)، وإلا كهرماني
