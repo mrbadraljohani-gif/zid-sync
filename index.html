@@ -639,10 +639,28 @@
     </div>
   </section>
 
-  <details class="card" id="mergeCard" style="margin-bottom:16px">
-    <summary>🔗 دمج المستودع مع الفروع (اختياري) — أنشئ ملفاً موحّداً للفحص</summary>
+  <div class="section-head"><span class="n">١</span><h2>ارفع الملفات</h2><span class="line"></span></div>
+  <div class="grid2">
+    <label class="upload" id="whCard">
+      <input type="file" accept=".xlsx,.xls,.csv" onchange="onWarehouse(this)">
+      <div class="step">١</div>
+      <div class="utitle">ملف المستودع</div>
+      <div class="hint">الأعمدة: رقم الصنف، الكمية، الأسعار</div>
+      <div class="ustatus" id="whStatus">اضغط لاختيار الملف</div>
+    </label>
+    <label class="upload" id="stCard">
+      <input type="file" accept=".xlsx,.xls,.csv" onchange="onStore(this)">
+      <div class="step">٢</div>
+      <div class="utitle">تصدير المنتجات من زد</div>
+      <div class="hint">من لوحة زد: المنتجات ← تصدير</div>
+      <div class="ustatus" id="stStatus">اضغط لاختيار الملف</div>
+    </label>
+  </div>
+
+  <details class="card" id="mergeCard" style="margin-top:14px">
+    <summary>🔗 دمج المستودع مع الفروع (اختياري) — بديل عن رفع «ملف المستودع» يدوياً أعلاه</summary>
     <div style="margin-top:12px">
-      <p class="hint">اتحاد كامل بجمع الكميات: كل صنف في الملفين تُجمع كميتاه في صف واحد (الاسم والسعر من المستودع). الملفان من نفس النظام. الملف قد يكون كاملاً (٥ أعمدة) أو مختصراً (كود · اسم · كمية) — والمختصر يأخذ سعره من الملف الآخر.</p>
+      <p class="hint">بدل رفع ملف مستودع واحد، ادمج المستودع ＋ فرعاً في ملف موحّد يُعتمد تلقائياً كـ«ملف المستودع» أعلاه. اتحاد كامل بجمع الكميات: كل صنف تُجمع كميتاه في صف واحد (الاسم والسعر من المستودع). الملفان من نفس النظام؛ كامل (٥ أعمدة) أو مختصر (كود · اسم · كمية) — والمختصر يأخذ سعره من الملف الآخر.</p>
       <div class="grid2">
         <label class="upload" id="mWhCard">
           <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeWh(this)">
@@ -665,24 +683,6 @@
       <div id="mergeWarn" class="fp-warn" style="display:none"></div>
     </div>
   </details>
-
-  <div class="section-head"><span class="n">١</span><h2>ارفع الملفات</h2><span class="line"></span></div>
-  <div class="grid2">
-    <label class="upload" id="whCard">
-      <input type="file" accept=".xlsx,.xls,.csv" onchange="onWarehouse(this)">
-      <div class="step">١</div>
-      <div class="utitle">ملف المستودع</div>
-      <div class="hint">الأعمدة: رقم الصنف، الكمية، الأسعار</div>
-      <div class="ustatus" id="whStatus">اضغط لاختيار الملف</div>
-    </label>
-    <label class="upload" id="stCard">
-      <input type="file" accept=".xlsx,.xls,.csv" onchange="onStore(this)">
-      <div class="step">٢</div>
-      <div class="utitle">تصدير المنتجات من زد</div>
-      <div class="hint">من لوحة زد: المنتجات ← تصدير</div>
-      <div class="ustatus" id="stStatus">اضغط لاختيار الملف</div>
-    </label>
-  </div>
 
   <div class="section-head"><span class="n">٢</span><h2>اضبط الخيارات</h2><span class="line"></span></div>
   <div class="card">
