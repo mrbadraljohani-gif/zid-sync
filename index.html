@@ -315,6 +315,9 @@
   .bt-fam-head .btn-run { margin-inline-start: auto; }
   .bt-empty { color: var(--muted); text-align: center; padding: 40px; }
   .bt-none { color: var(--muted-2); }
+  .lost-tag { display: inline-block; margin-inline-start: 6px; font-size: 10.5px; font-weight: 800; color: #e0b060; background: rgba(224,176,96,.14); border: 1px solid rgba(224,176,96,.45); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+  .lost-count { color: #e0b060; font-weight: 800; }
+  .mc-btn.on-lost { background: rgba(224,176,96,.18); border-color: rgba(224,176,96,.55); color: #e0b060; font-weight: 800; }
   .off-title { font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--gold-2); margin-bottom: 8px; }
   .off-box .hint { margin: 0 0 12px; }
   .off-box input { width: 100%; }
@@ -855,6 +858,7 @@ let linkTags = {};                     // link-tags.json: {sku:{tag:auto-confirm
 let lastBatchUndo = null;              // {entries:[{sku,prev}], count, tag} — للتراجع عن آخر اعتماد دفعي
 let batchData = null;                  // نتائج آخر تحليل دفعي {green,yellow,red}
 let batchTab = "green";                // التبويب النشط في لوحة الربط الدفعي
+let batchLostOnly = false;             // فلتر «سبق ربطه فقط» (الروابط اليدوية الضائعة)
 let lastParentPublish = [], lastParentCol = "";   // آباء نُقل إليهم النشر من متغيّراتهم + اسم عمود مرجع الأب (تشخيص)
 let priceOffsets = {};                  // زيادة سعر المتغيرات: skuN ⇒ قيمة الزيادة (ر.س)
 let ignoredSet = new Set();
@@ -1264,7 +1268,12 @@ function classifyBatch(best, second) {
 
 // محرك الترشيح لكل صنف في «جديد يحتاج قراراً» + حلّ التنازع + التصنيف
 function analyzeBatch() {
-  const items = lastUnmatchedRaw.filter(u => !boundSet.has(String(u.sku)) && !ignoredSet.has(normCode(u.skuN)) && !waitingSet.has(normCode(u.skuN)) && !u.orphanParent);
+  const okItem = u => !boundSet.has(String(u.sku)) && !ignoredSet.has(normCode(u.skuN)) && !waitingSet.has(normCode(u.skuN)) && !u.orphanParent;
+  const unm = lastUnmatchedRaw.filter(okItem);
+  // الأصناف الغائبة (في matched-history ولا تُطابَق بالكود الآن) = الروابط اليدوية الضائعة — نُدرجها للترشيح بأولوية
+  const seen = new Set(unm.map(u => String(u.sku)));
+  const abs = (lastAbsent || []).filter(u => okItem(u) && !seen.has(String(u.sku)));
+  const items = [...unm, ...abs];
   const taken = new Set([...lastMatchedWhCodes, ...Object.values(manualMap).map(normCode)]);   // أكواد مربوطة/مطابَقة ⇒ خارج الترشيح
   const avail = lastWhList.filter(w => !taken.has(normCode(w.code)));
   const bySize = new Map(), byTok = new Map();
@@ -1277,7 +1286,9 @@ function analyzeBatch() {
     if (zSize && bySize.has(zSize)) for (const w of bySize.get(zSize)) cand.add(w);
     for (const t of coreTokens(nameTokens(z.name))) { const a = byTok.get(t); if (a) for (const w of a) cand.add(w); }
     const scored = [...cand].map(w => scoreCandidate(z, w)).filter(s => s.score > 0).sort((a, b) => b.score - a.score);
-    return { z, scored: scored.slice(0, 5), best: scored[0] || null, second: scored[1] || null, demoted: false };
+    // «سبق ربطه» = كوده في تاريخ المطابقة ولا يُطابَق بالكود الآن (رابط يدوي ضائع) ⇒ أولوية إعادة الربط
+    const wasLinked = matchedHistory.has(normCode(z.skuN));
+    return { z, scored: scored.slice(0, 5), best: scored[0] || null, second: scored[1] || null, demoted: false, wasLinked };
   });
   // قاعدة السلامة: كود مستودع واحد لا يُعتمد تلقائياً لأكثر من صنف زد (إلا متغيّرات نفس الأساس) — الأعلى درجة يفوز والباقي يهبط
   const byCode = new Map();
@@ -1300,12 +1311,17 @@ function analyzeBatch() {
     r.cls = cls;
     (cls === "green" ? green : cls === "yellow" ? yellow : red).push(r);
   }
-  return { green, yellow, red, total: results.length };
+  const byLost = (a, b) => (b.wasLinked ? 1 : 0) - (a.wasLinked ? 1 : 0);   // «سبق ربطه» أولاً
+  green.sort(byLost); yellow.sort(byLost); red.sort(byLost);
+  const lostCount = results.filter(r => r.wasLinked).length;
+  return { green, yellow, red, total: results.length, lostCount };
 }
 function batchFamilies(list) {
   const fam = new Map();
   for (const r of list) { const root = nameRoot(r.z.name) || "—"; let a = fam.get(root); if (!a) fam.set(root, a = []); a.push(r); }
-  return [...fam.entries()].map(([root, rows]) => ({ root, rows })).sort((a, b) => b.rows.length - a.rows.length);
+  // العائلات التي فيها «سبق ربطه» أولاً، ثم الأكبر؛ وداخل كل عائلة «سبق ربطه» أولاً
+  return [...fam.entries()].map(([root, rows]) => ({ root, rows: rows.slice().sort((a, b) => (b.wasLinked ? 1 : 0) - (a.wasLinked ? 1 : 0)), lost: rows.some(r => r.wasLinked) }))
+    .sort((a, b) => (b.lost ? 1 : 0) - (a.lost ? 1 : 0) || b.rows.length - a.rows.length);
 }
 
 // اعتماد دفعة روابط: يكتب mapping.json، يسجّل التراجع، يتعلّم alias، يضع الوسم
@@ -1356,6 +1372,7 @@ async function undoLastBatch() {
 function openBatchAnalysis() {
   if (!lastWhList.length) { showToast("شغّل «طابق وأنشئ» أولاً."); return; }
   batchData = analyzeBatch();
+  batchLostOnly = false;
   batchTab = batchData.green.length ? "green" : (batchData.yellow.length ? "yellow" : "red");
   document.getElementById("batchOverlay").style.display = "flex";
   renderBatchTab();
@@ -1370,14 +1387,21 @@ function batchTabBtns() {
 }
 function batchBar() {
   const g = batchData.green.length, y = batchData.yellow.length, r = batchData.red.length;
-  const remaining = g + y + r;
+  const remaining = g + y + r, lost = batchData.lostCount || 0;
   return `<div class="bt-bar">
-    <span>المتبقّي: <b>${remaining}</b> · 🟢 ${g} · 🟡 ${y} · 🔴 ${r}</span>
+    <span>المتبقّي: <b>${remaining}</b> · 🟢 ${g} · 🟡 ${y} · 🔴 ${r}${lost ? ` · <span class="lost-count">🔗 سبق ربطه: ${lost}</span>` : ""}</span>
     <span class="bt-bar-actions">
+      ${lost ? `<button class="mc-btn ${batchLostOnly ? "on-lost" : ""}" onclick="toggleLostOnly()" title="أصناف كوّدها في تاريخ المطابقة ولا تُطابَق بالكود الآن — روابط يدوية ضائعة، أولى بإعادة الربط">${batchLostOnly ? "✓ سبق ربطه فقط" : "🔗 المفقودة فقط"}</button>` : ""}
       <button class="mc-btn" onclick="undoLastBatch()" ${lastBatchUndo ? "" : "disabled"}>↩ تراجع عن آخر اعتماد${lastBatchUndo ? " (" + lastBatchUndo.count + ")" : ""}</button>
       <button class="btn-run sm export-btn" onclick="saveToRepo('اعتماد ربط دفعي')">☁ احفظ في الريبو</button>
     </span></div>`;
 }
+function toggleLostOnly() { batchLostOnly = !batchLostOnly; renderBatchTab(); }
+// تطبيق فلتر «سبق ربطه فقط» على قائمة تبويب
+function btFilter(list) { return batchLostOnly ? list.filter(r => r.wasLinked) : list; }
+// عائلات 🟡 وفق الفلتر الحالي — تُستخدم في العرض وpickAlt وacceptFamily معاً (تطابق الفهارس fi/ri)
+function curYellowFams() { return batchFamilies(btFilter(batchData.yellow)); }
+const lostTag = r => r.wasLinked ? `<span class="lost-tag" title="سبق ربطه يدوياً (في تاريخ المطابقة) ولا يُطابَق بالكود الآن — أولوية إعادة ربط">🔗 سبق ربطه</span>` : "";
 const priceCell = (z, w) => `<span dir="ltr">${priceInt(z) ?? "—"} / ${priceInt(w) ?? "—"}</span>${priceBadge(z, w)}`;
 const reasonText = b => [b.sizeM ? "مقاس✓" : "", b.priceM ? "سعر✓" : "", b.sim >= 0.5 ? "اسم " + Math.round(b.sim * 100) + "٪" : "", b.aliasHit ? "زوج معروف" : ""].filter(Boolean).join(" · ");
 
@@ -1393,11 +1417,11 @@ function renderBatchTab() {
 
 // 🟢 جدول مضغوط — الكل محدد افتراضياً
 function renderGreen() {
-  const list = batchData.green;
-  if (!list.length) return `<div class="bt-empty">لا توجد مطابقات مؤكدة. جرّب تبويب 🟡.</div>`;
+  const list = btFilter(batchData.green);
+  if (!list.length) return `<div class="bt-empty">${batchLostOnly ? "لا «سبق ربطه» في المؤكد." : "لا توجد مطابقات مؤكدة. جرّب تبويب 🟡."}</div>`;
   const rows = list.map(r =>
     `<tr><td class="bt-c-chk"><input type="checkbox" class="bt-g" data-sku="${esc(String(r.z.sku))}" data-code="${esc(String(r.best.code))}" checked></td>` +
-    `<td><span class="bt-sku">${esc(String(r.z.sku))}</span><div class="bt-nm">${esc(r.z.name)}</div></td>` +
+    `<td><span class="bt-sku">${esc(String(r.z.sku))}</span>${lostTag(r)}<div class="bt-nm">${esc(r.z.name)}</div></td>` +
     `<td><span class="bt-sku">${esc(String(r.best.code))}</span><div class="bt-cand-name">${esc(r.best.name)}</div></td>` +
     `<td class="bt-c-size" dir="ltr">${esc(r.best.size || "—")}</td>` +
     `<td class="bt-c-price"><span class="bt-price2">${priceCell(r.z.price, r.best.price)}</span></td>` +
@@ -1410,8 +1434,8 @@ function renderGreen() {
 }
 // 🟡 مجمّع بالعائلة
 function renderYellow() {
-  const fams = batchFamilies(batchData.yellow);
-  if (!fams.length) return `<div class="bt-empty">لا مطابقات محتملة.</div>`;
+  const fams = curYellowFams();
+  if (!fams.length) return `<div class="bt-empty">${batchLostOnly ? "لا «سبق ربطه» في المحتمل." : "لا مطابقات محتملة."}</div>`;
   return fams.map((f, fi) => {
     const rows = f.rows.map((r, ri) => {
       const uid = fi + "_" + ri, b = r.best;
@@ -1421,7 +1445,7 @@ function renderYellow() {
           `<select class="bt-alt" data-sku="${esc(String(r.z.sku))}" onchange="pickAlt('${uid}',${fi},${ri},this)" title="بدائل — أفضل 5">${alts}</select>`
         : "<span class='bt-none'>لا مرشّح</span>";
       return `<tr><td class="bt-c-chk"><input type="checkbox" class="bt-y" data-fam="${fi}" data-sku="${esc(String(r.z.sku))}" ${b ? "checked" : "disabled"}></td>` +
-        `<td><span class="bt-sku">${esc(String(r.z.sku))}</span><div class="bt-nm">${esc(r.z.name)}</div></td>` +
+        `<td><span class="bt-sku">${esc(String(r.z.sku))}</span>${lostTag(r)}<div class="bt-nm">${esc(r.z.name)}</div></td>` +
         `<td class="bt-c-size" dir="ltr">${esc(extractSize(r.z.name) || "—")}</td>` +
         `<td>${candCell}</td>` +
         `<td class="bt-c-price" id="price-${uid}"><span class="bt-price2">${b ? priceCell(r.z.price, b.price) : "—"}</span></td>` +
@@ -1435,11 +1459,11 @@ function renderYellow() {
 }
 // 🔴 بلا مرشح — تحديد جماعي + إجراءات
 function renderRed() {
-  const list = batchData.red;
-  if (!list.length) return `<div class="bt-empty">لا شيء بلا مرشّح 🎉</div>`;
+  const list = btFilter(batchData.red);
+  if (!list.length) return `<div class="bt-empty">${batchLostOnly ? "لا «سبق ربطه» بلا مرشّح." : "لا شيء بلا مرشّح 🎉"}</div>`;
   const rows = list.map(r =>
     `<tr><td class="bt-c-chk"><input type="checkbox" class="bt-r" data-sku="${esc(String(r.z.sku))}" data-skun="${esc(String(r.z.skuN))}" checked></td>` +
-    `<td><span class="bt-sku">${esc(String(r.z.sku))}</span><div class="bt-nm">${esc(r.z.name)}</div></td>` +
+    `<td><span class="bt-sku">${esc(String(r.z.sku))}</span>${lostTag(r)}<div class="bt-nm">${esc(r.z.name)}</div></td>` +
     `<td class="bt-c-num" dir="ltr">${priceInt(r.z.price) ?? "—"}</td><td class="bt-c-num">${esc(String(r.z.qty ?? ""))}</td>` +
     `<td class="bt-c-act"><button class="mc-btn" onclick="startManualLink('${esc(String(r.z.skuN))}');closeBatchAnalysis()">🔗 ربط يدوي</button></td></tr>`).join("");
   return `<div class="bt-actionrow"><button class="mc-btn ignore" onclick="acceptRed('ignore')">🚫 تجاهل المحدد</button>
@@ -1452,7 +1476,7 @@ function btToggleAll(cls, on) { document.querySelectorAll("#batchBody ." + cls).
 function btCount(cls, id) { const n = [...document.querySelectorAll("#batchBody ." + cls)].filter(c => c.checked).length; const el = document.getElementById(id); if (el) el.textContent = n; }
 // تبديل المرشّح من قائمة أفضل-5: يحدّث الاسم الكامل والسعر والسبب المعروضة (والاعتماد يقرأ قيمة select)
 function pickAlt(uid, fi, ri, sel) {
-  const fams = batchFamilies(batchData.yellow); const fam = fams[fi]; if (!fam) return;
+  const fams = curYellowFams(); const fam = fams[fi]; if (!fam) return;
   const r = fam.rows[ri]; if (!r) return;
   const s = r.scored[Number(sel.value)]; if (!s) return;
   const cf = document.getElementById("cand-" + uid); if (cf) cf.innerHTML = `<span class="bt-sku">${esc(String(s.code))}</span> · ${esc(s.name)}`;
@@ -1468,7 +1492,7 @@ function acceptFamily(fi) {
   const boxes = [...document.querySelectorAll(`#batchBody .bt-y[data-fam="${fi}"]`)].filter(c => c.checked && !c.disabled);
   const pairs = boxes.map(c => {
     const sel = document.querySelector(`#batchBody .bt-alt[data-sku="${CSS.escape(c.dataset.sku)}"]`);
-    const fams = batchFamilies(batchData.yellow); const fam = fams[fi];
+    const fams = curYellowFams(); const fam = fams[fi];
     const row = fam.rows.find(r => String(r.z.sku) === c.dataset.sku);
     let code = row && row.best && row.best.code;
     if (sel && row) { const s = row.scored[Number(sel.value)]; if (s) code = s.code; }
