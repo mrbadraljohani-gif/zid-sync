@@ -327,6 +327,8 @@
   .login-box .btn-run { width: 100%; margin-top: 4px; }
   .login-err { color: #e08a8a; font-size: 12.5px; margin-top: 12px; min-height: 16px; }
   .login-offline { display: block; width: 100%; margin-top: 10px; background: transparent; border: none; color: var(--muted-2); font-size: 12px; cursor: pointer; text-decoration: underline; }
+  .login-link { display: block; width: 100%; margin-top: 12px; background: transparent; border: none; color: var(--gold-2); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  .login-link:hover { text-decoration: underline; }
   .migrate-bar { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 11px 18px; background: linear-gradient(120deg, rgba(201,154,60,.16), rgba(201,154,60,.08)); border-bottom: 1px solid rgba(201,154,60,.4); color: var(--gold-2); font-weight: 700; font-size: 13.5px; }
   .batch-inline { border: 1px solid var(--border-strong); border-radius: 14px; overflow: visible; background: var(--panel); }
   .batch-inline-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 15px; border-bottom: 1px solid var(--border); }
@@ -855,12 +857,22 @@
   <div id="loginOverlay" class="login-overlay" style="display:none">
     <div class="login-box">
       <div class="login-mark">🔐</div>
-      <div class="login-title">تسجيل الدخول</div>
-      <p class="login-sub">أداة مزامنة المخزون — ASJ</p>
-      <input type="email" id="loginEmail" placeholder="البريد الإلكتروني" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
-      <input type="password" id="loginPass" placeholder="كلمة المرور" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-      <button class="btn-run" id="loginBtn" onclick="doLogin()">دخول</button>
-      <div id="loginErr" class="login-err"></div>
+      <div id="loginForm">
+        <div class="login-title">تسجيل الدخول</div>
+        <p class="login-sub">أداة مزامنة المخزون — ASJ</p>
+        <input type="email" id="loginEmail" placeholder="البريد الإلكتروني" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+        <input type="password" id="loginPass" placeholder="كلمة المرور" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+        <button class="btn-run" id="loginBtn" onclick="doLogin()">دخول</button>
+        <div id="loginErr" class="login-err"></div>
+        <button type="button" class="login-link" id="forgotBtn" onclick="forgotPassword()">نسيت كلمة المرور؟</button>
+      </div>
+      <div id="recoverForm" style="display:none">
+        <div class="login-title">تعيين كلمة مرور جديدة</div>
+        <p class="login-sub">أدخل كلمة المرور الجديدة لحسابك</p>
+        <input type="password" id="newPass" placeholder="كلمة المرور الجديدة (6 أحرف على الأقل)" autocomplete="new-password" onkeydown="if(event.key==='Enter')setNewPassword()">
+        <button class="btn-run" id="newPassBtn" onclick="setNewPassword()">حفظ كلمة المرور</button>
+        <div id="recoverErr" class="login-err"></div>
+      </div>
     </div>
   </div>
 
@@ -991,6 +1003,8 @@ function initSupabase() {
   sb.auth.onAuthStateChange((event, session) => {
     authSession = session;
     const lb = document.getElementById("logoutBtn");
+    // العودة من رابط «نسيت كلمة المرور» ⇒ جلسة استرداد مؤقتة: اعرض نموذج تعيين كلمة مرور جديدة (لا تدخل الأداة بعد)
+    if (event === "PASSWORD_RECOVERY") { showRecover(); if (lb) lb.style.display = "none"; return; }
     if (!session) { showLogin(); if (lb) lb.style.display = "none"; setDbBadge(false, "بلا جلسة"); return; }
     hideLogin(); if (lb) lb.style.display = "";
     if (event === "INITIAL_SESSION" || event === "SIGNED_IN") loadMappingsFromDB();
@@ -1007,6 +1021,46 @@ async function doLogin() {
   btn.disabled = false; btn.textContent = "دخول";
 }
 async function doLogout() { if (sb) await sb.auth.signOut(); }
+
+// نسيت كلمة المرور: يُرسل رابط إعادة تعيين إلى البريد (Supabase) — يعود للموقع فتُعرض شاشة تعيين كلمة مرور جديدة
+async function forgotPassword() {
+  const email = document.getElementById("loginEmail").value.trim();
+  const err = document.getElementById("loginErr");
+  if (!sb) { err.style.color = ""; err.textContent = "لم تُحمّل مكتبة Supabase — تحقّق من الاتصال."; return; }
+  if (!email) { err.style.color = ""; err.textContent = "أدخل بريدك الإلكتروني في الحقل أعلاه ثم اضغط «نسيت كلمة المرور؟»."; return; }
+  const btn = document.getElementById("forgotBtn"); btn.disabled = true;
+  err.style.color = ""; err.textContent = "جارٍ إرسال رابط إعادة التعيين…";
+  try {
+    const redirectTo = window.location.href.split("#")[0].split("?")[0];   // نفس صفحة الأداة (يجب إضافتها في Supabase → Redirect URLs)
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) throw error;
+    err.style.color = "#8fbf98"; err.textContent = "✓ أُرسل رابط إعادة التعيين إلى بريدك — افتحه من نفس المتصفح لتعيين كلمة مرور جديدة.";
+  } catch (e) { err.style.color = ""; err.textContent = "تعذّر الإرسال: " + (e.message || e); }
+  btn.disabled = false;
+}
+function showRecover() {
+  const lf = document.getElementById("loginForm"), rf = document.getElementById("recoverForm");
+  if (lf) lf.style.display = "none"; if (rf) rf.style.display = "";
+  showLogin(); const np = document.getElementById("newPass"); if (np) np.focus();
+}
+async function setNewPassword() {
+  const pass = document.getElementById("newPass").value, err = document.getElementById("recoverErr");
+  if (!pass || pass.length < 6) { err.style.color = ""; err.textContent = "كلمة المرور 6 أحرف على الأقل."; return; }
+  if (!sb) { err.textContent = "لم تُحمّل مكتبة Supabase."; return; }
+  const btn = document.getElementById("newPassBtn"); btn.disabled = true; btn.textContent = "جارٍ الحفظ…";
+  err.style.color = ""; err.textContent = "";
+  try {
+    const { error } = await sb.auth.updateUser({ password: pass });
+    if (error) throw error;
+    // نجاح ⇒ الجلسة أصبحت عادية؛ أعِد نموذج الدخول للحالة الافتراضية وادخل الأداة
+    document.getElementById("recoverForm").style.display = "none";
+    document.getElementById("loginForm").style.display = "";
+    document.getElementById("newPass").value = "";
+    hideLogin(); const lb = document.getElementById("logoutBtn"); if (lb) lb.style.display = "";
+    loadMappingsFromDB(); showToast("✓ حُدّثت كلمة المرور بنجاح — تم تسجيل دخولك.");
+  } catch (e) { err.style.color = ""; err.textContent = "تعذّر الحفظ: " + (e.message || e); }
+  btn.disabled = false; btn.textContent = "حفظ كلمة المرور";
+}
 // متابعة بلا اتصال: يُغلق شاشة الدخول ويعمل بالنسخة المحلية للقراءة فقط (الكتابة معطّلة، شارة 🔴)
 function continueOffline() { hideLogin(); dbOnline = false; setDbBadge(false, "وضع محلي"); }
 function showLogin() { const o = document.getElementById("loginOverlay"); if (o) o.style.display = "flex"; }
