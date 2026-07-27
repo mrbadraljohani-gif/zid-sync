@@ -925,8 +925,13 @@ async function loadMappingsFromDB() {
   try {
     const rows = await db.mappings.getAll();
     dbOnline = true; dbMappings = rows;
-    manualMap = {}; rows.forEach(r => { if (r.zid_sku != null) manualMap[String(r.zid_sku)] = normCode(r.warehouse_code); });
-    localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
+    if (rows.length > 0) {
+      // القاعدة فيها بيانات ⇒ هي مصدر الحقيقة، نعتمدها
+      manualMap = {}; rows.forEach(r => { if (r.zid_sku != null) manualMap[String(r.zid_sku)] = normCode(r.warehouse_code); });
+      localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
+    }
+    // القاعدة فارغة ⇒ **لا نمسح المحلي إطلاقاً** (كان يُكتب {} فيمحو mapping.json المحلي ومصدر الترحيل).
+    // نُبقي manualMap/localStorage كما حمّلهما loadConfig، ونعرض زر الترحيل.
     renderPills(); setDbBadge(true); checkMigration();
     if (document.getElementById("result").style.display === "block") markDirty();
   } catch (e) { dbOnline = false; setDbBadge(false, e.message); console.warn("DB load failed:", e); }
