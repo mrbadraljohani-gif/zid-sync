@@ -218,10 +218,22 @@
   .stage-card .grid2 { margin-bottom: 0; }
   .upload.block { max-width: none; }
   .flow-arrow { text-align: center; color: var(--gold-2); font-size: 12.5px; font-weight: 800; letter-spacing: .05em; margin: 11px 0 9px; opacity: .8; }
-  .merge-result { margin-top: 0; font-size: 13.5px; font-weight: 800; border-radius: 10px; padding: 11px 15px; }
-  .merge-result.ok { color: #8fce9f; background: rgba(90,160,110,.12); border: 1px solid rgba(90,160,110,.4); }
-  .merge-result.wait { color: var(--gold-2); background: rgba(201,154,60,.10); border: 1px dashed rgba(201,154,60,.45); }
-  .merge-result .mr-sub { color: var(--muted); font-weight: 600; font-size: 12px; }
+  .merge-result { margin-top: 0; font-size: 13.5px; font-weight: 800; border-radius: 10px; }
+  .merge-result.ok { padding: 0; background: transparent; border: none; }
+  .merge-result.wait { color: var(--gold-2); background: rgba(201,154,60,.10); border: 1px dashed rgba(201,154,60,.45); padding: 11px 15px; }
+  .mr-grid { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+  .mr-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 7px 13px; border-radius: 11px; border: 1px solid var(--border); background: var(--panel-2); min-width: 66px; flex: 1 1 auto; }
+  .mr-num { font-size: 18px; font-weight: 800; color: var(--fg); line-height: 1.1; }
+  .mr-lbl { font-size: 10.5px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+  .mr-cell.total { background: rgba(90,160,110,.15); border-color: rgba(90,160,110,.5); }
+  .mr-cell.total .mr-num, .mr-cell.shared .mr-num { color: #8fce9f; }
+  .mr-cell.shared { border-color: rgba(90,160,110,.35); }
+  .mr-cell.whonly { border-color: rgba(201,165,74,.42); } .mr-cell.whonly .mr-num { color: var(--gold-2); }
+  .mr-cell.bronly { border-color: rgba(120,150,180,.42); } .mr-cell.bronly .mr-num { color: #9db3cc; }
+  .mr-cell.src .mr-num { font-size: 13px; }
+  .mr-cell.nop { border-style: dashed; } .mr-cell.nop .mr-num { color: var(--muted-2); }
+  .mr-dl { display: inline-flex; align-items: center; gap: 4px; align-self: center; margin-inline-start: auto; padding: 6px 11px; font-size: 12px; font-weight: 700; color: var(--gold-2); cursor: pointer; border-radius: 9px; white-space: nowrap; }
+  .mr-dl:hover { background: rgba(201,165,74,.14); }
   .opt-badge { color: var(--muted-2); font-weight: 600; font-size: 12px; }
   .step {
     width: 30px; height: 30px; border-radius: 50%; color: #0a1622;
@@ -246,6 +258,25 @@
   }
   .chip:hover { border-color: var(--gold); color: var(--text); }
   .chip.on { background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #0a1622; border-color: transparent; font-weight: 800; }
+  /* الخطوة ② كإعدادات حديثة */
+  .settings { padding: 4px 16px; }
+  .setrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .setrow:last-of-type { border-bottom: none; }
+  .setrow.sub { padding: 9px 0; }
+  .setlabel { font-size: 13.5px; font-weight: 700; color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
+  .setlabel.muted { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+  .set-info { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--panel-2); border: 1px solid var(--border-strong); color: var(--muted-2); font-size: 10px; cursor: help; }
+  .set-warn { color: var(--danger); font-weight: 700; font-size: 11.5px; margin: -4px 2px 4px; line-height: 1.5; }
+  /* segmented control: أزرار متلاصقة بحواف موحّدة، النشط بتعبئة */
+  .seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden; background: var(--panel-2); }
+  .seg .chip { margin: 0; border: none; border-radius: 0; background: transparent; color: var(--muted); padding: 6px 13px; font-size: 12.5px; border-inline-start: 1px solid var(--border); }
+  .seg .chip:first-child { border-inline-start: none; }
+  .seg .chip:hover { color: var(--text); background: rgba(255,255,255,.03); }
+  .seg .chip.on { background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #0a1622; font-weight: 800; }
+  .lowfields { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); }
+  .lowfields .unit { color: var(--muted); white-space: nowrap; }
+  .lowfields .opt-num { width: 62px; }
+  .hint.mini { font-size: 11.5px; margin: 8px 2px 2px; }
   .btn-run {
     width: 100%; border: none; border-radius: 14px; padding: 15px; font-size: 15.5px; font-weight: 800;
     cursor: pointer; margin-bottom: 14px; font-family: inherit; color: #0a1622;
@@ -680,7 +711,6 @@
     <div class="flow-arrow">⬇ دمج تلقائي ⬇</div>
     <div id="mergeResult" class="merge-result" style="display:none"></div>
     <div id="mergeWarn" class="fp-warn" style="display:none"></div>
-    <div class="maprow" style="margin-top:10px"><button class="btn-run sm export-btn" id="mergeDlBtn" disabled onclick="downloadMerge()">⬇ تنزيل الملف الموحّد (اختياري)</button></div>
   </div>
 
   <div class="card stage-card" style="margin-top:14px">
@@ -696,34 +726,42 @@
 
   <div class="steps-col steps-b">
   <div class="section-head"><span class="n">٢</span><h2>اضبط الخيارات</h2><span class="line"></span></div>
-  <div class="card">
-    <div class="optrow">
-      <span class="optlabel">السعر المُرسل إلى زد:</span>
-      <button class="chip on" data-group="price" data-v="incl" onclick="setOpt(this)">شامل الضريبة</button>
-      <button class="chip" data-group="price" data-v="excl" onclick="setOpt(this)">قبل الضريبة</button>
-      <button class="chip" data-group="price" data-v="none" onclick="setOpt(this)">لا تحدّث الأسعار</button>
+  <div class="card settings">
+    <div class="setrow">
+      <span class="setlabel">السعر المُرسل إلى زد</span>
+      <span class="seg">
+        <button class="chip on" data-group="price" data-v="incl" onclick="setOpt(this)">شامل الضريبة</button>
+        <button class="chip" data-group="price" data-v="excl" onclick="setOpt(this)">قبل الضريبة</button>
+        <button class="chip" data-group="price" data-v="none" onclick="setOpt(this)">لا تحدّث</button>
+      </span>
     </div>
-    <div class="optrow" style="margin-top:12px">
-      <span class="optlabel">الأصناف الغائبة عن الملف:</span>
-      <button class="chip on" data-group="absent" data-v="keep" onclick="setOpt(this)">اتركها كما هي في زد</button>
-      <button class="chip" data-group="absent" data-v="zero" onclick="setOpt(this)">صفّر كميتها في زد</button>
+    <div class="setrow">
+      <span class="setlabel">الأصناف الغائبة عن الملف <span class="set-info" title="«صفّر كميتها» استخدمه فقط عندما يمثّل ملفك كامل مخزونك (مستودع ＋ فروع). في المرحلة 1 (المستودع الرئيسي فقط) قد تكون هذه الأصناف متوفرة في الفروع — اترك «كما هي».">ⓘ</span></span>
+      <span class="seg">
+        <button class="chip on" data-group="absent" data-v="keep" onclick="setOpt(this)">اتركها كما هي</button>
+        <button class="chip" data-group="absent" data-v="zero" onclick="setOpt(this)">صفّر كميتها</button>
+      </span>
     </div>
-    <p class="hint danger-hint" id="absentWarn" style="margin:8px 2px 0;display:none">⚠ «صفّر كميتها» استخدمه فقط عندما يمثّل ملفك كامل مخزونك (مستودع ＋ فروع). في المرحلة 1 (المستودع الرئيسي فقط) قد تكون هذه الأصناف متوفرة في الفروع — اترك «كما هي».</p>
-    <div class="optrow" style="margin-top:12px">
-      <span class="optlabel">توزيع كمية المستودع على المتغيرات:</span>
-      <button class="chip on" data-group="split" data-v="equal" onclick="setOpt(this)">قسّم بالتساوي</button>
-      <button class="chip" data-group="split" data-v="full" onclick="setOpt(this)">الكمية الكاملة لكل متغير</button>
+    <p class="danger-hint set-warn" id="absentWarn" style="display:none">⚠ «صفّر كميتها» للمرحلة 2 فقط (المخزون الكامل: مستودع ＋ فروع). في المرحلة 1 قد تكون هذه الأصناف متوفرة في الفروع.</p>
+    <div class="setrow">
+      <span class="setlabel">توزيع كمية المستودع على المتغيرات</span>
+      <span class="seg">
+        <button class="chip on" data-group="split" data-v="equal" onclick="setOpt(this)">قسّم بالتساوي</button>
+        <button class="chip" data-group="split" data-v="full" onclick="setOpt(this)">الكاملة لكل متغير</button>
+      </span>
     </div>
-    <div class="optrow" style="margin-top:12px; flex-wrap:wrap">
-      <span class="optlabel">تصفير الكميات المنخفضة القيمة:</span>
-      <button class="chip on" data-group="lowzero" data-v="on" onclick="setOpt(this)">مفعّل</button>
-      <button class="chip" data-group="lowzero" data-v="off" onclick="setOpt(this)">معطّل</button>
-      <span class="optlabel">— سعره أقل من</span>
-      <input type="number" id="lowPriceInp" class="opt-num" value="400" onchange="setLowThreshold()"> ر.س
-      <span class="optlabel">وكميته</span>
-      <input type="number" id="lowQtyInp" class="opt-num" value="3" onchange="setLowThreshold()"> أو أقل ← يُصدَّر بكمية 0
+    <div class="setrow">
+      <span class="setlabel">تصفير الكميات المنخفضة القيمة</span>
+      <span class="seg">
+        <button class="chip on" data-group="lowzero" data-v="on" onclick="setOpt(this)">مفعّل</button>
+        <button class="chip" data-group="lowzero" data-v="off" onclick="setOpt(this)">معطّل</button>
+      </span>
     </div>
-    <p class="hint" style="margin:12px 2px 0">منتجات «الكمية غير المحدودة» المطابِقة تُستبدل تلقائياً بالكمية الحقيقية من المستودع في ملف الكميات.</p>
+    <div class="setrow sub">
+      <span class="setlabel muted">الحدّ: سعر أقل من</span>
+      <span class="lowfields"><input type="number" id="lowPriceInp" class="opt-num" value="400" onchange="setLowThreshold()"><span class="unit">ر.س · كمية</span><input type="number" id="lowQtyInp" class="opt-num" value="3" onchange="setLowThreshold()"><span class="unit">أو أقل ← 0</span></span>
+    </div>
+    <p class="hint mini">«الكمية غير المحدودة» المطابِقة تُستبدل تلقائياً بالكمية الحقيقية من المستودع في ملف الكميات.</p>
   </div>
 
   <details class="card" id="offsetsCard" style="margin-top:14px" ontoggle="if(this.open)renderOffsetsList()">
@@ -1935,22 +1973,24 @@ function mergeInventory(whList, branchLists) {
 }
 // اعتماد تلقائي فوري: بمجرد وجود ملف المستودع (± فرع) يُبنى «المخزن الموحّد» ويُعتمد مصدراً للمطابقة (بلا زر)
 function autoAdopt() {
-  const bar = document.getElementById("mergeResult"), warn = document.getElementById("mergeWarn"), dl = document.getElementById("mergeDlBtn");
+  const bar = document.getElementById("mergeResult"), warn = document.getElementById("mergeWarn");
   document.getElementById("result").style.display = "none";
   if (!mergeWh) {   // لا مستودع بعد ⇒ لا مخزن
-    whRows = null; if (dl) dl.disabled = true; warn.style.display = "none";
+    whRows = null; warn.style.display = "none";
     if (mergeBranches.length) { bar.style.display = "block"; bar.className = "merge-result wait"; bar.innerHTML = "⏳ ارفع «ملف المستودع» لإتمام الدمج."; }
     else { bar.style.display = "none"; }
     checkReady(); return;
   }
   const res = mergeInventory(mergeWh, mergeBranches);   // فروع فارغة = المستودع وحده
   whRows = res.unified.map(u => ({ "رقم الصنف": u.code, "اسم الصنف": u.name, "الكمية": u.qty, "سعر البيع شامل الضريبة": u.incl, "سعر البيع قبل الضريبة": u.excl }));
-  const hasBr = mergeBranches.length > 0, np = res.noPrice.length ? ` · بلا سعر ${res.noPrice.length}` : "";
+  const hasBr = mergeBranches.length > 0;
+  const cell = (n, l, cls) => `<div class="mr-cell ${cls}"><span class="mr-num">${n}</span><span class="mr-lbl">${l}</span></div>`;
+  let cells = cell(res.unified.length, "المخزن الموحّد ✓", "total");
+  if (hasBr) cells += cell(res.both, "مشترك", "shared") + cell(res.whOnly, "مستودع فقط", "whonly") + cell(res.brOnly, "فرع فقط", "bronly");
+  else cells += cell("ملف المستودع", "المصدر", "src");
+  if (res.noPrice.length) cells += cell(res.noPrice.length, "بلا سعر", "nop");
   bar.style.display = "block"; bar.className = "merge-result ok";
-  bar.innerHTML = hasBr
-    ? `✓ المخزن الموحّد: <b>${res.unified.length}</b> صنف <span class="mr-sub">(مشترك ${res.both} · مستودع فقط ${res.whOnly} · فرع فقط ${res.brOnly}${np})</span>`
-    : `✓ المخزن: ملف المستودع — <b>${res.unified.length}</b> صنف${np ? ` <span class="mr-sub">(${np.replace(" · ", "")})</span>` : ""}`;
-  if (dl) dl.disabled = false;
+  bar.innerHTML = `<div class="mr-grid">${cells}<a class="mr-dl" onclick="downloadMerge()" title="تنزيل الملف الموحّد للفحص اليدوي">⬇ الملف الموحّد</a></div>`;
   if (hasBr && res.total && res.both === 0) { warn.style.display = "block"; warn.innerHTML = `⚠ لا يوجد أي كود مشترك بين المستودع والفرع — تأكّد أنهما من نفس النظام (قد تكون رفعت ملفاً خاطئاً).`; }
   else { warn.style.display = "none"; warn.innerHTML = ""; }
   showErr(""); checkReady();
