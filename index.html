@@ -207,6 +207,10 @@
   #brCard::after {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e6c56f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='6' cy='6' r='2.2'/%3E%3Ccircle cx='6' cy='18' r='2.2'/%3E%3Ccircle cx='18' cy='7' r='2.2'/%3E%3Cpath d='M6 8.2v7.6'/%3E%3Cpath d='M18 9.2c0 4-3 5-6 5'/%3E%3C/svg%3E");
   }
+  .steps-row { display: grid; grid-template-columns: 1.5fr 1fr; gap: 22px; align-items: start; }
+  .steps-col { min-width: 0; }   /* يمنع تجاوز المحتوى للعمود */
+  .steps-col .section-head { margin-top: 0; }   /* بداية علوية موحّدة للعمودين */
+  @media (max-width: 1100px) { .steps-row { grid-template-columns: 1fr; gap: 0; } .steps-col .section-head { margin-top: 26px; } .steps-a .section-head { margin-top: 0; } }
   .stage-card { padding: 14px 16px; margin-bottom: 0; }
   .stage-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; font-size: 14.5px; flex-wrap: wrap; }
   .stage-n { width: 25px; height: 25px; border-radius: 8px; background: linear-gradient(120deg, var(--gold-2), var(--gold)); color: #1a160f; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -653,6 +657,8 @@
     </div>
   </section>
 
+  <div class="steps-row">
+  <div class="steps-col steps-a">
   <div class="section-head"><span class="n">١</span><h2>جهّز الملفات</h2><span class="line"></span></div>
 
   <div class="card stage-card">
@@ -686,7 +692,9 @@
       <div class="ustatus" id="stStatus">اضغط لاختيار الملف</div>
     </label>
   </div>
+  </div><!-- /steps-a -->
 
+  <div class="steps-col steps-b">
   <div class="section-head"><span class="n">٢</span><h2>اضبط الخيارات</h2><span class="line"></span></div>
   <div class="card">
     <div class="optrow">
@@ -729,6 +737,8 @@
       </table></div>
     </div>
   </details>
+  </div><!-- /steps-b -->
+  </div><!-- /steps-row -->
 
   <button class="btn-run" id="runBtn" disabled onclick="run()">🔄 طابق وأنشئ الملف المحدث</button>
   <div class="rebind-hint" id="rebindHint" style="display:none">⟳ عدّلت الروابط بعد آخر مطابقة — اضغط «طابق وأنشئ الملف المحدث» ليشمل الملفُ التغييرات قبل التحميل.</div>
