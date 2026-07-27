@@ -278,19 +278,17 @@
   .login-err { color: #e08a8a; font-size: 12.5px; margin-top: 12px; min-height: 16px; }
   .login-offline { display: block; width: 100%; margin-top: 10px; background: transparent; border: none; color: var(--muted-2); font-size: 12px; cursor: pointer; text-decoration: underline; }
   .migrate-bar { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 11px 18px; background: linear-gradient(120deg, rgba(201,154,60,.16), rgba(201,154,60,.08)); border-bottom: 1px solid rgba(201,154,60,.4); color: var(--gold-2); font-weight: 700; font-size: 13.5px; }
-  .batch-overlay { position: fixed; inset: 0; z-index: 250; background: rgba(0,0,0,.62); display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .batch-box { width: 1180px; max-width: 97vw; height: 90vh; background: #1a160f; border: 1px solid var(--border-strong); border-radius: 16px; box-shadow: 0 24px 60px rgba(0,0,0,.6); display: flex; flex-direction: column; text-align: start; overflow: hidden; }
-  :root[data-theme="light"] .batch-box { background: #fffdf7; }
-  .batch-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .batch-inline { border: 1px solid var(--border-strong); border-radius: 14px; overflow: visible; background: var(--panel); }
+  .batch-inline-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 15px; border-bottom: 1px solid var(--border); }
   .batch-title { font-weight: 800; font-size: 16px; color: var(--gold-2); }
   .batch-sub { color: var(--muted); font-size: 12.5px; }
-  .batch-close { background: transparent; border: 1px solid var(--border-strong); color: var(--muted-2); border-radius: 9px; padding: 5px 12px; cursor: pointer; font-weight: 700; }
-  .bt-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 18px; background: var(--panel-2); border-bottom: 1px solid var(--border); font-size: 13px; flex-wrap: wrap; }
+  .batch-close { margin-inline-start: auto; background: transparent; border: 1px solid var(--border-strong); color: var(--muted-2); border-radius: 9px; padding: 5px 12px; cursor: pointer; font-weight: 700; }
+  .bt-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 15px; background: var(--panel-2); border-bottom: 1px solid var(--border); font-size: 13px; flex-wrap: wrap; }
   .bt-bar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-  .batch-tabs { display: flex; gap: 8px; padding: 10px 18px 0; }
+  .batch-tabs { display: flex; gap: 8px; padding: 10px 15px 0; }
   .bt-tab { background: transparent; border: 1px solid var(--border); color: var(--muted-2); border-radius: 10px 10px 0 0; padding: 7px 16px; cursor: pointer; font-weight: 700; font-size: 13.5px; }
   .bt-tab.on { background: var(--panel); color: var(--gold-2); border-bottom-color: transparent; }
-  .batch-content { flex: 1; overflow: auto; padding: 14px 18px; }
+  .batch-content-inline { padding: 14px 15px; }
   .bt-actionrow { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
   .bt-table { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: fixed; }
   .bt-table th, .bt-table td { border-bottom: 1px solid var(--border); padding: 7px 9px; text-align: start; vertical-align: top; overflow: hidden; word-break: break-word; }
@@ -781,18 +779,6 @@
     </div>
   </div>
 
-  <!-- لوحة الربط الدفعي الذكي -->
-  <div id="batchOverlay" class="batch-overlay" style="display:none">
-    <div class="batch-box">
-      <div class="batch-head">
-        <div><span class="batch-title">🤖 الربط الدفعي الذكي</span> <span class="batch-sub">مطابقة «جديد يحتاج قراراً» بالمقاس والسعر والاسم</span></div>
-        <button class="batch-close" onclick="closeBatchAnalysis()">✕ إغلاق</button>
-      </div>
-      <div id="batchBar"></div>
-      <div id="batchTabs" class="batch-tabs"></div>
-      <div id="batchBody" class="batch-content"></div>
-    </div>
-  </div>
 
   <!-- لوحة زيادة سعر المتغير -->
   <div id="offOverlay" class="off-overlay" style="display:none" onclick="if(event.target===this)closeOffset()">
@@ -875,6 +861,7 @@ let batchData = null;                  // نتائج آخر تحليل دفعي 
 let batchTab = "green";                // التبويب النشط في لوحة الربط الدفعي
 let batchLostOnly = false;             // فلتر «سبق ربطه فقط» (الروابط اليدوية الضائعة)
 let batchRowByUid = {}, btUidSeq = 0;  // سجل uid⇒صف (يفصل عمليات الصف عن فهارس fi/ri — يصمد أمام الفلترة)
+let batchMode = false;                 // التحليل الذكي معروض داخل الجدول الأساسي
 let lastParentPublish = [], lastParentCol = "";   // آباء نُقل إليهم النشر من متغيّراتهم + اسم عمود مرجع الأب (تشخيص)
 let priceOffsets = {};                  // زيادة سعر المتغيرات: skuN ⇒ قيمة الزيادة (ر.س)
 let ignoredSet = new Set();
@@ -1384,16 +1371,22 @@ async function undoLastBatch() {
   showToast(`↩ تم التراجع عن آخر اعتماد (${n} رابط).`);
 }
 
-// فتح/إغلاق اللوحة
+// التحليل الذكي داخل الجدول الأساسي نفسه (لا لوحة منفصلة)
 function openBatchAnalysis() {
   if (!lastWhList.length) { showToast("شغّل «طابق وأنشئ» أولاً."); return; }
   batchData = analyzeBatch();
-  batchLostOnly = false;
+  batchLostOnly = false; batchMode = true;
   batchTab = batchData.green.length ? "green" : (batchData.yellow.length ? "yellow" : "red");
-  document.getElementById("batchOverlay").style.display = "flex";
+  const bar = document.querySelector("#unBlock .unbar"); if (bar) bar.style.display = "none";   // إخفاء شريط البحث/الربط العادي أثناء التحليل
+  const t = document.getElementById("unTitle"); if (t) t.style.display = "none";
   renderBatchTab();
 }
-function closeBatchAnalysis() { document.getElementById("batchOverlay").style.display = "none"; }
+function closeBatchAnalysis() {   // عودة للعرض العادي (نفس الجدول)
+  batchMode = false;
+  const bar = document.querySelector("#unBlock .unbar"); if (bar) bar.style.display = "";
+  const t = document.getElementById("unTitle"); if (t) t.style.display = "";
+  renderDetail();
+}
 function switchBatchTab(t) { batchTab = t; renderBatchTab(); }
 
 function batchTabBtns() {
@@ -1423,12 +1416,15 @@ const reasonText = b => [b.sizeM ? "مقاس✓" : "", b.priceM ? "سعر✓" : 
 
 function renderBatchTab() {
   batchRowByUid = {}; btUidSeq = 0;   // إعادة بناء سجل الصفوف مع كل عرض
-  document.getElementById("batchTabs").innerHTML = batchTabBtns();
-  document.getElementById("batchBar").innerHTML = batchBar();
-  const wrap = document.getElementById("batchBody");
-  if (batchTab === "green") wrap.innerHTML = renderGreen();
-  else if (batchTab === "yellow") wrap.innerHTML = renderYellow();
-  else wrap.innerHTML = renderRed();
+  const target = document.getElementById("detailTable"); if (!target) return;
+  const body = batchTab === "green" ? renderGreen() : (batchTab === "yellow" ? renderYellow() : renderRed());
+  target.innerHTML = `<div class="batch-inline">
+    <div class="batch-inline-head"><span class="batch-title">🤖 التحليل الذكي</span> <span class="batch-sub">مطابقة بالمقاس والسعر والاسم — على الجدول نفسه</span>
+      <button class="batch-close" onclick="closeBatchAnalysis()">✕ عودة للعرض العادي</button></div>
+    <div id="batchBar">${batchBar()}</div>
+    <div id="batchTabs" class="batch-tabs">${batchTabBtns()}</div>
+    <div id="batchBody" class="batch-content-inline">${body}</div>
+  </div>`;
 }
 
 // بطاقة الربط الدفعي — بنفس شكل بطاقات «جديد يحتاج قراراً» (صورة ＋ 3 أعمدة منظّمة) ＋ تحديد ＋ بحث هجين ＋ ⏳/✕
@@ -2500,10 +2496,12 @@ function buildItems(raw) {
 }
 
 function renderDetail() {
+  // الخروج من وضع التحليل الذكي عند عرض أي بطاقة عادية (استعادة شريط البحث/العنوان)
+  if (batchMode) { batchMode = false; const b = document.querySelector("#unBlock .unbar"); if (b) b.style.display = ""; }
   const f = currentFilter;
   document.querySelectorAll("#result .stat").forEach(s => s.classList.toggle("active", s.dataset.filter === f));
   const bindBtn = document.getElementById("bindAllBtn");
-  const title = document.getElementById("unTitle");
+  const title = document.getElementById("unTitle"); title.style.display = "";
   const wrap = document.getElementById("detailTable");
   document.getElementById("unBlock").style.display = "block";
 
