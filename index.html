@@ -315,6 +315,17 @@
   .bt-fam-head .btn-run { margin-inline-start: auto; }
   .bt-empty { color: var(--muted); text-align: center; padding: 40px; }
   .bt-none { color: var(--muted-2); }
+  .bt-combo { position: relative; margin-top: 5px; }
+  .bt-search { width: 100%; box-sizing: border-box; background: var(--panel-2); color: var(--fg); border: 1px solid var(--border); border-radius: 7px; padding: 4px 7px; font-size: 11px; }
+  .bt-results { position: absolute; top: 100%; inset-inline: 0; z-index: 20; margin-top: 3px; max-height: 230px; overflow: auto; background: var(--panel); border: 1px solid var(--border-strong); border-radius: 9px; box-shadow: 0 12px 30px rgba(0,0,0,.5); }
+  .bt-res-row { padding: 6px 9px; font-size: 11.5px; cursor: pointer; border-bottom: 1px solid var(--border); line-height: 1.4; }
+  .bt-res-row:hover { background: var(--panel-2); }
+  .bt-res-meta { color: var(--muted); font-size: 10.5px; white-space: nowrap; }
+  .bt-res-empty { padding: 10px; color: var(--muted); font-size: 11.5px; text-align: center; }
+  .bt-qtys { margin-top: 5px; font-size: 11px; color: var(--muted); }
+  .bt-qtys b { color: var(--fg); font-weight: 800; }
+  .mc-btn.xrow { padding: 3px 8px; font-size: 12.5px; margin-inline-end: 3px; }
+  .mc-btn.xs { padding: 2px 8px; font-size: 11px; }
   .lost-tag { display: inline-block; margin-inline-start: 6px; font-size: 10.5px; font-weight: 800; color: #e0b060; background: rgba(224,176,96,.14); border: 1px solid rgba(224,176,96,.45); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
   .lost-count { color: #e0b060; font-weight: 800; }
   .mc-btn.on-lost { background: rgba(224,176,96,.18); border-color: rgba(224,176,96,.55); color: #e0b060; font-weight: 800; }
@@ -859,6 +870,7 @@ let lastBatchUndo = null;              // {entries:[{sku,prev}], count, tag} —
 let batchData = null;                  // نتائج آخر تحليل دفعي {green,yellow,red}
 let batchTab = "green";                // التبويب النشط في لوحة الربط الدفعي
 let batchLostOnly = false;             // فلتر «سبق ربطه فقط» (الروابط اليدوية الضائعة)
+let batchRowByUid = {}, btUidSeq = 0;  // سجل uid⇒صف (يفصل عمليات الصف عن فهارس fi/ri — يصمد أمام الفلترة)
 let lastParentPublish = [], lastParentCol = "";   // آباء نُقل إليهم النشر من متغيّراتهم + اسم عمود مرجع الأب (تشخيص)
 let priceOffsets = {};                  // زيادة سعر المتغيرات: skuN ⇒ قيمة الزيادة (ر.س)
 let ignoredSet = new Set();
@@ -1406,7 +1418,7 @@ const priceCell = (z, w) => `<span dir="ltr">${priceInt(z) ?? "—"} / ${priceIn
 const reasonText = b => [b.sizeM ? "مقاس✓" : "", b.priceM ? "سعر✓" : "", b.sim >= 0.5 ? "اسم " + Math.round(b.sim * 100) + "٪" : "", b.aliasHit ? "زوج معروف" : ""].filter(Boolean).join(" · ");
 
 function renderBatchTab() {
-  const g = batchData.green.length, y = batchData.yellow.length, r = batchData.red.length;
+  batchRowByUid = {}; btUidSeq = 0;   // إعادة بناء سجل الصفوف مع كل عرض
   document.getElementById("batchTabs").innerHTML = batchTabBtns();
   document.getElementById("batchBar").innerHTML = batchBar();
   const wrap = document.getElementById("batchBody");
@@ -1415,49 +1427,55 @@ function renderBatchTab() {
   else wrap.innerHTML = renderRed();
 }
 
-// 🟢 جدول مضغوط — الكل محدد افتراضياً
+// خلية الاقتران الهجينة: الاسم الكامل للمرشّح المختار + بحث حيّ بكامل المستودع + الكميتان
+function candComboHTML(r, uid) {
+  const c = r.chosen || r.best;
+  const disp = c ? `<span class="bt-sku">${esc(String(c.code))}</span> · ${esc(c.name)}` : `<span class="bt-none">لا مرشّح — ابحث بالأسفل</span>`;
+  const tip = c ? esc(reasonText(c)) : "";
+  return `<div class="bt-cand-full" id="cand-${uid}" title="${tip}">${disp}</div>` +
+    `<div class="bt-combo"><input class="bt-search" id="s-${uid}" placeholder="🔎 غيّر/ابحث في المستودع بالكود أو الاسم…" oninput="comboSearch('${uid}')" onfocus="comboOpen('${uid}')" onblur="comboBlur('${uid}')">` +
+    `<div class="bt-results" id="res-${uid}" style="display:none"></div></div>` +
+    `<div class="bt-qtys" id="qty-${uid}">زد: <b>${esc(String(r.z.qty ?? "—"))}</b> · مستودع: <b>${c ? esc(String(c.qty ?? "—")) : "—"}</b></div>`;
+}
+// صف موحّد (🟢 و🟡): تحديد · صنف زد · مقاس · الاقتران الهجين+الكميتان · السعران · إجراء (⏳/✕)
+function batchRow(r, chkCls, famAttr) {
+  const uid = "u" + (btUidSeq++); batchRowByUid[uid] = r;
+  if (r.chosen === undefined) r.chosen = r.best;
+  const c = r.chosen;
+  return `<tr><td class="bt-c-chk"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${c ? "checked" : "disabled"}></td>` +
+    `<td><span class="bt-sku">${esc(String(r.z.sku))}</span>${lostTag(r)}<div class="bt-nm">${esc(r.z.name)}</div></td>` +
+    `<td class="bt-c-size" dir="ltr">${esc(extractSize(r.z.name) || "—")}</td>` +
+    `<td>${candComboHTML(r, uid)}</td>` +
+    `<td class="bt-c-price" id="price-${uid}"><span class="bt-price2">${c ? priceCell(r.z.price, c.price) : "—"}</span></td>` +
+    `<td class="bt-c-act"><button class="mc-btn xrow" title="غير متوفر حالياً (⏳ انتظار)" onclick="batchExclude('${uid}','wait')">⏳</button>` +
+    `<button class="mc-btn xrow" title="تجاهل (✕)" onclick="batchExclude('${uid}','ignore')">✕</button></td></tr>`;
+}
+const BT_COLS = `<colgroup><col style="width:30px"><col style="width:22%"><col style="width:54px"><col><col style="width:90px"><col style="width:70px"></colgroup>`;
+const BT_HEAD = `<thead><tr><th class="bt-c-chk"></th><th>صنف زد</th><th>المقاس</th><th>الاقتران (المستودع) — اسم كامل ＋ بحث ＋ الكميتان</th><th>السعران</th><th>إجراء</th></tr></thead>`;
+
+// 🟢 المؤكد — الكل محدد افتراضياً؛ الاعتماد للمحدد فقط
 function renderGreen() {
   const list = btFilter(batchData.green);
   if (!list.length) return `<div class="bt-empty">${batchLostOnly ? "لا «سبق ربطه» في المؤكد." : "لا توجد مطابقات مؤكدة. جرّب تبويب 🟡."}</div>`;
-  const rows = list.map(r =>
-    `<tr><td class="bt-c-chk"><input type="checkbox" class="bt-g" data-sku="${esc(String(r.z.sku))}" data-code="${esc(String(r.best.code))}" checked></td>` +
-    `<td><span class="bt-sku">${esc(String(r.z.sku))}</span>${lostTag(r)}<div class="bt-nm">${esc(r.z.name)}</div></td>` +
-    `<td><span class="bt-sku">${esc(String(r.best.code))}</span><div class="bt-cand-name">${esc(r.best.name)}</div></td>` +
-    `<td class="bt-c-size" dir="ltr">${esc(r.best.size || "—")}</td>` +
-    `<td class="bt-c-price"><span class="bt-price2">${priceCell(r.z.price, r.best.price)}</span></td>` +
-    `<td class="bt-c-reason bt-reason">${esc(reasonText(r.best))}</td></tr>`).join("");
-  return `<div class="bt-actionrow"><button class="btn-run sm" onclick="acceptGreen()">✓ اعتماد المحدد (<span id="btGN">${list.length}</span>)</button>
-    <button class="mc-btn" onclick="btToggleAll('bt-g',true)">تحديد الكل</button><button class="mc-btn" onclick="btToggleAll('bt-g',false)">إلغاء الكل</button></div>
-    <div class="twrap"><table class="bt-table"><colgroup><col style="width:30px"><col><col><col style="width:62px"><col style="width:96px"><col style="width:118px"></colgroup>
-    <thead><tr><th class="bt-c-chk"></th><th>صنف زد</th><th>المرشّح (المستودع)</th><th>المقاس</th><th>السعران</th><th>السبب</th></tr></thead>
-    <tbody onchange="btCount('bt-g','btGN')">${rows}</tbody></table></div>`;
+  const rows = list.map(r => batchRow(r, "bt-g", "")).join("");
+  return `<div class="bt-actionrow"><button class="btn-run sm" onclick="acceptGreen()">✓ اعتماد المحدد (<span id="btGN">${list.length}</span> من ${list.length})</button>
+    <button class="mc-btn" onclick="btToggleAll('bt-g',true,null,'btGN')">تحديد الكل</button><button class="mc-btn" onclick="btToggleAll('bt-g',false,null,'btGN')">إلغاء الكل</button></div>
+    <div class="twrap"><table class="bt-table">${BT_COLS}${BT_HEAD}<tbody onchange="btCount('bt-g','btGN')">${rows}</tbody></table></div>`;
 }
-// 🟡 مجمّع بالعائلة
+// 🟡 مجمّع بالعائلة — الاعتماد للصفوف المحددة داخل العائلة فقط
 function renderYellow() {
   const fams = curYellowFams();
   if (!fams.length) return `<div class="bt-empty">${batchLostOnly ? "لا «سبق ربطه» في المحتمل." : "لا مطابقات محتملة."}</div>`;
   return fams.map((f, fi) => {
-    const rows = f.rows.map((r, ri) => {
-      const uid = fi + "_" + ri, b = r.best;
-      const alts = r.scored.map((s, si) => `<option value="${si}" ${b && s.code === b.code ? "selected" : ""}>${esc(s.code)} · ${esc(s.name.slice(0, 44))}${s.name.length > 44 ? "…" : ""} (${s.score})</option>`).join("");
-      const candCell = r.scored.length
-        ? `<div class="bt-cand-full" id="cand-${uid}"><span class="bt-sku">${esc(String(b.code))}</span> · ${esc(b.name)}</div>` +
-          `<select class="bt-alt" data-sku="${esc(String(r.z.sku))}" onchange="pickAlt('${uid}',${fi},${ri},this)" title="بدائل — أفضل 5">${alts}</select>`
-        : "<span class='bt-none'>لا مرشّح</span>";
-      return `<tr><td class="bt-c-chk"><input type="checkbox" class="bt-y" data-fam="${fi}" data-sku="${esc(String(r.z.sku))}" ${b ? "checked" : "disabled"}></td>` +
-        `<td><span class="bt-sku">${esc(String(r.z.sku))}</span>${lostTag(r)}<div class="bt-nm">${esc(r.z.name)}</div></td>` +
-        `<td class="bt-c-size" dir="ltr">${esc(extractSize(r.z.name) || "—")}</td>` +
-        `<td>${candCell}</td>` +
-        `<td class="bt-c-price" id="price-${uid}"><span class="bt-price2">${b ? priceCell(r.z.price, b.price) : "—"}</span></td>` +
-        `<td class="bt-c-reason bt-reason" id="reason-${uid}">${b ? esc(reasonText(b)) : ""}</td></tr>`;
-    }).join("");
-    return `<div class="bt-fam"><div class="bt-fam-head"><b>${esc(f.root)}</b> <span class="bt-fam-n">${f.rows.length} صنف</span>
-      <button class="btn-run sm" onclick="acceptFamily(${fi})">✓ اعتماد العائلة</button></div>
-      <div class="twrap"><table class="bt-table"><colgroup><col style="width:30px"><col style="width:24%"><col style="width:56px"><col><col style="width:88px"><col style="width:100px"></colgroup>
-      <thead><tr><th class="bt-c-chk"></th><th>صنف زد</th><th>المقاس</th><th>الاقتران (المستودع) — كامل الاسم ＋ أفضل 5</th><th>السعران</th><th>السبب</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    const m = f.rows.length;
+    const rows = f.rows.map(r => batchRow(r, "bt-y", `data-fam="${fi}"`)).join("");
+    return `<div class="bt-fam"><div class="bt-fam-head"><b>${esc(f.root)}</b> <span class="bt-fam-n">${m} صنف</span>
+      <button class="mc-btn xs" onclick="btToggleAll('bt-y',true,${fi},'famN-${fi}')">الكل</button><button class="mc-btn xs" onclick="btToggleAll('bt-y',false,${fi},'famN-${fi}')">لا شيء</button>
+      <button class="btn-run sm" onclick="acceptFamily(${fi})">✓ اعتماد المحدد (<span id="famN-${fi}">${m}</span> من ${m})</button></div>
+      <div class="twrap"><table class="bt-table">${BT_COLS}${BT_HEAD}<tbody onchange="btCount('bt-y','famN-${fi}',${fi})">${rows}</tbody></table></div></div>`;
   }).join("");
 }
-// 🔴 بلا مرشح — تحديد جماعي + إجراءات
+// 🔴 بلا مرشح — تحديد جماعي + إجراءات (كما هو)
 function renderRed() {
   const list = btFilter(batchData.red);
   if (!list.length) return `<div class="bt-empty">${batchLostOnly ? "لا «سبق ربطه» بلا مرشّح." : "لا شيء بلا مرشّح 🎉"}</div>`;
@@ -1472,32 +1490,76 @@ function renderRed() {
     <div class="twrap"><table class="bt-table"><colgroup><col style="width:30px"><col><col style="width:70px"><col style="width:70px"><col style="width:120px"></colgroup>
     <thead><tr><th class="bt-c-chk"></th><th>صنف زد</th><th>السعر</th><th>الكمية</th><th>إجراء فردي</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
-function btToggleAll(cls, on) { document.querySelectorAll("#batchBody ." + cls).forEach(c => { if (!c.disabled) c.checked = on; }); if (cls === "bt-g") btCount("bt-g", "btGN"); }
-function btCount(cls, id) { const n = [...document.querySelectorAll("#batchBody ." + cls)].filter(c => c.checked).length; const el = document.getElementById(id); if (el) el.textContent = n; }
-// تبديل المرشّح من قائمة أفضل-5: يحدّث الاسم الكامل والسعر والسبب المعروضة (والاعتماد يقرأ قيمة select)
-function pickAlt(uid, fi, ri, sel) {
-  const fams = curYellowFams(); const fam = fams[fi]; if (!fam) return;
-  const r = fam.rows[ri]; if (!r) return;
-  const s = r.scored[Number(sel.value)]; if (!s) return;
-  const cf = document.getElementById("cand-" + uid); if (cf) cf.innerHTML = `<span class="bt-sku">${esc(String(s.code))}</span> · ${esc(s.name)}`;
-  const pc = document.getElementById("price-" + uid); if (pc) pc.innerHTML = `<span class="bt-price2">${priceCell(r.z.price, s.price)}</span>`;
-  const rc = document.getElementById("reason-" + uid); if (rc) rc.textContent = reasonText(s);
+function btToggleAll(cls, on, fam, spanId) {
+  const sel = fam != null ? `#batchBody .${cls}[data-fam="${fam}"]` : `#batchBody .${cls}`;
+  document.querySelectorAll(sel).forEach(c => { if (!c.disabled) c.checked = on; });
+  if (spanId) btCount(cls, spanId, fam);
+}
+function btCount(cls, spanId, fam) {
+  const sel = fam != null ? `#batchBody .${cls}[data-fam="${fam}"]` : `#batchBody .${cls}`;
+  const n = [...document.querySelectorAll(sel)].filter(c => c.checked).length;
+  const el = document.getElementById(spanId); if (el) el.textContent = n;
+}
+
+// ==== البحث الحيّ داخل خلية الاقتران ====
+function comboRowsHTML(uid, list) {
+  if (!list.length) return `<div class="bt-res-empty">لا نتائج في المستودع</div>`;
+  return list.map(w => `<div class="bt-res-row" onmousedown="comboPick('${uid}','${esc(String(w.code))}')"><span class="bt-sku">${esc(String(w.code))}</span> · ${esc(w.name)} <span class="bt-res-meta">كمية ${esc(String(w.qty ?? "—"))} · ${priceInt(w.price) ?? "—"} ر.س</span></div>`).join("");
+}
+function comboOpen(uid) {
+  const r = batchRowByUid[uid], box = document.getElementById("res-" + uid); if (!r || !box) return;
+  box.innerHTML = comboRowsHTML(uid, (r.scored || []).map(s => ({ code: s.code, name: s.name, qty: s.qty, price: s.price })));
+  box.style.display = "block";
+}
+function comboSearch(uid) {
+  const inp = document.getElementById("s-" + uid), box = document.getElementById("res-" + uid); if (!inp || !box) return;
+  const q = normText(inp.value);
+  if (!q) { comboOpen(uid); return; }
+  const res = lastWhList.filter(w => normText(String(w.code) + " " + w.name).includes(q)).slice(0, 12);
+  box.innerHTML = comboRowsHTML(uid, res); box.style.display = "block";
+}
+function comboBlur(uid) { setTimeout(() => { const b = document.getElementById("res-" + uid); if (b) b.style.display = "none"; }, 200); }
+function comboPick(uid, code) {
+  const r = batchRowByUid[uid]; if (!r) return;
+  const w = lastWhList.find(x => normCode(x.code) === normCode(code)) || (r.scored || []).find(s => normCode(s.code) === normCode(code));
+  if (!w) return;
+  r.chosen = { code: w.code, name: w.name, price: w.price, qty: w.qty, sizeM: !!(extractSize(r.z.name) && extractSize(w.name) && extractSize(r.z.name) === extractSize(w.name)), priceM: priceMatch(r.z.price, w.price), sim: nameSimilarity(r.z.name, w.name) };
+  const cf = document.getElementById("cand-" + uid); if (cf) { cf.innerHTML = `<span class="bt-sku">${esc(String(w.code))}</span> · ${esc(w.name)}`; cf.title = esc(reasonText(r.chosen)); }
+  const qc = document.getElementById("qty-" + uid); if (qc) qc.innerHTML = `زد: <b>${esc(String(r.z.qty ?? "—"))}</b> · مستودع: <b>${esc(String(w.qty ?? "—"))}</b>`;
+  const pc = document.getElementById("price-" + uid); if (pc) pc.innerHTML = `<span class="bt-price2">${priceCell(r.z.price, w.price)}</span>`;
+  const b = document.getElementById("res-" + uid); if (b) b.style.display = "none";
+  const inp = document.getElementById("s-" + uid); if (inp) inp.value = "";
+  // تأكد أن الصف محدَّد بعد تثبيت مرشّح
+  const chk = document.querySelector(`#batchBody input[data-uid="${uid}"]`); if (chk) { chk.disabled = false; chk.checked = true; }
+}
+
+// ==== الاستبعاد الفردي: ⏳ انتظار / ✕ تجاهل — يُحفظ فوراً ويُزال من العائلة بلا اعتماد ====
+function batchExclude(uid, action) {
+  const r = batchRowByUid[uid]; if (!r) return;
+  const skuN = normCode(r.z.skuN);
+  if (action === "wait") { waitingSet.add(skuN); saveWaiting(); } else { ignoredSet.add(skuN); saveIgnored(); }
+  ["green", "yellow", "red"].forEach(k => { batchData[k] = batchData[k].filter(x => x !== r); });
+  batchData.lostCount = [...batchData.green, ...batchData.yellow, ...batchData.red].filter(x => x.wasLinked).length;
+  renderIgnored(lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN))));
+  updateNewCount(); renderFingerprint(); renderBatchTab();
+  showToast(`${action === "wait" ? "⏳ نُقل للانتظار" : "🚫 تجاهل"}: ${r.z.sku} — لا تنسَ ☁ الحفظ في الريبو.`);
+}
+
+// قراءة المحدد ⇒ أزواج (sku, code) من المرشّح المثبَّت لكل صف
+function btReadChecked(cls, fam) {
+  const sel = fam != null ? `#batchBody .${cls}[data-fam="${fam}"]` : `#batchBody .${cls}`;
+  return [...document.querySelectorAll(sel)].filter(c => c.checked && !c.disabled).map(c => {
+    const r = batchRowByUid[c.dataset.uid], cc = r && (r.chosen || r.best);
+    return cc ? { sku: r.z.sku, code: cc.code } : null;
+  }).filter(Boolean);
 }
 function acceptGreen() {
-  const pairs = [...document.querySelectorAll("#batchBody .bt-g")].filter(c => c.checked).map(c => ({ sku: c.dataset.sku, code: c.dataset.code }));
+  const pairs = btReadChecked("bt-g");
   if (!pairs.length) { showToast("لم تحدد شيئاً."); return; }
   batchApply(pairs, "auto-confirmed");
 }
 function acceptFamily(fi) {
-  const boxes = [...document.querySelectorAll(`#batchBody .bt-y[data-fam="${fi}"]`)].filter(c => c.checked && !c.disabled);
-  const pairs = boxes.map(c => {
-    const sel = document.querySelector(`#batchBody .bt-alt[data-sku="${CSS.escape(c.dataset.sku)}"]`);
-    const fams = curYellowFams(); const fam = fams[fi];
-    const row = fam.rows.find(r => String(r.z.sku) === c.dataset.sku);
-    let code = row && row.best && row.best.code;
-    if (sel && row) { const s = row.scored[Number(sel.value)]; if (s) code = s.code; }
-    return code ? { sku: c.dataset.sku, code } : null;
-  }).filter(Boolean);
+  const pairs = btReadChecked("bt-y", fi);
   if (!pairs.length) { showToast("لا صفوف محددة في هذه العائلة."); return; }
   batchApply(pairs, "auto-approved");
 }
