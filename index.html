@@ -841,7 +841,7 @@
       <div class="stat" data-filter="new" onclick="selectCard('new')"><b style="color:#e6a34a" id="sNew">0</b><span>جديد يحتاج قراراً</span></div>
       <div class="stat" data-filter="unmatched" onclick="selectCard('unmatched')"><b style="color:#e3c88c" id="sUn">0</b><span>بدون ربط</span></div>
       <div class="stat" data-filter="infinite" onclick="selectCard('infinite')"><b style="color:#93a2b5" id="sInf">0</b><span>غير محدود بلا مطابقة</span></div>
-      <div class="stat" data-filter="absent" onclick="selectCard('absent')"><b style="color:#c99a3c" id="sAbsent">0</b><span>غائب عن الملف 📭</span></div>
+      <div class="stat" data-filter="absent" onclick="selectCard('absent')"><b style="color:#c99a3c" id="sAbsent">0</b><span id="sAbsentLbl">غائب عن الملف 📭</span></div>
       <div class="stat" data-filter="all" onclick="selectCard('all')"><b style="color:#f1e9d8" id="sTot">0</b><span>إجمالي الأسطر</span></div>
     </div>
     <p class="stats-hint">اضغط أي بطاقة لعرض تفاصيلها في الجدول بالأسفل</p>
@@ -1020,8 +1020,33 @@ const db = {
     async bulkUpsert(rows) { const { error } = await sb.from("mappings").upsert(rows, { onConflict: "zid_sku" }); if (error) throw error; },
     async remove(zid_sku) { const { error } = await sb.from("mappings").delete().eq("zid_sku", String(zid_sku)); if (error) throw error; },
     async bulkRemove(skus) { if (!skus.length) return; const { error } = await sb.from("mappings").delete().in("zid_sku", skus.map(String)); if (error) throw error; },
+  },
+  // قائمة الانتظار ⏳ (waiting_items) — أصناف تُصدَّر بكمية 0 حتى تعود؛ نفس نمط mappings
+  waiting: {
+    async getAll() { const { data, error } = await sb.from("waiting_items").select("zid_sku,name"); if (error) throw error; return data || []; },
+    async upsert(zid_sku, name) { const { error } = await sb.from("waiting_items").upsert({ zid_sku: String(zid_sku), name: name || "" }, { onConflict: "zid_sku" }); if (error) throw error; },
+    async remove(zid_sku) { const { error } = await sb.from("waiting_items").delete().eq("zid_sku", String(zid_sku)); if (error) throw error; },
+    async bulkRemove(skus) { if (!skus.length) return; const { error } = await sb.from("waiting_items").delete().in("zid_sku", skus.map(String)); if (error) throw error; },
   }
 };
+// كتابة مزدوجة: المحلي فوراً (waiting.json احتياطي بالتوازي) ＋ القاعدة بأفضل جهد (لا يعطّل عند فشل الاتصال)
+function markWaiting(rawSku, skuN, name) {
+  waitingSet.add(normCode(skuN)); saveWaiting();
+  if (dbOnline && sb) db.waiting.upsert(rawSku, name || "").catch(e => console.warn("waiting DB upsert:", e));
+}
+function unmarkWaiting(rawSku, skuN) {
+  waitingSet.delete(normCode(skuN)); saveWaiting();
+  if (dbOnline && sb) db.waiting.remove(rawSku).catch(e => console.warn("waiting DB remove:", e));
+}
+async function loadWaitingFromDB() {
+  if (!sb) return;
+  try {
+    const rows = await db.waiting.getAll();
+    let changed = false;
+    rows.forEach(r => { if (r.zid_sku != null) { const k = normCode(r.zid_sku); if (!waitingSet.has(k)) { waitingSet.add(k); changed = true; } } });
+    if (changed) saveWaiting();   // اتحاد مع المحلي (لا نمسح: waiting.json احتياطي)
+  } catch (e) { console.warn("waiting DB load failed:", e); }
+}
 function requireOnline() { if (!dbOnline) { showToast("🔴 غير متصل بالقاعدة — الكتابة معطّلة لمنع تشعّب البيانات."); throw new Error("db-offline"); } }
 // كل كتابة: القاعدة أولاً، وعند النجاح فقط تحديث المحلي (الذاكرة ＋ localStorage)
 async function dbSetMapping(sku, code, source) { requireOnline(); await db.mappings.upsert(sku, code, source); manualMap[String(sku)] = normCode(code); localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge(); }
@@ -1119,6 +1144,7 @@ async function loadMappingsFromDB() {
     // القاعدة فارغة ⇒ **لا نمسح المحلي إطلاقاً** (كان يُكتب {} فيمحو mapping.json المحلي ومصدر الترحيل).
     // نُبقي manualMap/localStorage كما حمّلهما loadConfig، ونعرض زر الترحيل.
     renderPills(); setDbBadge(true); checkMigration();
+    await loadWaitingFromDB();   // قائمة الانتظار من القاعدة (اتحاد مع المحلي) — تتزامن بين الأجهزة
     if (document.getElementById("result").style.display === "block") markDirty();
   } catch (e) { dbOnline = false; setDbBadge(false, e.message); console.warn("DB load failed:", e); }
 }
@@ -1756,7 +1782,7 @@ function comboPick(uid, code) {
 function batchExclude(uid, action) {
   const r = batchRowByUid[uid]; if (!r) return;
   const skuN = normCode(r.z.skuN);
-  if (action === "wait") { waitingSet.add(skuN); saveWaiting(); } else { ignoredSet.add(skuN); saveIgnored(); }
+  if (action === "wait") { markWaiting(r.z.sku, skuN, r.z.name); } else { ignoredSet.add(skuN); saveIgnored(); }
   ["green", "yellow", "red"].forEach(k => { batchData[k] = batchData[k].filter(x => x !== r); });
   batchData.lostCount = [...batchData.green, ...batchData.yellow, ...batchData.red].filter(x => x.wasLinked).length;
   renderIgnored(lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN))));
@@ -2481,17 +2507,23 @@ function run(reprocess) {
     // احفظ تاريخ المطابقة وقائمة الانتظار محلياً إن تغيّرا (تُصدَّر/تُحفظ في الريبو ضمن المنظومة)
     if (histChanged) saveMatchedHistory();
     if (waitChanged) saveWaiting();
+    // التعافي التلقائي: أصناف عادت للتوفر ⇒ احذفها من قائمة الانتظار في القاعدة أيضاً (best-effort)
+    if (reactivated.length && dbOnline && sb) db.waiting.bulkRemove(reactivated.map(r => r.sku)).catch(e => console.warn("waiting DB bulkRemove:", e));
 
+    // بطاقة «غائب عن الملف» = الغائب فعلاً (له تاريخ) + الموسوم ⏳ بانتظار التوفر (تصفير مُدار)
+    const waitingInFile = unmatched.filter(u => u.waiting).length;
     document.getElementById("sUpd").textContent = updatedList.length;
     document.getElementById("sUn").textContent = unmatched.length;
     document.getElementById("sInf").textContent = infiniteList.length;
-    document.getElementById("sAbsent").textContent = absentList.length;
+    document.getElementById("sAbsent").textContent = absentList.length + waitingInFile;
+    { const lbl = document.getElementById("sAbsentLbl"); if (lbl) lbl.textContent = "غائب عن الملف 📭" + (waitingInFile ? ` (منها ⏳ ${waitingInFile})` : ""); }
     document.getElementById("sTot").textContent = rows0.length - 1;
 
     // === تصنيف الأصناف بدون ربط + بيانات الفلاتر ===
     lastWhList = whList;
     lastWhTokenIndex = buildWhTokenIndex(whList);
     if (!reprocess) { suggCache = new Map(); testSelected = new Set(); excludedSet = new Set(); zeroSelected = new Set(); }   // بيانات جديدة ⇒ أعِد بناء الذاكرة والتحديد وصفّر الاستبعاد والتصفير المؤقتين
+    unmatched.forEach(u => { if (u.waiting) zeroSelected.add(String(u.sku)); });   // ⏳ الموسومة: محدّدة تلقائياً للتصفير المستمر (0) في كل دورة
     lastUnmatchedRaw = unmatched;
     lastUpdated = updatedList;
     lastInfinite = infiniteList;
@@ -2546,7 +2578,7 @@ function renderReactivated() {
   if (!el) return;
   if (!lastReactivated.length) { el.style.display = "none"; el.innerHTML = ""; return; }
   el.style.display = "block";
-  el.innerHTML = `✅ عاد للتوفر: <b>${lastReactivated.length}</b> صنف — ظهرت أكوادها في ملف المستودع، فأُزيلت من الانتظار وحُدّثت تلقائياً: ` +
+  el.innerHTML = `↩ عاد للتوفر: <b>${lastReactivated.length}</b> صنف — ظهرت أكوادها في ملف المستودع، فأُزيلت من الانتظار (والقاعدة) وحُدّثت تلقائياً بكمياتها الحقيقية: ` +
     lastReactivated.slice(0, 30).map(r => `<span class="mono" dir="ltr">${esc(r.sku)}</span>`).join("، ") + (lastReactivated.length > 30 ? " …" : "");
 }
 // تعارض التخفيض: السعر الجديد ≤ سعر التخفيض المخزَّن في زد ⇒ استُبعد الصنف من ملف الأسعار (زد يرفض الاستيراد وإلا) — يُعالَج يدوياً
@@ -2581,21 +2613,19 @@ function renderParentPublish() {
   </div>`;
 }
 // مرشّحو التصفير: (أ) الغائبون عن الملف + (ب) «يحتاج قرار» بلا اقتراح موثوق ولا كود في المستودع (يشمل المتجاهَل والمنتظِر)
+// مرشّحو التصفير = (أ) الغائب فعلاً (له تاريخ مطابقة واختفى من الملف) + (ب) الموسوم ⏳ «غير متوفر حالياً» فقط.
+// الأصناف الجديدة «بلا كود في المستودع» غير الموسومة لم تعد تُدرَج هنا (قد تكون في فروع أخرى — المرحلة 1)؛ تبقى في «جديد يحتاج قرار».
 function zeroCandidates() {
   const a = lastAbsent.map(u => ({ sku: u.sku, skuN: u.skuN, name: u.name, img: u.img || "", qty: u.qty, price: u.price, cat: "absent", tag: "" }));
   const b = [];
   for (const u of lastUnmatchedRaw) {
-    if (!u.noWhCode) continue;   // كوده موجود في المستودع (متصادم مثلاً) ⇒ ليس مرشّح تصفير
-    let sug = suggCache.get(u.skuN);
-    if (sug === undefined) { sug = suggestFor(u.skuN, u.name, lastWhList, u.price); suggCache.set(u.skuN, sug); }
-    if (sug && Math.round(sug.sim * 100) >= 55) continue;   // له اقتراح موثوق ⇒ يُربط لا يُصفَّر
-    const tag = ignoredSet.has(normCode(u.skuN)) ? "ignored" : (waitingSet.has(normCode(u.skuN)) ? "waiting" : "");
-    b.push({ sku: u.sku, skuN: u.skuN, name: u.name, img: u.img || "", qty: u.qty, price: u.price, cat: "candidate", tag });
+    if (!waitingSet.has(normCode(u.skuN))) continue;   // ⏳ فقط — تصفير مُدار مستمر حتى تعود
+    b.push({ sku: u.sku, skuN: u.skuN, name: u.name, img: u.img || "", qty: u.qty, price: u.price, cat: "waiting", tag: "" });
   }
   return [...a, ...b];
 }
 function zeroTableHTML(list) {
-  const catLabel = c => c === "absent" ? `<span class="cat-badge cat-abs">غائب 📭</span>` : `<span class="cat-badge cat-new">مرشّح</span>`;
+  const catLabel = c => c === "absent" ? `<span class="cat-badge cat-abs">غائب 📭</span>` : `<span class="cat-badge cat-new">⏳ بانتظار</span>`;
   const tagLabel = t => t === "ignored" ? `<span class="wait-tag">متجاهَل</span>` : (t === "waiting" ? `<span class="wait-tag">⏳ بانتظار</span>` : "");
   const rows = list.map(u => {
     const chk = zeroSelected.has(String(u.sku)) ? "checked" : "";
@@ -2740,7 +2770,8 @@ function renderDetail() {
   } else if (f === "absent") {
     bindBtn.style.display = "none";
     const cands = zeroCandidates();
-    title.textContent = `مرشّحو تصفير الكمية (${cands.length}) — غائب عن الملف + «يحتاج قرار» بلا اقتراح موثوق ولا كود في المستودع`;
+    const wc = cands.filter(c => c.cat === "waiting").length;
+    title.textContent = `مرشّحو تصفير الكمية (${cands.length}) — غائب عن الملف (له تاريخ)` + (wc ? ` ＋ ⏳ بانتظار التوفر: ${wc}` : "");
     wrap.innerHTML = zeroTableHTML(cands);
   } else { // all
     bindBtn.style.display = "none";
@@ -3199,9 +3230,8 @@ function ignoreRow(i) {
 function waitRow(i) {
   const it = lastUnmatched[i];
   if (!it || it.waiting) return;
-  waitingSet.add(normCode(it.skuN));
+  markWaiting(it.sku, it.skuN, it.name);   // محلي ＋ قاعدة (waiting_items)
   it.waiting = true;
-  saveWaiting();
   fadeRemoveRow(i);
   updateBindAllCount();
   updateNewCount();
@@ -3210,8 +3240,7 @@ function waitRow(i) {
 function unwaitRow(i) {
   const it = lastUnmatched[i];
   if (!it) return;
-  waitingSet.delete(normCode(it.skuN));
-  saveWaiting();
+  unmarkWaiting(it.sku, it.skuN);
   refreshUnmatchedUI();
   renderFingerprint();
 }
