@@ -323,8 +323,24 @@
   .login-mark { font-size: 40px; margin-bottom: 6px; }
   .login-title { font-family: var(--serif); font-size: 21px; font-weight: 800; color: var(--gold-2); }
   .login-sub { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin: 8px 0 18px; }
-  .login-box input { width: 100%; margin-bottom: 11px; box-sizing: border-box; }
-  .login-box .btn-run { width: 100%; margin-top: 4px; }
+  .login-field { text-align: right; margin-bottom: 14px; }
+  .login-field label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin: 0 3px 6px; }
+  /* نمط مكتفٍ ذاتياً لكل الحقول (يشمل type=email غير المشمول بالقاعدة العامة فلا يظهر أبيض) */
+  .login-box input { width: 100%; height: 44px; margin: 0; padding: 0 14px; box-sizing: border-box; border-radius: 10px; font-size: 14px; text-align: right;
+    background: rgba(255,255,255,.04); border: 1px solid var(--border-strong); color: var(--text); outline: none; font-family: inherit;
+    transition: border-color .18s, box-shadow .18s, background .18s; }
+  :root[data-theme="light"] .login-box input { background: rgba(42,34,22,.04); }
+  .login-box input:focus { border-color: var(--gold); background: rgba(230,197,111,.06); box-shadow: 0 0 0 3px rgba(230,197,111,.18); }
+  .pass-wrap { position: relative; }
+  .pass-wrap input { padding-inline-end: 44px; }        /* مساحة لزر العين (الطرف الأيسر في RTL) */
+  .pass-eye { position: absolute; inset-inline-end: 6px; top: 50%; transform: translateY(-50%); background: transparent; border: none;
+    cursor: pointer; font-size: 16px; opacity: .55; padding: 4px 7px; line-height: 1; border-radius: 8px; transition: opacity .15s; }
+  .pass-eye:hover, .pass-eye.on { opacity: 1; }
+  /* إلغاء تبييض التعبئة التلقائية (Chrome) لإبقاء هوية الثيم الداكن/الكريمي */
+  .login-box input:-webkit-autofill, .login-box input:-webkit-autofill:hover, .login-box input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text); -webkit-box-shadow: 0 0 0 1000px #221d13 inset; caret-color: var(--text); transition: background-color 9999s ease; }
+  :root[data-theme="light"] .login-box input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px #fffdf7 inset; -webkit-text-fill-color: #2a2216; }
+  .login-box .btn-run { width: 100%; margin-top: 6px; height: 46px; }
   .login-err { color: #e08a8a; font-size: 12.5px; margin-top: 12px; min-height: 16px; }
   .login-offline { display: block; width: 100%; margin-top: 10px; background: transparent; border: none; color: var(--muted-2); font-size: 12px; cursor: pointer; text-decoration: underline; }
   .login-link { display: block; width: 100%; margin-top: 12px; background: transparent; border: none; color: var(--gold-2); font-size: 12.5px; font-weight: 700; cursor: pointer; }
@@ -860,8 +876,17 @@
       <div id="loginForm">
         <div class="login-title">تسجيل الدخول</div>
         <p class="login-sub">أداة مزامنة المخزون — ASJ</p>
-        <input type="email" id="loginEmail" placeholder="البريد الإلكتروني" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
-        <input type="password" id="loginPass" placeholder="كلمة المرور" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+        <div class="login-field">
+          <label for="loginEmail">البريد الإلكتروني</label>
+          <input type="email" id="loginEmail" placeholder="name@altanfeethi.com.sa" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+        </div>
+        <div class="login-field">
+          <label for="loginPass">كلمة المرور</label>
+          <div class="pass-wrap">
+            <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+            <button type="button" class="pass-eye" id="loginEye" onclick="togglePass('loginPass','loginEye')" aria-label="إظهار/إخفاء كلمة المرور" title="إظهار/إخفاء">👁</button>
+          </div>
+        </div>
         <button class="btn-run" id="loginBtn" onclick="doLogin()">دخول</button>
         <div id="loginErr" class="login-err"></div>
         <button type="button" class="login-link" id="forgotBtn" onclick="forgotPassword()">نسيت كلمة المرور؟</button>
@@ -869,7 +894,13 @@
       <div id="recoverForm" style="display:none">
         <div class="login-title">تعيين كلمة مرور جديدة</div>
         <p class="login-sub">أدخل كلمة المرور الجديدة لحسابك</p>
-        <input type="password" id="newPass" placeholder="كلمة المرور الجديدة (6 أحرف على الأقل)" autocomplete="new-password" onkeydown="if(event.key==='Enter')setNewPassword()">
+        <div class="login-field">
+          <label for="newPass">كلمة المرور الجديدة</label>
+          <div class="pass-wrap">
+            <input type="password" id="newPass" placeholder="6 أحرف على الأقل" autocomplete="new-password" onkeydown="if(event.key==='Enter')setNewPassword()">
+            <button type="button" class="pass-eye" id="newEye" onclick="togglePass('newPass','newEye')" aria-label="إظهار/إخفاء كلمة المرور" title="إظهار/إخفاء">👁</button>
+          </div>
+        </div>
         <button class="btn-run" id="newPassBtn" onclick="setNewPassword()">حفظ كلمة المرور</button>
         <div id="recoverErr" class="login-err"></div>
       </div>
@@ -1021,6 +1052,15 @@ async function doLogin() {
   btn.disabled = false; btn.textContent = "دخول";
 }
 async function doLogout() { if (sb) await sb.auth.signOut(); }
+
+// إظهار/إخفاء كلمة المرور (شكل فقط — لا مساس بالمنطق)
+function togglePass(inputId, eyeId) {
+  const inp = document.getElementById(inputId), eye = document.getElementById(eyeId); if (!inp) return;
+  const show = inp.type === "password";
+  inp.type = show ? "text" : "password";
+  if (eye) { eye.textContent = show ? "🙈" : "👁"; eye.classList.toggle("on", show); }
+  inp.focus();
+}
 
 // نسيت كلمة المرور: يُرسل رابط إعادة تعيين إلى البريد (Supabase) — يعود للموقع فتُعرض شاشة تعيين كلمة مرور جديدة
 async function forgotPassword() {
