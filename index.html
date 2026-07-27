@@ -856,7 +856,7 @@
     <div class="login-box">
       <div class="login-mark">🔐</div>
       <div class="login-title">تسجيل الدخول</div>
-      <p class="login-sub">قاعدة الروابط السحابية (Supabase). أدخل بريدك وكلمة المرور — تُحفظ الجلسة على هذا الجهاز.</p>
+      <p class="login-sub">اعترف من انت</p>
       <input type="email" id="loginEmail" placeholder="البريد الإلكتروني" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
       <input type="password" id="loginPass" placeholder="كلمة المرور" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
       <button class="btn-run" id="loginBtn" onclick="doLogin()">دخول</button>
@@ -2019,7 +2019,7 @@ function autoAdopt() {
   const res = mergeInventory(mergeWh, mergeBranches);   // فروع فارغة = المستودع وحده
   lastMerge = res;   // للاستعلام عن منتج (بحث المخزن)
   if (typeof runWhQuery === "function") runWhQuery();
-  whRows = res.unified.map(u => ({ "رقم الصنف": u.code, "اسم الصنف": u.name, "الكمية": u.qty, "سعر البيع شامل الضريبة": u.incl, "سعر البيع قبل الضريبة": u.excl }));
+  whRows = res.unified.map(u => ({ "رقم الصنف": u.code, "اسم الصنف": u.name, "الكمية": u.qty, "سعر البيع شامل الضريبة": u.incl, "سعر البيع قبل الضريبة": u.excl, "باركود المستودع": u.bar || "" }));
   const hasBr = mergeBranches.length > 0;
   const cell = (n, l, cls) => `<div class="mr-cell ${cls}"><span class="mr-num">${n}</span><span class="mr-lbl">${l}</span></div>`;
   let cells = cell(res.unified.length, "المخزن الموحّد ✓", "total");
@@ -2258,8 +2258,9 @@ function run(reprocess) {
       const dist = distByRaw.get(rawKey) || null;   // معلومات التوزيع (للأيقونة 🔀)
       const offset = priceOffsets[skuN] || 0;                 // زيادة المتغير (0 افتراضياً)
       // قاعدة تصفير الكميات المنخفضة القيمة: سعر نهائي (شامل الزيادة) < الحد وكمية ≤ الحد ⇒ تُصدَّر الكمية 0
-      const whInclR = wh.incl != null ? Math.round(wh.incl) : (wh.excl != null ? Math.round(wh.excl) : null);
-      const valForRule = whInclR != null ? whInclR + offset : null;
+      // القيمة للحكم = نفس أساس السعر المُصدَّر (شامل/قبل) بحسب opts.price + الزيادة؛ وفي وضع «لا تحدّث» نرجع للشامل ثم قبل الضريبة
+      const valBase = opts.price === "excl" ? wh.excl : (opts.price === "incl" ? wh.incl : (wh.incl != null ? wh.incl : wh.excl));
+      const valForRule = valBase != null ? Math.round(valBase) + offset : null;
       const lowValZero = opts.lowzero !== "off" && valForRule != null && valForRule < (opts.lowPrice || 400) && whQtyReal <= (opts.lowQty != null ? opts.lowQty : 3);
       const newQty = lowValZero ? 0 : whQtyReal;                     // الكمية الفعلية المُصدَّرة
       const qtyChanged = String(oldQty) !== String(newQty);          // "Infinite" ≠ رقم ⇒ يُستبدل دائماً
@@ -3239,14 +3240,12 @@ function runZdQuery() {
   }).join("");
 }
 
-async function addMapping() {
-  const sku = document.getElementById("mSku").value.trim();
-  const code = document.getElementById("mCode").value.trim();
+// منطق الربط اليدوي (يبقى في الكود) — صار دالة قابلة لإعادة الاستخدام بمعاملات بلا اعتماد على واجهة ③ المُزالة
+async function addMapping(sku, code) {
+  sku = String(sku == null ? "" : sku).trim(); code = String(code == null ? "" : code).trim();
   if (!sku || !code) return;
   try { await dbSetMapping(sku, code, "manual"); } catch { return; }   // القاعدة أولاً
   excludedSet.delete(normCode(sku));   // الربط اليدوي قرار صريح يلغي الاستبعاد المؤقت
-  document.getElementById("mSku").value = ""; document.getElementById("mCode").value = "";
-  document.getElementById("whSearch").value = ""; document.getElementById("whResults").innerHTML = "";
   renderPills();
   markDirty();
 }
