@@ -204,6 +204,21 @@
   #stCard::after {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e6c56f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4h18l-1.2 4.2a2.6 2.6 0 0 1-2.5 1.9H6.7a2.6 2.6 0 0 1-2.5-1.9L3 4z'/%3E%3Cpath d='M5 10.5V21h14V10.5'/%3E%3Cpath d='M4 4l-.7-1.5'/%3E%3Cpath d='M14 21v-6h5v6'/%3E%3Crect x='9' y='14' width='4' height='4'/%3E%3C/svg%3E");
   }
+  #brCard::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e6c56f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='6' cy='6' r='2.2'/%3E%3Ccircle cx='6' cy='18' r='2.2'/%3E%3Ccircle cx='18' cy='7' r='2.2'/%3E%3Cpath d='M6 8.2v7.6'/%3E%3Cpath d='M18 9.2c0 4-3 5-6 5'/%3E%3C/svg%3E");
+  }
+  .stage-card { padding: 14px 16px; margin-bottom: 0; }
+  .stage-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; font-size: 14.5px; flex-wrap: wrap; }
+  .stage-n { width: 25px; height: 25px; border-radius: 8px; background: linear-gradient(120deg, var(--gold-2), var(--gold)); color: #1a160f; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .stage-sub { color: var(--muted); font-size: 12px; font-weight: 600; }
+  .stage-card .grid2 { margin-bottom: 0; }
+  .upload.block { max-width: none; }
+  .flow-arrow { text-align: center; color: var(--gold-2); font-size: 12.5px; font-weight: 800; letter-spacing: .05em; margin: 11px 0 9px; opacity: .8; }
+  .merge-result { margin-top: 0; font-size: 13.5px; font-weight: 800; border-radius: 10px; padding: 11px 15px; }
+  .merge-result.ok { color: #8fce9f; background: rgba(90,160,110,.12); border: 1px solid rgba(90,160,110,.4); }
+  .merge-result.wait { color: var(--gold-2); background: rgba(201,154,60,.10); border: 1px dashed rgba(201,154,60,.45); }
+  .merge-result .mr-sub { color: var(--muted); font-weight: 600; font-size: 12px; }
+  .opt-badge { color: var(--muted-2); font-weight: 600; font-size: 12px; }
   .step {
     width: 30px; height: 30px; border-radius: 50%; color: #0a1622;
     background: linear-gradient(135deg, var(--gold-2), var(--gold));
@@ -573,7 +588,6 @@
   .fingerprint b { color: var(--gold-2); }
   .fingerprint .mono { font-family: ui-monospace, Consolas, monospace; color: var(--gold-2); }
   .fp-warn { font-size: 13px; font-weight: 700; color: var(--gold-2); background: rgba(230,197,111,.12); border: 1px solid var(--border-strong); border-radius: 10px; padding: 11px 14px; margin-top: 18px; line-height: 1.7; }
-  #mWhCard::after, #mBrCard::after { display: none; }   /* لا أيقونة خلفية لبطاقات الدمج */
   .merge-summary { margin-top: 12px; font-size: 13.5px; font-weight: 700; color: #8fbf98; background: rgba(123,168,132,.12); border: 1px solid rgba(123,168,132,.35); border-radius: 10px; padding: 10px 14px; }
   /* قسم النتائج يملأ عرض الحاوية الكامل (حتى 1320px) ويبقى متمركزاً */
   #result { display: none; }
@@ -639,50 +653,39 @@
     </div>
   </section>
 
-  <div class="section-head"><span class="n">١</span><h2>ارفع الملفات</h2><span class="line"></span></div>
-  <div class="grid2">
-    <label class="upload" id="whCard">
-      <input type="file" accept=".xlsx,.xls,.csv" onchange="onWarehouse(this)">
-      <div class="step">١</div>
-      <div class="utitle">ملف المستودع</div>
-      <div class="hint">الأعمدة: رقم الصنف، الكمية، الأسعار</div>
-      <div class="ustatus" id="whStatus">اضغط لاختيار الملف</div>
-    </label>
-    <label class="upload" id="stCard">
+  <div class="section-head"><span class="n">١</span><h2>جهّز الملفات</h2><span class="line"></span></div>
+
+  <div class="card stage-card">
+    <div class="stage-head"><span class="stage-n">أ</span><b>المستودع والفروع</b><span class="stage-sub">الفرع اختياري — يُدمج تلقائياً فور رفعه (اتحاد بجمع الكميات)</span></div>
+    <div class="grid2">
+      <label class="upload" id="whCard">
+        <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeWh(this)">
+        <div class="utitle">ملف المستودع</div>
+        <div class="hint">رقم الصنف · الاسم · الكمية · الأسعار</div>
+        <div class="ustatus" id="whStatus">اضغط لاختيار الملف</div>
+      </label>
+      <label class="upload" id="brCard">
+        <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeBranch(this)">
+        <div class="utitle">ملف الفرع <span class="opt-badge">(اختياري)</span></div>
+        <div class="hint">بنفس الأعمدة — كامل أو مختصر (كود · اسم · كمية)</div>
+        <div class="ustatus" id="brStatus">اضغط لاختيار الملف</div>
+      </label>
+    </div>
+    <div class="flow-arrow">⬇ دمج تلقائي ⬇</div>
+    <div id="mergeResult" class="merge-result" style="display:none"></div>
+    <div id="mergeWarn" class="fp-warn" style="display:none"></div>
+    <div class="maprow" style="margin-top:10px"><button class="btn-run sm export-btn" id="mergeDlBtn" disabled onclick="downloadMerge()">⬇ تنزيل الملف الموحّد (اختياري)</button></div>
+  </div>
+
+  <div class="card stage-card" style="margin-top:14px">
+    <div class="stage-head"><span class="stage-n">ب</span><b>متجر زد</b><span class="stage-sub">مستقل عن المخزن — تُنطلق المطابقة متى اكتمل المخزن ＋ زد</span></div>
+    <label class="upload block" id="stCard">
       <input type="file" accept=".xlsx,.xls,.csv" onchange="onStore(this)">
-      <div class="step">٢</div>
       <div class="utitle">تصدير المنتجات من زد</div>
       <div class="hint">من لوحة زد: المنتجات ← تصدير</div>
       <div class="ustatus" id="stStatus">اضغط لاختيار الملف</div>
     </label>
   </div>
-
-  <details class="card" id="mergeCard" style="margin-top:14px">
-    <summary>🔗 دمج المستودع مع الفروع (اختياري) — بديل عن رفع «ملف المستودع» يدوياً أعلاه</summary>
-    <div style="margin-top:12px">
-      <p class="hint">بدل رفع ملف مستودع واحد، ادمج المستودع ＋ فرعاً في ملف موحّد يُعتمد تلقائياً كـ«ملف المستودع» أعلاه. اتحاد كامل بجمع الكميات: كل صنف تُجمع كميتاه في صف واحد (الاسم والسعر من المستودع). الملفان من نفس النظام؛ كامل (٥ أعمدة) أو مختصر (كود · اسم · كمية) — والمختصر يأخذ سعره من الملف الآخر.</p>
-      <div class="grid2">
-        <label class="upload" id="mWhCard">
-          <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeWh(this)">
-          <div class="utitle">ملف المستودع</div>
-          <div class="hint">رقم الصنف · الاسم · الكمية · السعر شامل/قبل الضريبة</div>
-          <div class="ustatus" id="mWhStatus">اضغط لاختيار الملف</div>
-        </label>
-        <label class="upload" id="mBrCard">
-          <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeBranch(this)">
-          <div class="utitle">ملف الفرع</div>
-          <div class="hint">بنفس الأعمدة — كامل أو مختصر (كود · اسم · كمية)</div>
-          <div class="ustatus" id="mBrStatus">اضغط لاختيار الملف</div>
-        </label>
-      </div>
-      <div class="maprow" style="margin-top:12px">
-        <button class="btn-run sm" id="mergeBtn" disabled onclick="doMerge()">🔗 دمج واعتماد كملف المستودع</button>
-        <button class="btn-run sm export-btn" id="mergeDlBtn" disabled onclick="downloadMerge()">⬇ تنزيل الملف الموحّد (اختياري)</button>
-      </div>
-      <div id="mergeSummary" class="merge-summary" style="display:none"></div>
-      <div id="mergeWarn" class="fp-warn" style="display:none"></div>
-    </div>
-  </details>
 
   <div class="section-head"><span class="n">٢</span><h2>اضبط الخيارات</h2><span class="line"></span></div>
   <div class="card">
@@ -1819,24 +1822,6 @@ function readWB(file) {
   });
 }
 
-async function onWarehouse(inp) {
-  const f = inp.files[0]; if (!f) return;
-  showErr(""); document.getElementById("result").style.display = "none";
-  try {
-    const wb = await readWB(f);
-    let rows = null;
-    for (const sn of wb.SheetNames) {
-      const js = XLSX.utils.sheet_to_json(wb.Sheets[sn], { defval: "" });
-      if (js.length && Object.keys(js[0]).some(k => k.includes("رقم الصنف") || k.toLowerCase() === "code" || k.toLowerCase() === "sku")) { rows = js; break; }
-    }
-    if (!rows) throw new Error("لم أجد عمود 'رقم الصنف' في ملف المستودع");
-    whRows = rows;
-    document.getElementById("whStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${rows.length} صنف</span>`;
-    document.getElementById("whCard").classList.add("ok");
-  } catch (x) { showErr("ملف المستودع: " + x.message); }
-  inp.value = ""; checkReady();
-}
-
 async function onStore(inp) {
   const f = inp.files[0]; if (!f) return;
   showErr(""); document.getElementById("result").style.display = "none";
@@ -1857,7 +1842,6 @@ function checkReady() { document.getElementById("runBtn").disabled = !(whRows &&
 
 /* ========== دمج المستودع مع الفروع (اتحاد كامل بجمع الكميات — مرحلة أولى) ========== */
 let mergeWh = null, mergeBranches = [];   // مصفوفة فروع (قابلة للتوسّع لأكثر من فرع)
-function checkMergeReady() { const ok = !!(mergeWh && mergeBranches.length); ["mergeBtn", "mergeDlBtn"].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = !ok; }); }
 // قارئ مرن: يكتشف الأعمدة بالاسم (رأس موجود) أو بالموضع (بلا رأس)، كامل (5) أو مختصر (3)
 function parseInvRows(aoa) {
   if (!aoa || !aoa.length) return [];
@@ -1889,20 +1873,20 @@ async function onMergeWh(inp) {
   const f = inp.files[0]; if (!f) return; showErr("");
   try {
     mergeWh = await readInvFile(f); if (!mergeWh.length) throw new Error("لا أصناف صالحة في الملف");
-    document.getElementById("mWhStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${mergeWh.length} صنف</span>`;
-    document.getElementById("mWhCard").classList.add("ok");
-  } catch (x) { mergeWh = null; document.getElementById("mWhCard").classList.remove("ok"); showErr("ملف المستودع: " + x.message); }
-  inp.value = ""; checkMergeReady();
+    document.getElementById("whStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${mergeWh.length} صنف</span>`;
+    document.getElementById("whCard").classList.add("ok");
+  } catch (x) { mergeWh = null; document.getElementById("whCard").classList.remove("ok"); showErr("ملف المستودع: " + x.message); }
+  inp.value = ""; autoAdopt();   // دمج واعتماد تلقائي فوري
 }
 async function onMergeBranch(inp) {
   const f = inp.files[0]; if (!f) return; showErr("");
   try {
     const list = await readInvFile(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
     mergeBranches = [list];   // فرع واحد حالياً؛ الدالة تدعم أكثر من فرع لاحقاً
-    document.getElementById("mBrStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${list.length} صنف</span>`;
-    document.getElementById("mBrCard").classList.add("ok");
-  } catch (x) { mergeBranches = []; document.getElementById("mBrCard").classList.remove("ok"); showErr("ملف الفرع: " + x.message); }
-  inp.value = ""; checkMergeReady();
+    document.getElementById("brStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${list.length} صنف</span>`;
+    document.getElementById("brCard").classList.add("ok");
+  } catch (x) { mergeBranches = []; document.getElementById("brCard").classList.remove("ok"); showErr("ملف الفرع: " + x.message); }
+  inp.value = ""; autoAdopt();   // إضافة/تغيير الفرع ⇒ إعادة دمج تلقائي
 }
 const hasVal = v => v !== "" && v != null;
 // دالة الدمج النقية: اتحاد كامل بجمع الكميات عبر المستودع + كل الفروع (تقبل مصفوفة فروع)
@@ -1939,30 +1923,31 @@ function mergeInventory(whList, branchLists) {
   }
   return { unified, noPrice, both, whOnly, brOnly, total: map.size };
 }
-function showMergeSummary(res) {
-  const sm = document.getElementById("mergeSummary");
-  sm.style.display = "block";
-  sm.textContent = `موحّد: ${res.unified.length} · مشترك (جُمعت كمياته): ${res.both} · مستودع فقط: ${res.whOnly} · فرع فقط: ${res.brOnly} · بلا سعر: ${res.noPrice.length}`;
-  const warn = document.getElementById("mergeWarn");
-  if (res.total && res.both === 0) {
-    warn.style.display = "block";
-    warn.innerHTML = `⚠ لا يوجد أي كود مشترك بين الملفين — تأكّد أنهما من نفس النظام (قد تكون رفعت ملفاً خاطئاً).`;
-  } else { warn.style.display = "none"; warn.innerHTML = ""; }
-}
-// المرحلة الثانية: اعتماد ناتج الدمج مباشرةً كملف المستودع للمطابقة (نفس مسار البيانات — بلا تنزيل/إعادة رفع)
-function doMerge() {
-  if (!mergeWh || !mergeBranches.length) { showErr("ارفع ملف المستودع وملف الفرع أولاً."); return; }
-  const res = mergeInventory(mergeWh, mergeBranches);
+// اعتماد تلقائي فوري: بمجرد وجود ملف المستودع (± فرع) يُبنى «المخزن الموحّد» ويُعتمد مصدراً للمطابقة (بلا زر)
+function autoAdopt() {
+  const bar = document.getElementById("mergeResult"), warn = document.getElementById("mergeWarn"), dl = document.getElementById("mergeDlBtn");
+  document.getElementById("result").style.display = "none";
+  if (!mergeWh) {   // لا مستودع بعد ⇒ لا مخزن
+    whRows = null; if (dl) dl.disabled = true; warn.style.display = "none";
+    if (mergeBranches.length) { bar.style.display = "block"; bar.className = "merge-result wait"; bar.innerHTML = "⏳ ارفع «ملف المستودع» لإتمام الدمج."; }
+    else { bar.style.display = "none"; }
+    checkReady(); return;
+  }
+  const res = mergeInventory(mergeWh, mergeBranches);   // فروع فارغة = المستودع وحده
   whRows = res.unified.map(u => ({ "رقم الصنف": u.code, "اسم الصنف": u.name, "الكمية": u.qty, "سعر البيع شامل الضريبة": u.incl, "سعر البيع قبل الضريبة": u.excl }));
-  document.getElementById("whStatus").innerHTML = `<span class="from-merge">✓ من الدمج: مستودع ＋ فرع — ${res.unified.length} صنف</span>`;
-  document.getElementById("whCard").classList.add("ok");
-  showMergeSummary(res);
-  showErr("");
-  checkReady();
+  const hasBr = mergeBranches.length > 0, np = res.noPrice.length ? ` · بلا سعر ${res.noPrice.length}` : "";
+  bar.style.display = "block"; bar.className = "merge-result ok";
+  bar.innerHTML = hasBr
+    ? `✓ المخزن الموحّد: <b>${res.unified.length}</b> صنف <span class="mr-sub">(مشترك ${res.both} · مستودع فقط ${res.whOnly} · فرع فقط ${res.brOnly}${np})</span>`
+    : `✓ المخزن: ملف المستودع — <b>${res.unified.length}</b> صنف${np ? ` <span class="mr-sub">(${np.replace(" · ", "")})</span>` : ""}`;
+  if (dl) dl.disabled = false;
+  if (hasBr && res.total && res.both === 0) { warn.style.display = "block"; warn.innerHTML = `⚠ لا يوجد أي كود مشترك بين المستودع والفرع — تأكّد أنهما من نفس النظام (قد تكون رفعت ملفاً خاطئاً).`; }
+  else { warn.style.display = "none"; warn.innerHTML = ""; }
+  showErr(""); checkReady();
 }
-// طبقة التنزيل الاختيارية فوق دالة الدمج (للفحص اليدوي)
+// طبقة التنزيل الاختيارية فوق دالة الدمج (للفحص اليدوي) — تعمل مع المستودع وحده أو مع فرع
 function downloadMerge() {
-  if (!mergeWh || !mergeBranches.length) { showErr("ارفع ملف المستودع وملف الفرع أولاً."); return; }
+  if (!mergeWh) { showErr("ارفع «ملف المستودع» أولاً."); return; }
   const res = mergeInventory(mergeWh, mergeBranches);
   const main = [["رقم الصنف", "اسم الصنف", "الكمية", "سعر البيع شامل الضريبة", "سعر البيع قبل الضريبة", "مصدر الكمية"]];
   res.unified.forEach(u => main.push([u.code, u.name, u.qty, u.incl, u.excl, u.source]));
@@ -1971,7 +1956,6 @@ function downloadMerge() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(main), "تقرير عن المخزون");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(np), "بلا سعر — للتسعير");
-  showMergeSummary(res);
   const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a"); a.href = url; a.download = "merged_inventory.xlsx";
