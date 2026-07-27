@@ -315,7 +315,11 @@
   .bt-fam-head .btn-run { margin-inline-start: auto; }
   .bt-empty { color: var(--muted); text-align: center; padding: 40px; }
   .bt-none { color: var(--muted-2); }
-  .bt-combo { position: relative; margin-top: 5px; }
+  .batch-card.lost { border-color: rgba(224,176,96,.55); box-shadow: inset 3px 0 0 rgba(224,176,96,.65); }
+  .bt-card-chk { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 12.5px; color: var(--gold-2); cursor: pointer; padding: 5px 10px; border: 1px solid var(--border-strong); border-radius: 9px; margin-bottom: 4px; }
+  .bt-card-chk input { width: 16px; height: 16px; accent-color: var(--gold-2); }
+  .bt-hint { color: var(--muted); font-size: 12px; }
+  .bt-combo { position: relative; margin-top: 7px; }
   .bt-search { width: 100%; box-sizing: border-box; background: var(--panel-2); color: var(--fg); border: 1px solid var(--border); border-radius: 7px; padding: 4px 7px; font-size: 11px; }
   .bt-results { position: absolute; top: 100%; inset-inline: 0; z-index: 20; margin-top: 3px; max-height: 230px; overflow: auto; background: var(--panel); border: 1px solid var(--border-strong); border-radius: 9px; box-shadow: 0 12px 30px rgba(0,0,0,.5); }
   .bt-res-row { padding: 6px 9px; font-size: 11.5px; cursor: pointer; border-bottom: 1px solid var(--border); line-height: 1.4; }
@@ -1427,68 +1431,71 @@ function renderBatchTab() {
   else wrap.innerHTML = renderRed();
 }
 
-// خلية الاقتران الهجينة: الاسم الكامل للمرشّح المختار + بحث حيّ بكامل المستودع + الكميتان
-function candComboHTML(r, uid) {
-  const c = r.chosen || r.best;
-  const disp = c ? `<span class="bt-sku">${esc(String(c.code))}</span> · ${esc(c.name)}` : `<span class="bt-none">لا مرشّح — ابحث بالأسفل</span>`;
-  const tip = c ? esc(reasonText(c)) : "";
-  return `<div class="bt-cand-full" id="cand-${uid}" title="${tip}">${disp}</div>` +
-    `<div class="bt-combo"><input class="bt-search" id="s-${uid}" placeholder="🔎 غيّر/ابحث في المستودع بالكود أو الاسم…" oninput="comboSearch('${uid}')" onfocus="comboOpen('${uid}')" onblur="comboBlur('${uid}')">` +
-    `<div class="bt-results" id="res-${uid}" style="display:none"></div></div>` +
-    `<div class="bt-qtys" id="qty-${uid}">زد: <b>${esc(String(r.z.qty ?? "—"))}</b> · مستودع: <b>${c ? esc(String(c.qty ?? "—")) : "—"}</b></div>`;
+// بطاقة الربط الدفعي — بنفس شكل بطاقات «جديد يحتاج قراراً» (صورة ＋ 3 أعمدة منظّمة) ＋ تحديد ＋ بحث هجين ＋ ⏳/✕
+function batchMidInner(r) {
+  const c = r.chosen; if (!c) return `<span class="mc-none">لا مرشّح</span>`;
+  const pct = Math.round((c.sim || 0) * 100), simCls = pct >= 85 ? "sim-hi" : (pct >= 65 ? "sim-mid" : "sim-low");
+  return `<span class="simbadge ${simCls}">${pct}%</span>${priceBadge(r.z.price, c.price)}${c.sizeM ? `<span class="mc-arrow" title="المقاس متطابق">📐</span>` : ""}`;
 }
-// صف موحّد (🟢 و🟡): تحديد · صنف زد · مقاس · الاقتران الهجين+الكميتان · السعران · إجراء (⏳/✕)
-function batchRow(r, chkCls, famAttr) {
+function batchWhInner(r) {
+  const c = r.chosen;
+  if (!c) return `<div class="mc-none">لا مرشّح — ابحث بالأسفل لاختيار صنف من المستودع</div>`;
+  return `<div class="mc-name">${esc(c.name) || "—"}</div>` +
+    `<div class="mc-sku">باركود المستودع: <span dir="ltr">${esc(String(c.code))}</span></div>` +
+    `<div class="mc-sub">سعر المستودع: ${priceInt(c.price) ?? "—"} ر.س · الكمية: <b>${esc(String(c.qty ?? "—"))}</b></div>`;
+}
+function batchCardHTML(r, chkCls, famAttr) {
   const uid = "u" + (btUidSeq++); batchRowByUid[uid] = r;
   if (r.chosen === undefined) r.chosen = r.best;
-  const c = r.chosen;
-  return `<tr><td class="bt-c-chk"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${c ? "checked" : "disabled"}></td>` +
-    `<td><span class="bt-sku">${esc(String(r.z.sku))}</span>${lostTag(r)}<div class="bt-nm">${esc(r.z.name)}</div></td>` +
-    `<td class="bt-c-size" dir="ltr">${esc(extractSize(r.z.name) || "—")}</td>` +
-    `<td>${candComboHTML(r, uid)}</td>` +
-    `<td class="bt-c-price" id="price-${uid}"><span class="bt-price2">${c ? priceCell(r.z.price, c.price) : "—"}</span></td>` +
-    `<td class="bt-c-act"><button class="mc-btn xrow" title="غير متوفر حالياً (⏳ انتظار)" onclick="batchExclude('${uid}','wait')">⏳</button>` +
-    `<button class="mc-btn xrow" title="تجاهل (✕)" onclick="batchExclude('${uid}','ignore')">✕</button></td></tr>`;
+  const c = r.chosen, zp = priceInt(r.z.price);
+  const zid = `<div class="mc-zid"><span class="mc-tag zid">ZID PRODUCT</span>
+      <div class="mc-row">${thumb(r.z.img)}<div class="mc-txt">
+        <div class="mc-name">${esc(r.z.name) || "—"}</div>
+        <div class="mc-sku">SKU: <span dir="ltr">${esc(String(r.z.sku))}</span>${lostTag(r)}</div>
+        <div class="mc-sub">سعر زد: ${zp ?? "—"} ر.س · الكمية: <b>${esc(String(r.z.qty ?? "—"))}</b></div>
+      </div></div></div>`;
+  const mid = `<div class="mc-mid" id="mid-${uid}">${batchMidInner(r)}</div>`;
+  const wh = `<div class="mc-wh"><span class="mc-tag whs">WAREHOUSE</span>
+      <div id="whd-${uid}">${batchWhInner(r)}</div>
+      <div class="bt-combo"><input class="bt-search" id="s-${uid}" placeholder="🔎 غيّر/ابحث في المستودع بالكود أو الاسم…" oninput="comboSearch('${uid}')" onfocus="comboOpen('${uid}')" onblur="comboBlur('${uid}')"><div class="bt-results" id="res-${uid}" style="display:none"></div></div>
+    </div>`;
+  const actions = `<div class="mc-actions">
+      <label class="bt-card-chk"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${c ? "checked" : ""}><span>اعتماد</span></label>
+      <button class="mc-btn wait" onclick="batchExclude('${uid}','wait')" title="سجّله «غير متوفر حالياً» (⏳)">⏳ غير متوفر</button>
+      <button class="mc-btn ignore" onclick="batchExclude('${uid}','ignore')" title="تجاهله (✕)">✕ تجاهل</button>
+    </div>`;
+  return `<div class="mcard batch-card${r.wasLinked ? " lost" : ""}">${zid}${mid}${wh}${actions}</div>`;
 }
-const BT_COLS = `<colgroup><col style="width:30px"><col style="width:22%"><col style="width:54px"><col><col style="width:90px"><col style="width:70px"></colgroup>`;
-const BT_HEAD = `<thead><tr><th class="bt-c-chk"></th><th>صنف زد</th><th>المقاس</th><th>الاقتران (المستودع) — اسم كامل ＋ بحث ＋ الكميتان</th><th>السعران</th><th>إجراء</th></tr></thead>`;
-
 // 🟢 المؤكد — الكل محدد افتراضياً؛ الاعتماد للمحدد فقط
 function renderGreen() {
   const list = btFilter(batchData.green);
   if (!list.length) return `<div class="bt-empty">${batchLostOnly ? "لا «سبق ربطه» في المؤكد." : "لا توجد مطابقات مؤكدة. جرّب تبويب 🟡."}</div>`;
-  const rows = list.map(r => batchRow(r, "bt-g", "")).join("");
+  const cards = list.map(r => batchCardHTML(r, "bt-g", "")).join("");
   return `<div class="bt-actionrow"><button class="btn-run sm" onclick="acceptGreen()">✓ اعتماد المحدد (<span id="btGN">${list.length}</span> من ${list.length})</button>
     <button class="mc-btn" onclick="btToggleAll('bt-g',true,null,'btGN')">تحديد الكل</button><button class="mc-btn" onclick="btToggleAll('bt-g',false,null,'btGN')">إلغاء الكل</button></div>
-    <div class="twrap"><table class="bt-table">${BT_COLS}${BT_HEAD}<tbody onchange="btCount('bt-g','btGN')">${rows}</tbody></table></div>`;
+    <div class="mcards" onchange="btCount('bt-g','btGN')">${cards}</div>`;
 }
-// 🟡 مجمّع بالعائلة — الاعتماد للصفوف المحددة داخل العائلة فقط
+// 🟡 مجمّع بالعائلة — الاعتماد للبطاقات المحددة داخل العائلة فقط
 function renderYellow() {
   const fams = curYellowFams();
   if (!fams.length) return `<div class="bt-empty">${batchLostOnly ? "لا «سبق ربطه» في المحتمل." : "لا مطابقات محتملة."}</div>`;
   return fams.map((f, fi) => {
     const m = f.rows.length;
-    const rows = f.rows.map(r => batchRow(r, "bt-y", `data-fam="${fi}"`)).join("");
+    const cards = f.rows.map(r => batchCardHTML(r, "bt-y", `data-fam="${fi}"`)).join("");
     return `<div class="bt-fam"><div class="bt-fam-head"><b>${esc(f.root)}</b> <span class="bt-fam-n">${m} صنف</span>
       <button class="mc-btn xs" onclick="btToggleAll('bt-y',true,${fi},'famN-${fi}')">الكل</button><button class="mc-btn xs" onclick="btToggleAll('bt-y',false,${fi},'famN-${fi}')">لا شيء</button>
       <button class="btn-run sm" onclick="acceptFamily(${fi})">✓ اعتماد المحدد (<span id="famN-${fi}">${m}</span> من ${m})</button></div>
-      <div class="twrap"><table class="bt-table">${BT_COLS}${BT_HEAD}<tbody onchange="btCount('bt-y','famN-${fi}',${fi})">${rows}</tbody></table></div></div>`;
+      <div class="mcards" onchange="btCount('bt-y','famN-${fi}',${fi})">${cards}</div></div>`;
   }).join("");
 }
-// 🔴 بلا مرشح — تحديد جماعي + إجراءات (كما هو)
+// 🔴 بلا مرشح — بطاقات (ابحث لإيجاد مرشّح ثم اعتمد؛ أو ⏳/✕ لكل صنف)
 function renderRed() {
   const list = btFilter(batchData.red);
   if (!list.length) return `<div class="bt-empty">${batchLostOnly ? "لا «سبق ربطه» بلا مرشّح." : "لا شيء بلا مرشّح 🎉"}</div>`;
-  const rows = list.map(r =>
-    `<tr><td class="bt-c-chk"><input type="checkbox" class="bt-r" data-sku="${esc(String(r.z.sku))}" data-skun="${esc(String(r.z.skuN))}" checked></td>` +
-    `<td><span class="bt-sku">${esc(String(r.z.sku))}</span>${lostTag(r)}<div class="bt-nm">${esc(r.z.name)}</div></td>` +
-    `<td class="bt-c-num" dir="ltr">${priceInt(r.z.price) ?? "—"}</td><td class="bt-c-num">${esc(String(r.z.qty ?? ""))}</td>` +
-    `<td class="bt-c-act"><button class="mc-btn" onclick="startManualLink('${esc(String(r.z.skuN))}');closeBatchAnalysis()">🔗 ربط يدوي</button></td></tr>`).join("");
-  return `<div class="bt-actionrow"><button class="mc-btn ignore" onclick="acceptRed('ignore')">🚫 تجاهل المحدد</button>
-    <button class="mc-btn wait" onclick="acceptRed('wait')">⏳ غير متوفر — المحدد</button>
-    <button class="mc-btn" onclick="btToggleAll('bt-r',true)">تحديد الكل</button><button class="mc-btn" onclick="btToggleAll('bt-r',false)">إلغاء الكل</button></div>
-    <div class="twrap"><table class="bt-table"><colgroup><col style="width:30px"><col><col style="width:70px"><col style="width:70px"><col style="width:120px"></colgroup>
-    <thead><tr><th class="bt-c-chk"></th><th>صنف زد</th><th>السعر</th><th>الكمية</th><th>إجراء فردي</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const cards = list.map(r => batchCardHTML(r, "bt-rd", "")).join("");
+  return `<div class="bt-actionrow"><button class="btn-run sm" onclick="acceptRed()">✓ اعتماد المحدد</button>
+    <span class="bt-hint">ابحث في كل بطاقة لإيجاد مرشّح من المستودع ثم اعتمد؛ أو ⏳/✕ لكل صنف.</span></div>
+    <div class="mcards">${cards}</div>`;
 }
 function btToggleAll(cls, on, fam, spanId) {
   const sel = fam != null ? `#batchBody .${cls}[data-fam="${fam}"]` : `#batchBody .${cls}`;
@@ -1524,13 +1531,11 @@ function comboPick(uid, code) {
   const w = lastWhList.find(x => normCode(x.code) === normCode(code)) || (r.scored || []).find(s => normCode(s.code) === normCode(code));
   if (!w) return;
   r.chosen = { code: w.code, name: w.name, price: w.price, qty: w.qty, sizeM: !!(extractSize(r.z.name) && extractSize(w.name) && extractSize(r.z.name) === extractSize(w.name)), priceM: priceMatch(r.z.price, w.price), sim: nameSimilarity(r.z.name, w.name) };
-  const cf = document.getElementById("cand-" + uid); if (cf) { cf.innerHTML = `<span class="bt-sku">${esc(String(w.code))}</span> · ${esc(w.name)}`; cf.title = esc(reasonText(r.chosen)); }
-  const qc = document.getElementById("qty-" + uid); if (qc) qc.innerHTML = `زد: <b>${esc(String(r.z.qty ?? "—"))}</b> · مستودع: <b>${esc(String(w.qty ?? "—"))}</b>`;
-  const pc = document.getElementById("price-" + uid); if (pc) pc.innerHTML = `<span class="bt-price2">${priceCell(r.z.price, w.price)}</span>`;
+  const whd = document.getElementById("whd-" + uid); if (whd) whd.innerHTML = batchWhInner(r);   // عمود المستودع في البطاقة
+  const mid = document.getElementById("mid-" + uid); if (mid) mid.innerHTML = batchMidInner(r);   // مؤشر المطابقة
   const b = document.getElementById("res-" + uid); if (b) b.style.display = "none";
   const inp = document.getElementById("s-" + uid); if (inp) inp.value = "";
-  // تأكد أن الصف محدَّد بعد تثبيت مرشّح
-  const chk = document.querySelector(`#batchBody input[data-uid="${uid}"]`); if (chk) { chk.disabled = false; chk.checked = true; }
+  const chk = document.querySelector(`#batchBody input[data-uid="${uid}"]`); if (chk) { chk.disabled = false; chk.checked = true; }   // تثبيت المرشّح ⇒ حدِّد البطاقة
 }
 
 // ==== الاستبعاد الفردي: ⏳ انتظار / ✕ تجاهل — يُحفظ فوراً ويُزال من العائلة بلا اعتماد ====
@@ -1563,15 +1568,11 @@ function acceptFamily(fi) {
   if (!pairs.length) { showToast("لا صفوف محددة في هذه العائلة."); return; }
   batchApply(pairs, "auto-approved");
 }
-function acceptRed(action) {
-  const boxes = [...document.querySelectorAll("#batchBody .bt-r")].filter(c => c.checked);
-  if (!boxes.length) { showToast("لم تحدد شيئاً."); return; }
-  boxes.forEach(c => { const skuN = c.dataset.skun; if (action === "ignore") ignoredSet.add(normCode(skuN)); else waitingSet.add(normCode(skuN)); });
-  if (action === "ignore") saveIgnored(); else saveWaiting();
-  renderIgnored(lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN))));
-  updateNewCount(); renderFingerprint();
-  batchData = analyzeBatch(); renderBatchTab();
-  showToast(`${action === "ignore" ? "🚫 تجاهل" : "⏳ نقل للانتظار"}: ${boxes.length} صنف.`);
+// 🔴: اعتماد البطاقات التي عيّن لها المستخدم مرشّحاً بالبحث (التجاهل/الانتظار عبر ⏳/✕ لكل بطاقة)
+function acceptRed() {
+  const pairs = btReadChecked("bt-rd");
+  if (!pairs.length) { showToast("لم تختر مرشّحاً لأي بطاقة بعد — ابحث ثم حدّد."); return; }
+  batchApply(pairs, "auto-approved");
 }
 
 // تحليل الأسعار ومؤشر التطابق السعري
