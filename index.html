@@ -604,6 +604,33 @@
   .maprow { display: flex; gap: 8px; flex-wrap: wrap; }
   .map-counter { display: inline-flex; align-items: center; gap: 8px; background: rgba(230,197,111,.10); border: 1px solid rgba(230,197,111,.35); border-radius: 20px; padding: 7px 15px; font-size: 13.5px; font-weight: 700; color: var(--gold-2); margin-bottom: 12px; }
   .map-counter b { font-size: 16px; font-weight: 800; color: var(--gold-2); }
+  .map-badge b { color: var(--gold-2); font-weight: 800; }
+  /* === 🔍 استعلام عن منتج — عمودان مستقلان === */
+  .query-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .query-col { display: flex; flex-direction: column; min-width: 0; }
+  .query-head { font-size: 13.5px; font-weight: 800; color: var(--gold-2); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .q-count { font-size: 11.5px; font-weight: 700; color: var(--muted); background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; }
+  .query-input { width: 100%; }
+  .q-results { margin-top: 10px; max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding-inline-end: 2px; }
+  .q-empty { color: var(--muted-2); font-size: 12.5px; padding: 14px 6px; text-align: center; }
+  .q-warn { color: var(--gold-2); font-size: 12.5px; padding: 12px 10px; text-align: center; background: rgba(230,197,111,.07); border: 1px dashed rgba(230,197,111,.35); border-radius: 10px; }
+  .q-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; }
+  .q-card-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .q-code { font-family: ui-monospace, monospace; font-size: 12.5px; font-weight: 800; color: var(--gold); }
+  .q-name { font-size: 12.5px; font-weight: 600; color: var(--text); flex: 1 1 auto; min-width: 0; line-height: 1.5; }
+  .q-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .q-chip { font-size: 11px; font-weight: 700; border-radius: 8px; padding: 2px 8px; border: 1px solid var(--border); color: var(--muted); background: rgba(255,255,255,.03); white-space: nowrap; }
+  .q-chip.qty-in { color: #8fbf98; border-color: rgba(143,191,152,.4); background: rgba(143,191,152,.10); }
+  .q-chip.qty-out { color: #d99; border-color: rgba(200,120,120,.4); background: rgba(200,120,120,.10); }
+  .q-chip.price { color: var(--gold-2); border-color: rgba(230,197,111,.4); background: rgba(230,197,111,.08); }
+  .q-chip.bar { font-family: ui-monospace, monospace; }
+  .q-chip.src-wh { color: var(--gold-2); border-color: rgba(230,197,111,.45); background: rgba(230,197,111,.10); }
+  .q-chip.src-br { color: #9ab6cc; border-color: rgba(140,170,200,.45); background: rgba(140,170,200,.10); }
+  .q-chip.src-both { color: #8fbf98; border-color: rgba(143,191,152,.45); background: rgba(143,191,152,.10); }
+  .q-chip.pub-yes { color: #8fbf98; border-color: rgba(143,191,152,.45); background: rgba(143,191,152,.10); }
+  .q-chip.pub-no { color: #d99; border-color: rgba(200,120,120,.45); background: rgba(200,120,120,.10); }
+  .q-chip.parent { color: #c9a6e0; border-color: rgba(180,140,220,.45); background: rgba(180,140,220,.10); }
+  @media (max-width: 900px) { .query-row { grid-template-columns: 1fr; } }
   .repo-box { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
   .repo-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px; background: none; border: none; cursor: pointer; font-family: inherit; padding: 0; text-align: start;
     font-size: 11.5px; font-weight: 800; color: var(--gold); letter-spacing: .1em; text-transform: uppercase; }
@@ -648,6 +675,7 @@
     </div>
     <div class="topbar-side">
       <span class="db-badge" id="dbBadge" title="حالة الاتصال بقاعدة البيانات">⚪ …</span>
+      <span class="db-badge map-badge" id="mapCountBadge" title="الروابط اليدوية المحفوظة (تُدار من لوحة التحليل الذكي)">🔗 الروابط: <b id="mapCount">0</b></span>
       <button type="button" class="theme-btn" id="logoutBtn" onclick="doLogout()" style="display:none">🚪 خروج</button>
       <button type="button" class="theme-btn" id="themeBtn" onclick="toggleTheme()">☀ الوضع الفاتح</button>
       <div class="gh-menu">
@@ -855,20 +883,20 @@
     </div>
   </div>
 
-  <div class="section-head"><span class="n">٣</span><h2>ربط يدوي <span style="color:var(--muted-2);font-weight:600;font-size:13px">(اختياري)</span></h2><span class="line"></span></div>
+  <div class="section-head"><span class="n">٣</span><h2>🔍 استعلام عن منتج <span style="color:var(--muted-2);font-weight:600;font-size:13px">(بحثان مستقلان)</span></h2><span class="line"></span></div>
   <div class="card">
-    <div class="map-counter">🔗 الروابط المحفوظة حالياً: <b id="mapCount">0</b></div>
-    <p class="hint">للأصناف التي يختلف كودها بين المستودع وزد: ابحث في المستودع بالأسفل، اختر الصنف الصحيح ليُعبّأ كوده، ثم أدخل SKU زد واحفظ الربط. يُطبَّق تلقائياً في كل مطابقة.</p>
-    <div class="wh-search-wrap">
-      <input type="text" id="whSearch" placeholder="🔎 ابحث في ملف المستودع (بالاسم أو الكود)..." oninput="searchWarehouse()">
-      <div id="whResults" class="wh-results"></div>
+    <div class="query-row">
+      <div class="query-col">
+        <div class="query-head">🏬 بحث في المخزن <span class="q-count" id="whQCount"></span></div>
+        <input type="text" id="whQuery" class="query-input" placeholder="🔎 بالكود أو الاسم أو الباركود…" oninput="qDebounce('wh')">
+        <div class="q-results" id="whQResults"><div class="q-empty">اكتب للبحث في المخزن الموحّد (مستودع ＋ فرع)…</div></div>
+      </div>
+      <div class="query-col">
+        <div class="query-head">🏪 بحث في متجر زد <span class="q-count" id="zdQCount"></span></div>
+        <input type="text" id="zdQuery" class="query-input" placeholder="🔎 بالـSKU أو الاسم أو الباركود…" oninput="qDebounce('zd')">
+        <div class="q-results" id="zdQResults"><div class="q-empty">اكتب للبحث في تصدير زد المرفوع…</div></div>
+      </div>
     </div>
-    <div class="maprow">
-      <input type="text" id="mSku" placeholder="SKU في زد (مثال: 80207)" onkeydown="if(event.key==='Enter')addMapping()">
-      <input type="text" id="mCode" placeholder="كود المستودع (اختره من البحث أعلاه)" onkeydown="if(event.key==='Enter')addMapping()">
-      <button class="btn-run sm" onclick="addMapping()">حفظ الربط</button>
-    </div>
-    <div class="pills" id="pills"></div>
   </div>
 
   <details class="card" id="ignoredCard" style="display:none">
@@ -902,7 +930,7 @@ const WAIT_KEY = "zid-waiting-v1";            // أصناف «غير متوفر 
 const ALIAS_KEY = "zid-aliases-v1";          // أزواج «جذر زد|||جذر مستودع» المتعلَّمة (aliases.json)
 const TAGS_KEY = "zid-link-tags-v1";         // {sku:{tag,date}} وسم كل رابط (link-tags.json)
 const OPT_KEY = "zid-options-v1";
-let whRows = null, stData = null;
+let whRows = null, stData = null, lastMerge = null;   // lastMerge: ناتج الدمج للاستعلام عن منتج (بحث المخزن)
 let opts = { price: "incl", inf: "skip", absent: "keep", lowzero: "on", lowPrice: 400, lowQty: 3, split: "equal" };
 let manualMap = {};
 let baseMap = {}, baseIgnSet = new Set();   // نسخة الملف (mapping.json/ignored.json) للتمييز عن المحلي غير المصدَّر
@@ -1882,6 +1910,7 @@ async function onStore(inp) {
     stData = { sheetName, rows, header };
     document.getElementById("stStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${rows.length - 1} سطر</span>`;
     document.getElementById("stCard").classList.add("ok");
+    zidIndexCache = null; if (typeof runZdQuery === "function") runZdQuery();   // حدّث فهرس/نتائج «استعلام عن منتج»
   } catch (x) { showErr("ملف المتجر: " + x.message); }
   inp.value = ""; checkReady();
 }
@@ -1895,7 +1924,7 @@ function parseInvRows(aoa) {
   if (!aoa || !aoa.length) return [];
   const first = (aoa[0] || []).map(c => String(c == null ? "" : c).trim());
   const looksHeader = first.some(c => /رقم الصنف|كود|اسم|كمية|سعر|شامل|قبل|code|name|qty|quantity|price/i.test(c));
-  let ci = 0, ni = 1, qi = 2, ii = -1, ei = -1, start = 0;
+  let ci = 0, ni = 1, qi = 2, ii = -1, ei = -1, bi = -1, start = 0;
   if (looksHeader) {
     start = 1;
     const find = re => first.findIndex(c => re.test(c));
@@ -1904,6 +1933,7 @@ function parseInvRows(aoa) {
     qi = find(/كمية|qty|quantity/i); if (qi < 0) qi = 2;
     ii = find(/شامل|incl/i);
     ei = find(/قبل|excl/i);
+    bi = find(/باركود|barcode/i);
   } else if ((aoa[0] || []).length >= 5) { ii = 3; ei = 4; }   // مختصر بلا رأس وكامل ⇒ موضعي
   const out = [];
   for (let r = start; r < aoa.length; r++) {
@@ -1911,7 +1941,8 @@ function parseInvRows(aoa) {
     if (!code) continue;
     out.push({
       code, name: (ni >= 0 && row[ni] != null) ? String(row[ni]).trim() : "",
-      qty: qi >= 0 ? row[qi] : "", incl: ii >= 0 ? row[ii] : "", excl: ei >= 0 ? row[ei] : ""
+      qty: qi >= 0 ? row[qi] : "", incl: ii >= 0 ? row[ii] : "", excl: ei >= 0 ? row[ei] : "",
+      bar: (bi >= 0 && row[bi] != null) ? String(row[bi]).trim() : ""
     });
   }
   return out;
@@ -1944,18 +1975,20 @@ function mergeInventory(whList, branchLists) {
   const add = (list, isWh) => {
     for (const it of list || []) {
       let e = map.get(it.code);
-      if (!e) { e = { code: it.code, name: "", qty: 0, incl: "", excl: "", inWh: false, inBranch: false }; map.set(it.code, e); }
+      if (!e) { e = { code: it.code, name: "", qty: 0, incl: "", excl: "", bar: "", inWh: false, inBranch: false }; map.set(it.code, e); }
       const q = Number(String(it.qty).replace(/[^\d.\-]/g, "")); if (Number.isFinite(q)) e.qty += q;   // جمع الكميات
       if (isWh) e.inWh = true; else e.inBranch = true;
-      // الاسم والسعر: أولوية المستودع، ثم يُملأ من الفرع إن غاب
+      // الاسم والسعر والباركود: أولوية المستودع، ثم يُملأ من الفرع إن غاب
       if (isWh) {
         if (hasVal(it.name)) e.name = String(it.name).trim();
         if (hasVal(it.incl)) e.incl = it.incl;
         if (hasVal(it.excl)) e.excl = it.excl;
+        if (hasVal(it.bar)) e.bar = String(it.bar).trim();
       } else {
         if (!hasVal(e.name) && hasVal(it.name)) e.name = String(it.name).trim();
         if (!hasVal(e.incl) && hasVal(it.incl)) e.incl = it.incl;
         if (!hasVal(e.excl) && hasVal(it.excl)) e.excl = it.excl;
+        if (!hasVal(e.bar) && hasVal(it.bar)) e.bar = String(it.bar).trim();
       }
     }
   };
@@ -1965,8 +1998,9 @@ function mergeInventory(whList, branchLists) {
   let both = 0, whOnly = 0, brOnly = 0;
   for (const e of map.values()) {
     const source = (e.inWh && e.inBranch) ? "مستودع ＋ فرع (مجموعة)" : (e.inWh ? "مستودع فقط" : "فرع فقط");
+    const srcKind = (e.inWh && e.inBranch) ? "both" : (e.inWh ? "wh" : "br");
     if (e.inWh && e.inBranch) both++; else if (e.inWh) whOnly++; else brOnly++;
-    const rec = { code: e.code, name: e.name, qty: e.qty, incl: e.incl, excl: e.excl, source };
+    const rec = { code: e.code, name: e.name, qty: e.qty, incl: e.incl, excl: e.excl, bar: e.bar, source, srcKind };
     if (hasVal(e.incl) || hasVal(e.excl)) unified.push(rec); else noPrice.push(rec);   // بلا سعر ⇒ يُستبعد من الرئيسية
   }
   return { unified, noPrice, both, whOnly, brOnly, total: map.size };
@@ -1976,12 +2010,15 @@ function autoAdopt() {
   const bar = document.getElementById("mergeResult"), warn = document.getElementById("mergeWarn");
   document.getElementById("result").style.display = "none";
   if (!mergeWh) {   // لا مستودع بعد ⇒ لا مخزن
-    whRows = null; warn.style.display = "none";
+    whRows = null; lastMerge = null; warn.style.display = "none";
     if (mergeBranches.length) { bar.style.display = "block"; bar.className = "merge-result wait"; bar.innerHTML = "⏳ ارفع «ملف المستودع» لإتمام الدمج."; }
     else { bar.style.display = "none"; }
+    if (typeof runWhQuery === "function") runWhQuery();
     checkReady(); return;
   }
   const res = mergeInventory(mergeWh, mergeBranches);   // فروع فارغة = المستودع وحده
+  lastMerge = res;   // للاستعلام عن منتج (بحث المخزن)
+  if (typeof runWhQuery === "function") runWhQuery();
   whRows = res.unified.map(u => ({ "رقم الصنف": u.code, "اسم الصنف": u.name, "الكمية": u.qty, "سعر البيع شامل الضريبة": u.incl, "سعر البيع قبل الضريبة": u.excl }));
   const hasBr = mergeBranches.length > 0;
   const cell = (n, l, cls) => `<div class="mr-cell ${cls}"><span class="mr-num">${n}</span><span class="mr-lbl">${l}</span></div>`;
@@ -2996,14 +3033,12 @@ function suggestionsCardsHTML(items) {
     </div>
     <div class="mcards" id="unBody">${items.map(cardHtml).join("")}</div>`;
 }
-// فتح البحث الداخلي للربط اليدوي معبّأً بهذا الصنف (بكامل وظائف البحث الحالية)
+// الربط اليدوي صار داخل لوحة التحليل الذكي (البحث الهجين في البطاقات) — نفتحها ونركّز على صف هذا الصنف
 function startManualLink(skuN) {
-  const it = (lastUnmatched || []).find(x => normCode(x.skuN) === normCode(skuN));
-  document.getElementById("mSku").value = it ? it.sku : skuN;
-  const ws = document.getElementById("whSearch");
-  if (it && it.name) { ws.value = it.name; searchWarehouse(); }
-  document.getElementById("mSku").scrollIntoView({ behavior: "smooth", block: "center" });
-  ws.focus();
+  openBatchAnalysis();
+  document.getElementById("unBlock").scrollIntoView({ behavior: "smooth", block: "start" });
+  const uid = Object.keys(batchRowByUid).find(u => batchRowByUid[u].z && normCode(batchRowByUid[u].z.skuN) === normCode(skuN));
+  if (uid) { const inp = document.getElementById("s-" + uid); if (inp) { inp.scrollIntoView({ behavior: "smooth", block: "center" }); inp.focus(); } }
 }
 
 // صنف "مؤكد": تشابه اسم 90%+ وفرق سعري ≤5%
@@ -3105,28 +3140,104 @@ async function bindAll90() {
   updateNewCount();
 }
 
-// بحث منفصل داخل ملف المستودع (للربط اليدوي)
-let whResultsList = [];
-function searchWarehouse() {
-  const q = normText(document.getElementById("whSearch").value);
-  const box = document.getElementById("whResults");
-  if (!q) { box.innerHTML = ""; whResultsList = []; return; }
-  if (!lastWhList.length) { box.innerHTML = '<div class="wh-empty">شغّل «طابق وأنشئ الملف» أولاً لتحميل بيانات المستودع</div>'; whResultsList = []; return; }
-  whResultsList = lastWhList.filter(w => normText(w.code + " " + w.name).includes(q)).slice(0, 25);
-  if (!whResultsList.length) { box.innerHTML = '<div class="wh-empty">لا نتائج مطابقة في ملف المستودع</div>'; return; }
-  box.innerHTML = whResultsList.map((w, i) => {
-    const q = Number(w.qty) || 0;
-    return `<div class="wh-row"><span class="sugg-code">${esc(w.code)}</span> <span class="sugg-name">${esc(w.name)}</span>` +
-      (w.price != null ? ` <span class="wh-price">${priceInt(w.price)} ر.س</span>` : "") +
-      ` <span class="wh-qty ${q > 0 ? "in" : "out"}">الكمية: ${q}</span>` +
-      `<button class="mini bind" onclick="pickWh(${i})">اختر ←</button></div>`;
+// ==================== 🔍 استعلام عن منتج — بحثان مستقلان ====================
+const Q_MAX = 15;   // أقصى نتائج لكل عمود
+let qTimers = {};
+function qDebounce(which) { clearTimeout(qTimers[which]); qTimers[which] = setTimeout(() => (which === "wh" ? runWhQuery() : runZdQuery()), 180); }
+
+// --- العمود الأيمن: بحث في المخزن الموحّد (ناتج الدمج) ---
+function runWhQuery() {
+  const inp = document.getElementById("whQuery"); if (!inp) return;
+  const box = document.getElementById("whQResults"), cnt = document.getElementById("whQCount");
+  const q = normText(inp.value.trim());
+  const store = lastMerge ? [...lastMerge.unified, ...lastMerge.noPrice] : [];
+  if (!store.length) { box.innerHTML = '<div class="q-warn">ارفع «ملف المستودع» في الخطوة ① أولاً.</div>'; if (cnt) cnt.textContent = ""; return; }
+  if (!q) { box.innerHTML = '<div class="q-empty">اكتب للبحث في المخزن الموحّد (مستودع ＋ فرع)…</div>'; if (cnt) cnt.textContent = ""; return; }
+  const nc = normCode(q);
+  const hits = store.filter(w => {
+    if (normText(String(w.code) + " " + w.name + " " + (w.bar || "")).includes(q)) return true;
+    return nc && (normCode(w.code) === nc || (w.bar && normCode(w.bar) === nc));
+  });
+  const shown = hits.slice(0, Q_MAX);
+  if (cnt) cnt.textContent = hits.length ? `${hits.length}${hits.length > Q_MAX ? "+" : ""} نتيجة` : "";
+  if (!shown.length) { box.innerHTML = '<div class="q-empty">لا نتائج مطابقة في المخزن.</div>'; return; }
+  box.innerHTML = shown.map(w => {
+    const qn = Number(w.qty) || 0;
+    const price = (w.incl != null && w.incl !== "") ? priceInt(w.incl) : ((w.excl != null && w.excl !== "") ? priceInt(w.excl) : null);
+    const srcTxt = w.srcKind === "both" ? "مشترك" : (w.srcKind === "br" ? "فرع" : "مستودع");
+    const srcCls = w.srcKind === "both" ? "src-both" : (w.srcKind === "br" ? "src-br" : "src-wh");
+    return `<div class="q-card"><div class="q-card-top"><span class="q-code" dir="ltr">${esc(String(w.code))}</span><span class="q-name">${esc(w.name) || "—"}</span></div>`
+      + `<div class="q-meta"><span class="q-chip src ${srcCls}">${srcTxt}</span>`
+      + `<span class="q-chip ${qn > 0 ? "qty-in" : "qty-out"}">كمية: ${qn}</span>`
+      + (price != null ? `<span class="q-chip price">${price} ر.س</span>` : "")
+      + (w.bar ? `<span class="q-chip bar" dir="ltr" title="باركود">${esc(String(w.bar))}</span>` : "")
+      + `</div></div>`;
   }).join("");
 }
-function pickWh(i) {
-  const w = whResultsList[i];
-  if (!w) return;
-  document.getElementById("mCode").value = w.code;
-  document.getElementById("mSku").focus();
+
+// --- العمود الأيسر: بحث في تصدير زد — فهرس محسوب مرة (مع حالة نشر الأب للمتغيرات) ---
+let zidIndexCache = null;
+function buildZidIndex() {
+  if (zidIndexCache && zidIndexCache.ref === stData) return zidIndexCache.list;
+  const H = stData.header, rows = stData.rows;
+  const iSku = H.indexOf("sku"), iName = H.indexOf("name_ar"), iPrice = H.indexOf("price"),
+        iQty = H.indexOf("quantity"), iPub = H.indexOf("published"), iBar = H.indexOf("barcode");
+  const iHasVar = H.findIndex(h => String(h).toLowerCase().replace(/\s+/g, "_").includes("has_variant"));
+  const isYesVar = v => { const s = String(v == null ? "" : v).trim().toLowerCase(); return s === "yes" || s === "true" || s === "1" || s === "نعم"; };
+  // آباء has_variants=Yes ثم اكتشاف عمود «مرجع الأب» (كما في run) لعرض نشر الأب للمتغيرات
+  const hasVarYesSet = new Set(), parentSkuByNorm = {};
+  if (iHasVar >= 0) for (let i = 1; i < rows.length; i++) { const rs = rows[i][iSku]; if (rs === "" || rs == null) continue; if (isYesVar(rows[i][iHasVar])) { const rk = String(rs); hasVarYesSet.add(rk); parentSkuByNorm[normCode(rk)] = rk; } }
+  let parentCol = -1, bestHits = 0;
+  if (hasVarYesSet.size) for (let c = 0; c < H.length; c++) {
+    if (c === iSku) continue;
+    let hits = 0;
+    for (let i = 1; i < rows.length; i++) { const v = rows[i][c]; if (v === "" || v == null) continue; const vs = String(v).trim(); if (hasVarYesSet.has(vs) || parentSkuByNorm[normCode(vs)]) hits++; }
+    if (hits > bestHits) { bestHits = hits; parentCol = c; }
+  }
+  const pubByRaw = {};
+  for (let i = 1; i < rows.length; i++) { const rs = rows[i][iSku]; if (rs === "" || rs == null) continue; if (iPub >= 0) pubByRaw[String(rs)] = rows[i][iPub]; }
+  const list = [];
+  for (let i = 1; i < rows.length; i++) {
+    const rs = rows[i][iSku]; if (rs === "" || rs == null) continue;
+    const rk = String(rs), isParent = hasVarYesSet.has(rk);
+    // نشر الأب يتحكم بالمتغير: إن وُجد مرجع أب، خذ حالة نشره
+    let pubRaw = iPub >= 0 ? rows[i][iPub] : "";
+    if (!isParent && parentCol >= 0) {
+      const v = rows[i][parentCol]; const vs = v == null ? "" : String(v).trim();
+      const pSku = hasVarYesSet.has(vs) ? vs : parentSkuByNorm[normCode(vs)];
+      if (pSku && pSku in pubByRaw) pubRaw = pubByRaw[pSku];
+    }
+    const name = iName >= 0 ? String(rows[i][iName] || "") : "";
+    const bar = iBar >= 0 ? String(rows[i][iBar] == null ? "" : rows[i][iBar]).trim() : "";
+    list.push({ sku: rk, name, price: iPrice >= 0 ? rows[i][iPrice] : null, qty: iQty >= 0 ? rows[i][iQty] : null,
+      pub: isYesVar(pubRaw), bar, isParent, search: normText(rk + " " + name + " " + bar) });
+  }
+  zidIndexCache = { ref: stData, list };
+  return list;
+}
+function runZdQuery() {
+  const inp = document.getElementById("zdQuery"); if (!inp) return;
+  const box = document.getElementById("zdQResults"), cnt = document.getElementById("zdQCount");
+  const q = normText(inp.value.trim());
+  if (!stData || !stData.rows || stData.rows.length < 2) { box.innerHTML = '<div class="q-warn">ارفع «تصدير زد» في الخطوة ① أولاً.</div>'; if (cnt) cnt.textContent = ""; return; }
+  if (!q) { box.innerHTML = '<div class="q-empty">اكتب للبحث في تصدير زد المرفوع…</div>'; if (cnt) cnt.textContent = ""; return; }
+  const idx = buildZidIndex(), nc = normCode(q);
+  const hits = idx.filter(z => z.search.includes(q) || (nc && (normCode(z.sku) === nc || (z.bar && normCode(z.bar) === nc))));
+  const shown = hits.slice(0, Q_MAX);
+  if (cnt) cnt.textContent = hits.length ? `${hits.length}${hits.length > Q_MAX ? "+" : ""} نتيجة` : "";
+  if (!shown.length) { box.innerHTML = '<div class="q-empty">لا نتائج مطابقة في تصدير زد.</div>'; return; }
+  box.innerHTML = shown.map(z => {
+    const price = (z.price != null && z.price !== "") ? priceInt(z.price) : null;
+    const qn = Number(z.qty); const qShow = Number.isFinite(qn) ? qn : (z.qty == null || z.qty === "" ? "—" : esc(String(z.qty)));
+    return `<div class="q-card"><div class="q-card-top"><span class="q-code" dir="ltr">${esc(z.sku)}</span><span class="q-name">${esc(z.name) || "—"}</span>`
+      + (z.isParent ? `<span class="q-chip parent" title="منتج أب has_variants=Yes">أب</span>` : "")
+      + `</div><div class="q-meta">`
+      + `<span class="q-chip ${z.pub ? "pub-yes" : "pub-no"}" title="${z.isParent ? "حالة نشر هذا الأب" : "حالة النشر (من الأب إن كان متغيّراً)"}">${z.pub ? "✅ منشور" : "🚫 غير منشور"}</span>`
+      + (price != null ? `<span class="q-chip price">${price} ر.س</span>` : "")
+      + `<span class="q-chip">كمية: ${qShow}</span>`
+      + (z.bar ? `<span class="q-chip bar" dir="ltr" title="باركود">${esc(z.bar)}</span>` : "")
+      + `</div></div>`;
+  }).join("");
 }
 
 async function addMapping() {
@@ -3142,8 +3253,9 @@ async function addMapping() {
 }
 
 function renderPills() {
-  document.getElementById("mapCount").textContent = Object.keys(manualMap).length;
-  document.getElementById("pills").innerHTML = Object.entries(manualMap)
+  const mc = document.getElementById("mapCount"); if (mc) mc.textContent = Object.keys(manualMap).length;
+  const pl = document.getElementById("pills");   // قائمة الروابط القديمة أُزيلت مع قسم ③؛ نُبقي التحديث دفاعياً
+  if (pl) pl.innerHTML = Object.entries(manualMap)
     .map(([s, c]) => `<span class="pill"><span class="mono">${s} → ${c}</span><button onclick="delMap('${s}')">×</button></span>`).join("");
   renderFingerprint();
 }
