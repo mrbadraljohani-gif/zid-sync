@@ -3141,8 +3141,7 @@ async function bindAll90() {
 }
 
 // ==================== 🔍 استعلام عن منتج — بحثان مستقلان ====================
-const Q_MAX = 15;   // أقصى نتائج لكل عمود
-let qTimers = {};
+let qTimers = {};   // عرض جميع النتائج بلا حدّ — التمرير الداخلي في .q-results يستوعبها
 function qDebounce(which) { clearTimeout(qTimers[which]); qTimers[which] = setTimeout(() => (which === "wh" ? runWhQuery() : runZdQuery()), 180); }
 
 // --- العمود الأيمن: بحث في المخزن الموحّد (ناتج الدمج) ---
@@ -3158,8 +3157,8 @@ function runWhQuery() {
     if (normText(String(w.code) + " " + w.name + " " + (w.bar || "")).includes(q)) return true;
     return nc && (normCode(w.code) === nc || (w.bar && normCode(w.bar) === nc));
   });
-  const shown = hits.slice(0, Q_MAX);
-  if (cnt) cnt.textContent = hits.length ? `${hits.length}${hits.length > Q_MAX ? "+" : ""} نتيجة` : "";
+  const shown = hits;   // عرض جميع النتائج (تمرير داخلي في .q-results)
+  if (cnt) cnt.textContent = hits.length ? `${hits.length} نتيجة` : "";
   if (!shown.length) { box.innerHTML = '<div class="q-empty">لا نتائج مطابقة في المخزن.</div>'; return; }
   box.innerHTML = shown.map(w => {
     const qn = Number(w.qty) || 0;
@@ -3223,8 +3222,8 @@ function runZdQuery() {
   if (!q) { box.innerHTML = '<div class="q-empty">اكتب للبحث في تصدير زد المرفوع…</div>'; if (cnt) cnt.textContent = ""; return; }
   const idx = buildZidIndex(), nc = normCode(q);
   const hits = idx.filter(z => z.search.includes(q) || (nc && (normCode(z.sku) === nc || (z.bar && normCode(z.bar) === nc))));
-  const shown = hits.slice(0, Q_MAX);
-  if (cnt) cnt.textContent = hits.length ? `${hits.length}${hits.length > Q_MAX ? "+" : ""} نتيجة` : "";
+  const shown = hits;   // عرض جميع النتائج (تمرير داخلي في .q-results)
+  if (cnt) cnt.textContent = hits.length ? `${hits.length} نتيجة` : "";
   if (!shown.length) { box.innerHTML = '<div class="q-empty">لا نتائج مطابقة في تصدير زد.</div>'; return; }
   box.innerHTML = shown.map(z => {
     const price = (z.price != null && z.price !== "") ? priceInt(z.price) : null;
