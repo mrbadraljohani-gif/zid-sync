@@ -319,7 +319,8 @@
   .bt-hint { color: var(--muted); font-size: 12px; }
   .bt-combo { position: relative; margin-top: 7px; }
   .bt-search { width: 100%; box-sizing: border-box; background: var(--panel-2); color: var(--fg); border: 1px solid var(--border); border-radius: 7px; padding: 4px 7px; font-size: 11px; }
-  .bt-results { position: absolute; top: 100%; inset-inline: 0; z-index: 20; margin-top: 3px; max-height: 230px; overflow: auto; background: var(--panel); border: 1px solid var(--border-strong); border-radius: 9px; box-shadow: 0 12px 30px rgba(0,0,0,.5); }
+  .bt-results-float { position: fixed; z-index: 600; max-height: 300px; overflow-y: auto; background: #211b10; border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 16px 44px rgba(0,0,0,.7); text-align: start; }
+  :root[data-theme="light"] .bt-results-float { background: #fffaf0; }
   .bt-res-row { padding: 6px 9px; font-size: 11.5px; cursor: pointer; border-bottom: 1px solid var(--border); line-height: 1.4; }
   .bt-res-row:hover { background: var(--panel-2); }
   .bt-res-meta { color: var(--muted); font-size: 10.5px; white-space: nowrap; }
@@ -1444,23 +1445,23 @@ function batchCardHTML(r, chkCls, famAttr) {
   const uid = "u" + (btUidSeq++); batchRowByUid[uid] = r;
   if (r.chosen === undefined) r.chosen = r.best;
   const c = r.chosen, zp = priceInt(r.z.price);
+  const tip = c ? esc("مطابقة: " + reasonText(c)) : "";   // النسبة/الأسباب صارت tooltip (لا عمود أوسط)
   const zid = `<div class="mc-zid"><span class="mc-tag zid">ZID PRODUCT</span>
       <div class="mc-row">${thumb(r.z.img)}<div class="mc-txt">
         <div class="mc-name">${esc(r.z.name) || "—"}</div>
         <div class="mc-sku">SKU: <span dir="ltr">${esc(String(r.z.sku))}</span>${lostTag(r)}</div>
         <div class="mc-sub">سعر زد: ${zp ?? "—"} ر.س · الكمية: <b>${esc(String(r.z.qty ?? "—"))}</b></div>
       </div></div></div>`;
-  const mid = `<div class="mc-mid" id="mid-${uid}">${batchMidInner(r)}</div>`;
   const wh = `<div class="mc-wh"><span class="mc-tag whs">WAREHOUSE</span>
       <div id="whd-${uid}">${batchWhInner(r)}</div>
-      <div class="bt-combo"><input class="bt-search" id="s-${uid}" placeholder="🔎 غيّر/ابحث في المستودع بالكود أو الاسم…" oninput="comboSearch('${uid}')" onfocus="comboOpen('${uid}')" onblur="comboBlur('${uid}')"><div class="bt-results" id="res-${uid}" style="display:none"></div></div>
+      <div class="bt-combo"><input class="bt-search" id="s-${uid}" placeholder="🔎 غيّر/ابحث في المستودع بالكود أو الاسم…" oninput="comboSearch('${uid}')" onfocus="comboOpen('${uid}')" onblur="comboBlur('${uid}')"></div>
     </div>`;
   const actions = `<div class="mc-actions">
       <label class="bt-card-chk"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${c ? "checked" : ""}><span>اعتماد</span></label>
       <button class="mc-btn wait" onclick="batchExclude('${uid}','wait')" title="سجّله «غير متوفر حالياً» (⏳)">⏳ غير متوفر</button>
       <button class="mc-btn ignore" onclick="batchExclude('${uid}','ignore')" title="تجاهله (✕)">✕ تجاهل</button>
     </div>`;
-  return `<div class="mcard batch-card${r.wasLinked ? " lost" : ""}">${zid}${mid}${wh}${actions}</div>`;
+  return `<div class="mcard batch-card${r.wasLinked ? " lost" : ""}" title="${tip}">${zid}${wh}${actions}</div>`;
 }
 // 🟢 المؤكد — الكل محدد افتراضياً؛ الاعتماد للمحدد فقط
 function renderGreen() {
@@ -1504,32 +1505,52 @@ function btCount(cls, spanId, fam) {
   const el = document.getElementById(spanId); if (el) el.textContent = n;
 }
 
-// ==== البحث الحيّ داخل خلية الاقتران ====
+// ==== البحث الحيّ — قائمة عائمة على مستوى body (تطفو فوق كل شيء، لا تُقص ولا تتداخل) ====
+let btDrop = null, btDropUid = null;
+function btDropEl() {
+  if (!btDrop) {
+    btDrop = document.createElement("div");
+    btDrop.className = "bt-results-float"; btDrop.style.display = "none";
+    document.body.appendChild(btDrop);
+    document.addEventListener("mousedown", e => { if (btDrop.style.display !== "none" && !btDrop.contains(e.target) && !(e.target.classList && e.target.classList.contains("bt-search"))) hideBtDrop(); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape") hideBtDrop(); });
+    window.addEventListener("scroll", hideBtDrop, true);
+    window.addEventListener("resize", hideBtDrop);
+  }
+  return btDrop;
+}
+function hideBtDrop() { if (btDrop) btDrop.style.display = "none"; btDropUid = null; }
 function comboRowsHTML(uid, list) {
   if (!list.length) return `<div class="bt-res-empty">لا نتائج في المستودع</div>`;
   return list.map(w => `<div class="bt-res-row" onmousedown="comboPick('${uid}','${esc(String(w.code))}')"><span class="bt-sku">${esc(String(w.code))}</span> · ${esc(w.name)} <span class="bt-res-meta">كمية ${esc(String(w.qty ?? "—"))} · ${priceInt(w.price) ?? "—"} ر.س</span></div>`).join("");
 }
+function showBtResults(uid, list) {
+  const el = btDropEl(), inp = document.getElementById("s-" + uid); if (!inp) return;
+  btDropUid = uid;
+  el.innerHTML = comboRowsHTML(uid, list);
+  const rect = inp.getBoundingClientRect();
+  el.style.top = (rect.bottom + 3) + "px"; el.style.left = rect.left + "px"; el.style.width = Math.max(rect.width, 280) + "px";
+  el.style.display = "block";
+}
 function comboOpen(uid) {
-  const r = batchRowByUid[uid], box = document.getElementById("res-" + uid); if (!r || !box) return;
-  box.innerHTML = comboRowsHTML(uid, (r.scored || []).map(s => ({ code: s.code, name: s.name, qty: s.qty, price: s.price })));
-  box.style.display = "block";
+  const r = batchRowByUid[uid]; if (!r) return;
+  showBtResults(uid, (r.scored || []).map(s => ({ code: s.code, name: s.name, qty: s.qty, price: s.price })));
 }
 function comboSearch(uid) {
-  const inp = document.getElementById("s-" + uid), box = document.getElementById("res-" + uid); if (!inp || !box) return;
+  const inp = document.getElementById("s-" + uid); if (!inp) return;
   const q = normText(inp.value);
   if (!q) { comboOpen(uid); return; }
-  const res = lastWhList.filter(w => normText(String(w.code) + " " + w.name).includes(q)).slice(0, 12);
-  box.innerHTML = comboRowsHTML(uid, res); box.style.display = "block";
+  showBtResults(uid, lastWhList.filter(w => normText(String(w.code) + " " + w.name).includes(q)).slice(0, 20));
 }
-function comboBlur(uid) { setTimeout(() => { const b = document.getElementById("res-" + uid); if (b) b.style.display = "none"; }, 200); }
+function comboBlur(uid) { setTimeout(() => { if (btDropUid === uid) hideBtDrop(); }, 200); }
 function comboPick(uid, code) {
   const r = batchRowByUid[uid]; if (!r) return;
   const w = lastWhList.find(x => normCode(x.code) === normCode(code)) || (r.scored || []).find(s => normCode(s.code) === normCode(code));
   if (!w) return;
   r.chosen = { code: w.code, name: w.name, price: w.price, qty: w.qty, sizeM: !!(extractSize(r.z.name) && extractSize(w.name) && extractSize(r.z.name) === extractSize(w.name)), priceM: priceMatch(r.z.price, w.price), sim: nameSimilarity(r.z.name, w.name) };
   const whd = document.getElementById("whd-" + uid); if (whd) whd.innerHTML = batchWhInner(r);   // عمود المستودع في البطاقة
-  const mid = document.getElementById("mid-" + uid); if (mid) mid.innerHTML = batchMidInner(r);   // مؤشر المطابقة
-  const b = document.getElementById("res-" + uid); if (b) b.style.display = "none";
+  const card = whd && whd.closest(".batch-card"); if (card) card.title = "مطابقة: " + reasonText(r.chosen);   // تحديث tooltip المطابقة
+  hideBtDrop();
   const inp = document.getElementById("s-" + uid); if (inp) inp.value = "";
   const chk = document.querySelector(`#batchBody input[data-uid="${uid}"]`); if (chk) { chk.disabled = false; chk.checked = true; }   // تثبيت المرشّح ⇒ حدِّد البطاقة
 }
