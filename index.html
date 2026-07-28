@@ -96,6 +96,7 @@
   .app-shell { display: flex; align-items: flex-start; min-height: 100vh; max-width: 1680px; margin: 0 auto; }
   .sidebar { position: sticky; top: 0; height: 100vh; flex: 0 0 236px; width: 236px; box-sizing: border-box;
     display: flex; flex-direction: column; gap: 6px; padding: 22px 14px; overflow-y: auto;
+    transition: flex-basis .25s ease, width .25s ease, padding .25s ease;
     background: linear-gradient(180deg, rgba(230,197,111,.05), transparent 55%), rgba(0,0,0,.16);
     border-inline-end: 1px solid var(--border); }   /* الحد على يسار السايدبار (بينه وبين المحتوى) */
   :root[data-theme="light"] .sidebar { background: linear-gradient(180deg, rgba(150,108,24,.07), transparent 55%), rgba(255,255,255,.45); }
@@ -119,11 +120,20 @@
   .topbar-thin { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 12px; padding: 11px 22px;
     background: rgba(20,17,12,.82); backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px); border-bottom: 1px solid var(--border); }
   :root[data-theme="light"] .topbar-thin { background: rgba(244,238,226,.85); }
-  .hamburger { display: none; font-size: 20px; line-height: 1; background: transparent; border: 1px solid var(--border-strong); color: var(--gold-2); border-radius: 10px; padding: 5px 11px; cursor: pointer; }
+  .hamburger, .side-toggle { font-size: 18px; line-height: 1; background: transparent; border: 1px solid var(--border-strong); color: var(--gold-2); border-radius: 10px; padding: 6px 11px; cursor: pointer; transition: all .15s; }
+  .hamburger { display: none; }
+  .hamburger:hover, .side-toggle:hover { border-color: var(--gold); color: var(--gold); background: var(--panel); }
+  .side-toggle .chev { display: inline-block; transition: transform .25s ease; font-size: 13px; }
+  .app-shell.collapsed .side-toggle .chev { transform: rotate(180deg); }
   .thin-brand { display: flex; align-items: baseline; gap: 8px; }
   .thin-brand b { font-family: var(--serif); font-size: 17px; letter-spacing: .12em; color: var(--gold-2); }
   .thin-brand span { font-size: 8px; letter-spacing: .28em; color: var(--muted-2); text-transform: uppercase; direction: ltr; }
-  .db-badge.mini { margin-inline-start: auto; font-size: 11.5px; padding: 6px 12px; }
+  .thin-theme { margin-inline-start: auto; font-size: 15px !important; padding: 6px 11px !important; line-height: 1; }
+  .db-badge.mini { font-size: 11.5px; padding: 6px 12px; }
+  /* بطاقة بريد المستخدم في القائمة الجانبية */
+  .side-user { display: flex; align-items: center; gap: 9px; padding: 9px 11px; margin-bottom: 8px; border-radius: 11px; border: 1px solid var(--border); background: var(--panel); overflow: hidden; }
+  .side-user .su-ico { font-size: 15px; flex-shrink: 0; }
+  .side-user .su-email { font-size: 11.5px; font-weight: 700; color: var(--muted); direction: ltr; text-align: start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .page-wrap { flex: 1 1 auto; width: 100%; max-width: 1200px; margin: 0 auto; padding: 22px 26px 40px; box-sizing: border-box; }
   .page { display: none; }
   .page.active { display: block; animation: pageIn .22s ease; }
@@ -148,7 +158,19 @@
   .zid-mini.stale { border-color: var(--border-strong); background: rgba(230,197,111,.10); color: var(--gold-2); }
   .zid-mini-link { color: var(--gold-2); cursor: pointer; font-weight: 800; white-space: nowrap; }
   .zid-mini-link:hover { color: var(--gold); text-decoration: underline; }
+  /* طيّ القائمة الجانبية إلى شريط أيقونات رفيع (سطح المكتب فقط) */
+  @media (min-width: 1001px) {
+    .app-shell.collapsed .sidebar { flex-basis: 66px; width: 66px; padding-inline: 8px; }
+    .app-shell.collapsed .side-brand { justify-content: center; gap: 0; }
+    .app-shell.collapsed .side-brand-txt,
+    .app-shell.collapsed .side-user .su-email,
+    .app-shell.collapsed .side-link .sl { display: none; }
+    .app-shell.collapsed .side-user { justify-content: center; padding-inline: 0; }
+    .app-shell.collapsed .side-link { justify-content: center; padding-inline: 0; }
+    .app-shell.collapsed .side-link .si { width: auto; }
+  }
   @media (max-width: 1000px) {
+    .side-toggle { display: none; }   /* على الجوال: الدرج المنزلق بزر الهمبرغر بدل الطي */
     .sidebar { position: fixed; right: 0; left: auto; top: 0; z-index: 120; transform: translateX(100%); transition: transform .25s ease; box-shadow: -8px 0 30px rgba(0,0,0,.45); }
     .sidebar.open { transform: none !important; }
     .hamburger { display: inline-flex; align-items: center; }
@@ -784,6 +806,7 @@
       </span>
       <div class="side-brand-txt"><b>ASJ</b><span>Inventory Sync</span></div>
     </div>
+    <div class="side-user" id="sideUser" style="display:none"><span class="su-ico">👤</span><span class="su-email" id="sideUserEmail"></span></div>
     <nav class="side-nav">
       <button type="button" class="side-link active" data-page="home" onclick="goPage('home')"><span class="si">🏠</span><span class="sl">الرئيسية</span></button>
       <button type="button" class="side-link" data-page="db" onclick="goPage('db')"><span class="si">🔄</span><span class="sl">تحديث قاعدة البيانات</span></button>
@@ -796,8 +819,10 @@
 
   <div class="main-col">
   <header class="topbar-thin">
+    <button type="button" class="side-toggle" onclick="toggleSidebarCollapse()" aria-label="طيّ/فتح القائمة" title="طيّ/فتح القائمة"><span class="chev">◀</span></button>
     <button type="button" class="hamburger" onclick="toggleSidebar()" aria-label="القائمة">☰</button>
     <div class="thin-brand"><b>ASJ</b><span>Inventory Sync</span></div>
+    <button type="button" class="theme-btn thin-theme" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع الداكن/الفاتح">☀</button>
     <span class="db-badge mini" id="dbBadgeMini" title="حالة الاتصال بقاعدة البيانات">⚪ …</span>
   </header>
 
@@ -1029,7 +1054,6 @@
             <button class="btn-run sm export-btn gh-export" onclick="exportConfig()">⬇ تصدير يدوي (بديل بدون رمز)</button>
           </div>
         </div>
-        <button type="button" class="theme-btn" id="themeBtn" onclick="toggleTheme()">☀ الوضع الفاتح</button>
         <button type="button" class="theme-btn" id="logoutBtn" onclick="doLogout()" style="display:none">🚪 خروج</button>
       </div>
     </div>
@@ -1258,6 +1282,7 @@ function initSupabase() {
   sb = window.supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
   sb.auth.onAuthStateChange((event, session) => {
     authSession = session;
+    renderSideUser();   // بطاقة بريد المستخدم في القائمة الجانبية
     const lb = document.getElementById("logoutBtn");
     // العودة من رابط «نسيت كلمة المرور» ⇒ جلسة استرداد مؤقتة: اعرض نموذج تعيين كلمة مرور جديدة (لا تدخل الأداة بعد)
     if (event === "PASSWORD_RECOVERY") { showRecover(); if (lb) lb.style.display = "none"; return; }
@@ -1288,6 +1313,25 @@ function goPage(id) {
   try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { window.scrollTo(0, 0); }
 }
 function toggleSidebar() { const s = document.getElementById("sidebar"), c = document.getElementById("sidebarScrim"); if (s) s.classList.toggle("open"); if (c) c.classList.toggle("show"); }
+// طيّ/فتح القائمة الجانبية (سطح المكتب) — يُحفظ في localStorage فتفتح الأداة على آخر وضع
+function toggleSidebarCollapse() {
+  const shell = document.querySelector(".app-shell"); if (!shell) return;
+  const c = shell.classList.toggle("collapsed");
+  try { localStorage.setItem(SIDEBAR_KEY, c ? "1" : "0"); } catch (e) {}
+}
+function applySidebarCollapsed() {
+  const shell = document.querySelector(".app-shell"); if (!shell) return;
+  let c = false; try { c = localStorage.getItem(SIDEBAR_KEY) === "1"; } catch (e) {}
+  shell.classList.toggle("collapsed", c);
+}
+// بطاقة بريد المستخدم في القائمة الجانبية (من جلسة Supabase) — تختفي بلا جلسة
+function renderSideUser() {
+  const el = document.getElementById("sideUser"), em = document.getElementById("sideUserEmail");
+  const email = (authSession && authSession.user && authSession.user.email) ? authSession.user.email : "";
+  if (!el) return;
+  if (email) { el.style.display = "flex"; el.title = email; if (em) em.textContent = email; }
+  else { el.style.display = "none"; el.title = ""; if (em) em.textContent = ""; }
+}
 function closeSidebar() { const s = document.getElementById("sidebar"), c = document.getElementById("sidebarScrim"); if (s) s.classList.remove("open"); if (c) c.classList.remove("show"); }
 
 // عدّادات صفحة «الحساب والنظام» (قراءة الحالة الحالية — عرض فقط)
@@ -2115,12 +2159,13 @@ function repoStatus(cls, msg) {
 }
 // تبديل الوضع الفاتح/الغامق (يُحفظ الاختيار)
 const THEME_KEY = "zid-theme";
+const SIDEBAR_KEY = "zid-sidebar-collapsed";
 function currentTheme() { return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark"; }
 function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
   try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
-  const btn = document.getElementById("themeBtn");
-  if (btn) btn.textContent = t === "light" ? "🌙 الوضع الغامق" : "☀ الوضع الفاتح";
+  const btn = document.getElementById("themeBtn");   // أيقونة مصغّرة في الترويسة الرفيعة (ظاهرة في كل الصفحات)
+  if (btn) { btn.textContent = t === "light" ? "🌙" : "☀"; btn.title = t === "light" ? "التبديل للوضع الغامق" : "التبديل للوضع الفاتح"; }
 }
 function toggleTheme() { applyTheme(currentTheme() === "light" ? "dark" : "light"); }
 
@@ -3874,7 +3919,9 @@ function renderFingerprint() {
 }
 
 applyOpts();
-applyTheme(currentTheme());   // ضبط تسمية زر الوضع حسب الحالة المحفوظة
+applyTheme(currentTheme());   // ضبط أيقونة زر الوضع حسب الحالة المحفوظة
+applySidebarCollapsed();       // آخر وضع طيّ للقائمة الجانبية
+renderSideUser();              // بطاقة بريد المستخدم (تظهر عند توفّر جلسة)
 (async () => {
   await loadConfig();
   bootLocalMap = { ...manualMap };   // روابط المحلي (mapping.json ＋ localStorage) قبل أي تفاعل مع القاعدة — مرجع الترحيل الثابت

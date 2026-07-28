@@ -20,6 +20,9 @@
   - **👤 الحساب والنظام (`#page-account`)** = حالة الاتصال (`dbBadge` + `mapCountBadge`) ＋ عدّادات (`accProducts`/`accLinks`/`accWaiting` عبر `renderAccount`) ＋ الحفظ في الريبو (`gh-menu`) ＋ تبديل الوضع ＋ خروج ＋ النسخة/البصمة (`fingerprint`/`fpWarn`).
   - **➕ مستخدم جديد (`#page-newuser`)** = نموذج `doSignup` (بريد ＋ كلمة مرور ＋ تأكيد): `sb.auth.signUp` ثم **استعادة جلسة المدير** بـ`setSession` إن أنشأ Supabase جلسة للمستخدم الجديد (بلا service key إطلاقاً) — فجلسة المدير لا تنكسر.
 - `launchMatchIfReady` ينقل للرئيسية (`goPage('home')`) ويشغّل `run()` متى توفّر المخزن ＋ زد. النوافذ المنبثقة (`loginOverlay`/`offOverlay`/`toast`) خارج `.app-shell` (fixed). **ملاحظة RTL**: للتثبيت البصري يمين استخدم `right`/`inset-inline-start` لا `inset-inline-end` (الأخير = يسار في RTL).
+- **طيّ القائمة (سطح المكتب):** زر `.side-toggle` (◀/▶ بدوران CSS) في الترويسة يطوي القائمة إلى **شريط أيقونات رفيع 66px** (`.app-shell.collapsed`, قواعد داخل `@media (min-width:1001px)` فقط فلا تمسّ درج الجوال) والمحتوى يتمدد بانتقال سلس؛ الحالة تُحفظ في `localStorage` (`SIDEBAR_KEY`) وتُطبَّق بـ`applySidebarCollapsed` عند الإقلاع. `toggleSidebarCollapse` يبدّلها. على ≤1000px يُخفى الزر (الدرج المنزلق بالهمبرغر بدلاً منه).
+- **تبديل الوضع في الترويسة:** زر `#themeBtn` **أيقوني (☀/🌙)** انتقل إلى `.topbar-thin` (ظاهر في كل الصفحات فيُتاح من الرئيسية) وأُزيل من صفحة الحساب؛ `applyTheme` يضبط الأيقونة ＋ `title`.
+- **بطاقة بريد المستخدم:** `.side-user` (`#sideUser`) أسفل الشعار تعرض 👤 + `authSession.user.email` (`renderSideUser`، تُستدعى من `onAuthStateChange` والإقلاع)؛ تختفي بلا جلسة، وعند الطيّ تظهر الأيقونة فقط بـtooltip بالبريد.
 
 ## الخطوة ① «جهّز الملفات» — تدرّج مفتوح دائم (لا طي) بمرحلتين
 الخطوة ① تعرض مرحلتين ظاهرتين دائماً:
