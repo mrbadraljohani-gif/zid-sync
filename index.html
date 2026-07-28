@@ -116,9 +116,13 @@
   .side-link .si { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
   .side-link:hover { color: var(--text); background: var(--panel); }
   .side-link.active { color: var(--gold-2); background: linear-gradient(180deg, rgba(230,197,111,.16), rgba(230,197,111,.05)); border-color: var(--border-strong); box-shadow: inset 3px 0 0 var(--gold-2); }
-  /* زر الخروج مثبّت في قاع القائمة (يبقى بالأسفل مهما قلّت العناصر) */
+  /* سطر المستخدم ＋ الخروج مثبّت في قاع القائمة (يبقى بالأسفل مهما قلّت العناصر) */
   .side-foot { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
-  .side-logout:hover { color: var(--danger); background: rgba(200,90,90,.10); border-color: rgba(200,90,90,.35); }
+  .side-userrow { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 11px; border: 1px solid var(--border); background: var(--panel); overflow: hidden; }
+  .side-userrow .su-ico { font-size: 15px; flex-shrink: 0; }
+  .side-userrow .su-email { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 700; color: var(--muted); direction: ltr; text-align: start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .su-logout { flex-shrink: 0; background: transparent; border: 1px solid var(--border-strong); color: var(--gold-2); border-radius: 8px; padding: 4px 8px; font-size: 13px; line-height: 1; cursor: pointer; transition: all .15s; }
+  .su-logout:hover { color: var(--danger); background: rgba(200,90,90,.10); border-color: rgba(200,90,90,.35); }
   .main-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; min-height: 100vh; }
   .topbar-thin { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 12px; padding: 11px 22px;
     background: rgba(20,17,12,.82); backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px); border-bottom: 1px solid var(--border); }
@@ -133,10 +137,6 @@
   .thin-brand span { font-size: 8px; letter-spacing: .28em; color: var(--muted-2); text-transform: uppercase; direction: ltr; }
   .thin-theme { margin-inline-start: auto; font-size: 15px !important; padding: 6px 11px !important; line-height: 1; }
   .db-badge.mini { font-size: 11.5px; padding: 6px 12px; }
-  /* بطاقة بريد المستخدم في القائمة الجانبية */
-  .side-user { display: flex; align-items: center; gap: 9px; padding: 9px 11px; margin-bottom: 8px; border-radius: 11px; border: 1px solid var(--border); background: var(--panel); overflow: hidden; }
-  .side-user .su-ico { font-size: 15px; flex-shrink: 0; }
-  .side-user .su-email { font-size: 11.5px; font-weight: 700; color: var(--muted); direction: ltr; text-align: start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .page-wrap { flex: 1 1 auto; width: 100%; max-width: 1200px; margin: 0 auto; padding: 22px 26px 40px; box-sizing: border-box; }
   .page { display: none; }
   .page.active { display: block; animation: pageIn .22s ease; }
@@ -166,9 +166,9 @@
     .app-shell.collapsed .sidebar { flex-basis: 66px; width: 66px; padding-inline: 8px; }
     .app-shell.collapsed .side-brand { justify-content: center; gap: 0; }
     .app-shell.collapsed .side-brand-txt,
-    .app-shell.collapsed .side-user .su-email,
+    .app-shell.collapsed .side-userrow .su-email,
     .app-shell.collapsed .side-link .sl { display: none; }
-    .app-shell.collapsed .side-user { justify-content: center; padding-inline: 0; }
+    .app-shell.collapsed .side-userrow { flex-direction: column; gap: 8px; padding: 6px 0; background: transparent; border: none; }
     .app-shell.collapsed .side-link { justify-content: center; padding-inline: 0; }
     .app-shell.collapsed .side-link .si { width: auto; }
   }
@@ -809,7 +809,6 @@
       </span>
       <div class="side-brand-txt"><b>ASJ</b><span>Inventory Sync</span></div>
     </div>
-    <div class="side-user" id="sideUser" style="display:none"><span class="su-ico">👤</span><span class="su-email" id="sideUserEmail"></span></div>
     <nav class="side-nav">
       <button type="button" class="side-link active" data-page="home" onclick="goPage('home')"><span class="si">🏠</span><span class="sl">الرئيسية</span></button>
       <button type="button" class="side-link" data-page="db" onclick="goPage('db')"><span class="si">🔄</span><span class="sl">تحديث قاعدة البيانات</span></button>
@@ -818,7 +817,11 @@
       <button type="button" class="side-link" data-page="newuser" onclick="goPage('newuser')"><span class="si">➕</span><span class="sl">مستخدم جديد</span></button>
     </nav>
     <div class="side-foot">
-      <button type="button" class="side-link side-logout" onclick="sideLogout()" title="خروج"><span class="si">🚪</span><span class="sl">خروج</span></button>
+      <div class="side-userrow" id="sideUser" style="display:none">
+        <span class="su-ico">👤</span>
+        <span class="su-email" id="sideUserEmail"></span>
+        <button type="button" class="su-logout" onclick="sideLogout()" title="تسجيل الخروج" aria-label="تسجيل الخروج">🚪</button>
+      </div>
     </div>
   </aside>
   <div class="sidebar-scrim" id="sidebarScrim" onclick="closeSidebar()"></div>
