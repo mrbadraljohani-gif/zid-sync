@@ -2386,7 +2386,15 @@ async function syncZidToDB() {
 }
 
 // تطلق المطابقة تلقائياً متى توفّر المصدران (المخزن ＋ زد) — بيانات طازجة مباشرة
-function launchMatchIfReady() { checkReady(); if (whRows && stData) { if (typeof goPage === "function") goPage("home"); run(); } }
+// هل بيانات زد جاهزة للمطابقة؟ (مُعتمَدة كـstData، أو متوفرة في القاعدة فتُعتمَد تلقائياً)
+function zidDbAvailable() { return !!(dbOnline && sb && zidDbMeta && zidDbMeta.product_count > 0); }
+function launchMatchIfReady() {
+  checkReady();
+  if (!whRows) return;
+  if (stData) { if (typeof goPage === "function") goPage("home"); run(); return; }
+  // الرئيسية: المخزن جاهز وبيانات زد في القاعدة ولم تُعتمد بعد ⇒ اعتمدها تلقائياً ثم طابق
+  if (zidDbAvailable()) { if (typeof goPage === "function") goPage("home"); showToast("⏳ جلب بيانات زد من القاعدة ثم المطابقة…"); useZidFromDB(); }
+}
 
 // اعتماد بيانات زد من القاعدة كمصدر للمطابقة (بلا رفع ملف) — يعيد بناء stData من raw + الرأس
 async function useZidFromDB() {
@@ -2444,7 +2452,7 @@ async function onStore(inp) {
   launchMatchIfReady();
 }
 
-function checkReady() { document.getElementById("runBtn").disabled = !(whRows && stData); }
+function checkReady() { document.getElementById("runBtn").disabled = !(whRows && (stData || zidDbAvailable())); }
 
 /* ========== دمج المستودع مع الفروع (اتحاد كامل بجمع الكميات — مرحلة أولى) ========== */
 let mergeWh = null, mergeBranches = [];   // مصفوفة فروع (قابلة للتوسّع لأكثر من فرع)
@@ -2581,6 +2589,11 @@ function downloadMerge() {
 
 function run(reprocess) {
   showErr("");
+  // بيانات زد لم تُعتمد بعد؟ إن كانت في القاعدة اعتمدها تلقائياً (ستعيد الاستدعاء)، وإلا نبّه المستخدم
+  if (!stData) {
+    if (zidDbAvailable()) { useZidFromDB(); return; }
+    showErr("لا توجد بيانات زد للمطابقة — حدّث القاعدة من صفحة «🔄 تحديث قاعدة البيانات» (أو ارفع تصدير زد)."); return;
+  }
   document.getElementById("rebindHint").style.display = "none";   // أُعيدت المطابقة ⇒ الملف محدّث
   try {
     const whIndex = {};
