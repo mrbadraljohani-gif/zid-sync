@@ -81,7 +81,7 @@
     font-family: 'Segoe UI', Tahoma, system-ui, sans-serif;
     color: var(--text);
     margin: 0;
-    padding: 40px 16px 70px;
+    padding: 0;
     background:
       radial-gradient(1100px 560px at 85% -8%, rgba(230,197,111,.14), transparent 58%),
       radial-gradient(900px 520px at -5% 5%, rgba(201,154,60,.10), transparent 55%),
@@ -91,6 +91,70 @@
   }
   body { overflow-x: hidden; }   /* أمان ضد أي فيض أفقي على الشاشات الصغيرة */
   .wrap { max-width: 1560px; margin: 0 auto; }
+
+  /* ===== هيكل SPA: قائمة جانبية يمنى (RTL) + صفحات تُظهر/تُخفى ===== */
+  .app-shell { display: flex; align-items: flex-start; min-height: 100vh; max-width: 1680px; margin: 0 auto; }
+  .sidebar { position: sticky; top: 0; height: 100vh; flex: 0 0 236px; width: 236px; box-sizing: border-box;
+    display: flex; flex-direction: column; gap: 6px; padding: 22px 14px; overflow-y: auto;
+    background: linear-gradient(180deg, rgba(230,197,111,.05), transparent 55%), rgba(0,0,0,.16);
+    border-inline-end: 1px solid var(--border); }   /* الحد على يسار السايدبار (بينه وبين المحتوى) */
+  :root[data-theme="light"] .sidebar { background: linear-gradient(180deg, rgba(150,108,24,.07), transparent 55%), rgba(255,255,255,.45); }
+  .side-brand { display: flex; align-items: center; gap: 11px; padding: 6px 8px 16px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .side-mark { width: 42px; height: 42px; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 34% 26%, #1e1a12, #14110c); box-shadow: 0 3px 12px rgba(0,0,0,.4), 0 0 0 1.5px rgba(230,197,111,.6); }
+  :root[data-theme="light"] .side-mark { background: radial-gradient(circle at 34% 26%, #fffdf9, #efe7d6); box-shadow: 0 3px 12px rgba(120,90,20,.16), 0 0 0 1.5px rgba(150,108,24,.5); }
+  .side-mark img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.24) translateY(1.5%); filter: invert(1) hue-rotate(180deg); }
+  :root[data-theme="light"] .side-mark img { filter: none; }
+  .side-mark svg { width: 100%; height: 100%; color: var(--gold-2); }
+  .side-brand-txt { display: flex; flex-direction: column; line-height: 1; }
+  .side-brand-txt b { font-family: var(--serif); font-size: 20px; letter-spacing: .16em; background: linear-gradient(120deg, var(--gold-2), var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .side-brand-txt span { font-size: 8.5px; letter-spacing: .3em; color: var(--muted); text-transform: uppercase; margin-top: 5px; direction: ltr; }
+  .side-nav { display: flex; flex-direction: column; gap: 4px; }
+  .side-link { display: flex; align-items: center; gap: 11px; width: 100%; text-align: start; cursor: pointer; font-family: inherit;
+    font-size: 13.5px; font-weight: 700; color: var(--muted); background: transparent; border: 1px solid transparent; border-radius: 12px; padding: 11px 13px; transition: all .15s; }
+  .side-link .si { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+  .side-link:hover { color: var(--text); background: var(--panel); }
+  .side-link.active { color: var(--gold-2); background: linear-gradient(180deg, rgba(230,197,111,.16), rgba(230,197,111,.05)); border-color: var(--border-strong); box-shadow: inset 3px 0 0 var(--gold-2); }
+  .main-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; min-height: 100vh; }
+  .topbar-thin { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 12px; padding: 11px 22px;
+    background: rgba(20,17,12,.82); backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px); border-bottom: 1px solid var(--border); }
+  :root[data-theme="light"] .topbar-thin { background: rgba(244,238,226,.85); }
+  .hamburger { display: none; font-size: 20px; line-height: 1; background: transparent; border: 1px solid var(--border-strong); color: var(--gold-2); border-radius: 10px; padding: 5px 11px; cursor: pointer; }
+  .thin-brand { display: flex; align-items: baseline; gap: 8px; }
+  .thin-brand b { font-family: var(--serif); font-size: 17px; letter-spacing: .12em; color: var(--gold-2); }
+  .thin-brand span { font-size: 8px; letter-spacing: .28em; color: var(--muted-2); text-transform: uppercase; direction: ltr; }
+  .db-badge.mini { margin-inline-start: auto; font-size: 11.5px; padding: 6px 12px; }
+  .page-wrap { flex: 1 1 auto; width: 100%; max-width: 1200px; margin: 0 auto; padding: 22px 26px 40px; box-sizing: border-box; }
+  .page { display: none; }
+  .page.active { display: block; animation: pageIn .22s ease; }
+  @keyframes pageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .page-head { display: flex; align-items: center; gap: 14px; margin: 4px 2px 22px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .page-head .ph-ico { width: 44px; height: 44px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 21px; flex-shrink: 0;
+    background: linear-gradient(135deg, rgba(230,197,111,.16), rgba(230,197,111,.04)); border: 1px solid var(--border-strong); }
+  .page-head h2 { font-family: var(--serif); font-size: 22px; margin: 0; font-weight: 700; }
+  .page-head .ph-txt p { margin: 5px 0 0; font-size: 13px; color: var(--muted); }
+  .sidebar-scrim { display: none; }
+  .acc-card { margin-bottom: 14px; }
+  .acc-status-row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .acc-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+  .acc-stat { flex: 1 1 120px; text-align: center; padding: 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); }
+  .acc-stat b { display: block; font-size: 24px; font-weight: 800; color: var(--gold-2); font-family: var(--serif); }
+  .acc-stat span { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .acc-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-top: 12px; }
+  .signup-card { max-width: 460px; }
+  .zid-mini { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 4px; padding: 10px 15px; border-radius: 11px;
+    border: 1px solid var(--border); background: var(--panel); font-size: 13px; font-weight: 700; color: var(--muted); }
+  .zid-mini b { color: var(--text); }
+  .zid-mini.stale { border-color: var(--border-strong); background: rgba(230,197,111,.10); color: var(--gold-2); }
+  .zid-mini-link { color: var(--gold-2); cursor: pointer; font-weight: 800; white-space: nowrap; }
+  .zid-mini-link:hover { color: var(--gold); text-decoration: underline; }
+  @media (max-width: 1000px) {
+    .sidebar { position: fixed; right: 0; left: auto; top: 0; z-index: 120; transform: translateX(100%); transition: transform .25s ease; box-shadow: -8px 0 30px rgba(0,0,0,.45); }
+    .sidebar.open { transform: none !important; }
+    .hamburger { display: inline-flex; align-items: center; }
+    .sidebar-scrim.show { display: block; position: fixed; inset: 0; z-index: 110; background: rgba(0,0,0,.5); }
+    .page-wrap { padding: 18px 15px 40px; }
+  }
   /* كل الأقسام تملأ العرض الكامل (تصميم عريض) */
 
   /* Brand top bar */
@@ -165,7 +229,7 @@
   .medallion img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.24) translateY(1.5%); filter: invert(1) hue-rotate(180deg); }
   .medallion svg { width: 100%; height: 100%; object-fit: contain; color: var(--gold-2); }
   @media (max-width: 620px) {
-    body { padding: 26px 13px 60px; }
+    body { padding: 0; }
     .topbar { flex-wrap: wrap; gap: 12px; }
     .topbar-side { flex: 1 1 100%; justify-content: space-between; }
     .hero-inner { flex-direction: column-reverse; text-align: center; align-items: center; gap: 22px; padding: 30px 20px; }
@@ -707,10 +771,10 @@
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="topbar">
-    <div class="brand">
-      <span class="mark">
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="side-brand">
+      <span class="side-mark">
         <img src="asj-logo.png" alt="ASJ" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
         <svg viewBox="0 0 100 100" style="display:none" aria-label="ASJ">
           <circle cx="50" cy="50" r="48.5" fill="none" stroke="currentColor" stroke-width="0.9" opacity=".65"/>
@@ -718,33 +782,23 @@
           <path fill="currentColor" d="M50 46 L45 55 L55 55 Z"/>
         </svg>
       </span>
-      <span class="brand-divider"></span>
-      <div class="brand-txt">
-        <b>ASJ</b>
-        <span>Inventory Sync</span>
-      </div>
+      <div class="side-brand-txt"><b>ASJ</b><span>Inventory Sync</span></div>
     </div>
-    <div class="topbar-side">
-      <span class="db-badge" id="dbBadge" title="حالة الاتصال بقاعدة البيانات">⚪ …</span>
-      <span class="db-badge map-badge" id="mapCountBadge" title="الروابط اليدوية المحفوظة (تُدار من لوحة التحليل الذكي)">🔗 الروابط: <b id="mapCount">0</b></span>
-      <button type="button" class="theme-btn" id="logoutBtn" onclick="doLogout()" style="display:none">🚪 خروج</button>
-      <button type="button" class="theme-btn" id="themeBtn" onclick="toggleTheme()">☀ الوضع الفاتح</button>
-      <div class="gh-menu">
-        <button type="button" class="theme-btn" id="ghBtn" onclick="toggleGhMenu(event)"><span class="gh-dot" id="ghDot"></span>☁ الحفظ في الريبو</button>
-        <div class="gh-panel" id="ghPanel" style="display:none">
-          <div class="clabel">☁ الحفظ المباشر في الريبو (GitHub)</div>
-          <p class="hint">الروابط تُحفظ في الريبو تلقائياً بعد تحميل الملف المحدّث. أدخل رمز GitHub مرة واحدة (بصلاحية Contents: Read and write على مستودع <b>zid-sync</b>)؛ يُخزَّن في متصفحك فقط.</p>
-          <input type="password" id="ghToken" placeholder="رمز GitHub (github_pat_… أو ghp_…)" onkeydown="if(event.key==='Enter')saveToken()">
-          <div class="gh-panel-btns">
-            <button class="btn-run sm" onclick="saveToken()">حفظ الرمز</button>
-            <button class="btn-run sm export-btn" onclick="saveToRepo('حفظ يدوي')">☁ حفظ الآن</button>
-          </div>
-          <div id="repoStatus" class="repo-status"></div>
-          <button class="btn-run sm export-btn gh-export" onclick="exportConfig()">⬇ تصدير يدوي (بديل بدون رمز)</button>
-        </div>
-      </div>
-      <div class="topbar-tag"><span class="tag-dot"></span>أداة مزامنة المخزون</div>
-    </div>
+    <nav class="side-nav">
+      <button type="button" class="side-link active" data-page="home" onclick="goPage('home')"><span class="si">🏠</span><span class="sl">الرئيسية</span></button>
+      <button type="button" class="side-link" data-page="db" onclick="goPage('db')"><span class="si">🔄</span><span class="sl">تحديث قاعدة البيانات</span></button>
+      <button type="button" class="side-link" data-page="options" onclick="goPage('options')"><span class="si">⚙</span><span class="sl">الخيارات</span></button>
+      <button type="button" class="side-link" data-page="account" onclick="goPage('account')"><span class="si">👤</span><span class="sl">الحساب والنظام</span></button>
+      <button type="button" class="side-link" data-page="newuser" onclick="goPage('newuser')"><span class="si">➕</span><span class="sl">مستخدم جديد</span></button>
+    </nav>
+  </aside>
+  <div class="sidebar-scrim" id="sidebarScrim" onclick="closeSidebar()"></div>
+
+  <div class="main-col">
+  <header class="topbar-thin">
+    <button type="button" class="hamburger" onclick="toggleSidebar()" aria-label="القائمة">☰</button>
+    <div class="thin-brand"><b>ASJ</b><span>Inventory Sync</span></div>
+    <span class="db-badge mini" id="dbBadgeMini" title="حالة الاتصال بقاعدة البيانات">⚪ …</span>
   </header>
 
   <div id="migrateBar" class="migrate-bar" style="display:none">
@@ -752,12 +806,16 @@
     <button class="btn-run sm" id="migrateBtn" onclick="doMigration()">⬆ ترحيل الروابط الحالية للقاعدة</button>
   </div>
 
+  <main class="page-wrap">
+
+  <!-- ============ الصفحة: الرئيسية (المزامنة اليومية) ============ -->
+  <section class="page active" id="page-home">
   <section class="hero">
     <div class="hero-inner">
       <div class="hero-content">
         <div class="eyebrow">مزامنة المخزون · متجر زد</div>
         <h1>تحديث <span class="accent">متجر زد</span> من المستودع</h1>
-        <p class="sub">ارفع الملفين، وحمّل ملفَّي التحديث (الكميات والأسعار كلٌّ على حدة) لاستيرادهما في لوحة زد — كل المعالجة تتم داخل متصفحك.</p>
+        <p class="sub">ارفع ملف المخزن ← تنطلق المطابقة تلقائياً ببيانات زد من القاعدة ← حمّل ملفَّي التحديث (الكميات والأسعار). كل المعالجة داخل متصفحك.</p>
         <div class="badges">
           <span class="badge">🔒 آمن <b>100%</b> محلياً</span>
           <span class="badge">⚡ مطابقة فورية</span>
@@ -767,9 +825,7 @@
     </div>
   </section>
 
-  <div class="steps-row">
-  <div class="steps-col steps-a">
-  <div class="section-head"><span class="n">١</span><h2>جهّز الملفات</h2><span class="line"></span></div>
+  <div class="section-head"><span class="n">١</span><h2>جهّز المخزن</h2><span class="line"></span></div>
 
   <div class="card stage-card">
     <div class="stage-head"><span class="stage-n">أ</span><b>المستودع والفروع</b><span class="stage-sub">الفرع اختياري — يُدمج تلقائياً فور رفعه (اتحاد بجمع الكميات)</span></div>
@@ -792,78 +848,7 @@
     <div id="mergeWarn" class="fp-warn" style="display:none"></div>
   </div>
 
-  <div class="card stage-card" style="margin-top:14px">
-    <div class="stage-head"><span class="stage-n">ب</span><b>متجر زد</b><span class="stage-sub">مستقل عن المخزن — تُنطلق المطابقة متى اكتمل المخزن ＋ زد</span></div>
-    <div id="zidDbPanel" class="zid-db" style="display:none">
-      <div class="zid-db-info">
-        <span class="zid-db-count">منتجات زد من القاعدة: <b id="zidDbCount">0</b> صنف</span>
-        <span class="zid-age" id="zidDbAge"></span>
-      </div>
-      <button type="button" class="btn-run sm" id="useDbBtn" onclick="useZidFromDB()">✓ استخدمها للمطابقة</button>
-    </div>
-    <label class="upload block" id="stCard">
-      <input type="file" accept=".xlsx,.xls,.csv" onchange="onStore(this)">
-      <div class="utitle" id="stTitle">تصدير المنتجات من زد</div>
-      <div class="hint" id="stHint">من لوحة زد: المنتجات ← تصدير</div>
-      <div class="ustatus" id="stStatus">اضغط لاختيار الملف</div>
-    </label>
-    <div id="zidSyncMsg" class="zid-sync-msg" style="display:none"></div>
-  </div>
-  </div><!-- /steps-a -->
-
-  <div class="steps-col steps-b">
-  <div class="section-head"><span class="n">٢</span><h2>اضبط الخيارات</h2><span class="line"></span></div>
-  <div class="card settings">
-    <div class="setrow">
-      <span class="setlabel">السعر المُرسل إلى زد</span>
-      <span class="seg">
-        <button class="chip on" data-group="price" data-v="incl" onclick="setOpt(this)">شامل الضريبة</button>
-        <button class="chip" data-group="price" data-v="excl" onclick="setOpt(this)">قبل الضريبة</button>
-        <button class="chip" data-group="price" data-v="none" onclick="setOpt(this)">لا تحدّث</button>
-      </span>
-    </div>
-    <div class="setrow">
-      <span class="setlabel">الأصناف الغائبة عن الملف <span class="set-info" title="«صفّر كميتها» استخدمه فقط عندما يمثّل ملفك كامل مخزونك (مستودع ＋ فروع). في المرحلة 1 (المستودع الرئيسي فقط) قد تكون هذه الأصناف متوفرة في الفروع — اترك «كما هي».">ⓘ</span></span>
-      <span class="seg">
-        <button class="chip on" data-group="absent" data-v="keep" onclick="setOpt(this)">اتركها كما هي</button>
-        <button class="chip" data-group="absent" data-v="zero" onclick="setOpt(this)">صفّر كميتها</button>
-      </span>
-    </div>
-    <p class="danger-hint set-warn" id="absentWarn" style="display:none">⚠ «صفّر كميتها» للمرحلة 2 فقط (المخزون الكامل: مستودع ＋ فروع). في المرحلة 1 قد تكون هذه الأصناف متوفرة في الفروع.</p>
-    <div class="setrow">
-      <span class="setlabel">توزيع كمية المستودع على المتغيرات</span>
-      <span class="seg">
-        <button class="chip on" data-group="split" data-v="equal" onclick="setOpt(this)">قسّم بالتساوي</button>
-        <button class="chip" data-group="split" data-v="full" onclick="setOpt(this)">الكاملة لكل متغير</button>
-      </span>
-    </div>
-    <div class="setrow">
-      <span class="setlabel">تصفير الكميات المنخفضة القيمة</span>
-      <span class="seg">
-        <button class="chip on" data-group="lowzero" data-v="on" onclick="setOpt(this)">مفعّل</button>
-        <button class="chip" data-group="lowzero" data-v="off" onclick="setOpt(this)">معطّل</button>
-      </span>
-    </div>
-    <div class="setrow sub">
-      <span class="setlabel muted">الحدّ: سعر أقل من</span>
-      <span class="lowfields"><input type="number" id="lowPriceInp" class="opt-num" value="400" onchange="setLowThreshold()"><span class="unit">ر.س · كمية</span><input type="number" id="lowQtyInp" class="opt-num" value="3" onchange="setLowThreshold()"><span class="unit">أو أقل ← 0</span></span>
-    </div>
-    <p class="hint mini">«الكمية غير المحدودة» المطابِقة تُستبدل تلقائياً بالكمية الحقيقية من المستودع في ملف الكميات.</p>
-  </div>
-
-  <details class="card" id="offsetsCard" style="margin-top:14px" ontoggle="if(this.open)renderOffsetsList()">
-    <summary>⚙ الزيادات المحفوظة (<span id="offCount">0</span>) — اضغط للعرض والتعديل</summary>
-    <div style="margin-top:12px">
-      <input type="text" id="offSearch" placeholder="🔎 ابحث بالكود أو الاسم..." oninput="renderOffsetsList()">
-      <div class="twrap" style="max-height:340px;margin-top:10px"><table>
-        <colgroup><col class="c-sku"><col><col style="width:150px"><col style="width:90px"></colgroup>
-        <thead><tr><th>SKU زد</th><th>اسم المنتج</th><th>الزيادة (ر.س)</th><th>حذف</th></tr></thead>
-        <tbody id="offBody"></tbody>
-      </table></div>
-    </div>
-  </details>
-  </div><!-- /steps-b -->
-  </div><!-- /steps-row -->
+  <div class="zid-mini" id="zidMiniInfo"><span>🏪 لا توجد بيانات زد بعد</span><a class="zid-mini-link" onclick="goPage('db')">تحديث ←</a></div>
 
   <button class="btn-run" id="runBtn" disabled onclick="run()">🔄 طابق وأنشئ الملف المحدث</button>
   <div class="rebind-hint" id="rebindHint" style="display:none">⟳ عدّلت الروابط بعد آخر مطابقة — اضغط «طابق وأنشئ الملف المحدث» ليشمل الملفُ التغييرات قبل التحميل.</div>
@@ -909,64 +894,7 @@
     </div>
   </div>
 
-  <div id="toast" class="toast"></div>
-
-  <!-- شاشة تسجيل الدخول (Supabase Auth) -->
-  <div id="loginOverlay" class="login-overlay" style="display:none">
-    <div class="login-box">
-      <div class="login-mark">🔐</div>
-      <div id="loginForm">
-        <div class="login-title">تسجيل الدخول</div>
-        <p class="login-sub">أداة مزامنة المخزون — ASJ</p>
-        <div class="login-field">
-          <label for="loginEmail">البريد الإلكتروني</label>
-          <input type="email" id="loginEmail" placeholder="name@asj.com" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
-        </div>
-        <div class="login-field">
-          <label for="loginPass">كلمة المرور</label>
-          <div class="pass-wrap">
-            <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-            <button type="button" class="pass-eye" id="loginEye" onclick="togglePass('loginPass','loginEye')" aria-label="إظهار/إخفاء كلمة المرور" title="إظهار/إخفاء">👁</button>
-          </div>
-        </div>
-        <button class="btn-run" id="loginBtn" onclick="doLogin()">دخول</button>
-        <div id="loginErr" class="login-err"></div>
-        <button type="button" class="login-link" id="forgotBtn" onclick="forgotPassword()">نسيت كلمة المرور؟</button>
-      </div>
-      <div id="recoverForm" style="display:none">
-        <div class="login-title">تعيين كلمة مرور جديدة</div>
-        <p class="login-sub">أدخل كلمة المرور الجديدة لحسابك</p>
-        <div class="login-field">
-          <label for="newPass">كلمة المرور الجديدة</label>
-          <div class="pass-wrap">
-            <input type="password" id="newPass" placeholder="6 أحرف على الأقل" autocomplete="new-password" onkeydown="if(event.key==='Enter')setNewPassword()">
-            <button type="button" class="pass-eye" id="newEye" onclick="togglePass('newPass','newEye')" aria-label="إظهار/إخفاء كلمة المرور" title="إظهار/إخفاء">👁</button>
-          </div>
-        </div>
-        <button class="btn-run" id="newPassBtn" onclick="setNewPassword()">حفظ كلمة المرور</button>
-        <div id="recoverErr" class="login-err"></div>
-      </div>
-    </div>
-  </div>
-
-
-  <!-- لوحة زيادة سعر المتغير -->
-  <div id="offOverlay" class="off-overlay" style="display:none" onclick="if(event.target===this)closeOffset()">
-    <div class="off-box">
-      <div class="off-title">⚙ زيادة سعر المتغير <span id="offSku" class="mono"></span></div>
-      <p class="hint" id="offInfo"></p>
-      <div class="maprow">
-        <input type="number" id="offVal" placeholder="الزيادة عن سعر المستودع (ر.س)" oninput="offPreview()" onkeydown="if(event.key==='Enter')saveOffset()">
-        <button class="btn-run sm export-btn" onclick="offsetFromZid()">احسب من سعر زد الحالي</button>
-      </div>
-      <div id="offPrev" class="off-prev"></div>
-      <div class="maprow" style="margin-top:10px">
-        <button class="btn-run sm" onclick="saveOffset()">حفظ الزيادة</button>
-        <button class="mc-btn ignore" onclick="closeOffset()">إلغاء</button>
-      </div>
-    </div>
-  </div>
-
+  <!-- 🔍 استعلام عن منتج -->
   <div class="section-head"><span class="n">٣</span><h2>🔍 استعلام عن منتج <span style="color:var(--muted-2);font-weight:600;font-size:13px">(بحثان مستقلان)</span></h2><span class="line"></span></div>
   <div class="card">
     <div class="query-row">
@@ -991,14 +919,204 @@
       <tbody id="ignoredBody"></tbody>
     </table></div>
   </details>
+  </section><!-- /page-home -->
 
-  <div id="fpWarn" class="fp-warn" style="display:none"></div>
-  <div id="fingerprint" class="fingerprint"></div>
+  <!-- ============ الصفحة: تحديث قاعدة البيانات ============ -->
+  <section class="page" id="page-db">
+    <div class="page-head"><span class="ph-ico">🔄</span><div class="ph-txt"><h2>تحديث قاعدة البيانات</h2><p>منتجات زد مرآةً في القاعدة — حدّثها عند تغيّر منتجات زد (مبيعات/أصناف جديدة)</p></div></div>
+    <div class="card stage-card">
+      <div class="stage-head"><span class="stage-n">ب</span><b>متجر زد</b><span class="stage-sub">مستقل عن المخزن — تُنطلق المطابقة متى اكتمل المخزن ＋ زد</span></div>
+      <div id="zidDbPanel" class="zid-db" style="display:none">
+        <div class="zid-db-info">
+          <span class="zid-db-count">منتجات زد من القاعدة: <b id="zidDbCount">0</b> صنف</span>
+          <span class="zid-age" id="zidDbAge"></span>
+        </div>
+        <button type="button" class="btn-run sm" id="useDbBtn" onclick="useZidFromDB()">✓ استخدمها للمطابقة</button>
+      </div>
+      <label class="upload block" id="stCard">
+        <input type="file" accept=".xlsx,.xls,.csv" onchange="onStore(this)">
+        <div class="utitle" id="stTitle">تصدير المنتجات من زد</div>
+        <div class="hint" id="stHint">من لوحة زد: المنتجات ← تصدير</div>
+        <div class="ustatus" id="stStatus">اضغط لاختيار الملف</div>
+      </label>
+      <div id="zidSyncMsg" class="zid-sync-msg" style="display:none"></div>
+    </div>
+  </section>
+
+  <!-- ============ الصفحة: الخيارات ============ -->
+  <section class="page" id="page-options">
+    <div class="page-head"><span class="ph-ico">⚙</span><div class="ph-txt"><h2>الخيارات</h2><p>تُطبَّق عالمياً على المطابقة في الرئيسية — تغييرها هنا يسري فوراً</p></div></div>
+    <div class="card settings">
+      <div class="setrow">
+        <span class="setlabel">السعر المُرسل إلى زد</span>
+        <span class="seg">
+          <button class="chip on" data-group="price" data-v="incl" onclick="setOpt(this)">شامل الضريبة</button>
+          <button class="chip" data-group="price" data-v="excl" onclick="setOpt(this)">قبل الضريبة</button>
+          <button class="chip" data-group="price" data-v="none" onclick="setOpt(this)">لا تحدّث</button>
+        </span>
+      </div>
+      <div class="setrow">
+        <span class="setlabel">الأصناف الغائبة عن الملف <span class="set-info" title="«صفّر كميتها» استخدمه فقط عندما يمثّل ملفك كامل مخزونك (مستودع ＋ فروع). في المرحلة 1 (المستودع الرئيسي فقط) قد تكون هذه الأصناف متوفرة في الفروع — اترك «كما هي».">ⓘ</span></span>
+        <span class="seg">
+          <button class="chip on" data-group="absent" data-v="keep" onclick="setOpt(this)">اتركها كما هي</button>
+          <button class="chip" data-group="absent" data-v="zero" onclick="setOpt(this)">صفّر كميتها</button>
+        </span>
+      </div>
+      <p class="danger-hint set-warn" id="absentWarn" style="display:none">⚠ «صفّر كميتها» للمرحلة 2 فقط (المخزون الكامل: مستودع ＋ فروع). في المرحلة 1 قد تكون هذه الأصناف متوفرة في الفروع.</p>
+      <div class="setrow">
+        <span class="setlabel">توزيع كمية المستودع على المتغيرات</span>
+        <span class="seg">
+          <button class="chip on" data-group="split" data-v="equal" onclick="setOpt(this)">قسّم بالتساوي</button>
+          <button class="chip" data-group="split" data-v="full" onclick="setOpt(this)">الكاملة لكل متغير</button>
+        </span>
+      </div>
+      <div class="setrow">
+        <span class="setlabel">تصفير الكميات المنخفضة القيمة</span>
+        <span class="seg">
+          <button class="chip on" data-group="lowzero" data-v="on" onclick="setOpt(this)">مفعّل</button>
+          <button class="chip" data-group="lowzero" data-v="off" onclick="setOpt(this)">معطّل</button>
+        </span>
+      </div>
+      <div class="setrow sub">
+        <span class="setlabel muted">الحدّ: سعر أقل من</span>
+        <span class="lowfields"><input type="number" id="lowPriceInp" class="opt-num" value="400" onchange="setLowThreshold()"><span class="unit">ر.س · كمية</span><input type="number" id="lowQtyInp" class="opt-num" value="3" onchange="setLowThreshold()"><span class="unit">أو أقل ← 0</span></span>
+      </div>
+      <p class="hint mini">«الكمية غير المحدودة» المطابِقة تُستبدل تلقائياً بالكمية الحقيقية من المستودع في ملف الكميات.</p>
+    </div>
+
+    <details class="card" id="offsetsCard" style="margin-top:14px" ontoggle="if(this.open)renderOffsetsList()">
+      <summary>⚙ الزيادات المحفوظة (<span id="offCount">0</span>) — اضغط للعرض والتعديل</summary>
+      <div style="margin-top:12px">
+        <input type="text" id="offSearch" placeholder="🔎 ابحث بالكود أو الاسم..." oninput="renderOffsetsList()">
+        <div class="twrap" style="max-height:340px;margin-top:10px"><table>
+          <colgroup><col class="c-sku"><col><col style="width:150px"><col style="width:90px"></colgroup>
+          <thead><tr><th>SKU زد</th><th>اسم المنتج</th><th>الزيادة (ر.س)</th><th>حذف</th></tr></thead>
+          <tbody id="offBody"></tbody>
+        </table></div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ الصفحة: الحساب والنظام ============ -->
+  <section class="page" id="page-account">
+    <div class="page-head"><span class="ph-ico">👤</span><div class="ph-txt"><h2>الحساب والنظام</h2><p>الاتصال والحفظ والمظهر ومعلومات النسخة</p></div></div>
+    <div class="card acc-card">
+      <div class="clabel">حالة الاتصال</div>
+      <div class="acc-status-row" style="margin-top:10px">
+        <span class="db-badge" id="dbBadge" title="حالة الاتصال بقاعدة البيانات">⚪ …</span>
+        <span class="db-badge map-badge" id="mapCountBadge" title="الروابط اليدوية المحفوظة (تُدار من لوحة التحليل الذكي)">🔗 الروابط: <b id="mapCount">0</b></span>
+      </div>
+      <div class="acc-stats">
+        <div class="acc-stat"><b id="accProducts">0</b><span>منتجات زد (القاعدة)</span></div>
+        <div class="acc-stat"><b id="accLinks">0</b><span>الروابط</span></div>
+        <div class="acc-stat"><b id="accWaiting">0</b><span>قائمة الانتظار ⏳</span></div>
+      </div>
+    </div>
+    <div class="card acc-card">
+      <div class="clabel">الحفظ والمظهر والجلسة</div>
+      <div class="acc-actions">
+        <div class="gh-menu">
+          <button type="button" class="theme-btn" id="ghBtn" onclick="toggleGhMenu(event)"><span class="gh-dot" id="ghDot"></span>☁ الحفظ في الريبو</button>
+          <div class="gh-panel" id="ghPanel" style="display:none">
+            <div class="clabel">☁ الحفظ المباشر في الريبو (GitHub)</div>
+            <p class="hint">الروابط تُحفظ في الريبو تلقائياً بعد تحميل الملف المحدّث. أدخل رمز GitHub مرة واحدة (بصلاحية Contents: Read and write على مستودع <b>zid-sync</b>)؛ يُخزَّن في متصفحك فقط.</p>
+            <input type="password" id="ghToken" placeholder="رمز GitHub (github_pat_… أو ghp_…)" onkeydown="if(event.key==='Enter')saveToken()">
+            <div class="gh-panel-btns">
+              <button class="btn-run sm" onclick="saveToken()">حفظ الرمز</button>
+              <button class="btn-run sm export-btn" onclick="saveToRepo('حفظ يدوي')">☁ حفظ الآن</button>
+            </div>
+            <div id="repoStatus" class="repo-status"></div>
+            <button class="btn-run sm export-btn gh-export" onclick="exportConfig()">⬇ تصدير يدوي (بديل بدون رمز)</button>
+          </div>
+        </div>
+        <button type="button" class="theme-btn" id="themeBtn" onclick="toggleTheme()">☀ الوضع الفاتح</button>
+        <button type="button" class="theme-btn" id="logoutBtn" onclick="doLogout()" style="display:none">🚪 خروج</button>
+      </div>
+    </div>
+    <div class="card acc-card">
+      <div class="clabel">معلومات النسخة والبصمة</div>
+      <div id="fpWarn" class="fp-warn" style="display:none;margin-top:10px"></div>
+      <div id="fingerprint" class="fingerprint" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <!-- ============ الصفحة: مستخدم جديد ============ -->
+  <section class="page" id="page-newuser">
+    <div class="page-head"><span class="ph-ico">➕</span><div class="ph-txt"><h2>مستخدم جديد</h2><p>إنشاء حساب دخول جديد للأداة</p></div></div>
+    <div class="card acc-card signup-card">
+      <div class="login-field"><label for="suEmail">البريد الإلكتروني</label><input type="email" id="suEmail" placeholder="name@asj.com" autocomplete="off"></div>
+      <div class="login-field"><label for="suPass">كلمة المرور</label><input type="password" id="suPass" placeholder="6 أحرف على الأقل" autocomplete="new-password"></div>
+      <div class="login-field"><label for="suPass2">تأكيد كلمة المرور</label><input type="password" id="suPass2" placeholder="أعد كتابتها" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSignup()"></div>
+      <button class="btn-run" id="suBtn" onclick="doSignup()">➕ إنشاء الحساب</button>
+      <div id="suMsg" class="login-err"></div>
+      <p class="hint" style="margin-top:14px;line-height:1.7">ℹ️ قد يتطلب النظام تأكيد البريد قبل أول دخول (حسب إعدادات Supabase)، ولن تتأثر جلستك الحالية. لإدارة كاملة للمستخدمين استخدم لوحة <b>Supabase → Authentication</b>.</p>
+    </div>
+  </section>
+
+  </main>
 
   <footer>
     المطابقة: الربط اليدوي أولاً ← ثم SKU الكامل ← ثم الكود الأساسي (مع تجاهل الأصفار البادئة مثل 080158 = 80158).
     الملف الناتج يحافظ على جميع الأعمدة ويغيّر الكمية والسعر فقط. جميع المعالجة تتم في متصفحك — لا تُرفع ملفاتك لأي خادم.
   </footer>
+  </div><!-- /main-col -->
+</div><!-- /app-shell -->
+
+<div id="toast" class="toast"></div>
+
+<!-- شاشة تسجيل الدخول (Supabase Auth) -->
+<div id="loginOverlay" class="login-overlay" style="display:none">
+  <div class="login-box">
+    <div class="login-mark">🔐</div>
+    <div id="loginForm">
+      <div class="login-title">تسجيل الدخول</div>
+      <p class="login-sub">أداة مزامنة المخزون — ASJ</p>
+      <div class="login-field">
+        <label for="loginEmail">البريد الإلكتروني</label>
+        <input type="email" id="loginEmail" placeholder="name@asj.com" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+      </div>
+      <div class="login-field">
+        <label for="loginPass">كلمة المرور</label>
+        <div class="pass-wrap">
+          <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+          <button type="button" class="pass-eye" id="loginEye" onclick="togglePass('loginPass','loginEye')" aria-label="إظهار/إخفاء كلمة المرور" title="إظهار/إخفاء">👁</button>
+        </div>
+      </div>
+      <button class="btn-run" id="loginBtn" onclick="doLogin()">دخول</button>
+      <div id="loginErr" class="login-err"></div>
+      <button type="button" class="login-link" id="forgotBtn" onclick="forgotPassword()">نسيت كلمة المرور؟</button>
+    </div>
+    <div id="recoverForm" style="display:none">
+      <div class="login-title">تعيين كلمة مرور جديدة</div>
+      <p class="login-sub">أدخل كلمة المرور الجديدة لحسابك</p>
+      <div class="login-field">
+        <label for="newPass">كلمة المرور الجديدة</label>
+        <div class="pass-wrap">
+          <input type="password" id="newPass" placeholder="6 أحرف على الأقل" autocomplete="new-password" onkeydown="if(event.key==='Enter')setNewPassword()">
+          <button type="button" class="pass-eye" id="newEye" onclick="togglePass('newPass','newEye')" aria-label="إظهار/إخفاء كلمة المرور" title="إظهار/إخفاء">👁</button>
+        </div>
+      </div>
+      <button class="btn-run" id="newPassBtn" onclick="setNewPassword()">حفظ كلمة المرور</button>
+      <div id="recoverErr" class="login-err"></div>
+    </div>
+  </div>
+</div>
+
+<!-- لوحة زيادة سعر المتغير -->
+<div id="offOverlay" class="off-overlay" style="display:none" onclick="if(event.target===this)closeOffset()">
+  <div class="off-box">
+    <div class="off-title">⚙ زيادة سعر المتغير <span id="offSku" class="mono"></span></div>
+    <p class="hint" id="offInfo"></p>
+    <div class="maprow">
+      <input type="number" id="offVal" placeholder="الزيادة عن سعر المستودع (ر.س)" oninput="offPreview()" onkeydown="if(event.key==='Enter')saveOffset()">
+      <button class="btn-run sm export-btn" onclick="offsetFromZid()">احسب من سعر زد الحالي</button>
+    </div>
+    <div id="offPrev" class="off-prev"></div>
+    <div class="maprow" style="margin-top:10px">
+      <button class="btn-run sm" onclick="saveOffset()">حفظ الزيادة</button>
+      <button class="mc-btn ignore" onclick="closeOffset()">إلغاء</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1160,6 +1278,54 @@ async function doLogin() {
 }
 async function doLogout() { if (sb) await sb.auth.signOut(); }
 
+// ===== تنقّل SPA بين الصفحات (أقسام تُظهر/تُخفى — الحالة مشتركة، لا فقدان لشيء) =====
+function goPage(id) {
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + id));
+  document.querySelectorAll(".side-link").forEach(a => a.classList.toggle("active", a.dataset.page === id));
+  if (id === "account") renderAccount();
+  if (id === "options" && typeof renderOffsetsList === "function") renderOffsetsList();
+  closeSidebar();
+  try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { window.scrollTo(0, 0); }
+}
+function toggleSidebar() { const s = document.getElementById("sidebar"), c = document.getElementById("sidebarScrim"); if (s) s.classList.toggle("open"); if (c) c.classList.toggle("show"); }
+function closeSidebar() { const s = document.getElementById("sidebar"), c = document.getElementById("sidebarScrim"); if (s) s.classList.remove("open"); if (c) c.classList.remove("show"); }
+
+// عدّادات صفحة «الحساب والنظام» (قراءة الحالة الحالية — عرض فقط)
+function renderAccount() {
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set("accProducts", (zidDbMeta && zidDbMeta.product_count) ? zidDbMeta.product_count : 0);
+  set("accLinks", Object.keys(manualMap).length);
+  set("accWaiting", waitingSet ? waitingSet.size : 0);
+}
+
+// إنشاء مستخدم جديد عبر signUp — مع الحفاظ على جلسة المدير الحالية (بلا service key إطلاقاً)
+async function doSignup() {
+  const email = (document.getElementById("suEmail").value || "").trim();
+  const p1 = document.getElementById("suPass").value, p2 = document.getElementById("suPass2").value;
+  const msg = document.getElementById("suMsg"), btn = document.getElementById("suBtn");
+  const fail = t => { msg.style.color = ""; msg.textContent = t; };
+  if (!sb) { fail("لم تُحمّل مكتبة Supabase — تحقّق من الاتصال."); return; }
+  if (!email || !p1) { fail("أدخل البريد وكلمة المرور."); return; }
+  if (p1.length < 6) { fail("كلمة المرور 6 أحرف على الأقل."); return; }
+  if (p1 !== p2) { fail("كلمتا المرور غير متطابقتين."); return; }
+  btn.disabled = true; btn.textContent = "⏳ جارٍ الإنشاء…"; msg.style.color = ""; msg.textContent = "";
+  try {
+    const { data: cur } = await sb.auth.getSession();
+    const adminSession = cur && cur.session;   // جلسة المدير الحالية — نستعيدها بعد الإنشاء
+    const { data, error } = await sb.auth.signUp({ email, password: p1 });
+    if (error) throw error;
+    // إن أنشأ Supabase جلسة للمستخدم الجديد (تأكيد البريد مُعطّل) ⇒ استعِد جلسة المدير فوراً
+    if (data && data.session && adminSession) {
+      await sb.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
+      msg.style.color = "#8fbf98"; msg.textContent = `✓ أُنشئ الحساب (${email}) ويمكنه الدخول الآن. جلستك كما هي.`;
+    } else {
+      msg.style.color = "#8fbf98"; msg.textContent = `✓ أُنشئ الحساب (${email}) — قد يتطلب تأكيد البريد قبل أول دخول. جلستك كما هي.`;
+    }
+    document.getElementById("suPass").value = ""; document.getElementById("suPass2").value = ""; document.getElementById("suEmail").value = "";
+  } catch (e) { fail("تعذّر الإنشاء: " + (e.message || e)); }
+  btn.disabled = false; btn.textContent = "➕ إنشاء الحساب";
+}
+
 // إظهار/إخفاء كلمة المرور (شكل فقط — لا مساس بالمنطق)
 function togglePass(inputId, eyeId) {
   const inp = document.getElementById(inputId), eye = document.getElementById(eyeId); if (!inp) return;
@@ -1232,9 +1398,15 @@ async function loadMappingsFromDB() {
   } catch (e) { dbOnline = false; setDbBadge(false, e.message); console.warn("DB load failed:", e); }
 }
 function setDbBadge(ok, extra) {
-  const b = document.getElementById("dbBadge"); if (!b) return;
-  b.className = "db-badge " + (ok ? "ok" : "off");
-  b.textContent = ok ? `🟢 متصل بالقاعدة (${Object.keys(manualMap).length})` : "🔴 غير متصل" + (extra ? " — " + extra : "");
+  const b = document.getElementById("dbBadge");
+  if (b) {
+    b.className = "db-badge " + (ok ? "ok" : "off");
+    b.textContent = ok ? `🟢 متصل بالقاعدة (${Object.keys(manualMap).length})` : "🔴 غير متصل" + (extra ? " — " + extra : "");
+  }
+  // مرآة مصغّرة في الترويسة الرفيعة (كل الصفحات)
+  const bm = document.getElementById("dbBadgeMini");
+  if (bm) { bm.className = "db-badge mini " + (ok ? "ok" : "off"); bm.textContent = ok ? "🟢 متصل" : "🔴 غير متصل"; }
+  if (typeof renderAccount === "function") renderAccount();
 }
 function updateDbBadge() { setDbBadge(dbOnline); }
 function checkMigration() {
@@ -2136,6 +2308,24 @@ function updateZidPanel() {
     if (title) title.textContent = "تصدير المنتجات من زد";
     if (hint) hint.textContent = "من لوحة زد: المنتجات ← تصدير";
   }
+  updateZidMini();
+  if (typeof renderAccount === "function") renderAccount();
+}
+// السطر المعلوماتي المصغّر لبيانات زد في الصفحة الرئيسية (مع رابط «تحديث ←» لصفحة القاعدة)
+function updateZidMini() {
+  const mini = document.getElementById("zidMiniInfo"); if (!mini) return;
+  let txt;
+  if (zidDbMeta && zidDbMeta.product_count > 0) {
+    const ms = zidDbMeta.synced_at ? Date.parse(zidDbMeta.synced_at) : null;
+    txt = `🏪 بيانات زد (القاعدة): <b>${zidDbMeta.product_count}</b> صنف · ${ageText(ms)}`;
+  } else if (stData) {
+    txt = `🏪 بيانات زد (ملف): <b>${stData.rows.length - 1}</b> صنف · ${ageText(zidSyncedAt)}`;
+  } else {
+    txt = `🏪 لا توجد بيانات زد بعد — حدّث القاعدة`;
+  }
+  const stale = zidIsStale();
+  mini.className = "zid-mini" + (stale ? " stale" : "");
+  mini.innerHTML = `<span>${txt}${stale ? " ⚠" : ""}</span><a class="zid-mini-link" onclick="goPage('db')">تحديث ←</a>`;
 }
 
 async function loadZidMeta() {
@@ -2196,7 +2386,7 @@ async function syncZidToDB() {
 }
 
 // تطلق المطابقة تلقائياً متى توفّر المصدران (المخزن ＋ زد) — بيانات طازجة مباشرة
-function launchMatchIfReady() { checkReady(); if (whRows && stData) run(); }
+function launchMatchIfReady() { checkReady(); if (whRows && stData) { if (typeof goPage === "function") goPage("home"); run(); } }
 
 // اعتماد بيانات زد من القاعدة كمصدر للمطابقة (بلا رفع ملف) — يعيد بناء stData من raw + الرأس
 async function useZidFromDB() {
@@ -2248,6 +2438,7 @@ async function onStore(inp) {
         if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg fail"; sm.innerHTML = "⚠ تعذّرت مزامنة القاعدة: " + esc(e.message || String(e)) + " — يُستخدم الملف مباشرة لهذه الجلسة."; }
       }
     } else if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg"; sm.innerHTML = "ℹ️ غير متصل بالقاعدة — يُستخدم الملف مباشرة (بلا مزامنة)."; }
+    updateZidMini();
   } catch (x) { showErr("ملف المتجر: " + x.message); }
   inp.value = "";
   launchMatchIfReady();
@@ -3634,6 +3825,7 @@ async function addMapping(sku, code) {
 
 function renderPills() {
   const mc = document.getElementById("mapCount"); if (mc) mc.textContent = Object.keys(manualMap).length;
+  if (typeof renderAccount === "function") renderAccount();
   const pl = document.getElementById("pills");   // قائمة الروابط القديمة أُزيلت مع قسم ③؛ نُبقي التحديث دفاعياً
   if (pl) pl.innerHTML = Object.entries(manualMap)
     .map(([s, c]) => `<span class="pill"><span class="mono">${s} → ${c}</span><button onclick="delMap('${s}')">×</button></span>`).join("");
