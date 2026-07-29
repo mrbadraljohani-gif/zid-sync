@@ -763,6 +763,51 @@
   .alert-new:hover { border-color: #e6a34a; transform: translateY(-1px); box-shadow: 0 8px 22px rgba(230,163,74,.18); }
   .verify-ok { margin-top: 10px; color: var(--green-2); background: rgba(123,168,132,.12); border: 1px solid rgba(123,168,132,.35); border-radius: 10px; padding: 11px 14px; font-size: 13.5px; font-weight: 700; }
   .verify-fail { margin-top: 10px; color: var(--danger); background: rgba(229,144,135,.12); border: 1px solid rgba(229,144,135,.45); border-radius: 10px; padding: 11px 14px; font-size: 13.5px; font-weight: 700; }
+
+  /* ===== داشبورد النتيجة — أربع طبقات بهرمية بصرية ===== */
+  /* ① شريط الحالة */
+  .result-status { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding-bottom: 12px; margin-bottom: 15px; border-bottom: 1px solid var(--border); }
+  .rs-title { font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--gold-2); }
+  .rs-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--muted-2); transition: background .2s; }
+  .rs-dot.fresh { background: #5fae63; box-shadow: 0 0 0 3px rgba(95,174,99,.18); }
+  .rs-dot.stale { background: var(--gold-2); box-shadow: 0 0 0 3px rgba(230,197,111,.2); }
+  .rs-inv { font-size: 12px; font-weight: 700; color: var(--muted); }
+  .rs-inv b { color: var(--text); }
+  /* ② بطاقات KPI: شريط لون علوي + أيقونة + رقم بارز */
+  .stat { position: relative; overflow: hidden; padding-top: 16px; }
+  .stat::before { content: ""; position: absolute; top: 0; inset-inline: 0; height: 3px; background: var(--muted-2); }
+  .stat[data-filter="updated"]::before { background: #5fae63; }
+  .stat[data-filter="new"]::before { background: var(--gold); }
+  .stat[data-filter="unmatched"]::before, .stat[data-filter="infinite"]::before { background: #8a8f99; }
+  .stat[data-filter="absent"]::before { background: #6b93c0; }
+  .stat[data-filter="all"]::before { background: var(--border-strong); }
+  .stat .stat-ic { display: block; font-size: 14px; opacity: .75; line-height: 1; margin-bottom: 3px; color: var(--muted); }
+  .stat b { font-size: 27px; display: block; line-height: 1.05; font-family: var(--serif); }
+  .stat .stat-lbl { display: block; font-size: 11.5px; color: var(--muted); font-weight: 700; margin-top: 4px; line-height: 1.4; }
+  .stat:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,.28); }
+  /* ③ مركز التنبيهات: بطاقات موحّدة بحاشية بادئة ملوّنة حسب الأهمية */
+  .action-center { display: flex; flex-direction: column; gap: 11px; margin: 4px 0 18px; }
+  .action-center > div { margin-bottom: 0 !important; }
+  .action-center .col-warn { border-inline-start: 4px solid var(--danger); }
+  .action-center .alert-new { border-inline-start: 4px solid var(--gold); margin-bottom: 0; }
+  .action-center .sc-info { border-inline-start: 4px solid #d98b4e; }
+  .action-center .zid-stale-warn { border-inline-start: 4px solid var(--gold-2); margin-bottom: 0; }
+  .action-center .vg-info { border-inline-start: 4px solid #6b93c0; }
+  .action-center .pp-info { border-inline-start: 4px solid #5fae63; }
+  .action-center .reactivated-msg { border-inline-start: 4px solid #5fae63; }
+  /* ④ بطاقات التنزيل الموحّدة + شريط الملخّص */
+  #verifyMsg.verify-ok, #verifyMsg.verify-fail { margin-top: 0; margin-bottom: 12px; }
+  .dl-row { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 2px; }
+  .dl-card { flex: 1 1 320px; display: flex; align-items: center; gap: 13px; text-decoration: none; padding: 14px 16px; border-radius: 14px; min-width: 0;
+    background: linear-gradient(180deg, rgba(123,168,132,.16), rgba(123,168,132,.06)); border: 1px solid rgba(123,168,132,.4); color: var(--text); cursor: pointer; transition: transform .15s, box-shadow .15s; }
+  .dl-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(123,168,132,.3); }
+  .dl-card.disabled { opacity: .45; pointer-events: none; filter: grayscale(.45); }
+  .dl-ic { font-size: 22px; color: var(--green-2); flex-shrink: 0; }
+  .dl-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; text-align: start; }
+  .dl-title { font-size: 14px; font-weight: 800; color: var(--green-2); }
+  .dl-title b { color: var(--text); }
+  .dl-card .dl-sub { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin: 0; text-align: start; }
+  @media (max-width: 620px) { .stat { flex: 1 1 40%; } }
   .wh-search-wrap { margin-bottom: 12px; }
   .wh-results { margin-top: 8px; max-height: 260px; overflow: auto; }
   .wh-results:empty { display: none; }
@@ -921,34 +966,45 @@
   <div class="error" id="err"></div>
 
   <div class="card" id="result">
-    <div id="collisionWarn" style="display:none"></div>
-    <div id="variantInfo" style="display:none"></div>
-    <div id="reactivatedMsg" class="reactivated-msg" style="display:none"></div>
-    <div id="saleConflictMsg" style="display:none"></div>
-    <div id="parentPublishMsg" style="display:none"></div>
-    <div id="zidStaleWarn" class="zid-stale-warn" style="display:none"></div>
-    <div id="newAlert" class="alert-new" style="display:none" onclick="scrollToNew()"></div>
-    <div class="clabel">النتيجة<span class="zid-age-head" id="zidAgeHead"></span></div>
+    <!-- ①  شريط الحالة -->
+    <div class="result-status">
+      <span class="rs-dot" id="rsDot"></span>
+      <span class="rs-title">النتيجة</span>
+      <span class="zid-age-head" id="zidAgeHead"></span>
+      <span class="rs-inv" id="rsInvAge"></span>
+    </div>
+    <!-- ②  بطاقات الأرقام (KPI) -->
     <div class="stats">
-      <div class="stat" data-filter="updated" onclick="selectCard('updated')"><b style="color:#8fbf98" id="sUpd">0</b><span>تم تحديثه ✅</span></div>
-      <div class="stat" data-filter="new" onclick="selectCard('new')"><b style="color:#e6a34a" id="sNew">0</b><span>جديد يحتاج قراراً</span></div>
-      <div class="stat" data-filter="unmatched" onclick="selectCard('unmatched')"><b style="color:#e3c88c" id="sUn">0</b><span>بدون ربط</span></div>
-      <div class="stat" data-filter="infinite" onclick="selectCard('infinite')"><b style="color:#93a2b5" id="sInf">0</b><span>غير محدود بلا مطابقة</span></div>
-      <div class="stat" data-filter="absent" onclick="selectCard('absent')"><b style="color:#c99a3c" id="sAbsent">0</b><span id="sAbsentLbl">غائب عن الملف 📭</span></div>
-      <div class="stat" data-filter="all" onclick="selectCard('all')"><b style="color:#f1e9d8" id="sTot">0</b><span>إجمالي الأسطر</span></div>
+      <div class="stat" data-filter="updated" onclick="selectCard('updated')"><span class="stat-ic">✅</span><b style="color:#8fbf98" id="sUpd">0</b><span class="stat-lbl">تم تحديثه</span></div>
+      <div class="stat" data-filter="new" onclick="selectCard('new')"><span class="stat-ic">🆕</span><b style="color:#e6a34a" id="sNew">0</b><span class="stat-lbl">جديد يحتاج قراراً</span></div>
+      <div class="stat" data-filter="unmatched" onclick="selectCard('unmatched')"><span class="stat-ic">🔗</span><b style="color:#e3c88c" id="sUn">0</b><span class="stat-lbl">بدون ربط</span></div>
+      <div class="stat" data-filter="infinite" onclick="selectCard('infinite')"><span class="stat-ic">∞</span><b style="color:#93a2b5" id="sInf">0</b><span class="stat-lbl">غير محدود بلا مطابقة</span></div>
+      <div class="stat" data-filter="absent" onclick="selectCard('absent')"><span class="stat-ic">📭</span><b style="color:#c99a3c" id="sAbsent">0</b><span class="stat-lbl" id="sAbsentLbl">غائب عن الملف</span></div>
+      <div class="stat" data-filter="all" onclick="selectCard('all')"><span class="stat-ic">📊</span><b style="color:#f1e9d8" id="sTot">0</b><span class="stat-lbl">إجمالي الأسطر</span></div>
     </div>
     <p class="stats-hint">اضغط أي بطاقة لعرض تفاصيلها في الجدول بالأسفل</p>
-    <div class="dl-row">
-      <div class="dl-group">
-        <a class="btn-dl" id="dlQty" download="zid_quantities_update.xlsx">⬇ ملف الكميات (<span id="qtyN">0</span> صنف)</a>
-        <div class="dl-sub">يُرفع في زد: استيراد ← تحديث كميات المنتجات الحالية فقط</div>
-      </div>
-      <div class="dl-group">
-        <a class="btn-dl" id="dlPrice" download="zid_prices_update.xlsx">⬇ ملف الأسعار (<span id="priceN">0</span> صنف)</a>
-        <div class="dl-sub">يُرفع في زد: استيراد ← تحديث المنتجات الحالية ← حدّد حقلَي (السعر) و(منشور) ← تجاهل الحقول الفارغة</div>
-      </div>
+    <!-- ③  مركز التنبيهات — مرتّب بالأهمية -->
+    <div class="action-center">
+      <div id="collisionWarn" style="display:none"></div>
+      <div id="newAlert" class="alert-new" style="display:none" onclick="scrollToNew()"></div>
+      <div id="saleConflictMsg" style="display:none"></div>
+      <div id="zidStaleWarn" class="zid-stale-warn" style="display:none"></div>
+      <div id="variantInfo" style="display:none"></div>
+      <div id="parentPublishMsg" style="display:none"></div>
+      <div id="reactivatedMsg" class="reactivated-msg" style="display:none"></div>
     </div>
+    <!-- ④  الملفات (الفعل الختامي) -->
     <div id="verifyMsg" style="display:none"></div>
+    <div class="dl-row">
+      <a class="dl-card" id="dlQty" download="zid_quantities_update.xlsx">
+        <span class="dl-ic">⬇</span>
+        <span class="dl-main"><span class="dl-title">ملف الكميات · <b id="qtyN">0</b> صنف</span><span class="dl-sub">استيراد في زد ← تحديث كميات المنتجات الحالية فقط</span></span>
+      </a>
+      <a class="dl-card" id="dlPrice" download="zid_prices_update.xlsx">
+        <span class="dl-ic">⬇</span>
+        <span class="dl-main"><span class="dl-title">ملف الأسعار · <b id="priceN">0</b> صنف</span><span class="dl-sub">استيراد ← تحديث المنتجات ← حقلا (السعر) و(منشور) ← تجاهل الفارغة</span></span>
+      </a>
+    </div>
     <div id="unBlock" style="display:none">
       <div class="clabel" style="margin-top:18px" id="unTitle"></div>
       <div class="unbar">
@@ -3348,7 +3404,7 @@ function run(reprocess) {
     document.getElementById("sUn").textContent = unmatched.length;
     document.getElementById("sInf").textContent = infiniteList.length;
     document.getElementById("sAbsent").textContent = absentList.length + waitingInFile;
-    { const lbl = document.getElementById("sAbsentLbl"); if (lbl) lbl.textContent = "غائب عن الملف 📭" + (waitingInFile ? ` (منها ⏳ ${waitingInFile})` : ""); }
+    { const lbl = document.getElementById("sAbsentLbl"); if (lbl) lbl.textContent = "غائب عن الملف" + (waitingInFile ? ` · منها ⏳ ${waitingInFile}` : ""); }
     document.getElementById("sTot").textContent = rows0.length - 1;
 
     // === تصنيف الأصناف بدون ربط + بيانات الفلاتر ===
@@ -3381,6 +3437,13 @@ function run(reprocess) {
 function renderZidFreshness() {
   const head = document.getElementById("zidAgeHead");
   if (head) { head.className = "zid-age-head" + (zidIsStale() ? " stale" : ""); head.innerHTML = zidSyncedAt != null ? `· بيانات زد: <b>${ageText(zidSyncedAt)}</b>${zidSource === "db" ? " (القاعدة)" : ""}` : ""; }
+  const dot = document.getElementById("rsDot"); if (dot) dot.className = "rs-dot " + (zidSyncedAt == null ? "" : (zidIsStale() ? "stale" : "fresh"));
+  const rsInv = document.getElementById("rsInvAge");
+  if (rsInv) {
+    let ms = null;
+    if (invMeta) { const a = invMeta.wh_synced_at ? Date.parse(invMeta.wh_synced_at) : 0, b = invMeta.branch_synced_at ? Date.parse(invMeta.branch_synced_at) : 0, mx = Math.max(a, b); if (mx > 0) ms = mx; }
+    rsInv.innerHTML = ms != null ? `· المخزن: <b>${ageText(ms)}</b>` : (mergeWh ? `· المخزن: <b>الآن</b>` : "");
+  }
   const bar = document.getElementById("zidStaleWarn");
   if (bar) {
     if (zidIsStale()) { bar.style.display = "block"; bar.innerHTML = `⚠ بيانات زد قديمة (${ageText(zidSyncedAt)}) — الكميات قد تكون تغيّرت بالمبيعات في زد. يُنصح بتصدير جديد من زد ورفعه («🔄 تحديث من ملف تصدير جديد») قبل اعتماد ملفات الرفع.`; }
@@ -3929,7 +3992,7 @@ function updateNewCount() {
   const alert = document.getElementById("newAlert");
   if (newCount > 0) {
     alert.style.display = "flex";
-    alert.textContent = `⚠ يوجد ${newCount} منتجاً جديداً بدون ربط ولا تجاهل — كمياتها لن تتحدث! راجعها الآن`;
+    alert.textContent = `🆕 ${newCount} منتجاً جديداً بدون ربط — كمياتها لن تتحدث · اضغط لبدء الربط الذكي ←`;
   } else alert.style.display = "none";
 }
 
