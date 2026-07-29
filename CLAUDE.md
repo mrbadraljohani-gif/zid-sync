@@ -165,7 +165,7 @@
 - **لا إشعارات بريدية بعد**: الجدول مُهيّأ لتقرأ منه Edge Function لاحقاً وترسل ملخّصاً.
 
 ## أدوار المستخدمين Supabase (user_roles) — الأمان الحقيقي في RLS
-- **الجدول `public.user_roles`** (SQL في `supabase_roles.sql`، يُنفَّذ **بعد** كل الملفات السابقة، مرة واحدة): `user_id` uuid PK · `role` text check(`owner`/`admin`/`viewer`) · `created_at`. يُدرج المالك يدوياً في SQL (`mr.badraljohani@gmail.com` = owner). **⚠ لا تُعِد تشغيل الملفات القديمة بعده** وإلا استعادت سياسات الكتابة المفتوحة.
+- **الجدول `public.user_roles`** (SQL في `supabase_user_roles.sql`، يُنفَّذ **بعد** كل الملفات السابقة، مرة واحدة): `user_id` uuid PK · `role` text check(`owner`/`admin`/`viewer`) · `created_at`. يُدرج المالك يدوياً في SQL (`mr.badraljohani@gmail.com` = owner، `on conflict do nothing`). **⚠ لا تُعِد تشغيل الملفات القديمة بعده** وإلا استعادت سياسات الكتابة المفتوحة.
 - **الدالة `get_my_role()`** (`security definer`, `stable`): تقرأ دور `auth.uid()` متجاوزةً RLS فتمنع الـrecursion. تُستدعى في السياسات وعبر `sb.rpc('get_my_role')`.
 - **المصفوفة (مطبَّقة في RLS على مستوى القاعدة، لا الواجهة فقط)**: **owner** = كل شيء وحصرياً **كتابة `mappings`** (insert/update/delete تتطلب `get_my_role()='owner'`) · **admin** = بقية الكتابة (waiting/zid_products/zid_sync_meta/activity_log تتطلب `in ('owner','admin')`) لكن لا روابط · **viewer** = قراءة فقط. القراءة (select) تبقى مفتوحة لكل موثّق في كل الجداول.
 - **الواجهة تجمّل فقط** (`myRole`, `loadMyRole` عبر `db.roles.mine`، `applyRoleUI`): `requireOwner()` في `dbSetMapping/dbSetMappings/dbDelMapping` يمنع الربط لغير المالك بتوست «🔒 الربط صلاحية المالك» (RLS هو الحاجز الفعلي؛ `myRole=null` غير محمّل ⇒ نترك القاعدة تقرّر). `body.nonowner` يعتّم `#bindAllBtn`، وشارة الدور `#roleBadge` في صفحة الحساب.

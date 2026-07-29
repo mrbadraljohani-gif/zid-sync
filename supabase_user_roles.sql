@@ -5,7 +5,7 @@
 --
 -- نفّذ هذا **بعد** الملفات السابقة (phase1/waiting/zid_products/activity_log)، مرة واحدة.
 -- ⚠ لا تُعِد تشغيل الملفات القديمة بعد هذا الملف وإلا استعادت سياسات الكتابة المفتوحة.
--- آمن لإعادة التنفيذ (drop/create + on conflict).
+-- آمن لإعادة التنفيذ (drop/create + on conflict do nothing).
 -- ============================================================================
 
 -- 1) جدول الأدوار
@@ -48,10 +48,11 @@ create policy user_roles_delete_owner on public.user_roles
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on public.user_roles to authenticated;
 
--- 4) إدراج المالك يدوياً (يُنفَّذ بصلاحية محرّر SQL فيتجاوز RLS)
+-- 4) إدراج المالك يدوياً (يُنفَّذ بصلاحية محرّر SQL/postgres فيتجاوز RLS رغم سياسة insert المشروطة بـowner)
+--    آمن لإعادة التنفيذ: on conflict do nothing (لا يمسّ صفاً موجوداً).
 insert into public.user_roles (user_id, role)
 select id, 'owner' from auth.users where email = 'mr.badraljohani@gmail.com'
-on conflict (user_id) do update set role = excluded.role;
+on conflict (user_id) do nothing;
 
 -- ============================================================================
 -- 5) إعادة ضبط سياسات الكتابة على الجداول القائمة حسب الدور (القراءة تبقى مفتوحة للموثّقين)
