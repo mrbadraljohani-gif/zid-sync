@@ -486,11 +486,16 @@
     transition: border-color .18s, box-shadow .18s, background .18s; }
   :root[data-theme="light"] .login-box input, :root[data-theme="light"] .signup-card input { background: rgba(42,34,22,.04); }
   .login-box input:focus, .signup-card input:focus { border-color: var(--gold); background: rgba(230,197,111,.06); box-shadow: 0 0 0 3px rgba(230,197,111,.18); }
-  .signup-card input[dir="ltr"] { text-align: left; }
+  /* حقل البريد (LTR): محاذاة يسار طبيعية للنص وplaceholder اللاتيني */
+  .login-box input[type="email"], .signup-card input[type="email"] { text-align: left; }
+  .login-box input[type="email"]::placeholder, .signup-card input[type="email"]::placeholder { text-align: left; }
+  /* placeholder العربي في بقية الحقول محاذى يميناً */
+  .login-box input::placeholder, .signup-card input::placeholder { text-align: right; }
   .pass-wrap { position: relative; }
-  .pass-wrap input { padding-inline-end: 44px; }        /* مساحة لزر العين (الطرف الأيسر في RTL) */
-  .pass-eye { position: absolute; inset-inline-end: 6px; top: 50%; transform: translateY(-50%); background: transparent; border: none;
-    cursor: pointer; font-size: 16px; opacity: .55; padding: 4px 7px; line-height: 1; border-radius: 8px; transition: opacity .15s; }
+  /* كلمة المرور: نص وسط، والعين مثبتة يميناً (الطرف المقابل لبداية الكتابة LTR) مع padding يمنع أي تراكب كتابةً وكشفاً */
+  .pass-wrap input { text-align: center !important; padding-right: 42px !important; padding-left: 42px !important; }
+  .pass-eye { position: absolute; right: 6px; left: auto; top: 50%; transform: translateY(-50%);
+    background: transparent; border: none; cursor: pointer; font-size: 16px; opacity: .55; padding: 4px 7px; line-height: 1; border-radius: 8px; transition: opacity .15s; z-index: 3; }
   .pass-eye:hover, .pass-eye.on { opacity: 1; }
   /* إلغاء تبييض التعبئة التلقائية (Chrome) لإبقاء هوية الثيم الداكن/الكريمي */
   .login-box input:-webkit-autofill, .login-box input:-webkit-autofill:hover, .login-box input:-webkit-autofill:focus,
@@ -791,14 +796,14 @@
   .query-col { display: flex; flex-direction: column; min-width: 0; }
   .query-head { font-size: 13.5px; font-weight: 800; color: var(--gold-2); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
   .q-count { font-size: 11.5px; font-weight: 700; color: var(--muted); background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; }
-  .query-input { width: 100%; }
-  .q-results { margin-top: 10px; max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding-inline-end: 2px; }
+  .query-input { width: 100%; min-width: 0; max-width: 100%; }
+  .q-results { margin-top: 10px; max-height: 380px; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 7px; padding-inline-end: 2px; min-width: 0; }
   .q-empty { color: var(--muted-2); font-size: 12.5px; padding: 14px 6px; text-align: center; }
   .q-warn { color: var(--gold-2); font-size: 12.5px; padding: 12px 10px; text-align: center; background: rgba(230,197,111,.07); border: 1px dashed rgba(230,197,111,.35); border-radius: 10px; }
-  .q-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; }
-  .q-card-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .q-code { font-family: ui-monospace, monospace; font-size: 12.5px; font-weight: 800; color: var(--gold); }
-  .q-name { font-size: 12.5px; font-weight: 600; color: var(--text); flex: 1 1 auto; min-width: 0; line-height: 1.5; }
+  .q-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; min-width: 0; overflow: hidden; }
+  .q-card-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+  .q-code { font-family: ui-monospace, monospace; font-size: 12.5px; font-weight: 800; color: var(--gold); overflow-wrap: anywhere; min-width: 0; }
+  .q-name { font-size: 12.5px; font-weight: 600; color: var(--text); flex: 1 1 auto; min-width: 0; line-height: 1.5; overflow-wrap: anywhere; }
   .q-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
   .q-chip { font-size: 11px; font-weight: 700; border-radius: 8px; padding: 2px 8px; border: 1px solid var(--border); color: var(--muted); background: rgba(255,255,255,.03); white-space: nowrap; }
   .q-chip.qty-in { color: #8fbf98; border-color: rgba(143,191,152,.4); background: rgba(143,191,152,.10); }
@@ -1190,12 +1195,12 @@
       <p class="login-sub">أداة مزامنة المخزون — ASJ</p>
       <div class="login-field">
         <label for="loginEmail">البريد الإلكتروني</label>
-        <input type="email" id="loginEmail" placeholder="name@asj.com" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+        <input type="email" id="loginEmail" dir="ltr" placeholder="name@asj.com" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
       </div>
       <div class="login-field">
         <label for="loginPass">كلمة المرور</label>
         <div class="pass-wrap">
-          <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+          <input type="password" id="loginPass" dir="ltr" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
           <button type="button" class="pass-eye" id="loginEye" onclick="togglePass('loginPass','loginEye')" aria-label="إظهار/إخفاء كلمة المرور" title="إظهار/إخفاء">👁</button>
         </div>
       </div>
@@ -1209,7 +1214,7 @@
       <div class="login-field">
         <label for="newPass">كلمة المرور الجديدة</label>
         <div class="pass-wrap">
-          <input type="password" id="newPass" placeholder="6 أحرف على الأقل" autocomplete="new-password" onkeydown="if(event.key==='Enter')setNewPassword()">
+          <input type="password" id="newPass" dir="ltr" placeholder="6 أحرف على الأقل" autocomplete="new-password" onkeydown="if(event.key==='Enter')setNewPassword()">
           <button type="button" class="pass-eye" id="newEye" onclick="togglePass('newPass','newEye')" aria-label="إظهار/إخفاء كلمة المرور" title="إظهار/إخفاء">👁</button>
         </div>
       </div>
