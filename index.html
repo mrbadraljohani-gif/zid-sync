@@ -161,6 +161,19 @@
   .zid-mini.stale { border-color: var(--border-strong); background: rgba(230,197,111,.10); color: var(--gold-2); }
   .zid-mini-link { color: var(--gold-2); cursor: pointer; font-weight: 800; white-space: nowrap; }
   .zid-mini-link:hover { color: var(--gold); text-decoration: underline; }
+  /* المرحلة 4: شريط الجاهزية في الرئيسية (3 بطاقات) ＋ سطر ميتا تحت بطاقات الرفع */
+  .ready-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 8px; }
+  @media (max-width: 760px) { .ready-bar { grid-template-columns: 1fr; } }
+  .ready-card { display: flex; flex-direction: column; gap: 5px; padding: 13px 15px; border-radius: 13px; border: 1px solid var(--border-strong);
+    background: linear-gradient(180deg, var(--panel-2), var(--panel)); }
+  .ready-card.off { border-style: dashed; opacity: .72; }
+  .ready-card.stale { border-color: var(--gold); background: rgba(230,197,111,.10); }
+  .rc-head { font-size: 13.5px; font-weight: 800; color: var(--gold-2); }
+  .rc-info { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+  .rc-info b { color: var(--text); font-weight: 800; }
+  .ready-card .zid-mini-link { align-self: flex-start; font-size: 11.5px; }
+  .inv-meta { margin-top: 8px; font-size: 11.5px; font-weight: 700; color: var(--muted-2); line-height: 1.5; }
+  .inv-meta b { color: var(--gold-2); }
   /* سجل النشاط: زر 🔔 ولوحة منسدلة ＋ قائمة موسّعة في الحساب */
   .notif-menu { position: relative; }
   .notif-btn { font-size: 15px; line-height: 1; background: transparent; border: 1px solid var(--border-strong); color: var(--gold-2); border-radius: 10px; padding: 6px 10px; cursor: pointer; transition: all .15s; }
@@ -895,32 +908,10 @@
     </div>
   </section>
 
-  <div class="section-head"><span class="n">١</span><h2>جهّز المخزن</h2><span class="line"></span></div>
+  <div class="section-head"><span class="n">١</span><h2>الجاهزية</h2><span class="line"></span></div>
+  <div class="ready-bar" id="readyBar"></div>
 
-  <div class="card stage-card">
-    <div class="stage-head"><span class="stage-n">أ</span><b>المستودع والفروع</b><span class="stage-sub">الفرع اختياري — يُدمج تلقائياً فور رفعه (اتحاد بجمع الكميات)</span></div>
-    <div class="grid2">
-      <label class="upload" id="whCard">
-        <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeWh(this)">
-        <div class="utitle">ملف المستودع</div>
-        <div class="hint">رقم الصنف · الاسم · الكمية · الأسعار</div>
-        <div class="ustatus" id="whStatus">اضغط لاختيار الملف</div>
-      </label>
-      <label class="upload" id="brCard">
-        <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeBranch(this)">
-        <div class="utitle">ملف الفرع <span class="opt-badge">(اختياري)</span></div>
-        <div class="hint">بنفس الأعمدة — كامل أو مختصر (كود · اسم · كمية)</div>
-        <div class="ustatus" id="brStatus">اضغط لاختيار الملف</div>
-      </label>
-    </div>
-    <div class="flow-arrow">⬇ دمج تلقائي ⬇</div>
-    <div id="mergeResult" class="merge-result" style="display:none"></div>
-    <div id="mergeWarn" class="fp-warn" style="display:none"></div>
-  </div>
-
-  <div class="zid-mini" id="zidMiniInfo"><span>🏪 لا توجد بيانات زد بعد</span><a class="zid-mini-link" onclick="goPage('db')">تحديث ←</a></div>
-
-  <button class="btn-run" id="runBtn" disabled onclick="run()">🔄 طابق وأنشئ الملف المحدث</button>
+  <button class="btn-run" id="runBtn" disabled onclick="runFromDB()">🔄 طابق وأنشئ الملف المحدث</button>
   <div class="rebind-hint" id="rebindHint" style="display:none">⟳ عدّلت الروابط بعد آخر مطابقة — اضغط «طابق وأنشئ الملف المحدث» ليشمل الملفُ التغييرات قبل التحميل.</div>
   <div class="error" id="err"></div>
 
@@ -993,8 +984,34 @@
 
   <!-- ============ الصفحة: تحديث قاعدة البيانات ============ -->
   <section class="page" id="page-db">
-    <div class="page-head"><span class="ph-ico">🔄</span><div class="ph-txt"><h2>تحديث قاعدة البيانات</h2><p>منتجات زد مرآةً في القاعدة — حدّثها عند تغيّر منتجات زد (مبيعات/أصناف جديدة)</p></div></div>
+    <div class="page-head"><span class="ph-ico">🔄</span><div class="ph-txt"><h2>تحديث قاعدة البيانات</h2><p>المخزن (مستودع/فرع) ومنتجات زد مرآةً في القاعدة — حدّث كلاً عند الحاجة</p></div></div>
+
     <div class="card stage-card">
+      <div class="stage-head"><span class="stage-n">أ</span><b>المستودع والفرع</b><span class="stage-sub">جدولان مستقلان — حدّث كلاً على حدة؛ يُوحّدان عند المطابقة (اتحاد بجمع الكميات)</span></div>
+      <div class="grid2">
+        <label class="upload" id="whCard">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeWh(this)">
+          <div class="utitle">🏬 ملف المستودع</div>
+          <div class="hint">رقم الصنف · الاسم · الكمية · الأسعار — رفعه يزامن جدول المستودع بالكامل</div>
+          <div class="ustatus" id="whStatus">اضغط لاختيار الملف</div>
+          <div class="inv-meta" id="whMetaLine"></div>
+        </label>
+        <label class="upload" id="brCard">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeBranch(this)">
+          <div class="utitle">🌿 ملف الفرع <span class="opt-badge">(اختياري)</span></div>
+          <div class="hint">بنفس الأعمدة — كامل أو مختصر (كود · اسم · كمية)</div>
+          <div class="ustatus" id="brStatus">اضغط لاختيار الملف</div>
+          <div class="inv-meta" id="brMetaLine"></div>
+        </label>
+      </div>
+      <div id="whSyncMsg" class="zid-sync-msg" style="display:none"></div>
+      <div id="brSyncMsg" class="zid-sync-msg" style="display:none"></div>
+      <div class="flow-arrow">⬇ يوحَّدان عند المطابقة ⬇</div>
+      <div id="mergeResult" class="merge-result" style="display:none"></div>
+      <div id="mergeWarn" class="fp-warn" style="display:none"></div>
+    </div>
+
+    <div class="card stage-card" style="margin-top:14px">
       <div class="stage-head"><span class="stage-n">ب</span><b>متجر زد</b><span class="stage-sub">مستقل عن المخزن — تُنطلق المطابقة متى اكتمل المخزن ＋ زد</span></div>
       <div id="zidDbPanel" class="zid-db" style="display:none">
         <div class="zid-db-info">
@@ -1338,6 +1355,44 @@ const db = {
   roles: {
     async mine() { const { data, error } = await sb.rpc("get_my_role"); if (error) throw error; return data || null; },
     async setRole(user_id, role) { const { error } = await sb.from("user_roles").upsert({ user_id, role }, { onConflict: "user_id" }); if (error) throw error; },
+  },
+  // المرحلة 4: المخزن في القاعدة (جدولان: warehouse_items / branch_items) — table يُمرَّر
+  inventory: {
+    async getAll(table) {
+      const out = [], page = 1000; let from = 0;
+      for (;;) {
+        const { data, error } = await sb.from(table).select("code,name,barcode,qty,price_incl,price_excl,row_order").order("row_order", { ascending: true }).range(from, from + page - 1);
+        if (error) throw error;
+        out.push(...(data || []));
+        if (!data || data.length < page) break; from += page;
+      }
+      return out;
+    },
+    async getAllCodes(table) {
+      const out = [], page = 1000; let from = 0;
+      for (;;) {
+        const { data, error } = await sb.from(table).select("code").range(from, from + page - 1);
+        if (error) throw error;
+        out.push(...(data || []).map(r => r.code));
+        if (!data || data.length < page) break; from += page;
+      }
+      return out;
+    },
+    async bulkUpsert(table, rows, onProgress) {
+      for (let i = 0; i < rows.length; i += 500) {
+        const { error } = await sb.from(table).upsert(rows.slice(i, i + 500), { onConflict: "code" });
+        if (error) throw error;
+        if (onProgress) onProgress(Math.min(i + 500, rows.length), rows.length);
+      }
+    },
+    async removeCodes(table, codes) {
+      for (let i = 0; i < codes.length; i += 200) {
+        const { error } = await sb.from(table).delete().in("code", codes.slice(i, i + 200).map(String));
+        if (error) throw error;
+      }
+    },
+    async getMeta() { const { data, error } = await sb.from("inventory_sync_meta").select("*").eq("id", 1).maybeSingle(); if (error) throw error; return data || null; },
+    async setMeta(patch) { const { error } = await sb.from("inventory_sync_meta").upsert(Object.assign({ id: 1 }, patch), { onConflict: "id" }); if (error) throw error; },
   }
 };
 // تسجيل نشاط — غير حاجب (fire-and-forget): فشله لا يعطّل العملية إطلاقاً
@@ -1431,6 +1486,8 @@ function goPage(id) {
   if (id === "newuser" && !isOwner()) { showToast("🔒 صفحة إنشاء المستخدمين للمالك فقط."); return; }   // حماية إضافية (الرابط مخفي أصلاً)
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + id));
   document.querySelectorAll(".side-link").forEach(a => a.classList.toggle("active", a.dataset.page === id));
+  if (id === "home") renderReadiness();
+  if (id === "db") renderInvCards();
   if (id === "account") { renderAccount(); renderActivityFull(); }
   if (id === "options" && typeof renderOffsetsList === "function") renderOffsetsList();
   closeSidebar();
@@ -1464,6 +1521,7 @@ const ACT_META = {
   product_synced: { ic: "🛒", t: "مزامنة منتج" }, sync_full: { ic: "🔄", t: "مزامنة زد الكاملة" },
   waiting_added: { ic: "⏳", t: "نُقل للانتظار" }, waiting_removed: { ic: "↩", t: "أُزيل من الانتظار" },
   unpublish_added: { ic: "🚫", t: "طلب إلغاء نشر" }, file_generated: { ic: "📄", t: "توليد ملف" },
+  warehouse_sync_full: { ic: "🏬", t: "مزامنة المستودع" }, branch_sync_full: { ic: "🌿", t: "مزامنة الفرع" },
 };
 function relTime(iso) {
   const t = Date.parse(iso); if (!Number.isFinite(t)) return "";
@@ -1474,7 +1532,7 @@ function relTime(iso) {
 function actDescribe(row) {
   const m = ACT_META[row.event_type] || { ic: "•", t: row.event_type }, d = row.details || {};
   let extra = "";
-  if (row.event_type === "sync_full") extra = ` (جديد ${d.added ?? 0} · محدَّث ${d.updated ?? 0} · حُذف ${d.deleted ?? 0})`;
+  if (row.event_type === "sync_full" || row.event_type === "warehouse_sync_full" || row.event_type === "branch_sync_full") extra = ` (جديد ${d.added ?? 0} · محدَّث ${d.updated ?? 0} · حُذف ${d.deleted ?? 0})`;
   else if (row.event_type === "link_added" && d.count > 1) extra = ` — ${d.count} صنف`;
   else if (row.event_type === "file_generated") extra = ` (${d.kind === "quantities" ? "كميات" : "أسعار"}${d.count != null ? " · " + d.count : ""})`;
   return { ic: m.ic, text: m.t + extra };
@@ -1610,6 +1668,7 @@ async function loadMappingsFromDB() {
     await loadWaitingFromDB();   // قائمة الانتظار من القاعدة (اتحاد مع المحلي) — تتزامن بين الأجهزة
     await loadZidMeta();         // ميتا منتجات زد (المرحلة 3): العدد + آخر مزامنة لعرض لوحة القاعدة
     await loadMyRole();          // دور المستخدم الحالي (owner/admin/viewer) لتجميل الواجهة
+    await loadInventoryMeta();    // المرحلة 4: ميتا المخزن (مستودع/فرع) لشريط الجاهزية وبطاقات التحديث
     if (document.getElementById("result").style.display === "block") markDirty();
   } catch (e) { dbOnline = false; setDbBadge(false, e.message); console.warn("DB load failed:", e); }
 }
@@ -2526,6 +2585,7 @@ function updateZidPanel() {
     if (hint) hint.textContent = "من لوحة زد: المنتجات ← تصدير";
   }
   updateZidMini();
+  if (typeof renderReadiness === "function") renderReadiness();
   if (typeof renderAccount === "function") renderAccount();
 }
 // السطر المعلوماتي المصغّر لبيانات زد في الصفحة الرئيسية (مع رابط «تحديث ←» لصفحة القاعدة)
@@ -2670,7 +2730,11 @@ async function onStore(inp) {
   launchMatchIfReady();
 }
 
-function checkReady() { document.getElementById("runBtn").disabled = !(whRows && (stData || zidDbAvailable())); }
+function checkReady() {
+  const inv = !!(mergeWh || invDbAvailable());
+  const zid = !!(stData || zidDbAvailable());
+  const b = document.getElementById("runBtn"); if (b) b.disabled = !(inv && zid);
+}
 
 /* ========== دمج المستودع مع الفروع (اتحاد كامل بجمع الكميات — مرحلة أولى) ========== */
 let mergeWh = null, mergeBranches = [];   // مصفوفة فروع (قابلة للتوسّع لأكثر من فرع)
@@ -2702,23 +2766,40 @@ function parseInvRows(aoa) {
   }
   return out;
 }
-async function readInvFile(f) { const wb = await readWB(f); return parseInvRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" })); }
+async function readInvFileFull(f) {
+  const wb = await readWB(f);
+  const aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
+  const first = (aoa[0] || []).map(c => String(c == null ? "" : c).trim());
+  const looksHeader = first.some(c => /رقم الصنف|كود|اسم|كمية|سعر|شامل|قبل|code|name|qty|quantity|price/i.test(c));
+  return { list: parseInvRows(aoa), header: looksHeader ? first : null };
+}
 async function onMergeWh(inp) {
   const f = inp.files[0]; if (!f) return; showErr("");
   try {
-    mergeWh = await readInvFile(f); if (!mergeWh.length) throw new Error("لا أصناف صالحة في الملف");
+    const { list, header } = await readInvFileFull(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
+    mergeWh = aggregateInv(list, "wh");   // تجميع بالكود (جمع الكمية) — يطابق منطق الدمج داخل الملف
     document.getElementById("whStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${mergeWh.length} صنف</span>`;
     document.getElementById("whCard").classList.add("ok");
+    if (dbOnline && sb) {
+      try { const r = await syncInventoryToDB("wh", mergeWh, header, f.name); const sm = document.getElementById("whSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg ok"; sm.innerHTML = `✓ مزامنة المستودع: جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — الإجمالي ${r.total} صنف`; } }
+      catch (e) { const sm = document.getElementById("whSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg fail"; sm.innerHTML = "⚠ تعذّرت مزامنة المستودع: " + esc(e.message || String(e)) + " — يُستخدم الملف مباشرة."; } }
+    }
+    renderInvCards(); renderReadiness();
   } catch (x) { mergeWh = null; document.getElementById("whCard").classList.remove("ok"); showErr("ملف المستودع: " + x.message); }
   inp.value = ""; autoAdopt();   // دمج واعتماد تلقائي فوري
 }
 async function onMergeBranch(inp) {
   const f = inp.files[0]; if (!f) return; showErr("");
   try {
-    const list = await readInvFile(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
-    mergeBranches = [list];   // فرع واحد حالياً؛ الدالة تدعم أكثر من فرع لاحقاً
-    document.getElementById("brStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${list.length} صنف</span>`;
+    const { list, header } = await readInvFileFull(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
+    const agg = aggregateInv(list, "branch"); mergeBranches = [agg];
+    document.getElementById("brStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${agg.length} صنف</span>`;
     document.getElementById("brCard").classList.add("ok");
+    if (dbOnline && sb) {
+      try { const r = await syncInventoryToDB("branch", agg, header, f.name); const sm = document.getElementById("brSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg ok"; sm.innerHTML = `✓ مزامنة الفرع: جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — الإجمالي ${r.total} صنف`; } }
+      catch (e) { const sm = document.getElementById("brSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg fail"; sm.innerHTML = "⚠ تعذّرت مزامنة الفرع: " + esc(e.message || String(e)) + " — يُستخدم الملف مباشرة."; } }
+    }
+    renderInvCards(); renderReadiness();
   } catch (x) { mergeBranches = []; document.getElementById("brCard").classList.remove("ok"); showErr("ملف الفرع: " + x.message); }
   inp.value = ""; autoAdopt();   // إضافة/تغيير الفرع ⇒ إعادة دمج تلقائي
 }
@@ -2730,8 +2811,8 @@ function mergeInventory(whList, branchLists) {
   const add = (list, isWh) => {
     for (const it of list || []) {
       let e = map.get(it.code);
-      if (!e) { e = { code: it.code, name: "", qty: 0, incl: "", excl: "", bar: "", inWh: false, inBranch: false }; map.set(it.code, e); }
-      const q = Number(String(it.qty).replace(/[^\d.\-]/g, "")); if (Number.isFinite(q)) e.qty += q;   // جمع الكميات
+      if (!e) { e = { code: it.code, name: "", qty: 0, whQty: 0, brQty: 0, incl: "", excl: "", bar: "", inWh: false, inBranch: false }; map.set(it.code, e); }
+      const q = Number(String(it.qty).replace(/[^\d.\-]/g, "")); if (Number.isFinite(q)) { e.qty += q; if (isWh) e.whQty += q; else e.brQty += q; }   // جمع الكميات (＋ تفصيل بالمصدر للاستعلام)
       if (isWh) e.inWh = true; else e.inBranch = true;
       // الاسم والسعر والباركود: أولوية المستودع، ثم يُملأ من الفرع إن غاب
       if (isWh) {
@@ -2755,7 +2836,7 @@ function mergeInventory(whList, branchLists) {
     const source = (e.inWh && e.inBranch) ? "مستودع ＋ فرع (مجموعة)" : (e.inWh ? "مستودع فقط" : "فرع فقط");
     const srcKind = (e.inWh && e.inBranch) ? "both" : (e.inWh ? "wh" : "br");
     if (e.inWh && e.inBranch) both++; else if (e.inWh) whOnly++; else brOnly++;
-    const rec = { code: e.code, name: e.name, qty: e.qty, incl: e.incl, excl: e.excl, bar: e.bar, source, srcKind };
+    const rec = { code: e.code, name: e.name, qty: e.qty, whQty: e.whQty, brQty: e.brQty, incl: e.incl, excl: e.excl, bar: e.bar, source, srcKind };
     if (hasVal(e.incl) || hasVal(e.excl)) unified.push(rec); else noPrice.push(rec);   // بلا سعر ⇒ يُستبعد من الرئيسية
   }
   return { unified, noPrice, both, whOnly, brOnly, total: map.size };
@@ -2803,6 +2884,89 @@ function downloadMerge() {
   const a = document.createElement("a"); a.href = url; a.download = "merged_inventory.xlsx";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ========== المرحلة 4: المخزن في القاعدة (جدولان مستقلان: مستودع/فرع) ========== */
+let invMeta = null;   // صف inventory_sync_meta (wh_* + branch_*)
+const INV_TABLE = { wh: "warehouse_items", branch: "branch_items" };
+// تجميع صفوف الملف حسب الكود (نفس منطق mergeInventory داخل الملف): جمع الكمية ＋ نص المستودع=آخر غير فارغ / الفرع=أول غير فارغ
+function aggregateInv(list, mode) {
+  const whMode = mode === "wh", map = new Map();
+  for (const it of list || []) {
+    const code = String(it.code == null ? "" : it.code).trim(); if (!code) continue;
+    let e = map.get(code);
+    if (!e) { e = { code, name: "", qty: 0, incl: "", excl: "", bar: "" }; map.set(code, e); }
+    const q = Number(String(it.qty).replace(/[^\d.\-]/g, "")); if (Number.isFinite(q)) e.qty += q;
+    const put = (k, v) => { if (!hasVal(v)) return; if (whMode) e[k] = (k === "name" || k === "bar") ? String(v).trim() : v; else if (!hasVal(e[k])) e[k] = (k === "name" || k === "bar") ? String(v).trim() : v; };
+    put("name", it.name); put("incl", it.incl); put("excl", it.excl); put("bar", it.bar);
+  }
+  return [...map.values()];
+}
+function numOrNull(v) { if (v === "" || v == null) return null; const n = Number(String(v).replace(/[^\d.\-]/g, "")); return Number.isFinite(n) ? n : null; }
+function buildInvDbRows(aggList) {
+  const nowIso = new Date().toISOString();
+  return aggList.map((r, i) => ({ code: String(r.code), name: r.name || null, barcode: r.bar || null, qty: numOrNull(r.qty), price_incl: numOrNull(r.incl), price_excl: numOrNull(r.excl), row_order: i, imported_at: nowIso }));
+}
+const invRowToMerge = r => ({ code: r.code, name: r.name || "", qty: r.qty, incl: r.price_incl, excl: r.price_excl, bar: r.barcode || "" });
+// مزامنة كاملة لجدول (مستودع/فرع): upsert دفعات + حذف الغائب + تحديث الميتا + سجل نشاط
+async function syncInventoryToDB(kind, aggList, header, fileName) {
+  const table = INV_TABLE[kind], rows = buildInvDbRows(aggList);
+  const newCodes = rows.map(r => r.code), newSet = new Set(newCodes);
+  const existing = (await db.inventory.getAllCodes(table)).map(String), existSet = new Set(existing);
+  const toDelete = existing.filter(c => !newSet.has(c));
+  const added = newCodes.filter(c => !existSet.has(c)).length, updated = newCodes.length - added;
+  const setMsg = (id, cls, t) => { const el = document.getElementById(id); if (el) { el.style.display = "block"; el.className = "zid-sync-msg" + (cls ? " " + cls : ""); el.innerHTML = t; } };
+  const msgId = kind === "wh" ? "whSyncMsg" : "brSyncMsg";
+  setMsg(msgId, "", `⏳ مزامنة القاعدة… 0 / ${rows.length}`);
+  await db.inventory.bulkUpsert(table, rows, (d, t) => setMsg(msgId, "", `⏳ مزامنة القاعدة… ${d} / ${t} صنف`));
+  if (toDelete.length) { setMsg(msgId, "", `⏳ حذف ${toDelete.length} صنف غائب…`); await db.inventory.removeCodes(table, toDelete); }
+  const patch = kind === "wh"
+    ? { wh_header: header || null, wh_count: newCodes.length, wh_file_name: fileName || null, wh_synced_at: new Date().toISOString() }
+    : { branch_header: header || null, branch_count: newCodes.length, branch_file_name: fileName || null, branch_synced_at: new Date().toISOString() };
+  await db.inventory.setMeta(patch);
+  invMeta = Object.assign(invMeta || { id: 1 }, patch);
+  logActivity(kind === "wh" ? "warehouse_sync_full" : "branch_sync_full", null, { added, updated, deleted: toDelete.length, total: newCodes.length, file: fileName || "" });
+  return { added, updated, deleted: toDelete.length, total: newCodes.length };
+}
+async function loadInventoryMeta() { if (!sb) return; try { invMeta = await db.inventory.getMeta(); } catch (e) { console.warn("inv meta:", e); } renderReadiness(); checkReady(); }
+function invDbAvailable() { return !!(dbOnline && sb && invMeta && invMeta.wh_count > 0); }
+function invAge(ms) { return ms != null ? ageText(ms) : ""; }
+// جلب الجدولين من القاعدة وإعادة بناء mergeWh/mergeBranches (المخزّن مجمّع مسبقاً ⇒ الدمج يعطي نفس النتيجة)
+let invLoading = false;
+async function loadInventoryFromDB() {
+  const wh = await db.inventory.getAll(INV_TABLE.wh);
+  const br = await db.inventory.getAll(INV_TABLE.branch);
+  mergeWh = wh.map(invRowToMerge);
+  mergeBranches = br.length ? [br.map(invRowToMerge)] : [];
+  return { wh: wh.length, br: br.length };
+}
+// زر الرئيسية «طابق وأنشئ»: يضمن تحميل المخزن (قاعدة أو رفع) ثم يبني الموحّد ويطابق
+async function runFromDB() {
+  showErr("");
+  if (!mergeWh) {
+    if (invDbAvailable()) { showToast("⏳ تحميل المخزن من القاعدة…"); try { await loadInventoryFromDB(); } catch (e) { showErr("تعذّر جلب المخزن: " + (e.message || e)); return; } }
+    else { showErr("لا يوجد مخزن — ارفع «ملف المستودع» من صفحة «🔄 تحديث قاعدة البيانات»."); goPage("db"); return; }
+  }
+  autoAdopt();   // يبني whRows + lastMerge + الداشبورد ثم launchMatchIfReady (يعتمد زد من القاعدة ويطابق)
+}
+// شريط الجاهزية في الرئيسية: بطاقات المستودع / الفرع / زد من القاعدة
+function readyCard(icon, label, count, ms, used) {
+  const stale = ms != null && (Date.now() - ms) > ZID_STALE_MS;
+  const info = used ? `<b>${count}</b> صنف · ${invAge(ms)}${stale ? " ⚠" : ""}` : `— غير مستخدم`;
+  return `<div class="ready-card${stale && used ? " stale" : ""}${used ? "" : " off"}"><div class="rc-head">${icon} ${label}</div><div class="rc-info">${info}</div><a class="zid-mini-link" onclick="goPage('db')">تحديث ←</a></div>`;
+}
+// سطرا الميتا تحت بطاقتي الرفع في صفحة التحديث (حالة كل جدول في القاعدة)
+function renderInvCards() {
+  const fmt = (cnt, ms, file) => cnt ? `القاعدة: <b>${cnt}</b> صنف · ${invAge(ms)}` + (file ? ` · ملف: ${esc(file)}` : "") : "القاعدة: — لم يُزامَن بعد";
+  const wl = document.getElementById("whMetaLine"); if (wl) wl.innerHTML = fmt(invMeta && invMeta.wh_count, invMeta && invMeta.wh_synced_at ? Date.parse(invMeta.wh_synced_at) : null, invMeta && invMeta.wh_file_name);
+  const bl = document.getElementById("brMetaLine"); if (bl) bl.innerHTML = fmt(invMeta && invMeta.branch_count, invMeta && invMeta.branch_synced_at ? Date.parse(invMeta.branch_synced_at) : null, invMeta && invMeta.branch_file_name);
+}
+function renderReadiness() {
+  const el = document.getElementById("readyBar"); if (!el) return;
+  const whC = invMeta && invMeta.wh_count ? invMeta.wh_count : 0, whMs = invMeta && invMeta.wh_synced_at ? Date.parse(invMeta.wh_synced_at) : null;
+  const brC = invMeta && invMeta.branch_count ? invMeta.branch_count : 0, brMs = invMeta && invMeta.branch_synced_at ? Date.parse(invMeta.branch_synced_at) : null;
+  const zC = zidDbMeta && zidDbMeta.product_count ? zidDbMeta.product_count : 0, zMs = zidDbMeta && zidDbMeta.synced_at ? Date.parse(zidDbMeta.synced_at) : null;
+  el.innerHTML = readyCard("🏬", "المستودع", whC, whMs, whC > 0) + readyCard("🌿", "الفرع", brC, brMs, brC > 0) + readyCard("🏪", "متجر زد", zC, zMs, zC > 0);
 }
 
 function run(reprocess) {
@@ -3955,25 +4119,36 @@ function runWhQuery() {
   const inp = document.getElementById("whQuery"); if (!inp) return;
   const box = document.getElementById("whQResults"), cnt = document.getElementById("whQCount");
   const q = normText(inp.value.trim());
-  const store = lastMerge ? [...lastMerge.unified, ...lastMerge.noPrice] : [];
-  if (!store.length) { box.innerHTML = '<div class="q-warn">ارفع «ملف المستودع» في الخطوة ① أولاً.</div>'; if (cnt) cnt.textContent = ""; return; }
-  if (!q) { box.innerHTML = '<div class="q-empty">اكتب للبحث في المخزن الموحّد (مستودع ＋ فرع)…</div>'; if (cnt) cnt.textContent = ""; return; }
+  // لا مخزن محمّل في الذاكرة؟ حمّله كسولاً من القاعدة (الجدولين) ثم أعِد
+  if (!lastMerge) {
+    if (invDbAvailable() && dbOnline) {
+      if (!invLoading) {
+        invLoading = true; box.innerHTML = '<div class="q-empty">⏳ تحميل المخزن من القاعدة…</div>'; if (cnt) cnt.textContent = "";
+        loadInventoryFromDB().then(() => { lastMerge = mergeInventory(mergeWh, mergeBranches); invLoading = false; runWhQuery(); })
+          .catch(e => { invLoading = false; box.innerHTML = '<div class="q-warn">تعذّر تحميل المخزن: ' + esc(e.message || String(e)) + '</div>'; });
+      }
+      return;
+    }
+    box.innerHTML = '<div class="q-warn">لا يوجد مخزن في القاعدة — حدّثه من صفحة «🔄 تحديث قاعدة البيانات».</div>'; if (cnt) cnt.textContent = ""; return;
+  }
+  const store = [...lastMerge.unified, ...lastMerge.noPrice];
+  if (!q) { box.innerHTML = '<div class="q-empty">اكتب للبحث في المخزن (مستودع ＋ فرع)…</div>'; if (cnt) cnt.textContent = ""; return; }
   const nc = normCode(q);
   const hits = store.filter(w => {
     if (normText(String(w.code) + " " + w.name + " " + (w.bar || "")).includes(q)) return true;
     return nc && (normCode(w.code) === nc || (w.bar && normCode(w.bar) === nc));
   });
-  const shown = hits;   // عرض جميع النتائج (تمرير داخلي في .q-results)
   if (cnt) cnt.textContent = hits.length ? `${hits.length} نتيجة` : "";
-  if (!shown.length) { box.innerHTML = '<div class="q-empty">لا نتائج مطابقة في المخزن.</div>'; return; }
-  box.innerHTML = shown.map(w => {
-    const qn = Number(w.qty) || 0;
+  if (!hits.length) { box.innerHTML = '<div class="q-empty">لا نتائج مطابقة في المخزن.</div>'; return; }
+  box.innerHTML = hits.map(w => {
+    const whq = Number(w.whQty) || 0, brq = Number(w.brQty) || 0;
     const price = (w.incl != null && w.incl !== "") ? priceInt(w.incl) : ((w.excl != null && w.excl !== "") ? priceInt(w.excl) : null);
-    const srcTxt = w.srcKind === "both" ? "مشترك" : (w.srcKind === "br" ? "فرع" : "مستودع");
-    const srcCls = w.srcKind === "both" ? "src-both" : (w.srcKind === "br" ? "src-br" : "src-wh");
+    let qtyBadges;
+    if (w.srcKind === "both") qtyBadges = `<span class="q-chip src src-wh">مستودع: ${whq}</span><span class="q-chip src src-br">فرع: ${brq}</span><span class="q-chip ${(whq + brq) > 0 ? "qty-in" : "qty-out"}">إجمالي: ${whq + brq}</span>`;
+    else if (w.srcKind === "br") qtyBadges = `<span class="q-chip src src-br">فرع: ${brq}</span>`;
+    else qtyBadges = `<span class="q-chip src src-wh">مستودع: ${whq}</span>`;
     return `<div class="q-card"><div class="q-card-top"><span class="q-code" dir="ltr">${esc(String(w.code))}</span><span class="q-name">${esc(w.name) || "—"}</span></div>`
-      + `<div class="q-meta"><span class="q-chip src ${srcCls}">${srcTxt}</span>`
-      + `<span class="q-chip ${qn > 0 ? "qty-in" : "qty-out"}">كمية: ${qn}</span>`
+      + `<div class="q-meta">${qtyBadges}`
       + (price != null ? `<span class="q-chip price">${price} ر.س</span>` : "")
       + (w.bar ? `<span class="q-chip bar" dir="ltr" title="باركود">${esc(String(w.bar))}</span>` : "")
       + `</div></div>`;
@@ -4097,6 +4272,7 @@ applyTheme(currentTheme());   // ضبط أيقونة زر الوضع حسب ال
 applySidebarCollapsed();       // آخر وضع طيّ للقائمة الجانبية
 renderSideUser();              // بطاقة بريد المستخدم (تظهر عند توفّر جلسة)
 applyRoleUI();                 // إخفاء «مستخدم جديد» حتى يُحمّل الدور (يظهر للمالك بعد loadMyRole)
+renderReadiness(); renderInvCards();   // حالة أولية (تُحدَّث بعد loadInventoryMeta)
 (async () => {
   await loadConfig();
   bootLocalMap = { ...manualMap };   // روابط المحلي (mapping.json ＋ localStorage) قبل أي تفاعل مع القاعدة — مرجع الترحيل الثابت
