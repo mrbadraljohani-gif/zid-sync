@@ -3036,6 +3036,28 @@ function renderReadiness() {
   el.innerHTML = readyCard("🏬", "المستودع", whC, whMs, whC > 0) + readyCard("🌿", "الفرع", brC, brMs, brC > 0) + readyCard("🏪", "متجر زد", zC, zMs, zC > 0);
 }
 
+// طبّع كمية زد الحالية: رقم، و«غير محدود»/فارغ ⇒ NaN (لا تساوي أي رقم — يبقى تغييراً حقيقياً)
+function normZidQty(v) {
+  const s = String(v == null ? "" : v).trim().toLowerCase();
+  if (s === "" || s === "infinite") return NaN;
+  const n = Number(s.replace(/[^\d.\-]/g, ""));
+  return Number.isFinite(n) ? n : NaN;
+}
+// فحص نهائي قبل كتابة ملف الكميات/التصفير: استبعاد الصفوف التي لا تغيّر شيئاً (الجديدة == الحالية بعد التطبيع).
+// keepSkuN(skuN)=true ⇒ يُبقى دائماً (المُدار ⏳/🚫 — تصفير مقصود حتى لو 0==0).
+function stripNoChangeQty(rows, curQtyOf, keepSkuN) {
+  if (!rows || rows.length < 2) return { rows: rows || [], dropped: 0 };
+  const out = [rows[0]]; let dropped = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i], rawSku = String(r[0]), newQ = Number(r[3]), skuN = normCode(rawSku);
+    if (keepSkuN && keepSkuN(skuN)) { out.push(r); continue; }
+    const cur = normZidQty(curQtyOf(rawSku));
+    if (Number.isFinite(cur) && Number.isFinite(newQ) && cur === newQ) { dropped++; continue; }
+    out.push(r);
+  }
+  return { rows: out, dropped };
+}
+
 function run(reprocess) {
   showErr("");
   // بيانات زد لم تُعتمد بعد؟ إن كانت في القاعدة اعتمدها تلقائياً (ستعيد الاستدعاء)، وإلا نبّه المستخدم
@@ -3194,7 +3216,7 @@ function run(reprocess) {
     }
     const distItemCount = distByRaw.size, distGroupCount = [...whMembers.values()].filter(m => m.length > 1).length;
 
-    let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0;
+    let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0, noChangeDropped = 0;
     const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [], saleConflicts = [];
     const parentsToPublish = new Map();   // كود الأب ⇒ {sku, name, variants[]} — نشر يُنقَل من المتغيّرات إلى صف الأب
     const matchedWhCodes = new Set();     // أكواد المستودع المأخوذة (لاستبعادها من مرشّحي الربط الدفعي)
@@ -3356,6 +3378,9 @@ function run(reprocess) {
 
     // === صمامات الأمان + إنشاء الملفين ===
     qtyRows = stripHasVar(qtyRows); qtyCount = qtyRows.length - 1;   // فحص نهائي حاسم: لا صف has_variants=Yes في ملف الكميات إطلاقاً
+    // فحص نهائي: استبعاد الصفوف بلا تغيير (الجديدة == كمية زد الحالية) — الملف الرئيسي لا يحوي ⏳/🚫 فلا استثناء
+    { const curQtyOf = raw => { const row = rowByRawSku[String(raw)]; return row ? row[iQty] : ""; };
+      const nc = stripNoChangeQty(qtyRows, curQtyOf, null); qtyRows = nc.rows; qtyCount = qtyRows.length - 1; noChangeDropped = nc.dropped; }
     lastQtyRows = qtyRows; lastPriceRows = priceRows; lastPriceOrig = priceOrig;   // للتنزيل التجريبي (صف واحد أو المحدد) مع التحقق
     const mkBlob = aoa => { const ws = XLSX.utils.aoa_to_sheet(aoa); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1"); return new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }); };
     const vq = verifyQuantities(qtyRows);
@@ -3375,7 +3400,7 @@ function run(reprocess) {
 
     if (vq.ok && vp.ok) {
       vm.className = "verify-ok"; vm.style.display = "block";
-      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (lastUnpublish.length ? ` · 🚫 سيُلغى نشرها: ${lastUnpublish.length} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "");
+      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (lastUnpublish.length ? ` · 🚫 سيُلغى نشرها: ${lastUnpublish.length} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
     } else {
       vm.className = "verify-fail"; vm.style.display = "block";
       vm.textContent = "✗ تم إيقاف التحميل — " + [!vq.ok ? "ملف الكميات: " + vq.msg : "", !vp.ok ? "ملف الأسعار: " + vp.msg : ""].filter(Boolean).join(" | ");
@@ -3599,7 +3624,10 @@ function downloadZeroAbsent() {
   let rows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
   zeroSelected.forEach(sk => { const row = byRaw[String(sk)]; if (row) rows.push([String(sk), iName >= 0 ? row[iName] : "", iNameEn >= 0 ? row[iNameEn] : "", 0]); });
   rows = stripHasVar(rows);   // فحص نهائي حاسم: لا صف has_variants=Yes حتى في ملف التصفير
-  if (rows.length <= 1) { showErr("كل ما حدّدته منتجات أب (has_variants=Yes) — عالجها في زد؛ لا شيء لتصفيره."); return; }
+  // استبعاد ما هو 0 أصلاً في زد (بلا تغيير) — عدا ⏳ المُدارة (تُصفَّر دائماً حمايةً من عبث خارجي)
+  { const iQtyZ = H.indexOf("quantity"); const cur = raw => { const row = byRaw[String(raw)]; return row ? row[iQtyZ] : ""; };
+    const nc = stripNoChangeQty(rows, cur, sn => waitingSet.has(sn)); if (nc.dropped) showToast(`استُبعد ${nc.dropped} صنف كميته 0 أصلاً في زد (بلا تغيير).`); rows = nc.rows; }
+  if (rows.length <= 1) { showErr("لا شيء لتصفيره — إمّا منتجات أب، أو كلها مصفّرة أصلاً في زد."); return; }
   const v = verifyQuantities(rows);   // صمام الأمان نفسه (4 أعمدة، sku غير فارغ، كميات صحيحة ≥ 0)
   if (!v.ok) { showErr("تعذّر إنشاء ملف التصفير — " + v.msg); return; }
   const ws = XLSX.utils.aoa_to_sheet(rows);
