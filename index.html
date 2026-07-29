@@ -468,20 +468,27 @@
   .login-field { text-align: right; margin-bottom: 14px; }
   .login-field label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin: 0 3px 6px; }
   /* نمط مكتفٍ ذاتياً لكل الحقول (يشمل type=email غير المشمول بالقاعدة العامة فلا يظهر أبيض) */
-  .login-box input { width: 100%; height: 44px; margin: 0; padding: 0 14px; box-sizing: border-box; border-radius: 10px; font-size: 14px; text-align: right;
+  .login-box input, .signup-card input { width: 100%; height: 44px; margin: 0; padding: 0 14px; box-sizing: border-box; border-radius: 10px; font-size: 14px; text-align: right;
     background: rgba(255,255,255,.04); border: 1px solid var(--border-strong); color: var(--text); outline: none; font-family: inherit;
     transition: border-color .18s, box-shadow .18s, background .18s; }
-  :root[data-theme="light"] .login-box input { background: rgba(42,34,22,.04); }
-  .login-box input:focus { border-color: var(--gold); background: rgba(230,197,111,.06); box-shadow: 0 0 0 3px rgba(230,197,111,.18); }
+  :root[data-theme="light"] .login-box input, :root[data-theme="light"] .signup-card input { background: rgba(42,34,22,.04); }
+  .login-box input:focus, .signup-card input:focus { border-color: var(--gold); background: rgba(230,197,111,.06); box-shadow: 0 0 0 3px rgba(230,197,111,.18); }
+  .signup-card input[dir="ltr"] { text-align: left; }
   .pass-wrap { position: relative; }
   .pass-wrap input { padding-inline-end: 44px; }        /* مساحة لزر العين (الطرف الأيسر في RTL) */
   .pass-eye { position: absolute; inset-inline-end: 6px; top: 50%; transform: translateY(-50%); background: transparent; border: none;
     cursor: pointer; font-size: 16px; opacity: .55; padding: 4px 7px; line-height: 1; border-radius: 8px; transition: opacity .15s; }
   .pass-eye:hover, .pass-eye.on { opacity: 1; }
   /* إلغاء تبييض التعبئة التلقائية (Chrome) لإبقاء هوية الثيم الداكن/الكريمي */
-  .login-box input:-webkit-autofill, .login-box input:-webkit-autofill:hover, .login-box input:-webkit-autofill:focus {
+  .login-box input:-webkit-autofill, .login-box input:-webkit-autofill:hover, .login-box input:-webkit-autofill:focus,
+  .signup-card input:-webkit-autofill, .signup-card input:-webkit-autofill:hover, .signup-card input:-webkit-autofill:focus {
     -webkit-text-fill-color: var(--text); -webkit-box-shadow: 0 0 0 1000px #221d13 inset; caret-color: var(--text); transition: background-color 9999s ease; }
-  :root[data-theme="light"] .login-box input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px #fffdf7 inset; -webkit-text-fill-color: #2a2216; }
+  :root[data-theme="light"] .login-box input:-webkit-autofill, :root[data-theme="light"] .signup-card input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px #fffdf7 inset; -webkit-text-fill-color: #2a2216; }
+  /* شارة الدور ＋ segmented اختيار الصلاحية في «مستخدم جديد» */
+  .role-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--gold-2); background: linear-gradient(180deg, rgba(230,197,111,.14), rgba(230,197,111,.05)); }
+  .su-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden; }
+  .su-seg .chip { border: none; border-radius: 0; }
+  body.nonowner #bindAllBtn { opacity: .5; }
   .login-box .btn-run { width: 100%; margin-top: 6px; height: 46px; }
   .login-err { color: #e08a8a; font-size: 12.5px; margin-top: 12px; min-height: 16px; }
   .login-offline { display: block; width: 100%; margin-top: 10px; background: transparent; border: none; color: var(--muted-2); font-size: 12px; cursor: pointer; text-decoration: underline; }
@@ -1068,6 +1075,7 @@
       <div class="acc-status-row" style="margin-top:10px">
         <span class="db-badge" id="dbBadge" title="حالة الاتصال بقاعدة البيانات">⚪ …</span>
         <span class="db-badge map-badge" id="mapCountBadge" title="الروابط اليدوية المحفوظة (تُدار من لوحة التحليل الذكي)">🔗 الروابط: <b id="mapCount">0</b></span>
+        <span class="role-badge" id="roleBadge" title="دورك في النظام"></span>
       </div>
       <div class="acc-stats">
         <div class="acc-stat"><b id="accProducts">0</b><span>منتجات زد (القاعدة)</span></div>
@@ -1123,12 +1131,28 @@
   <section class="page" id="page-newuser">
     <div class="page-head"><span class="ph-ico">➕</span><div class="ph-txt"><h2>مستخدم جديد</h2><p>إنشاء حساب دخول جديد للأداة</p></div></div>
     <div class="card acc-card signup-card">
-      <div class="login-field"><label for="suEmail">البريد الإلكتروني</label><input type="email" id="suEmail" placeholder="name@asj.com" autocomplete="off"></div>
-      <div class="login-field"><label for="suPass">كلمة المرور</label><input type="password" id="suPass" placeholder="6 أحرف على الأقل" autocomplete="new-password"></div>
-      <div class="login-field"><label for="suPass2">تأكيد كلمة المرور</label><input type="password" id="suPass2" placeholder="أعد كتابتها" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSignup()"></div>
+      <div class="login-field"><label for="suEmail">البريد الإلكتروني</label><input type="email" id="suEmail" dir="ltr" placeholder="name@asj.com" autocomplete="off"></div>
+      <div class="login-field"><label for="suPass">كلمة المرور</label>
+        <div class="pass-wrap">
+          <input type="password" id="suPass" dir="ltr" placeholder="6 أحرف على الأقل" autocomplete="new-password">
+          <button type="button" class="pass-eye" id="suEye" onclick="togglePass('suPass','suEye')" aria-label="إظهار/إخفاء كلمة المرور" title="إظهار/إخفاء">👁</button>
+        </div>
+      </div>
+      <div class="login-field"><label for="suPass2">تأكيد كلمة المرور</label>
+        <div class="pass-wrap">
+          <input type="password" id="suPass2" dir="ltr" placeholder="أعد كتابتها" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSignup()">
+          <button type="button" class="pass-eye" id="suEye2" onclick="togglePass('suPass2','suEye2')" aria-label="إظهار/إخفاء كلمة المرور" title="إظهار/إخفاء">👁</button>
+        </div>
+      </div>
+      <div class="login-field"><label>الصلاحية</label>
+        <span class="seg su-seg">
+          <button type="button" class="chip on" data-role="admin" onclick="pickSignupRole(this)">مشرف (كامل عدا الروابط)</button>
+          <button type="button" class="chip" data-role="viewer" onclick="pickSignupRole(this)">مشاهد (قراءة فقط)</button>
+        </span>
+      </div>
       <button class="btn-run" id="suBtn" onclick="doSignup()">➕ إنشاء الحساب</button>
       <div id="suMsg" class="login-err"></div>
-      <p class="hint" style="margin-top:14px;line-height:1.7">ℹ️ قد يتطلب النظام تأكيد البريد قبل أول دخول (حسب إعدادات Supabase)، ولن تتأثر جلستك الحالية. لإدارة كاملة للمستخدمين استخدم لوحة <b>Supabase → Authentication</b>.</p>
+      <p class="hint" style="margin-top:14px;line-height:1.7">ℹ️ كتابة الروابط صلاحية <b>المالك</b> وحده. قد يتطلب النظام تأكيد البريد قبل أول دخول (حسب إعدادات Supabase)، ولن تتأثر جلستك الحالية. لإدارة كاملة للمستخدمين استخدم لوحة <b>Supabase → Authentication</b>.</p>
     </div>
   </section>
 
@@ -1309,6 +1333,11 @@ const db = {
     async insert(event_type, zid_sku, details) { const { error } = await sb.from("activity_log").insert({ event_type, zid_sku: zid_sku != null ? String(zid_sku) : null, details: details || null }); if (error) throw error; },
     async getRecent(limit) { const { data, error } = await sb.from("activity_log").select("event_type,zid_sku,details,created_by,created_at").order("created_at", { ascending: false }).limit(limit || 50); if (error) throw error; return data || []; },
     async getByType(type, limit) { let q = sb.from("activity_log").select("event_type,zid_sku,details,created_by,created_at").order("created_at", { ascending: false }).limit(limit || 200); if (type) q = q.eq("event_type", type); const { data, error } = await q; if (error) throw error; return data || []; },
+  },
+  // أدوار المستخدمين (user_roles)
+  roles: {
+    async mine() { const { data, error } = await sb.rpc("get_my_role"); if (error) throw error; return data || null; },
+    async setRole(user_id, role) { const { error } = await sb.from("user_roles").upsert({ user_id, role }, { onConflict: "user_id" }); if (error) throw error; },
   }
 };
 // تسجيل نشاط — غير حاجب (fire-and-forget): فشله لا يعطّل العملية إطلاقاً
@@ -1338,9 +1367,10 @@ async function loadWaitingFromDB() {
 }
 function requireOnline() { if (!dbOnline) { showToast("🔴 غير متصل بالقاعدة — الكتابة معطّلة لمنع تشعّب البيانات."); throw new Error("db-offline"); } }
 // كل كتابة: القاعدة أولاً، وعند النجاح فقط تحديث المحلي (الذاكرة ＋ localStorage)
-async function dbSetMapping(sku, code, source) { requireOnline(); await db.mappings.upsert(sku, code, source); manualMap[String(sku)] = normCode(code); localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge(); logActivity("link_added", sku, { code: normCode(code), source: source || "manual" }); }
-async function dbSetMappings(pairs, source) { requireOnline(); const rows = pairs.map(p => ({ zid_sku: String(p.sku), warehouse_code: normCode(p.code), source: source || "manual" })); await db.mappings.bulkUpsert(rows); for (const p of pairs) manualMap[String(p.sku)] = normCode(p.code); localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge(); logActivity("link_added", pairs.length === 1 ? pairs[0].sku : null, { count: pairs.length, source: source || "manual" }); }
-async function dbDelMapping(sku) { requireOnline(); await db.mappings.remove(sku); delete manualMap[String(sku)]; localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge(); logActivity("link_removed", sku, null); }
+function requireOwner() { if (linkForbidden()) { showToast("🔒 الربط صلاحية المالك — غير متاح لهذا الحساب."); throw new Error("not-owner"); } }
+async function dbSetMapping(sku, code, source) { requireOnline(); requireOwner(); await db.mappings.upsert(sku, code, source); manualMap[String(sku)] = normCode(code); localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge(); logActivity("link_added", sku, { code: normCode(code), source: source || "manual" }); }
+async function dbSetMappings(pairs, source) { requireOnline(); requireOwner(); const rows = pairs.map(p => ({ zid_sku: String(p.sku), warehouse_code: normCode(p.code), source: source || "manual" })); await db.mappings.bulkUpsert(rows); for (const p of pairs) manualMap[String(p.sku)] = normCode(p.code); localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge(); logActivity("link_added", pairs.length === 1 ? pairs[0].sku : null, { count: pairs.length, source: source || "manual" }); }
+async function dbDelMapping(sku) { requireOnline(); requireOwner(); await db.mappings.remove(sku); delete manualMap[String(sku)]; localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge(); logActivity("link_removed", sku, null); }
 
 function initSupabase() {
   if (!window.supabase) { setDbBadge(false, "تعذّر تحميل مكتبة Supabase"); return; }
@@ -1351,7 +1381,7 @@ function initSupabase() {
     const lb = document.getElementById("logoutBtn");
     // العودة من رابط «نسيت كلمة المرور» ⇒ جلسة استرداد مؤقتة: اعرض نموذج تعيين كلمة مرور جديدة (لا تدخل الأداة بعد)
     if (event === "PASSWORD_RECOVERY") { showRecover(); if (lb) lb.style.display = "none"; return; }
-    if (!session) { showLogin(); if (lb) lb.style.display = "none"; setDbBadge(false, "بلا جلسة"); return; }
+    if (!session) { myRole = null; applyRoleUI(); showLogin(); if (lb) lb.style.display = "none"; setDbBadge(false, "بلا جلسة"); return; }
     hideLogin(); if (lb) lb.style.display = "";
     if (event === "INITIAL_SESSION" || event === "SIGNED_IN") loadMappingsFromDB();
   });
@@ -1370,8 +1400,35 @@ async function doLogout() { if (sb) await sb.auth.signOut(); }
 // زر الخروج في قاع القائمة الجانبية — نفس signOut مع تأكيد خفيف لتفادي الضغط الخاطئ
 function sideLogout() { if (confirm("تسجيل الخروج؟")) doLogout(); }
 
+// ===== أدوار المستخدمين =====
+let myRole = null;          // 'owner' | 'admin' | 'viewer' | null (غير محمّل)
+let signupRole = "admin";   // الدور المختار في صفحة «مستخدم جديد»
+function roleLabel(r) { return r === "owner" ? "المالك" : r === "admin" ? "مشرف" : r === "viewer" ? "مشاهد" : "—"; }
+function isOwner() { return myRole === "owner"; }
+// منع الربط في الواجهة لغير المالك (RLS هو الحاجز الحقيقي؛ null=غير محمّل ⇒ نترك القاعدة تقرّر)
+function linkForbidden() { return myRole === "admin" || myRole === "viewer"; }
+async function loadMyRole() {
+  if (!(sb && authSession)) { myRole = null; applyRoleUI(); return; }
+  try { myRole = await db.roles.mine(); } catch (e) { console.warn("role load:", e); myRole = null; }
+  applyRoleUI();
+}
+// تجميل الواجهة حسب الدور (الأمان الحقيقي في RLS): إخفاء «مستخدم جديد» لغير المالك ＋ قفل أزرار الربط
+function applyRoleUI() {
+  const owner = isOwner();
+  document.body.classList.toggle("nonowner", myRole != null && !owner);
+  const nu = document.querySelector('.side-link[data-page="newuser"]'); if (nu) nu.style.display = owner ? "" : "none";
+  if (!owner) { const p = document.getElementById("page-newuser"); if (p && p.classList.contains("active")) goPage("home"); }
+  const ba = document.getElementById("bindAllBtn"); if (ba) ba.title = owner ? "" : "الربط صلاحية المالك";
+  const rb = document.getElementById("roleBadge"); if (rb) rb.textContent = myRole ? ("👤 " + roleLabel(myRole)) : "";
+}
+function pickSignupRole(btn) {
+  document.querySelectorAll("#page-newuser .su-seg .chip").forEach(c => c.classList.remove("on"));
+  btn.classList.add("on"); signupRole = btn.dataset.role || "admin";
+}
+
 // ===== تنقّل SPA بين الصفحات (أقسام تُظهر/تُخفى — الحالة مشتركة، لا فقدان لشيء) =====
 function goPage(id) {
+  if (id === "newuser" && !isOwner()) { showToast("🔒 صفحة إنشاء المستخدمين للمالك فقط."); return; }   // حماية إضافية (الرابط مخفي أصلاً)
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + id));
   document.querySelectorAll(".side-link").forEach(a => a.classList.toggle("active", a.dataset.page === id));
   if (id === "account") { renderAccount(); renderActivityFull(); }
@@ -1460,19 +1517,25 @@ async function doSignup() {
   if (!email || !p1) { fail("أدخل البريد وكلمة المرور."); return; }
   if (p1.length < 6) { fail("كلمة المرور 6 أحرف على الأقل."); return; }
   if (p1 !== p2) { fail("كلمتا المرور غير متطابقتين."); return; }
+  const role = (signupRole === "viewer") ? "viewer" : "admin";   // لا owner من الواجهة إطلاقاً
   btn.disabled = true; btn.textContent = "⏳ جارٍ الإنشاء…"; msg.style.color = ""; msg.textContent = "";
   try {
     const { data: cur } = await sb.auth.getSession();
-    const adminSession = cur && cur.session;   // جلسة المدير الحالية — نستعيدها بعد الإنشاء
+    const adminSession = cur && cur.session;   // جلسة المالك الحالية — نستعيدها بعد الإنشاء
     const { data, error } = await sb.auth.signUp({ email, password: p1 });
     if (error) throw error;
-    // إن أنشأ Supabase جلسة للمستخدم الجديد (تأكيد البريد مُعطّل) ⇒ استعِد جلسة المدير فوراً
+    const newId = data && data.user ? data.user.id : null;
+    // إن أنشأ Supabase جلسة للمستخدم الجديد (تأكيد البريد مُعطّل) ⇒ استعِد جلسة المالك فوراً قبل ضبط الدور
+    let confirmNote = "";
     if (data && data.session && adminSession) {
       await sb.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
-      msg.style.color = "#8fbf98"; msg.textContent = `✓ أُنشئ الحساب (${email}) ويمكنه الدخول الآن. جلستك كما هي.`;
-    } else {
-      msg.style.color = "#8fbf98"; msg.textContent = `✓ أُنشئ الحساب (${email}) — قد يتطلب تأكيد البريد قبل أول دخول. جلستك كما هي.`;
+    } else if (!(data && data.session)) {
+      confirmNote = " — قد يتطلب تأكيد البريد قبل أول دخول";
     }
+    // ضبط الدور (يُنفَّذ بصلاحية المالك بعد استعادة جلسته)
+    let roleNote = "";
+    if (newId) { try { await db.roles.setRole(newId, role); } catch (e) { roleNote = ` (⚠ تعذّر ضبط الدور: ${e.message || e})`; } }
+    msg.style.color = "#8fbf98"; msg.textContent = `✓ أُنشئ الحساب (${email}) بدور «${roleLabel(role)}»${confirmNote}. جلستك كما هي.${roleNote}`;
     document.getElementById("suPass").value = ""; document.getElementById("suPass2").value = ""; document.getElementById("suEmail").value = "";
   } catch (e) { fail("تعذّر الإنشاء: " + (e.message || e)); }
   btn.disabled = false; btn.textContent = "➕ إنشاء الحساب";
@@ -1546,6 +1609,7 @@ async function loadMappingsFromDB() {
     renderPills(); setDbBadge(true); checkMigration();
     await loadWaitingFromDB();   // قائمة الانتظار من القاعدة (اتحاد مع المحلي) — تتزامن بين الأجهزة
     await loadZidMeta();         // ميتا منتجات زد (المرحلة 3): العدد + آخر مزامنة لعرض لوحة القاعدة
+    await loadMyRole();          // دور المستخدم الحالي (owner/admin/viewer) لتجميل الواجهة
     if (document.getElementById("result").style.display === "block") markDirty();
   } catch (e) { dbOnline = false; setDbBadge(false, e.message); console.warn("DB load failed:", e); }
 }
@@ -4032,6 +4096,7 @@ applyOpts();
 applyTheme(currentTheme());   // ضبط أيقونة زر الوضع حسب الحالة المحفوظة
 applySidebarCollapsed();       // آخر وضع طيّ للقائمة الجانبية
 renderSideUser();              // بطاقة بريد المستخدم (تظهر عند توفّر جلسة)
+applyRoleUI();                 // إخفاء «مستخدم جديد» حتى يُحمّل الدور (يظهر للمالك بعد loadMyRole)
 (async () => {
   await loadConfig();
   bootLocalMap = { ...manualMap };   // روابط المحلي (mapping.json ＋ localStorage) قبل أي تفاعل مع القاعدة — مرجع الترحيل الثابت
