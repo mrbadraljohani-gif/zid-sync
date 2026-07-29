@@ -2675,25 +2675,31 @@ function launchMatchIfReady() {
 }
 
 // اعتماد بيانات زد من القاعدة كمصدر للمطابقة (بلا رفع ملف) — يعيد بناء stData من raw + الرأس
+// جلب بيانات زد من القاعدة وبناء stData فقط (بلا مطابقة/تنقّل) — يُشارَك بين «استخدمها للمطابقة» والاستعلام
+let zidLoading = false;
+async function loadZidData() {
+  const meta = await db.zidProducts.getMeta();
+  if (!meta || !Array.isArray(meta.header) || !meta.header.length) throw new Error("لا توجد بيانات زد في القاعدة بعد — ارفع ملف تصدير أولاً.");
+  const prods = await db.zidProducts.getAll();
+  if (!prods.length) throw new Error("القاعدة لا تحتوي منتجات زد — ارفع ملف تصدير.");
+  const header = meta.header.map(h => String(h).trim());
+  stData = { sheetName: "Products", rows: [header, ...prods.map(p => p.raw)], header };
+  zidSource = "db"; zidSyncedAt = meta.synced_at ? Date.parse(meta.synced_at) : Date.now(); zidDbMeta = meta;
+  zidIndexCache = null;
+  return prods.length;
+}
 async function useZidFromDB() {
   if (!(dbOnline && sb)) { showToast("🔴 غير متصل بالقاعدة — تعذّر الجلب."); return; }
   const btn = document.getElementById("useDbBtn"), old = btn ? btn.textContent : "";
   try {
     if (btn) { btn.disabled = true; btn.textContent = "⏳ جارٍ الجلب…"; }
-    const meta = await db.zidProducts.getMeta();
-    if (!meta || !Array.isArray(meta.header) || !meta.header.length) throw new Error("لا توجد بيانات زد في القاعدة بعد — ارفع ملف تصدير أولاً.");
-    const prods = await db.zidProducts.getAll();
-    if (!prods.length) throw new Error("القاعدة لا تحتوي منتجات زد — ارفع ملف تصدير.");
-    const header = meta.header.map(h => String(h).trim());
-    const rows = [header, ...prods.map(p => p.raw)];
-    stData = { sheetName: "Products", rows, header };
-    zidSource = "db"; zidSyncedAt = meta.synced_at ? Date.parse(meta.synced_at) : Date.now(); zidDbMeta = meta;
-    document.getElementById("stStatus").innerHTML = `<span style="color:#8fbf98">✓ من القاعدة — ${prods.length} صنف (${ageText(zidSyncedAt)})</span>`;
+    const n = await loadZidData();
+    document.getElementById("stStatus").innerHTML = `<span style="color:#8fbf98">✓ من القاعدة — ${n} صنف (${ageText(zidSyncedAt)})</span>`;
     document.getElementById("stCard").classList.add("ok");
-    zidIndexCache = null; if (typeof runZdQuery === "function") runZdQuery();
-    const el = document.getElementById("zidSyncMsg"); if (el) { el.style.display = "block"; el.className = "zid-sync-msg ok"; el.innerHTML = `✓ اعتُمدت بيانات زد من القاعدة (<b>${prods.length}</b> صنف · ${ageText(zidSyncedAt)}).` + (zidIsStale() ? ` ⚠ قديمة — يُنصح بتصدير جديد.` : ""); }
+    if (typeof runZdQuery === "function") runZdQuery();
+    const el = document.getElementById("zidSyncMsg"); if (el) { el.style.display = "block"; el.className = "zid-sync-msg ok"; el.innerHTML = `✓ اعتُمدت بيانات زد من القاعدة (<b>${n}</b> صنف · ${ageText(zidSyncedAt)}).` + (zidIsStale() ? ` ⚠ قديمة — يُنصح بتصدير جديد.` : ""); }
     updateZidPanel();
-    if (!whRows) showToast("ارفع «ملف المستودع» ثم ستنطلق المطابقة تلقائياً.");
+    if (!whRows && !invDbAvailable()) showToast("ارفع «ملف المستودع» ثم ستنطلق المطابقة تلقائياً.");
     launchMatchIfReady();
   } catch (e) { showToast("✗ " + (e.message || e)); }
   if (btn) { btn.disabled = false; btn.textContent = old || "✓ استخدمها للمطابقة"; }
@@ -4199,8 +4205,19 @@ function runZdQuery() {
   const inp = document.getElementById("zdQuery"); if (!inp) return;
   const box = document.getElementById("zdQResults"), cnt = document.getElementById("zdQCount");
   const q = normText(inp.value.trim());
-  if (!stData || !stData.rows || stData.rows.length < 2) { box.innerHTML = '<div class="q-warn">ارفع «تصدير زد» في الخطوة ① أولاً.</div>'; if (cnt) cnt.textContent = ""; return; }
-  if (!q) { box.innerHTML = '<div class="q-empty">اكتب للبحث في تصدير زد المرفوع…</div>'; if (cnt) cnt.textContent = ""; return; }
+  if (!stData || !stData.rows || stData.rows.length < 2) {
+    // لا بيانات زد في الذاكرة؟ حمّلها كسولاً من القاعدة (كالمخزن) ثم أعِد
+    if (zidDbAvailable() && dbOnline) {
+      if (!zidLoading) {
+        zidLoading = true; box.innerHTML = '<div class="q-empty">⏳ تحميل بيانات زد من القاعدة…</div>'; if (cnt) cnt.textContent = "";
+        loadZidData().then(() => { zidLoading = false; runZdQuery(); })
+          .catch(e => { zidLoading = false; box.innerHTML = '<div class="q-warn">تعذّر تحميل بيانات زد: ' + esc(e.message || String(e)) + '</div>'; });
+      }
+      return;
+    }
+    box.innerHTML = '<div class="q-warn">لا توجد بيانات زد في القاعدة — حدّثها من صفحة «🔄 تحديث قاعدة البيانات».</div>'; if (cnt) cnt.textContent = ""; return;
+  }
+  if (!q) { box.innerHTML = '<div class="q-empty">اكتب للبحث في متجر زد (SKU · اسم · باركود)…</div>'; if (cnt) cnt.textContent = ""; return; }
   const idx = buildZidIndex(), nc = normCode(q);
   const hits = idx.filter(z => z.search.includes(q) || (nc && (normCode(z.sku) === nc || (z.bar && normCode(z.bar) === nc))));
   const shown = hits;   // عرض جميع النتائج (تمرير داخلي في .q-results)
