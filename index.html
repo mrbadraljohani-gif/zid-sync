@@ -3217,7 +3217,7 @@ function run(reprocess) {
     const distItemCount = distByRaw.size, distGroupCount = [...whMembers.values()].filter(m => m.length > 1).length;
 
     let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0, noChangeDropped = 0;
-    const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [], saleConflicts = [];
+    const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [], saleConflicts = [], lowValDbg = [];
     const parentsToPublish = new Map();   // كود الأب ⇒ {sku, name, variants[]} — نشر يُنقَل من المتغيّرات إلى صف الأب
     const matchedWhCodes = new Set();     // أكواد المستودع المأخوذة (لاستبعادها من مرشّحي الربط الدفعي)
     let histChanged = false, waitChanged = false;
@@ -3272,11 +3272,15 @@ function run(reprocess) {
       const dist = distByRaw.get(rawKey) || null;   // معلومات التوزيع (للأيقونة 🔀)
       const offset = priceOffsets[skuN] || 0;                 // زيادة المتغير (0 افتراضياً)
       // قاعدة تصفير الكميات المنخفضة القيمة: سعر نهائي (شامل الزيادة) < الحد وكمية ≤ الحد ⇒ تُصدَّر الكمية 0
-      // القيمة للحكم = نفس أساس السعر المُصدَّر (شامل/قبل) بحسب opts.price + الزيادة؛ وفي وضع «لا تحدّث» نرجع للشامل ثم قبل الضريبة
-      const valBase = opts.price === "excl" ? wh.excl : (opts.price === "incl" ? wh.incl : (wh.incl != null ? wh.incl : wh.excl));
-      const valForRule = valBase != null ? Math.round(valBase) + offset : null;
-      const lowValZero = opts.lowzero !== "off" && valForRule != null && valForRule < (opts.lowPrice || 400) && whQtyReal <= (opts.lowQty != null ? opts.lowQty : 3);
+      // حكم «رخيص؟» يستخدم أي سعر متاح: يُفضَّل أساس opts.price ويرجع للعمود الآخر إن غاب (منع تخطٍّ صامت حين عمود واحد فقط)
+      const valBase = opts.price === "excl" ? (wh.excl != null ? wh.excl : wh.incl)
+        : (opts.price === "incl" ? (wh.incl != null ? wh.incl : wh.excl) : (wh.incl != null ? wh.incl : wh.excl));
+      const lowQtyLim = opts.lowQty != null ? opts.lowQty : 3;
+      const valForRule = valBase != null ? Math.round(Number(valBase)) + offset : null;
+      const lowValZero = opts.lowzero !== "off" && valForRule != null && valForRule < (opts.lowPrice || 400) && whQtyReal <= lowQtyLim;
       const newQty = lowValZero ? 0 : whQtyReal;                     // الكمية الفعلية المُصدَّرة
+      // تشخيص ?debug: عيّنة من مرشّحي القيمة المنخفضة (كمية ≤ الحد) — خام · بعد القاعدة · كمية زد · القرار
+      if (whQtyReal <= lowQtyLim && lowValDbg.length < 40) lowValDbg.push({ sku: String(rawSku), raw: whQtyReal, price: valForRule, after: newQty, zid: normZidQty(oldQty), zeroed: lowValZero });
       const qtyChanged = String(oldQty) !== String(newQty);          // "Infinite" ≠ رقم ⇒ يُستبدل دائماً
       // قاعدة الأسعار: السعر النهائي = تقريب سعر المستودع + زيادة المتغير (إن وجدت)، وتجاهل فرق < 1 ريال مقابل سعر زد
       let priceChanged = false, newPrice = oldPrice;
@@ -3414,7 +3418,10 @@ function run(reprocess) {
         + `\nمنها كانت ستدخل ملف الكميات (طابقت المستودع): ${hvWouldEnter.length}` + (hvWouldEnter.length ? ` — أكواد: ${hvWouldEnter.join(" · ")}` : "")
         + `\nآباء منقّطون مكتشَفون بالقاعدة البنيوية: ${dottedParents.length}` + (dottedParents.length ? ` — عينة: ${dottedParents.slice(0, 15).join(" · ")}` : "")
         + `\nموزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود`
-        + (dbgGroups.length ? `\nعيّنة مجموعات: ${dbgGroups.join("   ")}` : "");
+        + (dbgGroups.length ? `\nعيّنة مجموعات: ${dbgGroups.join("   ")}` : "")
+        + `\nاستُبعد بلا تغيير: ${noChangeDropped}`
+        + `\nقاعدة القيمة المنخفضة (عتبة ≤${opts.lowQty != null ? opts.lowQty : 3} · <${opts.lowPrice || 400}) — عيّنة [خام→بعد · سعرنهائي · زد · قرار]:\n  `
+        + (lowValDbg.length ? lowValDbg.map(d => `${d.sku}[${d.raw}→${d.after} · ${d.price == null ? "—" : d.price} · ${Number.isFinite(d.zid) ? d.zid : "∞/فارغ"} · ${d.zeroed ? "صُفّر" : "كما هو"}]`).join("  ") : "لا مرشّحين");
     }
 
     // احفظ تاريخ المطابقة وقائمة الانتظار محلياً إن تغيّرا (تُصدَّر/تُحفظ في الريبو ضمن المنظومة)
