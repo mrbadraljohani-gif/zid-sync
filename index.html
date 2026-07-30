@@ -3086,6 +3086,13 @@ function normZidQty(v) {
   const n = Number(s.replace(/[^\d.\-]/g, ""));
   return Number.isFinite(n) ? n : NaN;
 }
+// كمية زد الحالية كرقم للحُكم على «الكمية النهائية» (إجماع الأب): «غير محدود» ⇒ ∞ (حيّ)، فارغ/غير رقمي ⇒ 0
+function curQtyNum(v) {
+  const s = String(v == null ? "" : v).trim().toLowerCase();
+  if (s === "infinite") return Infinity;
+  const n = Number(s.replace(/[^\d.\-]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
 // فحص نهائي قبل كتابة ملف الكميات/التصفير: استبعاد الصفوف التي لا تغيّر شيئاً (الجديدة == الحالية بعد التطبيع).
 // keep(skuN, curNorm)=true ⇒ يُبقى الصف رغم التساوي (يُستدعى بكمية زد المُطبَّعة ليقرّر بدقة).
 function stripNoChangeQty(rows, curQtyOf, keep) {
@@ -3262,6 +3269,9 @@ function run(reprocess) {
     let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0, noChangeDropped = 0;
     const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [], saleConflicts = [], lowValDbg = [];
     const parentsToPublish = new Map();   // كود الأب ⇒ {sku, name, variants[]} — نشر يُنقَل من المتغيّرات إلى صف الأب
+    const finalQtyByRaw = {};             // كمية كل صنف زد النهائية بعد كل القواعد (لإجماع إخفاء الأب)
+    const autoUnpub = new Set();          // أصناف (خام) يُلغى نشرها آلياً (بسيط بكمية 0 + آباء بإجماع)
+    const lastAutoUnpubSimple = [], lastAutoUnpubParents = [], autoUnpubSurvivors = [];
     const matchedWhCodes = new Set();     // أكواد المستودع المأخوذة (لاستبعادها من مرشّحي الربط الدفعي)
     let histChanged = false, waitChanged = false;
     // ملف الكميات: 4 أعمدة بالترتيب والتسميات الحرفية المطلوبة
@@ -3291,6 +3301,7 @@ function run(reprocess) {
         if (waiting) {
           // بانتظار التوفر: يُستثنى من تنبيه الجديد، ويبقى ظاهراً في «بدون ربط» بشارته
           unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, waiting: true, noWhCode });
+          finalQtyByRaw[rawKey] = 0;   // ⏳ تصفير مُدار
         } else if (hasHistory) {
           // غائب عن ملف المستودع (قد يكون متوفراً في فرع آخر — المرحلة 1)
           absentList.push({ sku: rawKey, skuN, name: orig[iName] || "", mappedCode: manualMap[rawKey] || null, price: orig[iPrice], qty: orig[iQty], img: imgOf(orig) });
@@ -3298,10 +3309,13 @@ function run(reprocess) {
             qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", 0]);
             qtyCount++;
           }
+          finalQtyByRaw[rawKey] = opts.absent === "zero" ? 0 : curQtyNum(orig[iQty]);   // «صفّر»⇒0 · «اترك»⇒كمية زد الحالية
         } else if (isInf && !collided) {
           infiniteList.push({ sku: rawKey, skuN, name: orig[iName] || "" });
+          finalQtyByRaw[rawKey] = Infinity;   // غير محدود بلا مطابقة ⇒ حيّ
         } else {
           unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, noWhCode });
+          finalQtyByRaw[rawKey] = curQtyNum(orig[iQty]);   // لا يتغيّر ⇒ كمية زد الحالية
         }
         continue;
       }
@@ -3321,6 +3335,7 @@ function run(reprocess) {
       const valForRule = valBase != null ? Math.round(Number(valBase)) + offset : null;
       const lowValZero = opts.lowzero !== "off" && valForRule != null && valForRule < (opts.lowPrice || 400) && whQtyReal <= lowQtyLim;
       const newQty = lowValZero ? 0 : whQtyReal;                     // الكمية الفعلية المُصدَّرة
+      finalQtyByRaw[rawKey] = newQty;                                // للإجماع على إخفاء الأب
       // تشخيص ?debug: عيّنة من مرشّحي القيمة المنخفضة (كمية ≤ الحد) — خام · بعد القاعدة · كمية زد · القرار
       if (whQtyReal <= lowQtyLim && lowValDbg.length < 40) lowValDbg.push({ sku: String(rawSku), raw: whQtyReal, price: valForRule, after: newQty, zid: normZidQty(oldQty), zeroed: lowValZero });
       const qtyChanged = String(oldQty) !== String(newQty);          // "Infinite" ≠ رقم ⇒ يُستبدل دائماً
@@ -3345,12 +3360,15 @@ function run(reprocess) {
       const wantsPublish = iPublished >= 0 && newQty > 0 && effPublished === "no";
       // استبعاد مؤقت للجلسة: يبقى الصنف في «تم تحديثه» لكنه يُستثنى من ملفي التنزيل وعدّاديهما
       const isExc = excludedSet.has(skuN);
+      if (isExc) finalQtyByRaw[rawKey] = curQtyNum(oldQty);   // المستبعَد لن يتغيّر في زد ⇒ كميته الحالية للإجماع (لا newQty)
       const simpleRepublish = wantsPublish && !isExc && !isVariantChild;   // نشر على صف الصنف البسيط نفسه
       if (wantsPublish && !isExc && isVariantChild) {                      // نشر يُنقَل إلى صف الأب (لا يُوضَع على المتغيّر أبداً)
         if (!parentsToPublish.has(parentSku)) parentsToPublish.set(parentSku, { sku: parentSku, name: (rowByRawSku[parentSku][iName] || ""), variants: [] });
         parentsToPublish.get(parentSku).variants.push(String(rawSku));
       }
       const republish = wantsPublish && !isExc;                           // للعرض/الشارة فقط (يشمل الحالتين)
+      // إخفاء تلقائي: صنف بسيط (بلا أب) منشور صارت كميته النهائية 0 ⇒ published=No **بلا أي تغيير في السعر**
+      const autoUnpubSimple = iPublished >= 0 && newQty === 0 && !isVariantChild && effPublished === "yes" && !isExc;
       // ملف الكميات (يشمل تحويل "غير محدود" لكمية حقيقية، وتصفير المنخفض القيمة)
       if (qtyChanged && !isExc) {
         qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", newQty]);
@@ -3359,17 +3377,19 @@ function run(reprocess) {
         if (lowValZero) zeroLowCount++;
       }
       // ملف الأسعار (السعر و/أو published على الصنف نفسه إن كان بسيطاً؛ نشر المتغيّر يُنقَل إلى صف الأب لاحقاً)
-      if ((priceChanged || simpleRepublish) && !isExc) {
+      if ((priceChanged || simpleRepublish || autoUnpubSimple) && !isExc) {
+        const willChangePrice = priceChanged && !autoUnpubSimple;           // الإخفاء التلقائي لا يمسّ السعر إطلاقاً
+        const rowPrice = willChangePrice ? newPrice : Number(orig[iPrice]);
         // تعارض التخفيض: زد يتحقق من السعر النهائي مقابل سعر التخفيض **المخزَّن لديه** (تفريغ الخلية لا يزيله مع «تجاهل الفارغة»).
         // فأي صنف تخفيضه المخزَّن ≥ سعره النهائي يُستبعَد كليّاً من ملف الأسعار ويُدرَج في قائمة «تعارض تخفيض» ليُعالَج يدوياً في زد.
-        const finalPrice = priceChanged ? newPrice : Number(orig[iPrice]);
         const storedSale = iSale >= 0 ? Number(orig[iSale]) : NaN;
-        if (Number.isFinite(storedSale) && storedSale > 0 && Number.isFinite(finalPrice) && storedSale >= finalPrice) {
-          saleConflicts.push({ sku: String(rawSku), name: orig[iName] || "", newPrice: finalPrice, storedSale, oldPrice: Number(oldPrice) });
+        if (Number.isFinite(storedSale) && storedSale > 0 && Number.isFinite(rowPrice) && storedSale >= rowPrice) {
+          saleConflicts.push({ sku: String(rawSku), name: orig[iName] || "", newPrice: rowPrice, storedSale, oldPrice: Number(oldPrice) });
         } else {
           const pr = [...orig];
-          if (priceChanged) pr[iPrice] = newPrice;
-          if (simpleRepublish) pr[iPublished] = "Yes";            // النشر على صف الصنف البسيط فقط
+          if (willChangePrice) pr[iPrice] = newPrice;
+          if (autoUnpubSimple) { pr[iPublished] = "No"; autoUnpub.add(String(rawSku)); lastAutoUnpubSimple.push({ sku: String(rawSku), name: orig[iName] || "" }); }   // إخفاء بلا تغيير سعر
+          else if (simpleRepublish) pr[iPublished] = "Yes";            // النشر على صف الصنف البسيط فقط
           else if (isVariantChild && iPublished >= 0) pr[iPublished] = "";   // المتغيّر لا يحمل published إطلاقاً (بلا أثر ومضلل) — نُفرّغه
           // حماية إكسل: أي خلية تتجاوز 32767 حرفاً تُقصّ لحد إكسل الصلب (تمنع تلف الملف) — لا تخص التسعير
           for (let c = 0; c < pr.length; c++) { const s = String(pr[c] == null ? "" : pr[c]); if (s.length > 32767) pr[c] = s.slice(0, 32767); }
@@ -3422,6 +3442,29 @@ function run(reprocess) {
       lastUnpublish.push({ sku: rk, name: iName >= 0 ? (row[iName] || "") : "" });
     });
 
+    // === إخفاء الآباء تلقائياً: أب منشور تكون الكميات النهائية لكل أبنائه = 0 ⇒ صف الأب published=No بلا سعر (إجماع كامل) ===
+    if (iPublished >= 0) {
+      const childrenByParent = {};
+      for (const c in parentOf) { const p = parentOf[c]; if (!p) continue; (childrenByParent[p] || (childrenByParent[p] = [])).push(c); }
+      const childQ = c => (c in finalQtyByRaw) ? finalQtyByRaw[c] : curQtyNum((rowByRawSku[c] || [])[iQty]);   // كمية زد الحالية للأبناء غير المعالَجين
+      Object.keys(childrenByParent).forEach(P => {
+        const prow = rowByRawSku[P]; if (!prow) return;
+        if (String(prow[iPublished]).trim().toLowerCase() !== "yes") return;   // الأب غير منشور أصلاً ⇒ لا يُضاف
+        if (parentsToPublish.has(P)) return;                                   // يُعاد نشره هذه الدورة (يستحيل اجتماعه مع الإجماع — حماية)
+        const kids = childrenByParent[P];
+        const live = kids.find(c => childQ(c) > 0);                            // أول ابن حيّ (كمية نهائية >0 أو ∞)
+        if (live == null) {                                                    // إجماع: كل الأبناء 0 ⇒ أخفِ الأب
+          const pr = new Array(H.length).fill(""); pr[iSku] = P; pr[iPublished] = "No";
+          const po = new Array(H.length).fill(""); po[iSku] = P; po[iPublished] = "Yes";   // حالته الحالية (منشور)
+          priceRows.push(pr); priceOrig.push(po); priceCount++;
+          autoUnpub.add(String(P));
+          lastAutoUnpubParents.push({ sku: P, name: prow[iName] || "", children: kids.map(c => ({ sku: c, q: childQ(c) })) });
+        } else {
+          autoUnpubSurvivors.push({ sku: P, name: prow[iName] || "", liveChild: live, q: childQ(live) });
+        }
+      });
+    }
+
     // === صمامات الأمان + إنشاء الملفين ===
     qtyRows = stripHasVar(qtyRows); qtyCount = qtyRows.length - 1;   // فحص نهائي حاسم: لا صف has_variants=Yes في ملف الكميات إطلاقاً
     // فحص نهائي: استبعاد الصفوف بلا تغيير (الجديدة == كمية زد الحالية) — الملف الرئيسي لا يحوي ⏳/🚫 فلا استثناء
@@ -3430,7 +3473,7 @@ function run(reprocess) {
     lastQtyRows = qtyRows; lastPriceRows = priceRows; lastPriceOrig = priceOrig;   // للتنزيل التجريبي (صف واحد أو المحدد) مع التحقق
     const mkBlob = aoa => { const ws = XLSX.utils.aoa_to_sheet(aoa); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1"); return new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }); };
     const vq = verifyQuantities(qtyRows);
-    const vp = verifyPrices(priceRows, priceOrig, H, unpublishSet);
+    const vp = verifyPrices(priceRows, priceOrig, H, new Set([...unpublishSet, ...autoUnpub]));   // يمرّر Yes→No للموسوم يدوياً 🚫 ＋ الآلي (بسيط/آباء)
     const vm = document.getElementById("verifyMsg");
     const wireDl = (id, ok, aoa, count, reason) => {
       const el = document.getElementById(id);
@@ -3446,7 +3489,7 @@ function run(reprocess) {
 
     if (vq.ok && vp.ok) {
       vm.className = "verify-ok"; vm.style.display = "block";
-      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (lastUnpublish.length ? ` · 🚫 سيُلغى نشرها: ${lastUnpublish.length} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
+      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (lastUnpublish.length ? ` · 🚫 سيُلغى نشرها: ${lastUnpublish.length} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + ((lastAutoUnpubSimple.length || lastAutoUnpubParents.length) ? ` · إخفاء تلقائي: ${lastAutoUnpubSimple.length + lastAutoUnpubParents.length} (بسيط ${lastAutoUnpubSimple.length} · آباء ${lastAutoUnpubParents.length})` : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
     } else {
       vm.className = "verify-fail"; vm.style.display = "block";
       vm.textContent = "✗ تم إيقاف التحميل — " + [!vq.ok ? "ملف الكميات: " + vq.msg : "", !vp.ok ? "ملف الأسعار: " + vp.msg : ""].filter(Boolean).join(" | ");
@@ -3464,7 +3507,11 @@ function run(reprocess) {
         + `\nاستُبعد بلا تغيير: ${noChangeDropped}`
         + `\nقاعدة القيمة المنخفضة (عتبة ≤${opts.lowQty != null ? opts.lowQty : 3} · <${opts.lowPrice || 400}) — عيّنة [خام→بعد · سعرنهائي · زد · قرار]:\n  `
         + (lowValDbg.length ? lowValDbg.map(d => `${d.sku}[${d.raw}→${d.after} · ${d.price == null ? "—" : d.price} · ${Number.isFinite(d.zid) ? d.zid : "∞/فارغ"} · ${d.zeroed ? "صُفّر" : "كما هو"}]`).join("  ") : "لا مرشّحين")
-        + `\n\n⟪رؤوس ملفات المخزن المُلتقطة⟫` + invHeaderDbgLine("wh") + invHeaderDbgLine("branch");
+        + `\n\n⟪رؤوس ملفات المخزن المُلتقطة⟫` + invHeaderDbgLine("wh") + invHeaderDbgLine("branch")
+        + `\n\n⟪إخفاء تلقائي (قيمة/كمية 0)⟫`
+        + `\nبسيط مخفي: ${lastAutoUnpubSimple.length}` + (lastAutoUnpubSimple.length ? " — " + lastAutoUnpubSimple.slice(0, 20).map(x => x.sku).join(" · ") : "")
+        + `\nآباء مخفيون (إجماع كل الأبناء=0): ${lastAutoUnpubParents.length}` + lastAutoUnpubParents.slice(0, 15).map(p => `\n  ${p.sku}: [${p.children.map(c => `${c.sku}=${c.q === Infinity ? "∞" : c.q}`).join(" · ")}]`).join("")
+        + `\nآباء نجوا (ابن حيّ): ${autoUnpubSurvivors.length}` + autoUnpubSurvivors.slice(0, 15).map(s => `\n  ${s.sku}: ابنه ${s.liveChild}=${s.q === Infinity ? "∞" : s.q}`).join("");
     }
 
     // احفظ تاريخ المطابقة وقائمة الانتظار محلياً إن تغيّرا (تُصدَّر/تُحفظ في الريبو ضمن المنظومة)
