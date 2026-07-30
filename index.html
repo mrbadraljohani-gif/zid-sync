@@ -1544,8 +1544,11 @@ function pickSignupRole(btn) {
 }
 
 // ===== تنقّل SPA بين الصفحات (أقسام تُظهر/تُخفى — الحالة مشتركة، لا فقدان لشيء) =====
-function goPage(id) {
-  if (id === "newuser" && !isOwner()) { showToast("🔒 صفحة إنشاء المستخدمين للمالك فقط."); return; }   // حماية إضافية (الرابط مخفي أصلاً)
+// خريطة الصفحة ⇄ hash للرابط (بقاء الصفحة عبر التحديث + رجوع/تقدم المتصفح + الإشارات المرجعية)
+const PAGE_HASH = { home: "home", db: "db-update", options: "options", account: "account", newuser: "new-user" };
+const HASH_PAGE = { home: "home", "db-update": "db", options: "options", account: "account", "new-user": "newuser" };
+function goPage(id, fromHash) {
+  if (id === "newuser" && !isOwner()) { if (!fromHash) showToast("🔒 صفحة إنشاء المستخدمين للمالك فقط."); return; }   // حماية إضافية (الرابط مخفي أصلاً)
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + id));
   document.querySelectorAll(".side-link").forEach(a => a.classList.toggle("active", a.dataset.page === id));
   if (id === "home") renderReadiness();
@@ -1553,8 +1556,17 @@ function goPage(id) {
   if (id === "account") { renderAccount(); renderActivityFull(); }
   if (id === "options" && typeof renderOffsetsList === "function") renderOffsetsList();
   closeSidebar();
+  const h = PAGE_HASH[id] || "home";   // حدّث الـhash (بلا إعادة تحميل) ما لم يأتِ التنقّل من الـhash أصلاً
+  if (!fromHash && location.hash.replace(/^#/, "") !== h) { try { location.hash = h; } catch (e) {} }
   try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { window.scrollTo(0, 0); }
 }
+// افتح الصفحة من الـhash الحالي (hash مجهول/فارغ ⇒ الرئيسية · «مستخدم جديد» لغير المالك ⇒ الرئيسية صامتاً)
+function routeFromHash() {
+  let id = HASH_PAGE[location.hash.replace(/^#/, "").toLowerCase()] || "home";
+  if (id === "newuser" && !isOwner()) id = "home";
+  goPage(id, true);
+}
+function onHashChange() { routeFromHash(); }
 function toggleSidebar() { const s = document.getElementById("sidebar"), c = document.getElementById("sidebarScrim"); if (s) s.classList.toggle("open"); if (c) c.classList.toggle("show"); }
 // طيّ/فتح القائمة الجانبية (سطح المكتب) — يُحفظ في localStorage فتفتح الأداة على آخر وضع
 function toggleSidebarCollapse() {
@@ -1731,6 +1743,7 @@ async function loadMappingsFromDB() {
     await loadZidMeta();         // ميتا منتجات زد (المرحلة 3): العدد + آخر مزامنة لعرض لوحة القاعدة
     await loadMyRole();          // دور المستخدم الحالي (owner/admin/viewer) لتجميل الواجهة
     await loadInventoryMeta();    // المرحلة 4: ميتا المخزن (مستودع/فرع) لشريط الجاهزية وبطاقات التحديث
+    routeFromHash();             // بعد معرفة الدور: افتح صفحة الـhash المطلوبة (يصحّح «مستخدم جديد» للمالك)
     if (document.getElementById("result").style.display === "block") markDirty();
   } catch (e) { dbOnline = false; setDbBadge(false, e.message); console.warn("DB load failed:", e); }
 }
@@ -4487,6 +4500,8 @@ applySidebarCollapsed();       // آخر وضع طيّ للقائمة الجان
 renderSideUser();              // بطاقة بريد المستخدم (تظهر عند توفّر جلسة)
 applyRoleUI();                 // إخفاء «مستخدم جديد» حتى يُحمّل الدور (يظهر للمالك بعد loadMyRole)
 renderReadiness(); renderInvCards();   // حالة أولية (تُحدَّث بعد loadInventoryMeta)
+window.addEventListener("hashchange", onHashChange);   // رجوع/تقدم المتصفح + أي تغيير للـhash
+routeFromHash();               // الإقلاع: افتح صفحة الـhash (تُعاد بعد الدخول/تحميل الدور لتصحيح المحمية)
 (async () => {
   await loadConfig();
   bootLocalMap = { ...manualMap };   // روابط المحلي (mapping.json ＋ localStorage) قبل أي تفاعل مع القاعدة — مرجع الترحيل الثابت
