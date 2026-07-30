@@ -778,12 +778,33 @@
   .stat::before { content: ""; position: absolute; top: 0; inset-inline: 0; height: 3px; background: var(--muted-2); }
   .stat[data-filter="updated"]::before { background: #5fae63; }
   .stat[data-filter="new"]::before { background: var(--gold); }
-  .stat[data-filter="unmatched"]::before, .stat[data-filter="infinite"]::before { background: #8a8f99; }
-  .stat[data-filter="absent"]::before { background: #6b93c0; }
-  .stat[data-filter="all"]::before { background: var(--border-strong); }
+  .stat[data-filter="unmatched"]::before { background: var(--gold); }
+  .stat[data-filter="infinite"]::before { background: #8a8f99; }
+  .stat[data-filter="explorer"]::before { background: var(--border-strong); }
+  .stat-wide { flex: 1.7 1 170px; }
   .stat .stat-ic { display: block; font-size: 14px; opacity: .75; line-height: 1; margin-bottom: 3px; color: var(--muted); }
   .stat b { font-size: 27px; display: block; line-height: 1.05; font-family: var(--serif); }
   .stat .stat-lbl { display: block; font-size: 11.5px; color: var(--muted); font-weight: 700; margin-top: 4px; line-height: 1.4; }
+  .stat .stat-sub { display: block; font-size: 10px; color: var(--muted-2); font-weight: 700; margin-top: 5px; line-height: 1.55; }
+  /* تبويبات بطاقة «بدون ربط» + شارات دورة الحياة (مُدار/انحرف) */
+  .un-chips { position: sticky; top: 0; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 10px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .exp-chip { font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid var(--border-strong); background: rgba(255,255,255,.03); color: var(--muted); border-radius: 999px; padding: 5px 11px; transition: all .12s; white-space: nowrap; }
+  .exp-chip:hover { color: var(--text); border-color: var(--gold-2); }
+  .exp-chip.on { background: var(--gold); color: #2a2100; border-color: var(--gold); }
+  .exp-chip.zero-btn { margin-inline-start: auto; border-color: rgba(107,147,192,.6); color: #9fc0e0; background: rgba(107,147,192,.08); }
+  .exp-chip.zero-btn:hover { border-color: #6b93c0; }
+  .managed-tag { display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--muted-2); background: rgba(140,150,160,.12); border: 1px solid var(--border); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  .drift-tag { display: inline-block; font-size: 10.5px; font-weight: 800; color: #f4bd7a; background: rgba(230,163,74,.14); border: 1px solid rgba(230,163,74,.5); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  /* المستكشف الشامل (بطاقة إجمالي الأسطر) */
+  .exp-bar { position: sticky; top: 0; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 9px 15px; padding: 11px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .exp-search { flex: 1 1 220px; min-width: 170px; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 10px; padding: 8px 12px; color: var(--text); font: inherit; font-size: 13px; }
+  .exp-grp { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .exp-grp-lbl { font-size: 11px; color: var(--muted-2); font-weight: 800; margin-inline-end: 2px; }
+  .exp-actions { display: flex; align-items: center; gap: 9px; margin-inline-start: auto; flex-wrap: wrap; }
+  .exp-count { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+  .exp-count b { color: var(--gold-2); font-size: 15px; }
+  .exp-table td { vertical-align: middle; }
+  .cat-badge.cat-mng { background: rgba(140,150,160,.14); color: var(--muted); }
   .stat:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,.28); }
   /* ③ مركز التنبيهات: بطاقات موحّدة بحاشية بادئة ملوّنة حسب الأهمية */
   .action-center { display: flex; flex-direction: column; gap: 11px; margin: 4px 0 18px; }
@@ -976,11 +997,10 @@
     <!-- ②  بطاقات الأرقام (KPI) -->
     <div class="stats">
       <div class="stat" data-filter="updated" onclick="selectCard('updated')"><span class="stat-ic">✅</span><b style="color:#8fbf98" id="sUpd">0</b><span class="stat-lbl">تم تحديثه</span></div>
-      <div class="stat" data-filter="new" onclick="selectCard('new')"><span class="stat-ic">🆕</span><b style="color:#e6a34a" id="sNew">0</b><span class="stat-lbl">جديد يحتاج قراراً</span></div>
-      <div class="stat" data-filter="unmatched" onclick="selectCard('unmatched')"><span class="stat-ic">🔗</span><b style="color:#e3c88c" id="sUn">0</b><span class="stat-lbl">بدون ربط</span></div>
+      <div class="stat stat-wide" data-filter="unmatched" onclick="selectCard('unmatched')"><span class="stat-ic">🔶</span><b style="color:#e6a34a" id="sUn">0</b><span class="stat-lbl">بدون ربط</span><span class="stat-sub" id="sUnSub"></span></div>
       <div class="stat" data-filter="infinite" onclick="selectCard('infinite')"><span class="stat-ic">∞</span><b style="color:#93a2b5" id="sInf">0</b><span class="stat-lbl">غير محدود بلا مطابقة</span></div>
-      <div class="stat" data-filter="absent" onclick="selectCard('absent')"><span class="stat-ic">📭</span><b style="color:#c99a3c" id="sAbsent">0</b><span class="stat-lbl" id="sAbsentLbl">غائب عن الملف</span></div>
-      <div class="stat" data-filter="all" onclick="selectCard('all')"><span class="stat-ic">📊</span><b style="color:#f1e9d8" id="sTot">0</b><span class="stat-lbl">إجمالي الأسطر</span></div>
+      <div class="stat" data-filter="explorer" onclick="selectCard('explorer')"><span class="stat-ic">📚</span><b style="color:#f1e9d8" id="sTot">0</b><span class="stat-lbl">إجمالي الأسطر — مستكشف</span></div>
+      <b id="sNew" hidden>0</b><span id="sAbsentLbl" hidden></span><b id="sAbsent" hidden>0</b>
     </div>
     <p class="stats-hint">اضغط أي بطاقة لعرض تفاصيلها في الجدول بالأسفل</p>
     <!-- ③  مركز التنبيهات — مرتّب بالأهمية -->
@@ -1338,7 +1358,10 @@ let excludedSet = new Set();           // استبعاد مؤقت للجلسة �
 let boundSet = new Set();
 let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [], lastIgnored = [];
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
-let lastUpdated = [], lastInfinite = [], currentFilter = "new";
+let lastUpdated = [], lastInfinite = [], currentFilter = "unmatched";
+let unmatchedSub = "new";   // التبويب الداخلي لبطاقة «بدون ربط»: new / pending / managed / ignored / all
+let expFilters = { link: new Set(), pub: new Set(), type: new Set(), qty: new Set(), admin: new Set() };   // فلاتر المستكشف (تقاطع AND، تعدد داخل البُعد OR)
+let expSearch = "", expSearchRaw = "", lastExplorerShown = [];
 let lastCollisions = [];   // مجموعات أكواد زد الخام المتصادمة بعد التطبيع (الصعبة فقط — تحذير أحمر)
 let lastVariantGroups = [];   // مجموعات «أب/خيار» المكتشفة والمعالَجة تلقائياً
 let lastQtyRows = null, lastPriceRows = null, lastPriceOrig = null;   // صفوف الملفين الناتجين + أصل صفوف الأسعار (للتحقق عند التنزيل التجريبي)
@@ -2155,7 +2178,7 @@ async function batchApply(pairs, tag) {
   lastBatchUndo = { entries: undo, count: pairs.length, tag };
   saveAliases(); saveLinkTags();
   renderPills(); markDirty(); updateNewCount();
-  if (currentFilter === "new" || currentFilter === "unmatched") renderDetail();
+  if (currentFilter === "unmatched") renderDetail();
   batchData = analyzeBatch();
   renderBatchTab();
   showToast(`✓ اعتُمد ${pairs.length} رابط في القاعدة (${tag === "auto-confirmed" ? "🟢 مؤكد" : tag === "auto-approved" ? "🟡 معتمد" : "يدوي"}).`);
@@ -2177,7 +2200,7 @@ async function undoLastBatch() {
   const n = lastBatchUndo.count; lastBatchUndo = null;
   saveLinkTags();
   renderPills(); markDirty(); updateNewCount();
-  if (currentFilter === "new" || currentFilter === "unmatched") renderDetail();
+  if (currentFilter === "unmatched") renderDetail();
   batchData = analyzeBatch(); renderBatchTab();
   showToast(`↩ تم التراجع عن آخر اعتماد (${n} رابط).`);
 }
@@ -3548,13 +3571,11 @@ function run(reprocess) {
     // التعافي التلقائي: أصناف عادت للتوفر ⇒ احذفها من قائمة الانتظار في القاعدة أيضاً (best-effort)
     if (reactivated.length && dbOnline && sb) db.waiting.bulkRemove(reactivated.map(r => r.sku)).catch(e => console.warn("waiting DB bulkRemove:", e));
 
-    // بطاقة «غائب عن الملف» = الغائب فعلاً (له تاريخ) + الموسوم ⏳ بانتظار التوفر (تصفير مُدار)
-    const waitingInFile = unmatched.filter(u => u.waiting).length;
+    // بطاقة «بدون ربط» تجمع كل أصناف زد بلا ربط (جديد + متجاهَل + ⏳ + مُدار)؛ تفكيكها في updateUnmatchedCard.
+    // «الغائب عن الملف» لم يعد بطاقة مستقلة — المُدار انتقل لبطاقة «بدون ربط»، والغائب-له-تاريخ يُرى في المستكشف بفلتر (نفس منطق ⏳/الغائب/العودة).
     document.getElementById("sUpd").textContent = updatedList.length;
     document.getElementById("sUn").textContent = unmatched.length;
     document.getElementById("sInf").textContent = infiniteList.length;
-    document.getElementById("sAbsent").textContent = absentList.length + waitingInFile;
-    { const lbl = document.getElementById("sAbsentLbl"); if (lbl) lbl.textContent = "غائب عن الملف" + (waitingInFile ? ` · منها ⏳ ${waitingInFile}` : ""); }
     document.getElementById("sTot").textContent = rows0.length - 1;
 
     // === تصنيف الأصناف بدون ربط + بيانات الفلاتر ===
@@ -3569,7 +3590,7 @@ function run(reprocess) {
     lastReactivated = reactivated;
     lastSaleConflicts = saleConflicts;
     lastMatchedWhCodes = matchedWhCodes;
-    if (!reprocess) { boundSet = new Set(); currentFilter = "new"; }
+    if (!reprocess) { boundSet = new Set(); currentFilter = "unmatched"; unmatchedSub = "new"; }
     refreshUnmatchedUI();
     renderCollisionWarn();
     renderVariantInfo();
@@ -3770,12 +3791,13 @@ function refreshUnmatchedUI() {
   const ignored = lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN)));
   renderIgnored(ignored);
   updateNewCount();
+  updateUnmatchedCard();
   renderDetail();
 }
 
-// اختيار بطاقة كفلتر (الضغط على النشطة يعيد للافتراضي "جديد")
+// اختيار بطاقة كفلتر (الضغط على النشطة يعيد للافتراضي "بدون ربط")
 function selectCard(f) {
-  if (currentFilter === f && f !== "new") f = "new";
+  if (currentFilter === f && f !== "unmatched") f = "unmatched";
   currentFilter = f;
   renderDetail();
   document.getElementById("unBlock").scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -3796,7 +3818,7 @@ function buildItems(raw) {
     let suggestion;
     if (suggCache.has(u.skuN)) suggestion = suggCache.get(u.skuN);
     else { suggestion = suggestFor(u.skuN, u.name, lastWhList, u.price); suggCache.set(u.skuN, suggestion); }
-    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, img: u.img || "", collided: u.collided || null, isZ, suggestion, bound: boundSet.has(String(u.sku)), ignored: ignoredSet.has(normCode(u.skuN)), waiting: waitingSet.has(normCode(u.skuN)), orphanParent: !!u.orphanParent };
+    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, qty: u.qty, img: u.img || "", collided: u.collided || null, isZ, suggestion, bound: boundSet.has(String(u.sku)), ignored: ignoredSet.has(normCode(u.skuN)), waiting: waitingSet.has(normCode(u.skuN)), orphanParent: !!u.orphanParent };
   });
   // متغيّرات متعددة مرتبطة بنفس كود المستودع (نفس الاقتراح لأكثر من صنف) ⇒ 🔀
   const codeCount = {};
@@ -3818,48 +3840,196 @@ function renderDetail() {
   const bindBtn = document.getElementById("bindAllBtn");
   const title = document.getElementById("unTitle"); title.style.display = "";
   const wrap = document.getElementById("detailTable");
+  const unbar = document.querySelector("#unBlock .unbar");
   document.getElementById("unBlock").style.display = "block";
+  const hideBatch = () => { const bb = document.getElementById("batchBtn"); if (bb) bb.style.display = "none"; };
 
-  if (f === "new" || f === "unmatched") {
-    const notBound = u => !boundSet.has(String(u.sku));
-    const raw = (f === "new")
-      ? lastUnmatchedRaw.filter(u => notBound(u) && !ignoredSet.has(normCode(u.skuN)) && !waitingSet.has(normCode(u.skuN)))
-      : lastUnmatchedRaw.filter(notBound);
-    const items = buildItems(raw);
-    lastUnmatched = items;
-    bindBtn.style.display = (f === "new") ? "" : "none";
-    { const bb = document.getElementById("batchBtn"); if (bb) bb.style.display = (f === "new") ? "" : "none"; }
-    title.textContent = (f === "new" ? "منتجات جديدة تحتاج قرارك" : "كل الأصناف بدون ربط") + ` (${raw.length}) — كاملة — اربطها أو تجاهلها`;
-    wrap.innerHTML = suggestionsCardsHTML(items);
-    updateBindAllCount();
+  if (f === "unmatched") {
+    if (unbar) unbar.style.display = "";
+    renderUnmatchedCard(bindBtn, title, wrap);
   } else if (f === "updated") {
-    bindBtn.style.display = "none";
+    if (unbar) unbar.style.display = ""; bindBtn.style.display = "none"; hideBatch();
     const susp = lastUpdated.filter(isSuspicious).length;
     title.textContent = `الأصناف المحدَّثة (${lastUpdated.length}) — كاملة` + (susp ? ` · ⚠ ${susp} تحتاج مراجعة` : "");
     wrap.innerHTML = updatedTableHTML(lastUpdated);
   } else if (f === "infinite") {
-    bindBtn.style.display = "none";
+    if (unbar) unbar.style.display = ""; bindBtn.style.display = "none"; hideBatch();
     title.textContent = `كمية غير محدودة — تُركت كما هي (${lastInfinite.length})`;
     wrap.innerHTML = listTableHTML(lastInfinite);
-  } else if (f === "absent") {
-    bindBtn.style.display = "none";
-    const cands = zeroCandidates();
-    const wc = cands.filter(c => c.cat === "waiting").length;
-    title.textContent = `مرشّحو تصفير الكمية (${cands.length}) — غائب عن الملف (له تاريخ)` + (wc ? ` ＋ ⏳ بانتظار التوفر: ${wc}` : "");
-    wrap.innerHTML = zeroTableHTML(cands);
-  } else { // all
-    bindBtn.style.display = "none";
-    const catOf = u => ignoredSet.has(normCode(u.skuN)) ? "ignored" : (waitingSet.has(normCode(u.skuN)) ? "waiting" : "new");
-    const all = [
-      ...lastUpdated.map(u => ({ sku: u.sku, name: u.name, skuN: u.skuN, _cat: "updated" })),
-      ...lastUnmatchedRaw.map(u => ({ sku: u.sku, name: u.name, skuN: u.skuN, _cat: catOf(u) })),
-      ...lastAbsent.map(u => ({ sku: u.sku, name: u.name, skuN: u.skuN, _cat: "absent" })),
-      ...lastInfinite.map(u => ({ sku: u.sku, name: u.name, skuN: u.skuN, _cat: "infinite" })),
-    ];
-    title.textContent = `كل الأسطر المصنّفة (${all.length}${all.length > 200 ? " — تُعرض أول ٢٠٠" : ""})`;
-    wrap.innerHTML = allTableHTML(all.slice(0, 200));
+  } else { // explorer — مستكشف منتجات زد الشامل (له شريط بحث/فلاتر خاص)
+    bindBtn.style.display = "none"; hideBatch();
+    if (unbar) unbar.style.display = "none";
+    title.textContent = "📚 مستكشف منتجات زد — كل الأصناف بفلاتر متقاطعة";
+    renderExplorer(wrap);
+    return;   // المستكشف يُدير بحثه بنفسه (لا filterUnmatched)
   }
   filterUnmatched();
+}
+
+// بطاقة «بدون ربط» الموحّدة: تبويبات داخلية (يحتاج قرار / سيُصفَّر / مُدار / متجاهَل / الكل) + زر ملف التصفير
+function renderUnmatchedCard(bindBtn, title, wrap) {
+  const raw0 = lastUnmatchedRaw || [];
+  const isIgn = u => ignoredSet.has(normCode(u.skuN));
+  const isWait = u => waitingSet.has(normCode(u.skuN));
+  const isBound = u => boundSet.has(String(u.sku));
+  const cnt = {
+    new: raw0.filter(u => !isIgn(u) && !isWait(u) && !isBound(u)).length,
+    ignored: raw0.filter(isIgn).length,
+    pending: raw0.filter(u => isWait(u) && curQtyNum(u.qty) !== 0).length,   // ⏳ لم يُصفَّر بعد / انحرف
+    managed: raw0.filter(u => isWait(u) && curQtyNum(u.qty) === 0).length,   // ✓ مصفّر مُدار (زد=0)
+    all: raw0.filter(u => !isBound(u)).length,
+  };
+  let sub = unmatchedSub;
+  if (!cnt[sub]) sub = "new";   // التبويب الحالي فارغ ⇒ ارجع لـ«يحتاج قرار»
+  unmatchedSub = sub;
+  let raw;
+  if (sub === "new") raw = raw0.filter(u => !isIgn(u) && !isWait(u) && !isBound(u));
+  else if (sub === "ignored") raw = raw0.filter(isIgn);
+  else if (sub === "pending") raw = raw0.filter(u => isWait(u) && curQtyNum(u.qty) !== 0);
+  else if (sub === "managed") raw = raw0.filter(u => isWait(u) && curQtyNum(u.qty) === 0);
+  else raw = raw0.filter(u => !isBound(u));
+  const items = buildItems(raw);
+  lastUnmatched = items;
+  const showBind = sub === "new";
+  bindBtn.style.display = showBind ? "" : "none";
+  { const bb = document.getElementById("batchBtn"); if (bb) bb.style.display = showBind ? "" : "none"; }
+  title.textContent = `🔶 بدون ربط (${cnt.all}) — أصناف زد بلا ربط بالمخزن`;
+  const chip = (key, label, n) => `<button class="exp-chip${sub === key ? " on" : ""}" onclick="setUnmatchedSub('${key}')">${label} (${n})</button>`;
+  const chips = `<div class="un-chips">`
+    + chip("new", "🆕 يحتاج قرار", cnt.new)
+    + chip("pending", "⚠ سيُصفَّر", cnt.pending)
+    + chip("managed", "✓ مُدار", cnt.managed)
+    + chip("ignored", "✕ متجاهَل", cnt.ignored)
+    + chip("all", "📋 الكل", cnt.all)
+    + `<button class="exp-chip zero-btn" onclick="downloadZeroAbsent()" title="نزّل ملف كميات (نموذج زد) يصفّر الأصناف ⏳/المُدارة — المصفّرة أصلاً في زد تُستبعَد تلقائياً (بلا استيراد عبثي)">⬇ ملف تصفير الغائب (${zeroSelected.size})</button>`
+    + `</div>`;
+  wrap.innerHTML = chips + suggestionsCardsHTML(items);
+  updateBindAllCount();
+}
+function setUnmatchedSub(k) { unmatchedSub = k; renderDetail(); }
+
+// ==================== 📚 مستكشف منتجات زد الشامل (بطاقة «إجمالي الأسطر») ====================
+// يبني صفاً لكل منتج زد من stData مع: النوع/النشر (بنشر الأب للمتغيّر) /الكمية/الربط/الحالة الإدارية — عرض فقط، بلا مساس بالمنطق.
+function buildExplorerRows() {
+  if (!stData || !stData.rows || stData.rows.length < 2) return null;
+  const H = stData.header, rows = stData.rows;
+  const iSku = H.indexOf("sku"), iName = H.indexOf("name_ar"), iQty = H.indexOf("quantity"),
+        iPub = H.indexOf("published"), iBar = H.indexOf("barcode");
+  if (!famIndex) rebuildFamilyIndex();
+  const fam = famIndex || { isParent: () => false, parentOfSku: () => null };
+  const isYesVar = v => { const s = String(v == null ? "" : v).trim().toLowerCase(); return s === "yes" || s === "true" || s === "1" || s === "نعم"; };
+  const pubByRaw = {};
+  if (iPub >= 0) for (let i = 1; i < rows.length; i++) { const rs = rows[i][iSku]; if (rs !== "" && rs != null) pubByRaw[String(rs)] = rows[i][iPub]; }
+  const whSet = new Set();
+  if (lastMerge) [...lastMerge.unified, ...lastMerge.noPrice].forEach(w => whSet.add(normCode(w.code)));
+  const absentSet = new Set((lastAbsent || []).map(a => normCode(a.skuN)));
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const rs = rows[i][iSku]; if (rs === "" || rs == null) continue;
+    const raw = String(rs), skuN = normCode(raw);
+    const name = iName >= 0 ? String(rows[i][iName] || "") : "";
+    const bar = iBar >= 0 ? String(rows[i][iBar] == null ? "" : rows[i][iBar]).trim() : "";
+    const isParent = fam.isParent(raw);
+    const parentSku = fam.parentOfSku(raw);
+    const type = isParent ? "parent" : ((parentSku || raw.includes(".")) ? "variant" : "simple");
+    let pubRaw = iPub >= 0 ? rows[i][iPub] : "";
+    if (parentSku && parentSku in pubByRaw) pubRaw = pubByRaw[parentSku];   // نشر المتغيّر = نشر أبيه الموضعي
+    const pub = isYesVar(pubRaw);
+    const qv = iQty >= 0 ? rows[i][iQty] : null;
+    const isInf = String(qv).trim().toLowerCase() === "infinite";
+    const qn = Number(qv);
+    const qtyKind = isInf ? "inf" : ((Number.isFinite(qn) && qn > 0) ? "pos" : "zero");
+    const qtyDisplay = isInf ? "∞" : (Number.isFinite(qn) ? String(qn) : (qv == null || qv === "" ? "0" : String(qv)));
+    const linked = !!manualMap[raw] || whSet.has(skuN) || whSet.has(normCode(baseOf(raw)));
+    const admin = [];
+    if (waitingSet.has(skuN)) admin.push(qtyKind === "zero" ? "managed" : "waiting");
+    if (ignoredSet.has(skuN)) admin.push("ignored");
+    if (unpublishSet.has(raw)) admin.push("unpublish");
+    if (absentSet.has(skuN)) admin.push("absent");
+    out.push({ sku: raw, name, pub, type, qtyKind, qtyDisplay, linked, admin, isParent, search: normText(raw + " " + name + " " + bar) });
+  }
+  return out;
+}
+function explorerCompute() {
+  const rows = buildExplorerRows();
+  if (!rows) return null;
+  const f = expFilters, q = expSearch;
+  const shown = rows.filter(r => {
+    if (q && !r.search.includes(q)) return false;
+    if (f.link.size && !f.link.has(r.linked ? "linked" : "unlinked")) return false;
+    if (f.pub.size && !f.pub.has(r.pub ? "pub" : "unpub")) return false;
+    if (f.type.size && !f.type.has(r.type)) return false;
+    if (f.qty.size && !f.qty.has(r.qtyKind)) return false;
+    if (f.admin.size && !r.admin.some(a => f.admin.has(a))) return false;
+    return true;
+  });
+  lastExplorerShown = shown;
+  return { rows, shown };
+}
+function expBadges(r) {
+  const m = { waiting: ["⏳ بانتظار", "cat-wait"], managed: ["✓ مُدار", "cat-mng"], unpublish: ["🚫 إخفاء", "cat-ign"], ignored: ["متجاهَل", "cat-ign"], absent: ["غائب 📭", "cat-abs"] };
+  return r.admin.map(a => { const x = m[a]; return x ? `<span class="cat-badge ${x[1]}">${x[0]}</span>` : ""; }).join(" ");
+}
+function explorerBodyHTML(shown) {
+  return shown.slice(0, 500).map(r => {
+    const typeLbl = r.type === "parent" ? "أب" : (r.type === "variant" ? "متغيّر" : "بسيط");
+    return `<tr><td class="mono">${esc(r.sku)}</td><td>${esc(r.name) || "—"}</td>`
+      + `<td>${typeLbl}</td>`
+      + `<td class="mono">${r.qtyKind === "inf" ? "∞" : esc(r.qtyDisplay)}</td>`
+      + `<td><span class="q-chip ${r.pub ? "pub-yes" : "pub-no"}">${r.pub ? "✅" : "🚫"}</span></td>`
+      + `<td><span class="cat-badge ${r.linked ? "cat-upd" : "cat-new"}">${r.linked ? "مربوط" : "بلا ربط"}</span></td>`
+      + `<td>${expBadges(r) || "—"}</td></tr>`;
+  }).join("");
+}
+function renderExplorer(wrap) {
+  const c = explorerCompute();
+  if (!c) { wrap.innerHTML = `<div class="q-warn" style="margin:12px">لا توجد بيانات زد محمّلة — استخدم «متجر زد» في صفحة التحديث أو ارفع تصدير زد، ثم شغّل «طابق وأنشئ».</div>`; return; }
+  const { rows, shown } = c, f = expFilters;
+  const grp = (dim, label, opts) => `<div class="exp-grp"><span class="exp-grp-lbl">${label}</span>`
+    + opts.map(([k, t]) => `<button class="exp-chip${f[dim].has(k) ? " on" : ""}" onclick="toggleExpFilter('${dim}','${k}')">${t}</button>`).join("") + `</div>`;
+  const bar = `<div class="exp-bar">
+    <input type="text" id="expSearch" class="exp-search" placeholder="🔍 ابحث بالـSKU أو الاسم أو الباركود…" value="${esc(expSearchRaw)}" oninput="onExpSearch(this.value)">
+    ${grp("link", "الربط", [["linked", "مربوط"], ["unlinked", "بدون ربط"]])}
+    ${grp("pub", "النشر", [["pub", "منشور"], ["unpub", "غير منشور"]])}
+    ${grp("type", "النوع", [["parent", "أب"], ["variant", "متغيّر"], ["simple", "بسيط"]])}
+    ${grp("qty", "الكمية", [["zero", "صفر"], ["pos", ">0"], ["inf", "∞"]])}
+    ${grp("admin", "إداري", [["waiting", "⏳"], ["managed", "✓ مُدار"], ["unpublish", "🚫"], ["ignored", "متجاهَل"], ["absent", "غائب 📭"]])}
+    <div class="exp-actions">
+      <span class="exp-count" id="expCount">يعرض <b>${shown.length}</b> من ${rows.length}</span>
+      <button class="exp-chip" onclick="clearExpFilters()">مسح الفلاتر</button>
+      <button class="btn-run sm" onclick="exportExplorer()">⬇ تصدير المعروض</button>
+    </div>
+  </div>
+  <div class="hint" id="expCapNote" style="margin:6px 4px;display:${shown.length > 500 ? "block" : "none"}">تُعرض أول ٥٠٠ صف فقط — ضيّق الفلاتر أو استخدم «تصدير المعروض» لرؤية الكل.</div>`;
+  wrap.innerHTML = bar + `<table class="exp-table">
+    <colgroup><col class="c-sku"><col><col style="width:70px"><col style="width:62px"><col style="width:58px"><col style="width:88px"><col style="width:170px"></colgroup>
+    <thead><tr><th>SKU</th><th>الاسم</th><th>النوع</th><th>الكمية</th><th>النشر</th><th>الربط</th><th>الحالة</th></tr></thead>
+    <tbody id="expTbody">${explorerBodyHTML(shown)}</tbody></table>`;
+}
+function applyExpSearch() {
+  const c = explorerCompute(); if (!c) return;
+  const tb = document.getElementById("expTbody"); if (tb) tb.innerHTML = explorerBodyHTML(c.shown);
+  const cc = document.getElementById("expCount"); if (cc) cc.innerHTML = `يعرض <b>${c.shown.length}</b> من ${c.rows.length}`;
+  const cn = document.getElementById("expCapNote"); if (cn) cn.style.display = c.shown.length > 500 ? "block" : "none";
+}
+function onExpSearch(v) { expSearchRaw = v; expSearch = normText(v); applyExpSearch(); }   // البحث يحدّث الجدول فقط (لا يعيد بناء الحقل فيبقى التركيز)
+function toggleExpFilter(dim, k) { const s = expFilters[dim]; if (s.has(k)) s.delete(k); else s.add(k); renderDetail(); }
+function clearExpFilters() { expFilters = { link: new Set(), pub: new Set(), type: new Set(), qty: new Set(), admin: new Set() }; expSearch = ""; expSearchRaw = ""; renderDetail(); }
+function exportExplorer() {
+  const rows = lastExplorerShown || [];
+  if (!rows.length) { showErr("لا صفوف معروضة للتصدير — عدّل الفلاتر."); return; }
+  const admLbl = { waiting: "بانتظار", managed: "مُدار", unpublish: "إخفاء", ignored: "متجاهَل", absent: "غائب" };
+  const typeLbl = t => t === "parent" ? "أب" : (t === "variant" ? "متغيّر" : "بسيط");
+  const aoa = [["SKU", "الاسم", "النوع", "الكمية", "النشر", "الربط", "الحالة الإدارية"],
+    ...rows.map(r => [r.sku, r.name, typeLbl(r.type), r.qtyKind === "inf" ? "غير محدود" : r.qtyDisplay, r.pub ? "منشور" : "غير منشور", r.linked ? "مربوط" : "بلا ربط", r.admin.map(a => admLbl[a] || a).join(" ／ ")])];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "منتجات زد");
+  const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = "zid_products_view.xlsx";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  logActivity("file_generated", null, { kind: "explorer_view", count: rows.length });
 }
 
 
@@ -4141,12 +4311,25 @@ function allTableHTML(list) {
 // شريط التنبيه البرتقالي + البطاقة الخامسة (يستبعد ما رُبط في هذه الجلسة)
 function updateNewCount() {
   const newCount = lastUnmatchedRaw.filter(u => !ignoredSet.has(normCode(u.skuN)) && !boundSet.has(String(u.sku)) && !waitingSet.has(normCode(u.skuN))).length;
-  document.getElementById("sNew").textContent = newCount;
+  const sn = document.getElementById("sNew"); if (sn) sn.textContent = newCount;   // البطاقة أُزيلت (مدمجة في «بدون ربط») — تحديث دفاعي
   const alert = document.getElementById("newAlert");
   if (newCount > 0) {
     alert.style.display = "flex";
     alert.textContent = `🆕 ${newCount} منتجاً جديداً بدون ربط — كمياتها لن تتحدث · اضغط لبدء الربط الذكي ←`;
   } else alert.style.display = "none";
+}
+
+// سطر تفكيك بطاقة «بدون ربط»: يحتاج قرارك · متجاهَل · ⏳ سيُصفَّر · مُصفَّر مُدار
+function updateUnmatchedCard() {
+  const raw = lastUnmatchedRaw || [];
+  const ignoredN = raw.filter(u => ignoredSet.has(normCode(u.skuN))).length;
+  const wait = raw.filter(u => waitingSet.has(normCode(u.skuN)));
+  const managed = wait.filter(u => curQtyNum(u.qty) === 0).length;
+  const pending = wait.length - managed;
+  const newN = raw.filter(u => !ignoredSet.has(normCode(u.skuN)) && !boundSet.has(String(u.sku)) && !waitingSet.has(normCode(u.skuN))).length;
+  const un = document.getElementById("sUn"); if (un) un.textContent = raw.length;
+  const sub = document.getElementById("sUnSub");
+  if (sub) sub.textContent = `يحتاج قرارك ${newN} · متجاهَل ${ignoredN} · ⏳ ${pending} · مُدار ${managed}`;
 }
 
 function renderIgnored(list) {
@@ -4169,7 +4352,7 @@ function unignore(i) {
   renderFingerprint();
 }
 
-function scrollToNew() { document.getElementById("unBlock").scrollIntoView({ behavior: "smooth", block: "start" }); }
+function scrollToNew() { currentFilter = "unmatched"; unmatchedSub = "new"; renderDetail(); document.getElementById("unBlock").scrollIntoView({ behavior: "smooth", block: "start" }); }
 
 // بطاقة مطابقة: كتلة زد (يمين) · مؤشر (وسط) · مستودع (يسار الوسط) · أزرار (أقصى اليسار)
 function cardHtml(it, i) {
@@ -4179,7 +4362,12 @@ function cardHtml(it, i) {
   const reliable = !!s && pct >= 55;                 // أقل من 55% ⇒ لا يوجد اقتراح موثوق
   const autoTag = it.isZ ? `<span class="mc-auto" title="كود مُولّد آلياً من زد">كود آلي من زد</span>` : "";
   const colTag = (it.collided && it.collided.length > 1) ? `<span class="col-tag" title="أكواد زد تتطابق بعد إزالة الأصفار — المطابقة التلقائية معطّلة، اربطه يدوياً">⚠ كود متصادم (${it.collided.map(esc).join(" / ")})</span>` : "";
-  const waitTag = it.waiting ? `<span class="wait-tag" title="بانتظار ظهور كوده في ملف المستودع">⏳ بانتظار التوفر</span>` : "";
+  // دورة حياة المُصفَّر المُدار: ⏳ + كمية زد 0 ⇒ «مُدار» (مصفّر ومخفي، مراقَب فقط) · ⏳ + كمية زد ≠ 0 ⇒ «انحرف» (سيُصفَّر في ملف التصفير القادم)
+  const zq = it.waiting ? curQtyNum(it.qty) : null;
+  const waitTag = !it.waiting ? ""
+    : (zq === 0
+      ? `<span class="managed-tag" title="مصفّر ومخفي في زد — مراقَب فقط، لا يُعاد تصديره (كميته 0 أصلاً)">✓ مُدار: مصفّر ＋ مخفي</span>`
+      : `<span class="drift-tag" title="كميته في زد ${esc(String(it.qty == null ? "—" : it.qty))} رغم أنه مسجّل «غير متوفر» — سيُصفَّر في ملف التصفير القادم">⚠ انحرف — سيُصفَّر</span>`);
   const orphanTag = it.orphanParent ? `<span class="col-tag" title="منتج أب (has_variants=Yes) لا خيارات مكوّدة تحته تتلقّى كميته — لا يدخل ملف الكميات؛ عالج كمياته من خياراته داخل زد">🚫 أب بلا خيارات مكوّدة — عالجه في زد</span>` : "";
   const zid = `<div class="mc-zid">
       <span class="mc-tag zid">ZID PRODUCT</span>
