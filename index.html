@@ -1046,6 +1046,7 @@
   <!-- ============ الصفحة: تحديث قاعدة البيانات ============ -->
   <section class="page" id="page-db">
     <div class="page-head"><span class="ph-ico">🔄</span><div class="ph-txt"><h2>تحديث قاعدة البيانات</h2><p>المخزن (مستودع/فرع) ومنتجات زد مرآةً في القاعدة — حدّث كلاً عند الحاجة</p></div></div>
+    <div id="resyncWarn" class="zid-stale-warn" style="display:none;margin-bottom:14px"></div>
 
     <div class="card stage-card">
       <div class="stage-head"><span class="stage-n">أ</span><b>المستودع والفرع</b><span class="stage-sub">جدولان مستقلان — حدّث كلاً على حدة؛ يُوحّدان عند المطابقة (اتحاد بجمع الكميات)</span></div>
@@ -2806,21 +2807,33 @@ function checkReady() {
 /* ========== دمج المستودع مع الفروع (اتحاد كامل بجمع الكميات — مرحلة أولى) ========== */
 let mergeWh = null, mergeBranches = [];   // مصفوفة فروع (قابلة للتوسّع لأكثر من فرع)
 // قارئ مرن: يكتشف الأعمدة بالاسم (رأس موجود) أو بالموضع (بلا رأس)، كامل (5) أو مختصر (3)
+// تطبيع رأس العمود قبل المطابقة: إزالة التشكيل/المسافات/الرموز، توحيد الألف والتاء المربوطة، و ش⇒س (يعالج «سامل» بدل «شامل»)
+function normHead(s) {
+  return String(s == null ? "" : s).toLowerCase()
+    .replace(/[ً-ْٰ]/g, "")   // تشكيل
+    .replace(/[إأآا]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/ش/g, "س")
+    .replace(/[^ء-يa-z0-9]/g, "");  // يُبقي الحروف العربية واللاتينية والأرقام فقط
+}
+// كشف مطبَّع متسامح لرؤوس ملف المخزن (احتواء بعد التطبيع) — يعالج التنويعات الإملائية والمسافات المفقودة
+function detectInvCols(first) {
+  const h = first.map(normHead);
+  const find = pred => h.findIndex(pred);
+  let ci = find(x => x.includes("كود") || x.includes("code") || x.includes("sku") || (x.includes("رقم") && x.includes("صنف"))); if (ci < 0) ci = 0;
+  let ni = find(x => x.includes("اسم") || x.includes("name")); if (ni < 0) ni = 1;
+  let qi = find(x => x.includes("كميه") || x.includes("qty") || x.includes("quantity")); if (qi < 0) qi = 2;
+  const ii = find(x => (x.includes("سامل") && x.includes("ضريب")) || x.includes("incl"));   // «شامل الضريبة» ⇒ سامل بعد التطبيع
+  const ei = find(x => (x.includes("قبل") && x.includes("ضريب")) || x.includes("excl"));
+  const bi = find(x => x.includes("باركود") || x.includes("barcode"));
+  return { ci, ni, qi, ii, ei, bi };
+}
+function invLooksHeader(first) { return first.map(normHead).some(x => /رقم|كود|اسم|كميه|سعر|سامل|قبل|code|name|qty|quantity|price|barcode|باركود/.test(x)); }
 function parseInvRows(aoa) {
   if (!aoa || !aoa.length) return [];
   const first = (aoa[0] || []).map(c => String(c == null ? "" : c).trim());
-  const looksHeader = first.some(c => /رقم الصنف|كود|اسم|كمية|سعر|شامل|قبل|code|name|qty|quantity|price/i.test(c));
+  const looksHeader = invLooksHeader(first);
   let ci = 0, ni = 1, qi = 2, ii = -1, ei = -1, bi = -1, start = 0;
-  if (looksHeader) {
-    start = 1;
-    const find = re => first.findIndex(c => re.test(c));
-    ci = find(/رقم الصنف|كود|code|sku/i); if (ci < 0) ci = 0;
-    ni = find(/اسم|name/i); if (ni < 0) ni = 1;
-    qi = find(/كمية|qty|quantity/i); if (qi < 0) qi = 2;
-    ii = find(/شامل|incl/i);
-    ei = find(/قبل|excl/i);
-    bi = find(/باركود|barcode/i);
-  } else if ((aoa[0] || []).length >= 5) { ii = 3; ei = 4; }   // مختصر بلا رأس وكامل ⇒ موضعي
+  if (looksHeader) { start = 1; const m = detectInvCols(first); ci = m.ci; ni = m.ni; qi = m.qi; ii = m.ii; ei = m.ei; bi = m.bi; }
+  else if ((aoa[0] || []).length >= 5) { ii = 3; ei = 4; }   // مختصر بلا رأس وكامل ⇒ موضعي
   const out = [];
   for (let r = start; r < aoa.length; r++) {
     const row = aoa[r] || []; const code = String(row[ci] == null ? "" : row[ci]).trim();
@@ -2837,13 +2850,15 @@ async function readInvFileFull(f) {
   const wb = await readWB(f);
   const aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
   const first = (aoa[0] || []).map(c => String(c == null ? "" : c).trim());
-  const looksHeader = first.some(c => /رقم الصنف|كود|اسم|كمية|سعر|شامل|قبل|code|name|qty|quantity|price/i.test(c));
-  return { list: parseInvRows(aoa), header: looksHeader ? first : null };
+  const looksHeader = invLooksHeader(first);
+  const colMap = looksHeader ? detectInvCols(first) : null;
+  return { list: parseInvRows(aoa), header: looksHeader ? first : null, headers: first, colMap };
 }
 async function onMergeWh(inp) {
   const f = inp.files[0]; if (!f) return; showErr("");
   try {
-    const { list, header } = await readInvFileFull(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
+    const { list, header, headers, colMap } = await readInvFileFull(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
+    invHeaderDbg.wh = { headers, colMap };   // للتشخيص ?debug
     mergeWh = aggregateInv(list, "wh");   // تجميع بالكود (جمع الكمية) — يطابق منطق الدمج داخل الملف
     document.getElementById("whStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${mergeWh.length} صنف</span>`;
     document.getElementById("whCard").classList.add("ok");
@@ -2858,7 +2873,8 @@ async function onMergeWh(inp) {
 async function onMergeBranch(inp) {
   const f = inp.files[0]; if (!f) return; showErr("");
   try {
-    const { list, header } = await readInvFileFull(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
+    const { list, header, headers, colMap } = await readInvFileFull(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
+    invHeaderDbg.branch = { headers, colMap };   // للتشخيص ?debug
     const agg = aggregateInv(list, "branch"); mergeBranches = [agg];
     document.getElementById("brStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${agg.length} صنف</span>`;
     document.getElementById("brCard").classList.add("ok");
@@ -2955,6 +2971,8 @@ function downloadMerge() {
 
 /* ========== المرحلة 4: المخزن في القاعدة (جدولان مستقلان: مستودع/فرع) ========== */
 let invMeta = null;   // صف inventory_sync_meta (wh_* + branch_*)
+let invHeaderDbg = {};   // { wh:{headers,colMap}, branch:{...} } — رؤوس الملفات المُلتقطة (?debug)
+let resyncNeeded = { wh: false, branch: false };   // تلوّث price_incl الفارغ (رأس السعر لم يُلتقط قبل الإصلاح)
 const INV_TABLE = { wh: "warehouse_items", branch: "branch_items" };
 // تجميع صفوف الملف حسب الكود (نفس منطق mergeInventory داخل الملف): جمع الكمية ＋ نص المستودع=آخر غير فارغ / الفرع=أول غير فارغ
 function aggregateInv(list, mode) {
@@ -2992,6 +3010,7 @@ async function syncInventoryToDB(kind, aggList, header, fileName) {
     : { branch_header: header || null, branch_count: newCodes.length, branch_file_name: fileName || null, branch_synced_at: new Date().toISOString() };
   await db.inventory.setMeta(patch);
   invMeta = Object.assign(invMeta || { id: 1 }, patch);
+  resyncNeeded[kind] = invPolluted(rows); renderResyncWarn();   // الملف الجديد (بالرأس المُلتقط) يُصفّي التلوّث إن حواه شامل
   logActivity(kind === "wh" ? "warehouse_sync_full" : "branch_sync_full", null, { added, updated, deleted: toDelete.length, total: newCodes.length, file: fileName || "" });
   return { added, updated, deleted: toDelete.length, total: newCodes.length };
 }
@@ -3005,6 +3024,7 @@ async function loadInventoryFromDB() {
   const br = await db.inventory.getAll(INV_TABLE.branch);
   mergeWh = wh.map(invRowToMerge);
   mergeBranches = br.length ? [br.map(invRowToMerge)] : [];
+  resyncNeeded.wh = invPolluted(wh); resyncNeeded.branch = invPolluted(br); renderResyncWarn();   // كشف تلوّث «شامل» فارغ
   return { wh: wh.length, br: br.length };
 }
 // زر الرئيسية «طابق وأنشئ»: يضمن تحميل المخزن (قاعدة أو رفع) ثم يبني الموحّد ويطابق
@@ -3021,6 +3041,29 @@ function readyCard(icon, label, count, ms, used) {
   const stale = ms != null && (Date.now() - ms) > ZID_STALE_MS;
   const info = used ? `<b>${count}</b> صنف · ${invAge(ms)}${stale ? " ⚠" : ""}` : `— غير مستخدم`;
   return `<div class="ready-card${stale && used ? " stale" : ""}${used ? "" : " off"}"><div class="rc-head">${icon} ${label}</div><div class="rc-info">${info}</div><a class="zid-mini-link" onclick="goPage('db')">تحديث ←</a></div>`;
+}
+// كشف تلوّث «شامل الضريبة الفارغ»: صفوف كثيرة لها «قبل» لكن «شامل» فارغ ⇒ رأس السعر لم يُلتقط (بيانات ما قبل الإصلاح)
+function invPolluted(rows) {
+  if (!rows || !rows.length) return false;
+  const withExcl = rows.filter(r => r.price_excl != null).length;
+  const inclNull = rows.filter(r => r.price_excl != null && r.price_incl == null).length;
+  return withExcl >= 20 && (inclNull / withExcl) > 0.5;   // حدّ أدنى يمنع الإنذار الكاذب على بيانات صغيرة
+}
+function renderResyncWarn() {
+  const el = document.getElementById("resyncWarn"); if (!el) return;
+  const need = resyncNeeded.wh || resyncNeeded.branch;
+  if (need) {
+    const which = [resyncNeeded.wh ? "المستودع" : "", resyncNeeded.branch ? "الفرع" : ""].filter(Boolean).join(" و");
+    el.style.display = "block";
+    el.innerHTML = `⚠ أعد مزامنة <b>${which}</b> — أعمدة السعر الشامل فارغة في القاعدة (رأس العمود لم يُلتقط في مزامنة سابقة). ارفع ملف ${which} من جديد ليُعاد تعبئتها، وإلا فحكم التسعير/التصفير سيكون ناقصاً.`;
+  } else { el.style.display = "none"; el.innerHTML = ""; }
+}
+// سطر تشخيص ?debug: الرؤوس المُلتقطة من ملف المخزن والعمود المُعيَّن لكل حقل
+function invHeaderDbgLine(kind) {
+  const d = invHeaderDbg[kind], label = kind === "wh" ? "المستودع" : "الفرع";
+  if (!d || !d.colMap) return `\n${label}: (لم يُرفع ملفه هذه الجلسة — المصدر القاعدة)`;
+  const H = d.headers || [], m = d.colMap, cell = i => (i != null && i >= 0 && H[i] != null) ? `"${H[i]}"` : "—";
+  return `\n${label}: كود=${cell(m.ci)} · اسم=${cell(m.ni)} · كمية=${cell(m.qi)} · شامل=${cell(m.ii)} · قبل=${cell(m.ei)} · باركود=${cell(m.bi)}`;
 }
 // سطرا الميتا تحت بطاقتي الرفع في صفحة التحديث (حالة كل جدول في القاعدة)
 function renderInvCards() {
@@ -3272,9 +3315,8 @@ function run(reprocess) {
       const dist = distByRaw.get(rawKey) || null;   // معلومات التوزيع (للأيقونة 🔀)
       const offset = priceOffsets[skuN] || 0;                 // زيادة المتغير (0 افتراضياً)
       // قاعدة تصفير الكميات المنخفضة القيمة: سعر نهائي (شامل الزيادة) < الحد وكمية ≤ الحد ⇒ تُصدَّر الكمية 0
-      // حكم «رخيص؟» يستخدم أي سعر متاح: يُفضَّل أساس opts.price ويرجع للعمود الآخر إن غاب (منع تخطٍّ صامت حين عمود واحد فقط)
-      const valBase = opts.price === "excl" ? (wh.excl != null ? wh.excl : wh.incl)
-        : (opts.price === "incl" ? (wh.incl != null ? wh.incl : wh.excl) : (wh.incl != null ? wh.incl : wh.excl));
+      // الحكم بأساس opts.price حصراً (شامل/قبل) + الزيادة؛ وفي «لا تحدّث» يرجع للشامل ثم قبل. (أُزيل fallback الخاطئ — الجذر كان التقاط الرأس)
+      const valBase = opts.price === "excl" ? wh.excl : (opts.price === "incl" ? wh.incl : (wh.incl != null ? wh.incl : wh.excl));
       const lowQtyLim = opts.lowQty != null ? opts.lowQty : 3;
       const valForRule = valBase != null ? Math.round(Number(valBase)) + offset : null;
       const lowValZero = opts.lowzero !== "off" && valForRule != null && valForRule < (opts.lowPrice || 400) && whQtyReal <= lowQtyLim;
@@ -3421,7 +3463,8 @@ function run(reprocess) {
         + (dbgGroups.length ? `\nعيّنة مجموعات: ${dbgGroups.join("   ")}` : "")
         + `\nاستُبعد بلا تغيير: ${noChangeDropped}`
         + `\nقاعدة القيمة المنخفضة (عتبة ≤${opts.lowQty != null ? opts.lowQty : 3} · <${opts.lowPrice || 400}) — عيّنة [خام→بعد · سعرنهائي · زد · قرار]:\n  `
-        + (lowValDbg.length ? lowValDbg.map(d => `${d.sku}[${d.raw}→${d.after} · ${d.price == null ? "—" : d.price} · ${Number.isFinite(d.zid) ? d.zid : "∞/فارغ"} · ${d.zeroed ? "صُفّر" : "كما هو"}]`).join("  ") : "لا مرشّحين");
+        + (lowValDbg.length ? lowValDbg.map(d => `${d.sku}[${d.raw}→${d.after} · ${d.price == null ? "—" : d.price} · ${Number.isFinite(d.zid) ? d.zid : "∞/فارغ"} · ${d.zeroed ? "صُفّر" : "كما هو"}]`).join("  ") : "لا مرشّحين")
+        + `\n\n⟪رؤوس ملفات المخزن المُلتقطة⟫` + invHeaderDbgLine("wh") + invHeaderDbgLine("branch");
     }
 
     // احفظ تاريخ المطابقة وقائمة الانتظار محلياً إن تغيّرا (تُصدَّر/تُحفظ في الريبو ضمن المنظومة)
