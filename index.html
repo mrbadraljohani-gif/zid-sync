@@ -3044,14 +3044,14 @@ function normZidQty(v) {
   return Number.isFinite(n) ? n : NaN;
 }
 // فحص نهائي قبل كتابة ملف الكميات/التصفير: استبعاد الصفوف التي لا تغيّر شيئاً (الجديدة == الحالية بعد التطبيع).
-// keepSkuN(skuN)=true ⇒ يُبقى دائماً (المُدار ⏳/🚫 — تصفير مقصود حتى لو 0==0).
-function stripNoChangeQty(rows, curQtyOf, keepSkuN) {
+// keep(skuN, curNorm)=true ⇒ يُبقى الصف رغم التساوي (يُستدعى بكمية زد المُطبَّعة ليقرّر بدقة).
+function stripNoChangeQty(rows, curQtyOf, keep) {
   if (!rows || rows.length < 2) return { rows: rows || [], dropped: 0 };
   const out = [rows[0]]; let dropped = 0;
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i], rawSku = String(r[0]), newQ = Number(r[3]), skuN = normCode(rawSku);
-    if (keepSkuN && keepSkuN(skuN)) { out.push(r); continue; }
     const cur = normZidQty(curQtyOf(rawSku));
+    if (keep && keep(skuN, cur)) { out.push(r); continue; }
     if (Number.isFinite(cur) && Number.isFinite(newQ) && cur === newQ) { dropped++; continue; }
     out.push(r);
   }
@@ -3624,9 +3624,9 @@ function downloadZeroAbsent() {
   let rows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
   zeroSelected.forEach(sk => { const row = byRaw[String(sk)]; if (row) rows.push([String(sk), iName >= 0 ? row[iName] : "", iNameEn >= 0 ? row[iNameEn] : "", 0]); });
   rows = stripHasVar(rows);   // فحص نهائي حاسم: لا صف has_variants=Yes حتى في ملف التصفير
-  // استبعاد ما هو 0 أصلاً في زد (بلا تغيير) — عدا ⏳ المُدارة (تُصفَّر دائماً حمايةً من عبث خارجي)
+  // استبعاد ما هو 0 أصلاً في زد (بلا تغيير). ⏳ المُدارة تُبقى فقط إن انحرفت كميتها عن الصفر (رقم>0 أو «غير محدود»/فارغ)
   { const iQtyZ = H.indexOf("quantity"); const cur = raw => { const row = byRaw[String(raw)]; return row ? row[iQtyZ] : ""; };
-    const nc = stripNoChangeQty(rows, cur, sn => waitingSet.has(sn)); if (nc.dropped) showToast(`استُبعد ${nc.dropped} صنف كميته 0 أصلاً في زد (بلا تغيير).`); rows = nc.rows; }
+    const nc = stripNoChangeQty(rows, cur, (sn, c) => waitingSet.has(sn) && !(c === 0)); if (nc.dropped) showToast(`استُبعد ${nc.dropped} صنف كميته 0 أصلاً في زد (بلا تغيير).`); rows = nc.rows; }
   if (rows.length <= 1) { showErr("لا شيء لتصفيره — إمّا منتجات أب، أو كلها مصفّرة أصلاً في زد."); return; }
   const v = verifyQuantities(rows);   // صمام الأمان نفسه (4 أعمدة، sku غير فارغ، كميات صحيحة ≥ 0)
   if (!v.ok) { showErr("تعذّر إنشاء ملف التصفير — " + v.msg); return; }
