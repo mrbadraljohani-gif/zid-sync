@@ -1381,7 +1381,7 @@ const db = {
       }
       return out;
     },
-    async getAll() {   // الصفوف الخام بترتيب الملف الأصلي (row_order) — لإعادة بناء stData
+    async getAll() {   // ⚠ حرج: يُرتَّب بـrow_order تصاعدياً حتماً (لا افتراضاً) — القاعدة الموضعية لنسب الأبناء تعتمده؛ إزالة الـorder تكسر النسب صامتاً
       const out = [], page = 1000; let from = 0;
       for (;;) {
         const { data, error } = await sb.from("zid_products").select("raw,row_order").order("row_order", { ascending: true }).range(from, from + page - 1);
@@ -3217,12 +3217,34 @@ function run(reprocess) {
       }
       if (hits > bestHits) { bestHits = hits; parentCol = c; }
     }
-    const parentOf = {};   // كود المتغيّر الخام ⇒ كود أبيه الخام (من تصدير زد)
-    if (parentCol >= 0) for (let i = 1; i < rows0.length; i++) {
+    // === نسب الأبناء: القاعدة الموضعية (ترتيب تصدير زد) أساساً ثم parent_sku مؤكِّداً/سادّاً للفجوات — نمط الكود لا يُستخدم للنسب ===
+    // زد يرتّب: صف الأب (Yes) تليه أبناؤه (has_variants فارغ) حتى Yes جديد (أب) أو No (بسيط يقطع السلسلة). يعتمد ترتيب row_order.
+    const posParentOf = {};                     // ابن ⇒ أب (موضعي)
+    const lastVariantAnomalies = [];            // صفوف Yes عوملت كأبناء لأن لها parent_sku (شاذّة)
+    if (iHasVar >= 0) {
+      let curParent = null;
+      for (let i = 1; i < rows0.length; i++) {
+        const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue;
+        const rk = String(rs), hvRaw = String(rows0[i][iHasVar] == null ? "" : rows0[i][iHasVar]).trim();
+        const pref = parentCol >= 0 ? String(rows0[i][parentCol] == null ? "" : rows0[i][parentCol]).trim() : "";
+        if (isYesVar(hvRaw)) {
+          if (curParent && pref) { posParentOf[rk] = curParent; lastVariantAnomalies.push({ sku: rk, parent: curParent, pref }); }   // Yes وله parent_sku ⇒ ابن (بحذر)
+          else curParent = rk;                  // أب جديد يفتح السلسلة
+        } else if (hvRaw === "") {
+          if (curParent) posParentOf[rk] = curParent;   // ابن للأب المفتوح
+        } else { curParent = null; }            // No (بسيط) ⇒ يقطع السلسلة
+      }
+    }
+    const parentOf = {};   // كود المتغيّر الخام ⇒ كود أبيه الخام
+    for (const k in posParentOf) parentOf[k] = posParentOf[k];   // (1) الموضعية هي الأساس
+    const lastParentConflicts = [];   // تعارض الموضعية مع parent_sku (نعتمد الموضعية)
+    if (parentCol >= 0) for (let i = 1; i < rows0.length; i++) {   // (2) parent_sku: سدّ الفجوات ＋ تسجيل التعارض
       const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue;
       const rk = String(rs), v = rows0[i][parentCol]; if (v === "" || v == null) continue;
       const vs = String(v).trim(), pSku = hasVarYesSet.has(vs) ? vs : parentSkuByNorm[normCode(vs)];
-      if (pSku && pSku !== rk) parentOf[rk] = pSku;
+      if (!pSku || pSku === rk) continue;
+      if (rk in parentOf) { if (parentOf[rk] !== pSku) lastParentConflicts.push({ sku: rk, pos: parentOf[rk], pref: pSku }); }   // اعتمد الموضعية
+      else parentOf[rk] = pSku;   // الموضعية لم تُسنِد ⇒ سدّ الفجوة بـparent_sku
     }
     lastParentCol = parentCol >= 0 ? String(H[parentCol]) : "";   // للتشخيص
     lastParentOf = parentOf;   // لتحديد المنتجات الرئيسية في جدول التصفير (زر 🚫 إلغاء النشر)
@@ -3511,7 +3533,11 @@ function run(reprocess) {
         + `\n\n⟪إخفاء تلقائي (قيمة/كمية 0)⟫`
         + `\nبسيط مخفي: ${lastAutoUnpubSimple.length}` + (lastAutoUnpubSimple.length ? " — " + lastAutoUnpubSimple.slice(0, 20).map(x => x.sku).join(" · ") : "")
         + `\nآباء مخفيون (إجماع كل الأبناء=0): ${lastAutoUnpubParents.length}` + lastAutoUnpubParents.slice(0, 15).map(p => `\n  ${p.sku}: [${p.children.map(c => `${c.sku}=${c.q === Infinity ? "∞" : c.q}`).join(" · ")}]`).join("")
-        + `\nآباء نجوا (ابن حيّ): ${autoUnpubSurvivors.length}` + autoUnpubSurvivors.slice(0, 15).map(s => `\n  ${s.sku}: ابنه ${s.liveChild}=${s.q === Infinity ? "∞" : s.q}`).join("");
+        + `\nآباء نجوا (ابن حيّ): ${autoUnpubSurvivors.length}` + autoUnpubSurvivors.slice(0, 15).map(s => `\n  ${s.sku}: ابنه ${s.liveChild}=${s.q === Infinity ? "∞" : s.q}`).join("")
+        + `\n\n⟪نسب الأبناء (موضعي أساس + parent_sku)⟫`
+        + `\nعمود مرجع الأب: ${lastParentCol || "—"} · إجمالي علاقات الأبوة: ${Object.keys(parentOf).length}`
+        + `\nشواذّ (Yes عومل كابن): ${lastVariantAnomalies.length}` + (lastVariantAnomalies.length ? " — " + lastVariantAnomalies.slice(0, 15).map(a => `${a.sku}→${a.parent}`).join(" · ") : "")
+        + `\nتعارض موضعي/parent_sku (اعتُمدت الموضعية): ${lastParentConflicts.length}` + lastParentConflicts.slice(0, 15).map(c => `\n  ${c.sku}: موضعي=${c.pos} · parent_sku=${c.pref}`).join("");
     }
 
     // احفظ تاريخ المطابقة وقائمة الانتظار محلياً إن تغيّرا (تُصدَّر/تُحفظ في الريبو ضمن المنظومة)
