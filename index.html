@@ -2068,7 +2068,7 @@ function classifyBatch(best, second) {
 
 // محرك الترشيح لكل صنف في «جديد يحتاج قراراً» + حلّ التنازع + التصنيف
 function analyzeBatch() {
-  const okItem = u => !boundSet.has(String(u.sku)) && !ignoredSet.has(normCode(u.skuN)) && !waitingSet.has(normCode(u.skuN)) && !u.orphanParent;
+  const okItem = u => !boundSet.has(String(u.sku)) && !ignoredSet.has(normCode(u.skuN)) && !waitingSet.has(normCode(u.skuN)) && !u.orphanParent && !(famIndex && famIndex.isParent(u.sku));   // الآباء الموضعيون خارج الترشيح نهائياً
   const unm = lastUnmatchedRaw.filter(okItem);
   // الأصناف الغائبة (في matched-history ولا تُطابَق بالكود الآن) = الروابط اليدوية الضائعة — نُدرجها للترشيح بأولوية
   const seen = new Set(unm.map(u => String(u.sku)));
@@ -2095,8 +2095,9 @@ function analyzeBatch() {
   for (const r of results) if (r.best) { let a = byCode.get(r.best.code); if (!a) byCode.set(r.best.code, a = []); a.push(r); }
   for (const [code, claimants] of byCode) {
     if (claimants.length < 2) continue;
-    const b0 = baseOf(claimants[0].z.sku);
-    if (b0 && claimants.every(r => baseOf(r.z.sku) === b0)) continue;   // متغيّرات نفس الأساس ⇒ توزيع مسموح
+    // «نفس الأساس» = إخوة موضعيون (نفس الأب في childrenOf) — لا تشابه جذر الكود
+    const p0 = famIndex ? famIndex.parentOfSku(claimants[0].z.sku) : null;
+    if (p0 && claimants.every(r => famIndex.parentOfSku(r.z.sku) === p0)) continue;   // إخوة نفس الأب ⇒ توزيع مسموح
     claimants.sort((a, b) => b.best.score - a.best.score);
     for (let i = 1; i < claimants.length; i++) {
       const r = claimants[i]; r.demoted = true;
@@ -2245,7 +2246,7 @@ function batchCardHTML(r, chkCls, famAttr) {
   const zid = `<div class="mc-zid"><span class="mc-tag zid">ZID PRODUCT</span>
       <div class="mc-row">${thumb(r.z.img)}<div class="mc-txt">
         <div class="mc-name">${esc(r.z.name) || "—"}</div>
-        <div class="mc-sku">SKU: <span dir="ltr">${esc(String(r.z.sku))}</span>${lostTag(r)}</div>
+        <div class="mc-sku">SKU: <span dir="ltr">${esc(String(r.z.sku))}</span>${lostTag(r)}${(famIndex && famIndex.parentOfSku(r.z.sku)) ? `<span class="col-tag" title="متغيّر — أبوه (من ترتيب تصدير زد)">متغيّر · أبوه <span dir="ltr">${esc(String(famIndex.parentOfSku(r.z.sku)))}</span></span>` : ""}</div>
         <div class="mc-sub">سعر زد: ${zp ?? "—"} ر.س · الكمية: <b>${esc(String(r.z.qty ?? "—"))}</b></div>
       </div></div></div>`;
   const wh = `<div class="mc-wh"><span class="mc-tag whs">WAREHOUSE</span>
@@ -2747,7 +2748,7 @@ async function loadZidData() {
   const header = meta.header.map(h => String(h).trim());
   stData = { sheetName: "Products", rows: [header, ...prods.map(p => p.raw)], header };
   zidSource = "db"; zidSyncedAt = meta.synced_at ? Date.parse(meta.synced_at) : Date.now(); zidDbMeta = meta;
-  zidIndexCache = null;
+  zidIndexCache = null; rebuildFamilyIndex();   // فهرس العائلة الموحّد من الترتيب (row_order)
   return prods.length;
 }
 async function useZidFromDB() {
@@ -2778,6 +2779,7 @@ async function onStore(inp) {
     if (!header.includes("sku")) throw new Error("لم أجد عمود 'sku' — تأكد أنه ملف تصدير المنتجات من زد");
     stData = { sheetName, rows, header };
     zidSource = "file"; zidSyncedAt = Date.now();   // ملف طازج ⇒ غير قديم
+    rebuildFamilyIndex();   // فهرس العائلة الموحّد من ترتيب الملف
     document.getElementById("stStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${rows.length - 1} سطر</span>`;
     document.getElementById("stCard").classList.add("ok");
     zidIndexCache = null; if (typeof runZdQuery === "function") runZdQuery();   // حدّث فهرس/نتائج «استعلام عن منتج»
@@ -3108,6 +3110,35 @@ function stripNoChangeQty(rows, curQtyOf, keep) {
   return { rows: out, dropped };
 }
 
+// ===== فهرس العائلة الموحّد: نقطة بناء واحدة للأبوة (موضعي من ترتيب التصدير ← ثم parent_sku) — يُستهلك في كل مواضع الأب/الابن =====
+let famIndex = null;   // { parentOf, childrenOf, hasVarYes, parentCol, anomalies, conflicts, isParent(), isChild(), parentOfSku() }
+function buildFamilyIndex(rows0, H) {
+  const iSku = H.indexOf("sku");
+  const iHasVar = H.findIndex(h => String(h).toLowerCase().replace(/\s+/g, "_").includes("has_variant"));
+  const isYes = v => { const s = String(v == null ? "" : v).trim().toLowerCase(); return s === "yes" || s === "true" || s === "1" || s === "نعم"; };
+  const hasVarYes = new Set();
+  if (iHasVar >= 0) for (let i = 1; i < rows0.length; i++) { const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue; if (isYes(rows0[i][iHasVar])) hasVarYes.add(String(rs)); }
+  const parentSkuByNorm = {}; hasVarYes.forEach(s => parentSkuByNorm[normCode(s)] = s);
+  // كشف عمود «مرجع الأب» (قيمه تشير إلى sku أبٍ has_variants=Yes)
+  let parentCol = -1, best = 0;
+  if (hasVarYes.size) for (let c = 0; c < H.length; c++) { if (c === iSku) continue; let hits = 0; for (let i = 1; i < rows0.length; i++) { const v = rows0[i][c]; if (v === "" || v == null) continue; if (hasVarYes.has(String(v).trim()) || parentSkuByNorm[normCode(String(v).trim())]) hits++; } if (hits > best) { best = hits; parentCol = c; } }
+  // المسح الموضعي: Yes⇒يفتح أباً · فارغ⇒ابن · No⇒يقطع · Yes وله parent_sku يلي أباً⇒ابن شاذّ
+  const posParentOf = {}, anomalies = [];
+  if (iHasVar >= 0) { let cur = null; for (let i = 1; i < rows0.length; i++) { const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue; const rk = String(rs), hv = String(rows0[i][iHasVar] == null ? "" : rows0[i][iHasVar]).trim(), pref = parentCol >= 0 ? String(rows0[i][parentCol] == null ? "" : rows0[i][parentCol]).trim() : ""; if (isYes(hv)) { if (cur && pref) { posParentOf[rk] = cur; anomalies.push({ sku: rk, parent: cur, pref }); } else cur = rk; } else if (hv === "") { if (cur) posParentOf[rk] = cur; } else cur = null; } }
+  const parentOf = {}; for (const k in posParentOf) parentOf[k] = posParentOf[k];
+  const conflicts = [];
+  if (parentCol >= 0) for (let i = 1; i < rows0.length; i++) { const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue; const rk = String(rs), v = rows0[i][parentCol]; if (v === "" || v == null) continue; const vs = String(v).trim(), p = hasVarYes.has(vs) ? vs : parentSkuByNorm[normCode(vs)]; if (!p || p === rk) continue; if (rk in parentOf) { if (parentOf[rk] !== p) conflicts.push({ sku: rk, pos: parentOf[rk], pref: p }); } else parentOf[rk] = p; }
+  const childrenOf = {}; for (const k in parentOf) { const p = parentOf[k]; (childrenOf[p] || (childrenOf[p] = [])).push(k); }
+  const parentSet = new Set(Object.keys(childrenOf));
+  return {
+    parentOf, childrenOf, hasVarYes, anomalies, conflicts, parentCol: parentCol >= 0 ? String(H[parentCol]) : "",
+    isParent: sku => parentSet.has(String(sku)) || hasVarYes.has(String(sku)),   // أب موضعي (له أبناء) أو has_variants=Yes
+    isChild: sku => (String(sku) in parentOf),
+    parentOfSku: sku => parentOf[String(sku)] || null,
+  };
+}
+function rebuildFamilyIndex() { famIndex = (stData && stData.rows && stData.header) ? buildFamilyIndex(stData.rows, stData.header) : null; }
+
 function run(reprocess) {
   showErr("");
   // بيانات زد لم تُعتمد بعد؟ إن كانت في القاعدة اعتمدها تلقائياً (ستعيد الاستدعاء)، وإلا نبّه المستخدم
@@ -3193,61 +3224,17 @@ function run(reprocess) {
     }
     migrateMapping(rawByNorm, rawSet);   // ترحيل mapping.json إلى مفاتيح SKU الخام
 
-    // === القاعدة الحاسمة من زد: كل صف has_variants=Yes منتج أب — يُستبعد من كل ملفات الكميات (شكل الكود لا يدل) ===
-    // يُضاف إلى parentRaws فلا يدخل الملفين ولا القسمة؛ كميته تُوزَّع على خياراته المكوّدة (إن وُجدت) بالمنطق الحالي.
-    const hasVarYesSet = new Set();
-    if (iHasVar >= 0) for (let i = 1; i < rows0.length; i++) {
-      const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue;
-      if (isYesVar(rows0[i][iHasVar])) { const rk = String(rs); hasVarYesSet.add(rk); parentRaws.add(rk); }
-    }
+    // === الأبوة من فهرس العائلة الموحّد (buildFamilyIndex): موضعي أساساً ثم parent_sku — لا نمط كود في الحكم ===
+    rebuildFamilyIndex();
+    const fam = famIndex || { parentOf: {}, childrenOf: {}, hasVarYes: new Set(), anomalies: [], conflicts: [], parentCol: "", isParent: () => false, isChild: () => false, parentOfSku: () => null };
+    const hasVarYesSet = fam.hasVarYes;
+    hasVarYesSet.forEach(rk => parentRaws.add(rk));            // has_variants=Yes ⇒ مُستبعد من ملفات الكميات (قاعدة زد الحاسمة)
+    const parentOf = fam.parentOf, childrenOf = fam.childrenOf;
+    for (const p in childrenOf) parentRaws.add(String(p));    // كل أب موضعي (له أبناء) ⇒ مُستبعد من ملف الكميات كذلك
+    const lastVariantAnomalies = fam.anomalies, lastParentConflicts = fam.conflicts;
     lastHasVarYes = hasVarYesSet;
-
-    // === ربط المتغيّر بأبيه (النشر في زد يُتحكَّم من الأب لا المتغيّر) ===
-    // نكتشف عمود «مرجع الأب» تلقائياً: العمود (غير sku) الذي تشير قيمه غالباً إلى sku صنفٍ has_variants=Yes (الأب).
-    const parentSkuByNorm = {};   // normCode(كود الأب) ⇒ كود الأب الخام
-    hasVarYesSet.forEach(s => { parentSkuByNorm[normCode(s)] = s; });
-    let parentCol = -1, bestHits = 0;
-    if (hasVarYesSet.size) for (let c = 0; c < H.length; c++) {
-      if (c === iSku) continue;
-      let hits = 0;
-      for (let i = 1; i < rows0.length; i++) {
-        const v = rows0[i][c]; if (v === "" || v == null) continue;
-        const vs = String(v).trim();
-        if (hasVarYesSet.has(vs) || parentSkuByNorm[normCode(vs)]) hits++;
-      }
-      if (hits > bestHits) { bestHits = hits; parentCol = c; }
-    }
-    // === نسب الأبناء: القاعدة الموضعية (ترتيب تصدير زد) أساساً ثم parent_sku مؤكِّداً/سادّاً للفجوات — نمط الكود لا يُستخدم للنسب ===
-    // زد يرتّب: صف الأب (Yes) تليه أبناؤه (has_variants فارغ) حتى Yes جديد (أب) أو No (بسيط يقطع السلسلة). يعتمد ترتيب row_order.
-    const posParentOf = {};                     // ابن ⇒ أب (موضعي)
-    const lastVariantAnomalies = [];            // صفوف Yes عوملت كأبناء لأن لها parent_sku (شاذّة)
-    if (iHasVar >= 0) {
-      let curParent = null;
-      for (let i = 1; i < rows0.length; i++) {
-        const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue;
-        const rk = String(rs), hvRaw = String(rows0[i][iHasVar] == null ? "" : rows0[i][iHasVar]).trim();
-        const pref = parentCol >= 0 ? String(rows0[i][parentCol] == null ? "" : rows0[i][parentCol]).trim() : "";
-        if (isYesVar(hvRaw)) {
-          if (curParent && pref) { posParentOf[rk] = curParent; lastVariantAnomalies.push({ sku: rk, parent: curParent, pref }); }   // Yes وله parent_sku ⇒ ابن (بحذر)
-          else curParent = rk;                  // أب جديد يفتح السلسلة
-        } else if (hvRaw === "") {
-          if (curParent) posParentOf[rk] = curParent;   // ابن للأب المفتوح
-        } else { curParent = null; }            // No (بسيط) ⇒ يقطع السلسلة
-      }
-    }
-    const parentOf = {};   // كود المتغيّر الخام ⇒ كود أبيه الخام
-    for (const k in posParentOf) parentOf[k] = posParentOf[k];   // (1) الموضعية هي الأساس
-    const lastParentConflicts = [];   // تعارض الموضعية مع parent_sku (نعتمد الموضعية)
-    if (parentCol >= 0) for (let i = 1; i < rows0.length; i++) {   // (2) parent_sku: سدّ الفجوات ＋ تسجيل التعارض
-      const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue;
-      const rk = String(rs), v = rows0[i][parentCol]; if (v === "" || v == null) continue;
-      const vs = String(v).trim(), pSku = hasVarYesSet.has(vs) ? vs : parentSkuByNorm[normCode(vs)];
-      if (!pSku || pSku === rk) continue;
-      if (rk in parentOf) { if (parentOf[rk] !== pSku) lastParentConflicts.push({ sku: rk, pos: parentOf[rk], pref: pSku }); }   // اعتمد الموضعية
-      else parentOf[rk] = pSku;   // الموضعية لم تُسنِد ⇒ سدّ الفجوة بـparent_sku
-    }
-    lastParentCol = parentCol >= 0 ? String(H[parentCol]) : "";   // للتشخيص
-    lastParentOf = parentOf;   // لتحديد المنتجات الرئيسية في جدول التصفير (زر 🚫 إلغاء النشر)
+    lastParentCol = fam.parentCol;   // للتشخيص
+    lastParentOf = parentOf;         // لتحديد المنتجات الرئيسية في جدول التصفير (زر 🚫 إلغاء النشر)
 
     // دالة موحّدة لتحديد كود المستودع لأي صنف — تُستخدم في تمريرة العد والحلقة معاً (بلا أي اختلاف)
     const resolveWhCode = (rawSku, skuN) => {
@@ -3255,6 +3242,8 @@ function run(reprocess) {
       const mp = manualMap[rk];
       let wc = mp ? (whIndex[mp] ? mp : (whIndex[normCode(mp)] ? normCode(mp) : null)) : null;
       if (!wc && !collidedNorm.has(skuN)) wc = (whIndex[skuN] ? skuN : null) || (whIndex[baseOf(rawSku)] ? baseOf(rawSku) : null);
+      // احتياطي بالنسب الموضعي: متغيّر (حتى بلا نقطة مثل 420080XLG) يأخذ كمية كود أبيه ⇒ توزيع يشمل كل الإخوة
+      if (!wc && !collidedNorm.has(skuN)) { const p = parentOf[rk]; if (p) { const pc = whIndex[p] ? p : (whIndex[normCode(p)] ? normCode(p) : null); if (pc) wc = pc; } }
       return wc && whIndex[wc] ? wc : null;
     };
     // === توزيع كمية كود المستودع الواحد على متغيرات زد المتعددة ===
@@ -3674,7 +3663,7 @@ function renderParentPublish() {
 // الأصناف الجديدة «بلا كود في المستودع» غير الموسومة لم تعد تُدرَج هنا (قد تكون في فروع أخرى — المرحلة 1)؛ تبقى في «جديد يحتاج قرار».
 function zeroCandidates() {
   // منتج «رئيسي» = بلا أب (ليس متغيّراً) وليس أباً (has_variants ≠ Yes) ⇒ يجوز إلغاء نشره بأمان
-  const isMain = sku => !lastHasVarYes.has(String(sku)) && !lastParentOf[String(sku)];
+  const isMain = sku => famIndex ? (!famIndex.isParent(sku) && !famIndex.isChild(sku)) : (!lastHasVarYes.has(String(sku)) && !lastParentOf[String(sku)]);
   const a = lastAbsent.map(u => ({ sku: u.sku, skuN: u.skuN, name: u.name, img: u.img || "", qty: u.qty, price: u.price, cat: "absent", tag: "", isMain: isMain(u.sku) }));
   const b = [];
   for (const u of lastUnmatchedRaw) {
@@ -4389,29 +4378,18 @@ function buildZidIndex() {
         iQty = H.indexOf("quantity"), iPub = H.indexOf("published"), iBar = H.indexOf("barcode");
   const iHasVar = H.findIndex(h => String(h).toLowerCase().replace(/\s+/g, "_").includes("has_variant"));
   const isYesVar = v => { const s = String(v == null ? "" : v).trim().toLowerCase(); return s === "yes" || s === "true" || s === "1" || s === "نعم"; };
-  // آباء has_variants=Yes ثم اكتشاف عمود «مرجع الأب» (كما في run) لعرض نشر الأب للمتغيرات
-  const hasVarYesSet = new Set(), parentSkuByNorm = {};
-  if (iHasVar >= 0) for (let i = 1; i < rows.length; i++) { const rs = rows[i][iSku]; if (rs === "" || rs == null) continue; if (isYesVar(rows[i][iHasVar])) { const rk = String(rs); hasVarYesSet.add(rk); parentSkuByNorm[normCode(rk)] = rk; } }
-  let parentCol = -1, bestHits = 0;
-  if (hasVarYesSet.size) for (let c = 0; c < H.length; c++) {
-    if (c === iSku) continue;
-    let hits = 0;
-    for (let i = 1; i < rows.length; i++) { const v = rows[i][c]; if (v === "" || v == null) continue; const vs = String(v).trim(); if (hasVarYesSet.has(vs) || parentSkuByNorm[normCode(vs)]) hits++; }
-    if (hits > bestHits) { bestHits = hits; parentCol = c; }
-  }
+  // نشر الأب يتحكّم بالمتغيّر — من فهرس العائلة الموحّد (buildFamilyIndex) لا كشف محلي بنمط الكود
+  if (!famIndex) rebuildFamilyIndex();
+  const fam = famIndex || { isParent: () => false, parentOfSku: () => null };
   const pubByRaw = {};
   for (let i = 1; i < rows.length; i++) { const rs = rows[i][iSku]; if (rs === "" || rs == null) continue; if (iPub >= 0) pubByRaw[String(rs)] = rows[i][iPub]; }
   const list = [];
   for (let i = 1; i < rows.length; i++) {
     const rs = rows[i][iSku]; if (rs === "" || rs == null) continue;
-    const rk = String(rs), isParent = hasVarYesSet.has(rk);
-    // نشر الأب يتحكم بالمتغير: إن وُجد مرجع أب، خذ حالة نشره
+    const rk = String(rs), isParent = fam.isParent(rk);
     let pubRaw = iPub >= 0 ? rows[i][iPub] : "";
-    if (!isParent && parentCol >= 0) {
-      const v = rows[i][parentCol]; const vs = v == null ? "" : String(v).trim();
-      const pSku = hasVarYesSet.has(vs) ? vs : parentSkuByNorm[normCode(vs)];
-      if (pSku && pSku in pubByRaw) pubRaw = pubByRaw[pSku];
-    }
+    const parentSku = fam.parentOfSku(rk);
+    if (parentSku && parentSku in pubByRaw) pubRaw = pubByRaw[parentSku];   // حالة نشر المتغيّر = نشر أبيه الموضعي
     const name = iName >= 0 ? String(rows[i][iName] || "") : "";
     const bar = iBar >= 0 ? String(rows[i][iBar] == null ? "" : rows[i][iBar]).trim() : "";
     list.push({ sku: rk, name, price: iPrice >= 0 ? rows[i][iPrice] : null, qty: iQty >= 0 ? rows[i][iQty] : null,
