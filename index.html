@@ -4512,18 +4512,13 @@ function waitRow(i) {
   const it = lastUnmatched[i];
   if (!it || it.waiting) return;
   markWaiting(it.sku, it.skuN, it.name);   // محلي ＋ قاعدة (waiting_items)
-  it.waiting = true;
-  fadeRemoveRow(i);
-  updateBindAllCount();
-  updateNewCount();
-  renderFingerprint();
+  run(true);   // أعِد المعالجة فوراً: يُصفَّر (ملف تصفير الغائب) ويُخفى (published=No في ملف الأسعار) في نفس اللحظة — لا انتظار «طابق وأنشئ»
 }
 function unwaitRow(i) {
   const it = lastUnmatched[i];
   if (!it) return;
   unmarkWaiting(it.sku, it.skuN);
-  refreshUnmatchedUI();
-  renderFingerprint();
+  run(true);   // أعِد المعالجة: يخرج من التصفير/الإخفاء (ويُعاد نشره إن عاد بكمية عبر المطابقة)
 }
 
 function updateBindAllCount() {
