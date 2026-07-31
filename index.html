@@ -3316,8 +3316,9 @@ function run(reprocess) {
     let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0, noChangeDropped = 0;
     const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [], saleConflicts = [], lowValDbg = [];
     const parentsToPublish = new Map();   // كود الأب ⇒ {sku, name, variants[]} — نشر يُنقَل من المتغيّرات إلى صف الأب
-    const finalQtyByRaw = {};             // كمية كل صنف زد النهائية بعد كل القواعد (لإجماع إخفاء الأب)
-    const autoUnpub = new Set();          // أصناف (خام) يُلغى نشرها آلياً (بسيط بكمية 0 + آباء بإجماع)
+    const finalQtyByRaw = {};             // كمية كل صنف زد النهائية بعد كل القواعد (لإجماع إخفاء الأب + الإخفاء الموحّد)
+    const zeroDoor = {};                  // rawKey ⇒ باب التصفير غير المطابِق: "waiting"(⏳) / "absent"(غائب-صفر) — لتوحيد الإخفاء التلقائي عبر كل الأبواب
+    const autoUnpub = new Set();          // أصناف (خام) يُلغى نشرها آلياً (بسيط بكمية 0 عبر أي باب + آباء بإجماع)
     const lastAutoUnpubSimple = [], lastAutoUnpubParents = [], autoUnpubSurvivors = [];
     const matchedWhCodes = new Set();     // أكواد المستودع المأخوذة (لاستبعادها من مرشّحي الربط الدفعي)
     let histChanged = false, waitChanged = false;
@@ -3348,7 +3349,7 @@ function run(reprocess) {
         if (waiting) {
           // بانتظار التوفر: يُستثنى من تنبيه الجديد، ويبقى ظاهراً في «بدون ربط» بشارته
           unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, waiting: true, noWhCode });
-          finalQtyByRaw[rawKey] = 0;   // ⏳ تصفير مُدار
+          finalQtyByRaw[rawKey] = 0; zeroDoor[rawKey] = "waiting";   // ⏳ تصفير مُدار ⇒ يدخل الإخفاء الموحّد
         } else if (hasHistory) {
           // غائب عن ملف المستودع (قد يكون متوفراً في فرع آخر — المرحلة 1)
           absentList.push({ sku: rawKey, skuN, name: orig[iName] || "", mappedCode: manualMap[rawKey] || null, price: orig[iPrice], qty: orig[iQty], img: imgOf(orig) });
@@ -3357,6 +3358,7 @@ function run(reprocess) {
             qtyCount++;
           }
           finalQtyByRaw[rawKey] = opts.absent === "zero" ? 0 : curQtyNum(orig[iQty]);   // «صفّر»⇒0 · «اترك»⇒كمية زد الحالية
+          if (opts.absent === "zero") zeroDoor[rawKey] = "absent";   // غائب-صفر ⇒ يدخل الإخفاء الموحّد
         } else if (isInf && !collided) {
           infiniteList.push({ sku: rawKey, skuN, name: orig[iName] || "" });
           finalQtyByRaw[rawKey] = Infinity;   // غير محدود بلا مطابقة ⇒ حيّ
@@ -3435,7 +3437,7 @@ function run(reprocess) {
         } else {
           const pr = [...orig];
           if (willChangePrice) pr[iPrice] = newPrice;
-          if (autoUnpubSimple) { pr[iPublished] = "No"; autoUnpub.add(String(rawSku)); lastAutoUnpubSimple.push({ sku: String(rawSku), name: orig[iName] || "" }); }   // إخفاء بلا تغيير سعر
+          if (autoUnpubSimple) { pr[iPublished] = "No"; autoUnpub.add(String(rawSku)); lastAutoUnpubSimple.push({ sku: String(rawSku), name: orig[iName] || "", src: lowValZero ? "low" : "matched0" }); }   // إخفاء بلا تغيير سعر
           else if (simpleRepublish) pr[iPublished] = "Yes";            // النشر على صف الصنف البسيط فقط
           else if (isVariantChild && iPublished >= 0) pr[iPublished] = "";   // المتغيّر لا يحمل published إطلاقاً (بلا أثر ومضلل) — نُفرّغه
           // حماية إكسل: أي خلية تتجاوز 32767 حرفاً تُقصّ لحد إكسل الصلب (تمنع تلف الملف) — لا تخص التسعير
@@ -3489,6 +3491,23 @@ function run(reprocess) {
       lastUnpublish.push({ sku: rk, name: iName >= 0 ? (row[iName] || "") : "" });
     });
 
+    // === إخفاء تلقائي موحّد للبسطاء عبر كل الأبواب: أي صنف بسيط منشور صارت كميته النهائية 0 عبر ⏳ أو غائب-صفر ⇒ published=No ===
+    // (باب القيمة المنخفضة والمطابَق-صفر يُعالَجان في الحلقة أعلاه؛ هنا نغطّي البابين اللذين يصفّران بلا مطابقة — سدّ فجوة «مصفّر لكن يبقى منشوراً»)
+    // القاعدة موحّدة: نقطة الحكم = finalQtyByRaw لا مسار بعينه. المتغيّرات تُدار بإجماع الأب أدناه (finalQtyByRaw يغذّيه بـ0 أصلاً).
+    if (iPublished >= 0) Object.keys(zeroDoor).forEach(rk => {
+      if (finalQtyByRaw[rk] !== 0) return;                         // أُعيد تفعيله/ليس صفراً ⇒ لا إخفاء
+      if (autoUnpub.has(rk) || unpublishSet.has(rk)) return;       // عولج مسبقاً (مطابَق/يدوي 🚫)
+      if (hasVarYesSet.has(rk) || parentOf[rk]) return;            // أب/متغيّر ⇒ يُدار بإجماع الأب لا هنا
+      const row = rowByRawSku[rk]; if (!row) return;
+      if (String(row[iPublished]).trim().toLowerCase() !== "yes") return;   // منشور فقط (وإلا فلا داعي)
+      if (iSale >= 0) { const sv = Number(row[iSale]), pv = Number(row[iPrice]); if (Number.isFinite(sv) && sv > 0 && Number.isFinite(pv) && sv >= pv) return; }   // تعارض تخفيض ⇒ تخطَّ حمايةً للملف
+      const pr = [...row]; pr[iPublished] = "No";
+      for (let c = 0; c < pr.length; c++) { const s = String(pr[c] == null ? "" : pr[c]); if (s.length > 32767) pr[c] = s.slice(0, 32767); }
+      priceRows.push(pr); priceOrig.push(row); priceCount++;
+      autoUnpub.add(rk);
+      lastAutoUnpubSimple.push({ sku: rk, name: iName >= 0 ? (row[iName] || "") : "", src: zeroDoor[rk] });   // src: waiting / absent
+    });
+
     // === إخفاء الآباء تلقائياً: أب منشور تكون الكميات النهائية لكل أبنائه = 0 ⇒ صف الأب published=No بلا سعر (إجماع كامل) ===
     if (iPublished >= 0) {
       const childrenByParent = {};
@@ -3536,7 +3555,7 @@ function run(reprocess) {
 
     if (vq.ok && vp.ok) {
       vm.className = "verify-ok"; vm.style.display = "block";
-      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (lastUnpublish.length ? ` · 🚫 سيُلغى نشرها: ${lastUnpublish.length} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + ((lastAutoUnpubSimple.length || lastAutoUnpubParents.length) ? ` · إخفاء تلقائي: ${lastAutoUnpubSimple.length + lastAutoUnpubParents.length} (بسيط ${lastAutoUnpubSimple.length} · آباء ${lastAutoUnpubParents.length})` : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
+      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (lastUnpublish.length ? ` · 🚫 سيُلغى نشرها: ${lastUnpublish.length} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + ((lastAutoUnpubSimple.length || lastAutoUnpubParents.length) ? (() => { const au = k => lastAutoUnpubSimple.filter(x => x.src === k).length; return ` · إخفاء تلقائي: ${lastAutoUnpubSimple.length + lastAutoUnpubParents.length} — بسيط ${lastAutoUnpubSimple.length} (رخص ${au("low")} · مطابَق٠ ${au("matched0")} · ⏳ ${au("waiting")} · غائب ${au("absent")}) · آباء ${lastAutoUnpubParents.length}`; })() : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
     } else {
       vm.className = "verify-fail"; vm.style.display = "block";
       vm.textContent = "✗ تم إيقاف التحميل — " + [!vq.ok ? "ملف الكميات: " + vq.msg : "", !vp.ok ? "ملف الأسعار: " + vp.msg : ""].filter(Boolean).join(" | ");
@@ -3556,7 +3575,7 @@ function run(reprocess) {
         + (lowValDbg.length ? lowValDbg.map(d => `${d.sku}[${d.raw}→${d.after} · ${d.price == null ? "—" : d.price} · ${Number.isFinite(d.zid) ? d.zid : "∞/فارغ"} · ${d.zeroed ? "صُفّر" : "كما هو"}]`).join("  ") : "لا مرشّحين")
         + `\n\n⟪رؤوس ملفات المخزن المُلتقطة⟫` + invHeaderDbgLine("wh") + invHeaderDbgLine("branch")
         + `\n\n⟪إخفاء تلقائي (قيمة/كمية 0)⟫`
-        + `\nبسيط مخفي: ${lastAutoUnpubSimple.length}` + (lastAutoUnpubSimple.length ? " — " + lastAutoUnpubSimple.slice(0, 20).map(x => x.sku).join(" · ") : "")
+        + `\nبسيط مخفي: ${lastAutoUnpubSimple.length}` + (lastAutoUnpubSimple.length ? " — " + lastAutoUnpubSimple.slice(0, 30).map(x => `${x.sku}(${x.src || "?"})`).join(" · ") : "")
         + `\nآباء مخفيون (إجماع كل الأبناء=0): ${lastAutoUnpubParents.length}` + lastAutoUnpubParents.slice(0, 15).map(p => `\n  ${p.sku}: [${p.children.map(c => `${c.sku}=${c.q === Infinity ? "∞" : c.q}`).join(" · ")}]`).join("")
         + `\nآباء نجوا (ابن حيّ): ${autoUnpubSurvivors.length}` + autoUnpubSurvivors.slice(0, 15).map(s => `\n  ${s.sku}: ابنه ${s.liveChild}=${s.q === Infinity ? "∞" : s.q}`).join("")
         + `\n\n⟪نسب الأبناء (موضعي أساس + parent_sku)⟫`
