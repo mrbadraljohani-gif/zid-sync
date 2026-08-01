@@ -793,6 +793,7 @@
   .exp-chip.on { background: var(--gold); color: #2a2100; border-color: var(--gold); }
   .exp-chip.zero-btn { margin-inline-start: auto; border-color: rgba(107,147,192,.6); color: #9fc0e0; background: rgba(107,147,192,.08); }
   .exp-chip.zero-btn:hover { border-color: #6b93c0; }
+  .un-note { margin-inline-start: auto; font-size: 11px; font-weight: 700; color: var(--muted-2); cursor: help; }
   .managed-tag { display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--muted-2); background: rgba(140,150,160,.12); border: 1px solid var(--border); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: 'Segoe UI', Tahoma, sans-serif; }
   .drift-tag { display: inline-block; font-size: 10.5px; font-weight: 800; color: #f4bd7a; background: rgba(230,163,74,.14); border: 1px solid rgba(230,163,74,.5); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: 'Segoe UI', Tahoma, sans-serif; }
   /* المستكشف الشامل (بطاقة إجمالي الأسطر) */
@@ -3350,6 +3351,7 @@ function run(reprocess) {
           // بانتظار التوفر: يُستثنى من تنبيه الجديد، ويبقى ظاهراً في «بدون ربط» بشارته
           unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, waiting: true, noWhCode });
           finalQtyByRaw[rawKey] = 0; zeroDoor[rawKey] = "waiting";   // ⏳ تصفير مُدار ⇒ يدخل الإخفاء الموحّد
+          qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", 0]); qtyCount++;   // ⏳ يدخل ملف الكميات الرئيسي بـ0 (كالغائب-صفر) — stripNoChangeQty يُسقط المصفَّر أصلاً في زد فلا استيراد عبثي
         } else if (hasHistory) {
           // غائب عن ملف المستودع (قد يكون متوفراً في فرع آخر — المرحلة 1)
           absentList.push({ sku: rawKey, skuN, name: orig[iName] || "", mappedCode: manualMap[rawKey] || null, price: orig[iPrice], qty: orig[iQty], img: imgOf(orig) });
@@ -3500,7 +3502,7 @@ function run(reprocess) {
       if (hasVarYesSet.has(rk) || parentOf[rk]) return;            // أب/متغيّر ⇒ يُدار بإجماع الأب لا هنا
       const row = rowByRawSku[rk]; if (!row) return;
       if (String(row[iPublished]).trim().toLowerCase() !== "yes") return;   // منشور فقط (وإلا فلا داعي)
-      if (iSale >= 0) { const sv = Number(row[iSale]), pv = Number(row[iPrice]); if (Number.isFinite(sv) && sv > 0 && Number.isFinite(pv) && sv >= pv) return; }   // تعارض تخفيض ⇒ تخطَّ حمايةً للملف
+      if (iSale >= 0) { const sv = Number(row[iSale]), pv = Number(row[iPrice]); if (Number.isFinite(sv) && sv > 0 && Number.isFinite(pv) && sv >= pv) { saleConflicts.push({ sku: rk, name: iName >= 0 ? (row[iName] || "") : "", newPrice: pv, storedSale: sv, oldPrice: pv }); return; } }   // تعارض تخفيض يمنع إخفاءه ⇒ تخطَّ حمايةً للملف وأظهره في لوحة التعارض ليُعالَج يدوياً في زد
       const pr = [...row]; pr[iPublished] = "No";
       for (let c = 0; c < pr.length; c++) { const s = String(pr[c] == null ? "" : pr[c]); if (s.length > 32767) pr[c] = s.slice(0, 32767); }
       priceRows.push(pr); priceOrig.push(row); priceCount++;
@@ -3920,7 +3922,7 @@ function renderUnmatchedCard(bindBtn, title, wrap) {
     + chip("managed", "✓ مُدار", cnt.managed)
     + chip("ignored", "✕ متجاهَل", cnt.ignored)
     + chip("all", "📋 الكل", cnt.all)
-    + `<button class="exp-chip zero-btn" onclick="downloadZeroAbsent()" title="نزّل ملف كميات (نموذج زد) يصفّر الأصناف ⏳/المُدارة — المصفّرة أصلاً في زد تُستبعَد تلقائياً (بلا استيراد عبثي)">⬇ ملف تصفير الغائب (${zeroSelected.size})</button>`
+    + `<span class="un-note" title="أصناف ⏳ تدخل «ملف الكميات» الرئيسي بكمية 0 وتُخفى في «ملف الأسعار» (published=No) تلقائياً — المصفّر/المخفي أصلاً في زد يُستبعَد بلا استيراد عبثي">ℹ ⏳ يُصفَّر ويُخفى ضمن الملفين الرئيسيين</span>`
     + `</div>`;
   wrap.innerHTML = chips + suggestionsCardsHTML(items);
   updateBindAllCount();
