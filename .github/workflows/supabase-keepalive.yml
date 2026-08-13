@@ -1,0 +1,44 @@
+name: Supabase Keepalive
+
+# نبضة قلب تمنع إيقاف مشروع Supabase بسبب الخمول (تحذير 7 أيام).
+# أي وصول للـREST endpoint يُعَدّ نشاطاً يصفّر عدّاد الخمول — حتى لو رفض RLS القراءة.
+# المفتاح (publishable) يأتي من secrets حصراً: Settings → Secrets and variables → Actions → SUPABASE_PUBLISHABLE_KEY
+
+on:
+  schedule:
+    - cron: "0 3 */3 * *"   # كل 3 أيام الساعة 03:00 UTC
+  workflow_dispatch:          # تشغيل يدوي من تبويب Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST (heartbeat)
+        env:
+          SUPABASE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_KEY" ]; then
+            echo "::error::السر SUPABASE_PUBLISHABLE_KEY غير مضبوط في إعدادات الريبو."
+            exit 1
+          fi
+          URL="https://pfbcyxciqrttukayskkg.supabase.co/rest/v1/zid_sync_meta?select=id&limit=1"
+          # -o /dev/null: نتجاهل الجسم · -w: كود الاستجابة فقط · --max-time: حد زمني · بلا -f حتى لا يفشل على 4xx
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY" \
+            "$URL") || CODE="000"
+          echo "HTTP status: $CODE"
+          case "$CODE" in
+            200|401|403)
+              # المشروع حيّ واستقبل الطلب (حتى لو رفض RLS) ⇒ النبضة نجحت
+              echo "✅ النبضة نجحت — المشروع نشط (status $CODE)."
+              ;;
+            000)
+              echo "::error::فشل الاتصال بالشبكة (لا استجابة) — النبضة لم تصل."
+              exit 1
+              ;;
+            *)
+              echo "::error::استجابة غير متوقعة ($CODE) — راجع حالة المشروع في Supabase."
+              exit 1
+              ;;
+          esac

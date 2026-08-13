@@ -190,6 +190,13 @@
 - رمز GitHub (fine-grained, Contents R/W على `zid-sync`) يُخزَّن في localStorage لكل جهاز — **لا يُوضع في الكود إطلاقاً** (الموقع عام).
 - وضع فاتح/غامق (`zid-theme`)، خيارات (`zid-options-v1`).
 
+## نبضة قلب Supabase — منع الإيقاف بالخمول (GitHub Actions)
+مشروع Supabase المجاني يُوقَف بعد **7 أيام خمول** (لا نشاط على القاعدة). لتفادي ذلك بلا خوادم وبلا تكلفة:
+- **الملف** `.github/workflows/supabase-keepalive.yml`: workflow مجدول `schedule: cron "0 3 */3 * *"` (كل 3 أيام 03:00 UTC) ＋ `workflow_dispatch` (تشغيل يدوي).
+- **الخطوة**: `curl` خفيف على REST endpoint (`/rest/v1/zid_sync_meta?select=id&limit=1`) — **أي وصول نشاط يصفّر عدّاد الخمول حتى لو رفض RLS القراءة**. يقرأ كود الاستجابة بـ`-o /dev/null -w "%{http_code}"` (بلا `-f`): **200/401/403 = نجاح النبضة** (المشروع حيّ واستقبل الطلب)؛ **000 (فشل شبكة) أو 5xx = فشل الخطوة**.
+- **المفتاح من secrets حصراً**: `SUPABASE_PUBLISHABLE_KEY` في Settings → Secrets and variables → Actions (يُضاف يدوياً مرة واحدة). **لا يُوضع نصاً في الـworkflow** (نظافة، رغم أنه publishable).
+- **الإشعار عند الفشل**: تلقائي — GitHub يرسل بريداً لصاحب الريبو ويُظهر التشغيل الفاشل في تبويب Actions (لا حاجة لتعقيد إضافي).
+
 ## التطوير
 - كل الكود في `index.html`. التحقق السريع: فتح الصفحة headless والتأكد من غياب أخطاء JS، ولقطات شاشة للتحقق البصري.
 - git add ← commit ← push إلى `origin/main` (يُنشر عبر GitHub Pages).
