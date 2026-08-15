@@ -365,6 +365,25 @@
   @media (max-width: 1100px) { .steps-row { grid-template-columns: 1fr; gap: 0; } .steps-col .section-head { margin-top: 26px; } .steps-a .section-head { margin-top: 0; } }
   .stage-card { padding: 14px 16px; margin-bottom: 0; }
   .stage-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; font-size: 14.5px; flex-wrap: wrap; }
+  /* نص لقارئات الشاشة فقط — يعطي اسماً لأعمدة التحديد بلا أثر بصري */
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+  /* هدف لمس ≥32×32 لكل الأزرار المضغوطة المشتركة (قاعدة واحدة بدل تعديل كل زرّ).
+     inline-flex ＋ توسيط يحفظ الشكل، وpadding الأصلي يبقى هو المتحكّم في العرض. */
+  .mini-btn, .mini, .exp-chip, .chip, .bt-tab, .mc-btn, .batch-close,
+  .theme-btn, .notif-btn, .hamburger, .side-toggle, .su-logout, .login-link, .pass-eye {
+    min-height: 32px; min-width: 32px;
+  }
+  /* التوسيط منفصل: .hamburger و.side-toggle يتحكّم استعلام الوسائط في display عندهما
+     (none/inline-flex حسب العرض) فلا يجوز أن تفرضه هذه القاعدة عليهما */
+  .mini-btn, .mini, .exp-chip, .chip, .bt-tab, .mc-btn, .batch-close,
+  .theme-btn, .notif-btn, .su-logout, .login-link, .pass-eye {
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  /* الصفوف والأشرطة تُحاذي عناصرها وسطياً بعد رفع الارتفاع */
+  td.act-cell, .un-chips, .exp-grp, .exp-actions, .bt-bar-actions, .batch-tabs { align-items: center; }
+
   /* بدائل مُوكَّنة لألوان كانت مضمّنة في السمة style (تتبع الثيم الآن) */
   .ok-txt { color: var(--green-2); font-weight: 700; }
   .amber-txt { color: var(--amber); }
@@ -476,7 +495,9 @@
   .error { background: rgba(229,144,135,.12); color: var(--danger); border: 1px solid rgba(229,144,135,.28); padding: 11px 15px; border-radius: 10px; font-size: 13.5px; margin: 10px 0; display: none; }
   .rebind-hint { background: rgba(230,197,111,.10); color: var(--gold-2); border: 1px solid var(--border-strong); border-radius: 10px; padding: 11px 15px; font-size: 13.5px; font-weight: 700; margin: 10px 0; }
   .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-  .stat { text-align: center; flex: 1; min-width: 90px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 8px; }
+  /* بطاقات الإحصاء أزرار حقيقية (قابلة للتركيز والتشغيل بلوحة المفاتيح) — إعادة ضبط مظهر الزرّ لتبقى كما كانت */
+  .stat { text-align: center; flex: 1; min-width: 90px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 8px;
+    font: inherit; color: inherit; margin: 0; }
   .stat b { font-size: 26px; display: block; }
   .stat span { font-size: 12px; color: var(--muted); }
   .twrap { max-height: 65vh; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
@@ -950,7 +971,7 @@
       <div class="side-brand-txt"><b>ASJ</b><span>Inventory Sync</span></div>
     </div>
     <nav class="side-nav">
-      <button type="button" class="side-link active" data-page="home" onclick="goPage('home')"><span class="si">🏠</span><span class="sl">الرئيسية</span></button>
+      <button type="button" class="side-link active" aria-current="page" data-page="home" onclick="goPage('home')"><span class="si">🏠</span><span class="sl">الرئيسية</span></button>
       <button type="button" class="side-link" data-page="db" onclick="goPage('db')"><span class="si">🔄</span><span class="sl">تحديث قاعدة البيانات</span></button>
       <button type="button" class="side-link" data-page="options" onclick="goPage('options')"><span class="si">⚙</span><span class="sl">الخيارات</span></button>
       <button type="button" class="side-link" data-page="account" onclick="goPage('account')"><span class="si">👤</span><span class="sl">الحساب والنظام</span></button>
@@ -971,9 +992,9 @@
     <button type="button" class="side-toggle" onclick="toggleSidebarCollapse()" aria-label="طيّ/فتح القائمة" title="طيّ/فتح القائمة"><span class="chev">◀</span></button>
     <button type="button" class="hamburger" onclick="toggleSidebar()" aria-label="القائمة">☰</button>
     <div class="thin-brand"><b>ASJ</b><span>Inventory Sync</span></div>
-    <button type="button" class="theme-btn thin-theme" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع الداكن/الفاتح">☀</button>
+    <button type="button" class="theme-btn thin-theme" id="themeBtn" onclick="toggleTheme()" aria-label="تبديل الوضع الداكن/الفاتح" title="تبديل الوضع الداكن/الفاتح">☀</button>
     <div class="notif-menu">
-      <button type="button" class="notif-btn" id="notifBtn" onclick="toggleActivityPanel(event)" title="آخر النشاطات">🔔</button>
+      <button type="button" class="notif-btn" id="notifBtn" onclick="toggleActivityPanel(event)" aria-label="آخر النشاطات" aria-expanded="false" title="آخر النشاطات">🔔</button>
       <div class="notif-panel" id="notifPanel" style="display:none">
         <div class="notif-head">آخر النشاطات</div>
         <div class="notif-list" id="activityList"><div class="notif-empty">…</div></div>
@@ -1024,10 +1045,10 @@
     </div>
     <!-- ②  بطاقات الأرقام (KPI) -->
     <div class="stats">
-      <div class="stat" data-filter="updated" onclick="selectCard('updated')"><span class="stat-ic">✅</span><b class="ok-txt" id="sUpd">0</b><span class="stat-lbl">تم تحديثه</span></div>
-      <div class="stat stat-wide" data-filter="unmatched" onclick="selectCard('unmatched')"><span class="stat-ic">🔶</span><b class="amber-txt" id="sUn">0</b><span class="stat-lbl">بدون ربط</span><span class="stat-sub" id="sUnSub"></span></div>
-      <div class="stat" data-filter="infinite" onclick="selectCard('infinite')"><span class="stat-ic">∞</span><b class="info-txt" id="sInf">0</b><span class="stat-lbl">غير محدود بلا مطابقة</span></div>
-      <div class="stat" data-filter="explorer" onclick="selectCard('explorer')"><span class="stat-ic">📚</span><b class="text-txt" id="sTot">0</b><span class="stat-lbl">إجمالي الأسطر — مستكشف</span></div>
+      <button type="button" class="stat" data-filter="updated" aria-pressed="false" onclick="selectCard('updated')"><span class="stat-ic">✅</span><b class="ok-txt" id="sUpd">0</b><span class="stat-lbl">تم تحديثه</span></button>
+      <button type="button" class="stat stat-wide" data-filter="unmatched" aria-pressed="true" onclick="selectCard('unmatched')"><span class="stat-ic">🔶</span><b class="amber-txt" id="sUn">0</b><span class="stat-lbl">بدون ربط</span><span class="stat-sub" id="sUnSub"></span></button>
+      <button type="button" class="stat" data-filter="infinite" aria-pressed="false" onclick="selectCard('infinite')"><span class="stat-ic">∞</span><b class="info-txt" id="sInf">0</b><span class="stat-lbl">غير محدود بلا مطابقة</span></button>
+      <button type="button" class="stat" data-filter="explorer" aria-pressed="false" onclick="selectCard('explorer')"><span class="stat-ic">📚</span><b class="text-txt" id="sTot">0</b><span class="stat-lbl">إجمالي الأسطر — مستكشف</span></button>
       <b id="sNew" hidden>0</b><span id="sAbsentLbl" hidden></span><b id="sAbsent" hidden>0</b>
     </div>
     <p class="stats-hint">اضغط أي بطاقة لعرض تفاصيلها في الجدول بالأسفل</p>
@@ -1056,7 +1077,7 @@
     <div id="unBlock" style="display:none">
       <div class="clabel" style="margin-top:18px" id="unTitle"></div>
       <div class="unbar">
-        <input type="text" id="unSearch" placeholder="🔍 ابحث في منتجات زد (بالكود أو الاسم)..." oninput="filterUnmatched()">
+        <input type="text" id="unSearch" aria-label="ابحث في منتجات زد بالكود أو الاسم" placeholder="🔍 ابحث في منتجات زد (بالكود أو الاسم)..." oninput="filterUnmatched()">
         <button class="btn-run sm batch" id="batchBtn" onclick="openBatchAnalysis()" style="display:none">🤖 تحليل الكل</button>
         <button class="btn-run sm bindall" id="bindAllBtn" onclick="bindAll90()">اربط الاقتراحات المؤكدة</button>
       </div>
@@ -1068,24 +1089,24 @@
   <div class="section-head"><span class="n">٣</span><h2>🔍 استعلام عن منتج <span style="color:var(--muted-2);font-weight:600;font-size:13px">(بحثان مستقلان)</span></h2><span class="line"></span></div>
   <div class="card">
     <div class="query-row">
-      <div class="query-col">
+      <div class="query-col" role="search" aria-label="بحث في المخزن">
         <div class="query-head">🏬 بحث في المخزن <span class="q-count" id="whQCount"></span></div>
-        <input type="text" id="whQuery" class="query-input" placeholder="🔎 بالكود أو الاسم أو الباركود…" oninput="qDebounce('wh')">
-        <div class="q-results" id="whQResults"><div class="q-empty">اكتب للبحث في المخزن الموحّد (مستودع ＋ فرع)…</div></div>
+        <input type="search" id="whQuery" class="query-input" aria-label="ابحث في المخزن بالكود أو الاسم أو الباركود" aria-controls="whQResults" placeholder="🔎 بالكود أو الاسم أو الباركود…" oninput="qDebounce('wh')">
+        <div class="q-results" id="whQResults" role="region" aria-live="polite" aria-label="نتائج بحث المخزن"><div class="q-empty">اكتب للبحث في المخزن الموحّد (مستودع ＋ فرع)…</div></div>
       </div>
-      <div class="query-col">
+      <div class="query-col" role="search" aria-label="بحث في متجر زد">
         <div class="query-head">🏪 بحث في متجر زد <span class="q-count" id="zdQCount"></span></div>
-        <input type="text" id="zdQuery" class="query-input" placeholder="🔎 بالـSKU أو الاسم أو الباركود…" oninput="qDebounce('zd')">
-        <div class="q-results" id="zdQResults"><div class="q-empty">اكتب للبحث في تصدير زد المرفوع…</div></div>
+        <input type="search" id="zdQuery" class="query-input" aria-label="ابحث في متجر زد بالـSKU أو الاسم أو الباركود" aria-controls="zdQResults" placeholder="🔎 بالـSKU أو الاسم أو الباركود…" oninput="qDebounce('zd')">
+        <div class="q-results" id="zdQResults" role="region" aria-live="polite" aria-label="نتائج بحث متجر زد"><div class="q-empty">اكتب للبحث في تصدير زد المرفوع…</div></div>
       </div>
     </div>
   </div>
 
   <details class="card" id="ignoredCard" style="display:none">
     <summary>🚫 متجاهلة سابقاً (<span id="ignoredCount">0</span>) — اضغط للعرض</summary>
-    <div class="twrap" style="margin-top:12px"><table>
+    <div class="twrap" style="margin-top:12px"><table aria-label="الأصناف المتجاهَلة">
       <colgroup><col class="c-sku"><col><col style="width:140px"></colgroup>
-      <thead><tr><th>SKU زد</th><th>اسم المنتج</th><th>إجراء</th></tr></thead>
+      <thead><tr><th scope="col">SKU زد</th><th scope="col">اسم المنتج</th><th scope="col">إجراء</th></tr></thead>
       <tbody id="ignoredBody"></tbody>
     </table></div>
   </details>
@@ -1146,37 +1167,37 @@
     <div class="card settings">
       <div class="setrow">
         <span class="setlabel">السعر المُرسل إلى زد</span>
-        <span class="seg">
-          <button class="chip on" data-group="price" data-v="incl" onclick="setOpt(this)">شامل الضريبة</button>
-          <button class="chip" data-group="price" data-v="excl" onclick="setOpt(this)">قبل الضريبة</button>
-          <button class="chip" data-group="price" data-v="none" onclick="setOpt(this)">لا تحدّث</button>
+        <span class="seg" role="radiogroup" aria-label="السعر المُرسل إلى زد">
+          <button role="radio" aria-checked="true" class="chip on" data-group="price" data-v="incl" onclick="setOpt(this)">شامل الضريبة</button>
+          <button role="radio" aria-checked="false" class="chip" data-group="price" data-v="excl" onclick="setOpt(this)">قبل الضريبة</button>
+          <button role="radio" aria-checked="false" class="chip" data-group="price" data-v="none" onclick="setOpt(this)">لا تحدّث</button>
         </span>
       </div>
       <div class="setrow">
         <span class="setlabel">الأصناف الغائبة عن الملف <span class="set-info" title="«صفّر كميتها» استخدمه فقط عندما يمثّل ملفك كامل مخزونك (مستودع ＋ فروع). في المرحلة 1 (المستودع الرئيسي فقط) قد تكون هذه الأصناف متوفرة في الفروع — اترك «كما هي».">ⓘ</span></span>
-        <span class="seg">
-          <button class="chip on" data-group="absent" data-v="keep" onclick="setOpt(this)">اتركها كما هي</button>
-          <button class="chip" data-group="absent" data-v="zero" onclick="setOpt(this)">صفّر كميتها</button>
+        <span class="seg" role="radiogroup" aria-label="الأصناف الغائبة عن الملف">
+          <button role="radio" aria-checked="true" class="chip on" data-group="absent" data-v="keep" onclick="setOpt(this)">اتركها كما هي</button>
+          <button role="radio" aria-checked="false" class="chip" data-group="absent" data-v="zero" onclick="setOpt(this)">صفّر كميتها</button>
         </span>
       </div>
       <p class="danger-hint set-warn" id="absentWarn" style="display:none">⚠ «صفّر كميتها» للمرحلة 2 فقط (المخزون الكامل: مستودع ＋ فروع). في المرحلة 1 قد تكون هذه الأصناف متوفرة في الفروع.</p>
       <div class="setrow">
         <span class="setlabel">توزيع كمية المستودع على المتغيرات</span>
-        <span class="seg">
-          <button class="chip on" data-group="split" data-v="equal" onclick="setOpt(this)">قسّم بالتساوي</button>
-          <button class="chip" data-group="split" data-v="full" onclick="setOpt(this)">الكاملة لكل متغير</button>
+        <span class="seg" role="radiogroup" aria-label="توزيع كمية المستودع على المتغيرات">
+          <button role="radio" aria-checked="true" class="chip on" data-group="split" data-v="equal" onclick="setOpt(this)">قسّم بالتساوي</button>
+          <button role="radio" aria-checked="false" class="chip" data-group="split" data-v="full" onclick="setOpt(this)">الكاملة لكل متغير</button>
         </span>
       </div>
       <div class="setrow">
         <span class="setlabel">تصفير الكميات المنخفضة القيمة</span>
-        <span class="seg">
-          <button class="chip on" data-group="lowzero" data-v="on" onclick="setOpt(this)">مفعّل</button>
-          <button class="chip" data-group="lowzero" data-v="off" onclick="setOpt(this)">معطّل</button>
+        <span class="seg" role="radiogroup" aria-label="تصفير الكميات المنخفضة القيمة">
+          <button role="radio" aria-checked="true" class="chip on" data-group="lowzero" data-v="on" onclick="setOpt(this)">مفعّل</button>
+          <button role="radio" aria-checked="false" class="chip" data-group="lowzero" data-v="off" onclick="setOpt(this)">معطّل</button>
         </span>
       </div>
       <div class="setrow sub">
         <span class="setlabel muted">الحدّ: سعر أقل من</span>
-        <span class="lowfields"><input type="number" id="lowPriceInp" class="opt-num" value="400" onchange="setLowThreshold()"><span class="unit">ر.س · كمية</span><input type="number" id="lowQtyInp" class="opt-num" value="3" onchange="setLowThreshold()"><span class="unit">أو أقل ← 0</span></span>
+        <span class="lowfields"><input type="number" id="lowPriceInp" class="opt-num" aria-label="حدّ السعر لتصفير الكميات المنخفضة القيمة (ريال)" value="400" onchange="setLowThreshold()"><span class="unit">ر.س · كمية</span><input type="number" id="lowQtyInp" class="opt-num" aria-label="حدّ الكمية لتصفير الكميات المنخفضة القيمة" value="3" onchange="setLowThreshold()"><span class="unit">أو أقل ← 0</span></span>
       </div>
       <p class="hint mini">«الكمية غير المحدودة» المطابِقة تُستبدل تلقائياً بالكمية الحقيقية من المستودع في ملف الكميات.</p>
     </div>
@@ -1184,10 +1205,10 @@
     <details class="card" id="offsetsCard" style="margin-top:14px" ontoggle="if(this.open)renderOffsetsList()">
       <summary>⚙ الزيادات المحفوظة (<span id="offCount">0</span>) — اضغط للعرض والتعديل</summary>
       <div style="margin-top:12px">
-        <input type="text" id="offSearch" placeholder="🔎 ابحث بالكود أو الاسم..." oninput="renderOffsetsList()">
-        <div class="twrap" style="max-height:340px;margin-top:10px"><table>
+        <input type="text" id="offSearch" aria-label="ابحث في زيادات الأسعار بالكود أو الاسم" placeholder="🔎 ابحث بالكود أو الاسم..." oninput="renderOffsetsList()">
+        <div class="twrap" style="max-height:340px;margin-top:10px"><table aria-label="زيادات أسعار المتغيّرات المحفوظة">
           <colgroup><col class="c-sku"><col><col style="width:150px"><col style="width:90px"></colgroup>
-          <thead><tr><th>SKU زد</th><th>اسم المنتج</th><th>الزيادة (ر.س)</th><th>حذف</th></tr></thead>
+          <thead><tr><th scope="col">SKU زد</th><th scope="col">اسم المنتج</th><th scope="col">الزيادة (ر.س)</th><th scope="col">حذف</th></tr></thead>
           <tbody id="offBody"></tbody>
         </table></div>
       </div>
@@ -1233,7 +1254,7 @@
     <div class="card acc-card">
       <div class="clabel">📋 سجل النشاط</div>
       <div class="act-bar">
-        <select id="actFilter" class="act-select" onchange="renderActivityFull()">
+        <select id="actFilter" class="act-select" aria-label="تصفية سجل النشاط بنوع الحدث" onchange="renderActivityFull()">
           <option value="">كل الأنواع</option>
           <option value="link_added">🔗 ربط صنف</option>
           <option value="link_removed">✂️ إزالة ربط</option>
@@ -1257,30 +1278,30 @@
   <!-- ============ الصفحة: مستخدم جديد ============ -->
   <section class="page" id="page-newuser">
     <div class="page-head"><span class="ph-ico">➕</span><div class="ph-txt"><h2>مستخدم جديد</h2><p>إنشاء حساب دخول جديد للأداة</p></div></div>
-    <div class="card acc-card signup-card">
-      <div class="login-field"><label for="suEmail">البريد الإلكتروني</label><input type="email" id="suEmail" dir="ltr" placeholder="name@asj.com" autocomplete="off"></div>
+    <form class="card acc-card signup-card" id="signupForm" novalidate onsubmit="event.preventDefault();doSignup();return false">
+      <div class="login-field"><label for="suEmail">البريد الإلكتروني</label><input type="email" id="suEmail" dir="ltr" placeholder="name@asj.com" autocomplete="off" aria-describedby="suMsg"></div>
       <div class="login-field"><label for="suPass">كلمة المرور</label>
         <div class="pass-wrap">
-          <input type="password" id="suPass" dir="ltr" placeholder="6 أحرف على الأقل" autocomplete="new-password">
-          <button type="button" class="pass-eye" id="suEye" onclick="togglePass('suPass','suEye')" aria-label="إظهار/إخفاء كلمة المرور" title="إظهار/إخفاء">👁</button>
+          <input type="password" id="suPass" dir="ltr" placeholder="6 أحرف على الأقل" autocomplete="new-password" aria-describedby="suMsg">
+          <button type="button" class="pass-eye" id="suEye" onclick="togglePass('suPass','suEye')" aria-pressed="false" aria-label="إظهار كلمة المرور" title="إظهار كلمة المرور">👁</button>
         </div>
       </div>
       <div class="login-field"><label for="suPass2">تأكيد كلمة المرور</label>
         <div class="pass-wrap">
-          <input type="password" id="suPass2" dir="ltr" placeholder="أعد كتابتها" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSignup()">
-          <button type="button" class="pass-eye" id="suEye2" onclick="togglePass('suPass2','suEye2')" aria-label="إظهار/إخفاء كلمة المرور" title="إظهار/إخفاء">👁</button>
+          <input type="password" id="suPass2" dir="ltr" placeholder="أعد كتابتها" autocomplete="new-password" aria-describedby="suMsg">
+          <button type="button" class="pass-eye" id="suEye2" onclick="togglePass('suPass2','suEye2')" aria-pressed="false" aria-label="إظهار كلمة المرور" title="إظهار كلمة المرور">👁</button>
         </div>
       </div>
-      <div class="login-field"><label>الصلاحية</label>
-        <span class="seg su-seg">
-          <button type="button" class="chip on" data-role="admin" onclick="pickSignupRole(this)">مشرف (كامل عدا الروابط)</button>
-          <button type="button" class="chip" data-role="viewer" onclick="pickSignupRole(this)">مشاهد (قراءة فقط)</button>
+      <div class="login-field"><label id="suRoleLbl">الصلاحية</label>
+        <span class="seg su-seg" role="radiogroup" aria-labelledby="suRoleLbl">
+          <button type="button" role="radio" aria-checked="true" class="chip on" data-role="admin" onclick="pickSignupRole(this)">مشرف (كامل عدا الروابط)</button>
+          <button type="button" role="radio" aria-checked="false" class="chip" data-role="viewer" onclick="pickSignupRole(this)">مشاهد (قراءة فقط)</button>
         </span>
       </div>
-      <button class="btn-run" id="suBtn" onclick="doSignup()">➕ إنشاء الحساب</button>
-      <div id="suMsg" class="login-err"></div>
+      <button type="submit" class="btn-run" id="suBtn">➕ إنشاء الحساب</button>
+      <div id="suMsg" class="login-err" role="alert"></div>
       <p class="hint" style="margin-top:14px;line-height:1.7">ℹ️ كتابة الروابط صلاحية <b>المالك</b> وحده. قد يتطلب النظام تأكيد البريد قبل أول دخول (حسب إعدادات Supabase)، ولن تتأثر جلستك الحالية. لإدارة كاملة للمستخدمين استخدم لوحة <b>Supabase → Authentication</b>.</p>
-    </div>
+    </form>
   </section>
 
   </main>
@@ -1336,7 +1357,7 @@
     <div class="off-title">⚙ زيادة سعر المتغير <span id="offSku" class="mono"></span></div>
     <p class="hint" id="offInfo"></p>
     <div class="maprow">
-      <input type="number" id="offVal" placeholder="الزيادة عن سعر المستودع (ر.س)" oninput="offPreview()" onkeydown="if(event.key==='Enter')saveOffset()">
+      <input type="number" id="offVal" aria-label="قيمة زيادة سعر المتغيّر بالريال" placeholder="الزيادة عن سعر المستودع (ر.س)" oninput="offPreview()" onkeydown="if(event.key==='Enter')saveOffset()">
       <button class="btn-run sm export-btn" onclick="offsetFromZid()">احسب من سعر زد الحالي</button>
     </div>
     <div id="offPrev" class="off-prev"></div>
@@ -1349,7 +1370,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "4fe3a44";
+const APP_VERSION = "6be4103";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1591,8 +1612,8 @@ function applyRoleUI() {
   const rb = document.getElementById("roleBadge"); if (rb) rb.textContent = myRole ? ("👤 " + roleLabel(myRole)) : "";
 }
 function pickSignupRole(btn) {
-  document.querySelectorAll("#page-newuser .su-seg .chip").forEach(c => c.classList.remove("on"));
-  btn.classList.add("on"); signupRole = btn.dataset.role || "admin";
+  document.querySelectorAll("#page-newuser .su-seg .chip").forEach(c => { c.classList.remove("on"); c.setAttribute("aria-checked", "false"); });
+  btn.classList.add("on"); btn.setAttribute("aria-checked", "true"); signupRole = btn.dataset.role || "admin";
 }
 
 // ===== تنقّل SPA بين الصفحات (أقسام تُظهر/تُخفى — الحالة مشتركة، لا فقدان لشيء) =====
@@ -1602,7 +1623,11 @@ const HASH_PAGE = { home: "home", "db-update": "db", options: "options", account
 function goPage(id, fromHash) {
   if (id === "newuser" && !isOwner()) { if (!fromHash) showToast("🔒 صفحة إنشاء المستخدمين للمالك فقط."); return; }   // حماية إضافية (الرابط مخفي أصلاً)
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + id));
-  document.querySelectorAll(".side-link").forEach(a => a.classList.toggle("active", a.dataset.page === id));
+  document.querySelectorAll(".side-link").forEach(a => {
+    const on = a.dataset.page === id;
+    a.classList.toggle("active", on);
+    if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");   // حالة التنقّل تُعلَن
+  });
   if (id === "home") renderReadiness();
   if (id === "db") renderInvCards();
   if (id === "account") { renderAccount(); renderActivityFull(); }
@@ -1783,6 +1808,13 @@ async function setNewPassword() {
 }
 // متابعة بلا اتصال: يُغلق شاشة الدخول ويعمل بالنسخة المحلية للقراءة فقط (الكتابة معطّلة، شارة 🔴)
 function continueOffline() { hideLogin(); dbOnline = false; setDbBadge(false, "وضع محلي"); }
+// وسم انشغال موحّد للعمليات الطويلة (مطابقة · مزامنة · اعتماد دفعي) — يقرأه قارئ الشاشة بلا تغيير في المظهر
+function setBusy(id, on) {
+  const el = typeof id === "string" ? document.getElementById(id) : id;
+  if (!el) return;
+  if (on) el.setAttribute("aria-busy", "true"); else el.removeAttribute("aria-busy");
+}
+
 // رسائل شاشتَي الدخول/الاسترجاع: اللون من التوكنات (يتبع الثيم) لا من style مضمّن، والعنصر role=alert فيُعلَن فور تغيّره
 function setLoginMsg(el, text, ok) {
   if (!el) return;
@@ -2230,7 +2262,9 @@ function batchFamilies(list) {
 async function batchApply(pairs, tag) {
   if (!pairs.length) return;
   const undo = pairs.map(p => ({ sku: String(p.sku), prev: (String(p.sku) in manualMap) ? manualMap[String(p.sku)] : null }));
-  try { await dbSetMappings(pairs, tag); } catch { return; }   // طلب واحد للقاعدة؛ يحدّث manualMap+localStorage عند النجاح
+  setBusy("batchBody", true);
+  try { await dbSetMappings(pairs, tag); } catch { setBusy("batchBody", false); return; }   // طلب واحد للقاعدة؛ يحدّث manualMap+localStorage عند النجاح
+  setBusy("batchBody", false);
   for (const { sku, code } of pairs) {
     boundSet.add(String(sku));
     excludedSet.delete(normCode(sku));
@@ -2285,11 +2319,31 @@ function closeBatchAnalysis() {   // عودة للعرض العادي (نفس ا
   const t = document.getElementById("unTitle"); if (t) t.style.display = "";
   renderDetail();
 }
-function switchBatchTab(t) { batchTab = t; renderBatchTab(); }
+function switchBatchTab(t) { batchTab = t; renderBatchTab(); const b = document.getElementById("bttab-" + t); if (b) b.focus(); }
+
+// تنقّل التبويبات بلوحة المفاتيح (نمط tablist): ← → للانتقال، Home/End للطرفين.
+// في RTL يُقلب اتجاه السهمين ليطابق الترتيب البصري.
+function tabKey(e) {
+  const keys = ["ArrowRight", "ArrowLeft", "Home", "End"];
+  if (!keys.includes(e.key)) return;
+  const list = e.target.closest('[role="tablist"]'); if (!list) return;
+  const tabs = [...list.querySelectorAll('[role="tab"]')].filter(t => t.offsetWidth > 0);
+  const i = tabs.indexOf(e.target); if (i < 0) return;
+  e.preventDefault();
+  const rtl = getComputedStyle(list).direction === "rtl";
+  let n = i;
+  if (e.key === "Home") n = 0;
+  else if (e.key === "End") n = tabs.length - 1;
+  else {
+    const fwd = rtl ? e.key === "ArrowLeft" : e.key === "ArrowRight";
+    n = (i + (fwd ? 1 : -1) + tabs.length) % tabs.length;
+  }
+  tabs[n].click();   // يعيد الرسم ويضبط التركيز على التبويب الجديد
+}
 
 function batchTabBtns() {
   const g = batchData.green.length, y = batchData.yellow.length, r = batchData.red.length;
-  const mk = (id, label, n) => `<button class="bt-tab ${batchTab === id ? "on" : ""}" onclick="switchBatchTab('${id}')">${label} <b>${n}</b></button>`;
+  const mk = (id, label, n) => `<button role="tab" id="bttab-${id}" aria-selected="${batchTab === id}" aria-controls="batchBody" tabindex="${batchTab === id ? 0 : -1}" class="bt-tab ${batchTab === id ? "on" : ""}" onkeydown="tabKey(event)" onclick="switchBatchTab('${id}')">${label} <b>${n}</b></button>`;
   return mk("green", "🟢 مؤكد", g) + mk("yellow", "🟡 محتمل", y) + mk("red", "🔴 بلا مرشح", r);
 }
 function batchBar() {
@@ -2320,8 +2374,8 @@ function renderBatchTab() {
     <div class="batch-inline-head"><span class="batch-title">🤖 التحليل الذكي</span> <span class="batch-sub">مطابقة بالمقاس والسعر والاسم — على الجدول نفسه</span>
       <button class="batch-close" onclick="closeBatchAnalysis()">✕ عودة للعرض العادي</button></div>
     <div id="batchBar">${batchBar()}</div>
-    <div id="batchTabs" class="batch-tabs">${batchTabBtns()}</div>
-    <div id="batchBody" class="batch-content-inline">${body}</div>
+    <div id="batchTabs" class="batch-tabs" role="tablist" aria-label="تصنيف نتائج التحليل الذكي">${batchTabBtns()}</div>
+    <div id="batchBody" class="batch-content-inline" role="tabpanel" aria-labelledby="bttab-${batchTab}" tabindex="0">${body}</div>
   </div>`;
 }
 
@@ -2351,7 +2405,7 @@ function batchCardHTML(r, chkCls, famAttr) {
       </div></div></div>`;
   const wh = `<div class="mc-wh"><span class="mc-tag whs">WAREHOUSE</span>
       <div id="whd-${uid}">${batchWhInner(r)}</div>
-      <div class="bt-combo"><input class="bt-search" id="s-${uid}" placeholder="🔎 غيّر/ابحث في المستودع بالكود أو الاسم…" oninput="comboSearch('${uid}')" onfocus="comboOpen('${uid}')" onkeydown="comboKey('${uid}',event)"></div>
+      <div class="bt-combo"><input class="bt-search" id="s-${uid}" aria-label="ابحث في المستودع بالكود أو الاسم لربط هذا الصنف" role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="🔎 غيّر/ابحث في المستودع بالكود أو الاسم…" oninput="comboSearch('${uid}')" onfocus="comboOpen('${uid}')" onkeydown="comboKey('${uid}',event)"></div>
     </div>`;
   const actions = `<div class="mc-actions">
       <label class="bt-card-chk"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${c ? "checked" : ""}><span>اعتماد</span></label>
@@ -2676,8 +2730,8 @@ function verifyPrices(rows, orig, H, allowUnpub) {
 
 function setOpt(btn) {
   const g = btn.dataset.group;
-  document.querySelectorAll(`[data-group=${g}]`).forEach(b => b.classList.remove("on"));
-  btn.classList.add("on");
+  document.querySelectorAll(`[data-group=${g}]`).forEach(b => { b.classList.remove("on"); b.setAttribute("aria-checked", "false"); });
+  btn.classList.add("on"); btn.setAttribute("aria-checked", "true");
   opts[g] = btn.dataset.v;
   localStorage.setItem(OPT_KEY, JSON.stringify(opts));
   syncAbsentWarn();
@@ -2817,13 +2871,16 @@ async function syncZidToDB() {
   const toDelete = existing.filter(s => !newSet.has(s));
   const added = newSkus.filter(s => !existSet.has(s)).length, updated = newSkus.length - added;
   const setMsg = (cls, t) => { const el = document.getElementById("zidSyncMsg"); if (el) { el.style.display = "block"; el.className = "zid-sync-msg" + (cls ? " " + cls : ""); el.innerHTML = t; } };
-  setMsg("", `⏳ مزامنة القاعدة… 0 / ${rows.length}`);
-  await db.zidProducts.bulkUpsert(rows, (done, total) => setMsg("", `⏳ مزامنة القاعدة… ${done} / ${total} صنف`));
-  if (toDelete.length) { setMsg("", `⏳ حذف ${toDelete.length} صنف غائب عن الملف الجديد…`); await db.zidProducts.removeSkus(toDelete); }
-  await db.zidProducts.setMeta(stData.header, newSkus.length);
-  zidDbMeta = { header: stData.header, product_count: newSkus.length, synced_at: new Date().toISOString() };
-  logActivity("sync_full", null, { added, updated, deleted: toDelete.length, total: newSkus.length });
-  return { added, updated, deleted: toDelete.length, total: newSkus.length };
+  setBusy("zidSyncMsg", true);
+  try {
+    setMsg("", `⏳ مزامنة القاعدة… 0 / ${rows.length}`);
+    await db.zidProducts.bulkUpsert(rows, (done, total) => setMsg("", `⏳ مزامنة القاعدة… ${done} / ${total} صنف`));
+    if (toDelete.length) { setMsg("", `⏳ حذف ${toDelete.length} صنف غائب عن الملف الجديد…`); await db.zidProducts.removeSkus(toDelete); }
+    await db.zidProducts.setMeta(stData.header, newSkus.length);
+    zidDbMeta = { header: stData.header, product_count: newSkus.length, synced_at: new Date().toISOString() };
+    logActivity("sync_full", null, { added, updated, deleted: toDelete.length, total: newSkus.length });
+    return { added, updated, deleted: toDelete.length, total: newSkus.length };
+  } finally { setBusy("zidSyncMsg", false); }
 }
 
 // تطلق المطابقة تلقائياً متى توفّر المصدران (المخزن ＋ زد) — بيانات طازجة مباشرة
@@ -3104,17 +3161,20 @@ async function syncInventoryToDB(kind, aggList, header, fileName) {
   const added = newCodes.filter(c => !existSet.has(c)).length, updated = newCodes.length - added;
   const setMsg = (id, cls, t) => { const el = document.getElementById(id); if (el) { el.style.display = "block"; el.className = "zid-sync-msg" + (cls ? " " + cls : ""); el.innerHTML = t; } };
   const msgId = kind === "wh" ? "whSyncMsg" : "brSyncMsg";
-  setMsg(msgId, "", `⏳ مزامنة القاعدة… 0 / ${rows.length}`);
-  await db.inventory.bulkUpsert(table, rows, (d, t) => setMsg(msgId, "", `⏳ مزامنة القاعدة… ${d} / ${t} صنف`));
-  if (toDelete.length) { setMsg(msgId, "", `⏳ حذف ${toDelete.length} صنف غائب…`); await db.inventory.removeCodes(table, toDelete); }
-  const patch = kind === "wh"
-    ? { wh_header: header || null, wh_count: newCodes.length, wh_file_name: fileName || null, wh_synced_at: new Date().toISOString() }
-    : { branch_header: header || null, branch_count: newCodes.length, branch_file_name: fileName || null, branch_synced_at: new Date().toISOString() };
-  await db.inventory.setMeta(patch);
-  invMeta = Object.assign(invMeta || { id: 1 }, patch);
-  resyncNeeded[kind] = invPolluted(rows); renderResyncWarn();   // الملف الجديد (بالرأس المُلتقط) يُصفّي التلوّث إن حواه شامل
-  logActivity(kind === "wh" ? "warehouse_sync_full" : "branch_sync_full", null, { added, updated, deleted: toDelete.length, total: newCodes.length, file: fileName || "" });
-  return { added, updated, deleted: toDelete.length, total: newCodes.length };
+  setBusy(msgId, true);
+  try {
+    setMsg(msgId, "", `⏳ مزامنة القاعدة… 0 / ${rows.length}`);
+    await db.inventory.bulkUpsert(table, rows, (d, t) => setMsg(msgId, "", `⏳ مزامنة القاعدة… ${d} / ${t} صنف`));
+    if (toDelete.length) { setMsg(msgId, "", `⏳ حذف ${toDelete.length} صنف غائب…`); await db.inventory.removeCodes(table, toDelete); }
+    const patch = kind === "wh"
+      ? { wh_header: header || null, wh_count: newCodes.length, wh_file_name: fileName || null, wh_synced_at: new Date().toISOString() }
+      : { branch_header: header || null, branch_count: newCodes.length, branch_file_name: fileName || null, branch_synced_at: new Date().toISOString() };
+    await db.inventory.setMeta(patch);
+    invMeta = Object.assign(invMeta || { id: 1 }, patch);
+    resyncNeeded[kind] = invPolluted(rows); renderResyncWarn();   // الملف الجديد (بالرأس المُلتقط) يُصفّي التلوّث إن حواه شامل
+    logActivity(kind === "wh" ? "warehouse_sync_full" : "branch_sync_full", null, { added, updated, deleted: toDelete.length, total: newCodes.length, file: fileName || "" });
+    return { added, updated, deleted: toDelete.length, total: newCodes.length };
+  } finally { setBusy(msgId, false); }
 }
 async function loadInventoryMeta() { if (!sb) return; try { invMeta = await db.inventory.getMeta(); } catch (e) { console.warn("inv meta:", e); } renderReadiness(); checkReady(); }
 function invDbAvailable() { return !!(dbOnline && sb && invMeta && invMeta.wh_count > 0); }
@@ -3241,6 +3301,7 @@ function rebuildFamilyIndex() { famIndex = (stData && stData.rows && stData.head
 
 function run(reprocess) {
   showErr("");
+  setBusy("result", true); setBusy("runBtn", true);   // تُرفع في finally مهما كانت النتيجة
   // بيانات زد لم تُعتمد بعد؟ إن كانت في القاعدة اعتمدها تلقائياً (ستعيد الاستدعاء)، وإلا نبّه المستخدم
   if (!stData) {
     if (zidDbAvailable()) { useZidFromDB(); return; }
@@ -3687,6 +3748,7 @@ function run(reprocess) {
     document.getElementById("result").style.display = "block";
     if (!reprocess) document.getElementById("result").scrollIntoView({ behavior: "smooth" });
   } catch (x) { showErr("خطأ أثناء المعالجة: " + x.message); }
+  finally { setBusy("result", false); setBusy("runBtn", false); }
 }
 // طابع طزاجة بيانات زد: في رأس النتيجة دائماً، وتحذير أصفر بارز ＋ تكرار في سطر التأكيد عند تجاوز 24 ساعة
 function renderZidFreshness() {
@@ -3818,7 +3880,7 @@ function zeroTableHTML(list) {
     <div class="dl-sub" style="margin:0 2px 10px">يُرفع في زد: استيراد ← تحديث كميات المنتجات الحالية فقط · وإلغاء النشر يُرفع ضمن ملف الأسعار</div>
     <table>
     <colgroup><col style="width:36px"><col class="c-sku"><col style="width:58px"><col><col style="width:100px"><col style="width:110px"><col style="width:80px"><col style="width:90px"></colgroup>
-    <thead><tr><th></th><th>SKU زد</th><th>الصورة</th><th>اسم المنتج</th><th>الفئة</th><th>كمية زد الحالية</th><th>سعر زد</th><th>🚫 إلغاء النشر</th></tr></thead>
+    <thead><tr><th scope="col"><span class="sr-only">تحديد</span></th><th scope="col">SKU زد</th><th scope="col">الصورة</th><th scope="col">اسم المنتج</th><th scope="col">الفئة</th><th scope="col">كمية زد الحالية</th><th scope="col">سعر زد</th><th scope="col">🚫 إلغاء النشر</th></tr></thead>
     <tbody id="unBody">${rows}</tbody>
   </table>`;
 }
@@ -3920,7 +3982,11 @@ function renderDetail() {
   // الخروج من وضع التحليل الذكي عند عرض أي بطاقة عادية (استعادة شريط البحث/العنوان)
   if (batchMode) { batchMode = false; const b = document.querySelector("#unBlock .unbar"); if (b) b.style.display = ""; }
   const f = currentFilter;
-  document.querySelectorAll("#result .stat").forEach(s => s.classList.toggle("active", s.dataset.filter === f));
+  document.querySelectorAll("#result .stat").forEach(s => {
+    const on = s.dataset.filter === f;
+    s.classList.toggle("active", on);
+    s.setAttribute("aria-pressed", on ? "true" : "false");   // بطاقات الإحصاء أزرار فلترة — حالتها تُعلَن
+  });
   const bindBtn = document.getElementById("bindAllBtn");
   const title = document.getElementById("unTitle"); title.style.display = "";
   const wrap = document.getElementById("detailTable");
@@ -3978,8 +4044,9 @@ function renderUnmatchedCard(bindBtn, title, wrap) {
   bindBtn.style.display = showBind ? "" : "none";
   { const bb = document.getElementById("batchBtn"); if (bb) bb.style.display = showBind ? "" : "none"; }
   title.textContent = `🔶 بدون ربط (${cnt.all}) — أصناف زد بلا ربط بالمخزن`;
-  const chip = (key, label, n) => `<button class="exp-chip${sub === key ? " on" : ""}" onclick="setUnmatchedSub('${key}')">${label} (${n})</button>`;
-  const chips = `<div class="un-chips">`
+  // نمط التبويبات: tablist/tab ＋ تنقّل بالأسهم (roving tabindex) — اللوحة نفسها هي tabpanel
+  const chip = (key, label, n) => `<button role="tab" id="untab-${key}" aria-selected="${sub === key}" aria-controls="unBody" tabindex="${sub === key ? 0 : -1}" class="exp-chip${sub === key ? " on" : ""}" onkeydown="tabKey(event)" onclick="setUnmatchedSub('${key}')">${label} (${n})</button>`;
+  const chips = `<div class="un-chips" role="tablist" aria-label="تصنيفات الأصناف بدون ربط">`
     + chip("new", "🆕 يحتاج قرار", cnt.new)
     + chip("pending", "⚠ سيُصفَّر", cnt.pending)
     + chip("managed", "✓ مُدار", cnt.managed)
@@ -3990,7 +4057,9 @@ function renderUnmatchedCard(bindBtn, title, wrap) {
   wrap.innerHTML = chips + suggestionsCardsHTML(items);
   updateBindAllCount();
 }
-function setUnmatchedSub(k) { unmatchedSub = k; renderDetail(); }
+// التركيز يتبع التبويب المُعتمَد فعلاً لا المطلوب: التبويب الفارغ يُرجع إلى «يحتاج قرار» (سطر cnt[sub])
+// فلو ركّزنا على المطلوب لبقي التركيز على تبويب aria-selected=false — تناقض بين التركيز والاختيار.
+function setUnmatchedSub(k) { unmatchedSub = k; renderDetail(); const b = document.getElementById("untab-" + unmatchedSub); if (b) b.focus(); }
 
 // ==================== 📚 مستكشف منتجات زد الشامل (بطاقة «إجمالي الأسطر») ====================
 // يبني صفاً لكل منتج زد من stData مع: النوع/النشر (بنشر الأب للمتغيّر) /الكمية/الربط/الحالة الإدارية — عرض فقط، بلا مساس بالمنطق.
@@ -4069,15 +4138,17 @@ function renderExplorer(wrap) {
   const c = explorerCompute();
   if (!c) { wrap.innerHTML = `<div class="q-warn" style="margin:12px">لا توجد بيانات زد محمّلة — استخدم «متجر زد» في صفحة التحديث أو ارفع تصدير زد، ثم شغّل «طابق وأنشئ».</div>`; return; }
   const { rows, shown } = c, f = expFilters;
-  const grp = (dim, label, opts) => `<div class="exp-grp"><span class="exp-grp-lbl">${label}</span>`
-    + opts.map(([k, t]) => `<button class="exp-chip${f[dim].has(k) ? " on" : ""}" onclick="toggleExpFilter('${dim}','${k}')">${t}</button>`).join("") + `</div>`;
+  // كل فلتر زرّ تبديل: aria-pressed يعلن حالته، وaria-label يعطي اسماً للأزرار الأيقونية (∞/⏳/🚫)
+  const grp = (dim, label, opts) => `<div class="exp-grp" role="group" aria-label="${label}"><span class="exp-grp-lbl">${label}</span>`
+    + opts.map(([k, t, a]) => { const on = f[dim].has(k); const nm = `${label}: ${a || t}`;
+        return `<button class="exp-chip${on ? " on" : ""}" aria-pressed="${on}" aria-label="${nm}" title="${nm}" onclick="toggleExpFilter('${dim}','${k}')">${t}</button>`; }).join("") + `</div>`;
   const bar = `<div class="exp-bar">
-    <input type="text" id="expSearch" class="exp-search" placeholder="🔍 ابحث بالـSKU أو الاسم أو الباركود…" value="${esc(expSearchRaw)}" oninput="onExpSearch(this.value)">
+    <input type="text" id="expSearch" class="exp-search" aria-label="ابحث في المستكشف بالـSKU أو الاسم أو الباركود" placeholder="🔍 ابحث بالـSKU أو الاسم أو الباركود…" value="${esc(expSearchRaw)}" oninput="onExpSearch(this.value)">
     ${grp("link", "الربط", [["linked", "مربوط"], ["unlinked", "بدون ربط"]])}
     ${grp("pub", "النشر", [["pub", "منشور"], ["unpub", "غير منشور"]])}
     ${grp("type", "النوع", [["parent", "أب"], ["variant", "متغيّر"], ["simple", "بسيط"]])}
-    ${grp("qty", "الكمية", [["zero", "صفر"], ["pos", ">0"], ["inf", "∞"]])}
-    ${grp("admin", "إداري", [["waiting", "⏳"], ["managed", "✓ مُدار"], ["unpublish", "🚫"], ["ignored", "متجاهَل"], ["absent", "غائب 📭"]])}
+    ${grp("qty", "الكمية", [["zero", "صفر"], ["pos", ">0", "أكبر من صفر"], ["inf", "∞", "غير محدود"]])}
+    ${grp("admin", "إداري", [["waiting", "⏳", "بانتظار التوفر"], ["managed", "✓ مُدار"], ["unpublish", "🚫", "إلغاء النشر"], ["ignored", "متجاهَل"], ["absent", "غائب 📭", "غائب عن الملف"]])}
     <div class="exp-actions">
       <span class="exp-count" id="expCount">يعرض <b>${shown.length}</b> من ${rows.length}</span>
       <button class="exp-chip" onclick="clearExpFilters()">مسح الفلاتر</button>
@@ -4085,9 +4156,9 @@ function renderExplorer(wrap) {
     </div>
   </div>
   <div class="hint" id="expCapNote" style="margin:6px 4px;display:${shown.length > 500 ? "block" : "none"}">تُعرض أول ٥٠٠ صف فقط — ضيّق الفلاتر أو استخدم «تصدير المعروض» لرؤية الكل.</div>`;
-  wrap.innerHTML = bar + `<table class="exp-table">
+  wrap.innerHTML = bar + `<table class="exp-table" aria-label="مستكشف منتجات زد">
     <colgroup><col class="c-sku"><col><col style="width:70px"><col style="width:62px"><col style="width:58px"><col style="width:88px"><col style="width:170px"></colgroup>
-    <thead><tr><th>SKU</th><th>الاسم</th><th>النوع</th><th>الكمية</th><th>النشر</th><th>الربط</th><th>الحالة</th></tr></thead>
+    <thead><tr><th scope="col">SKU</th><th scope="col">الاسم</th><th scope="col">النوع</th><th scope="col">الكمية</th><th scope="col">النشر</th><th scope="col">الربط</th><th scope="col">الحالة</th></tr></thead>
     <tbody id="expTbody">${explorerBodyHTML(shown)}</tbody></table>`;
 }
 function applyExpSearch() {
@@ -4176,7 +4247,7 @@ function updatedTableHTML(list) {
     const actCell = u.excluded
       ? `<button class="mini-btn" onclick="restoreExcluded('${esc(u.skuN)}')" title="أعِد هذا الصنف إلى ملفي التنزيل">↩ استعادة</button>`
       : `${offBtn}<button class="mini-btn" onclick="downloadOne('${esc(u.skuN)}')" title="نزّل ملف اختبار يحوي هذا المنتج وحده لتجرّبه في زد قبل الاستيراد الكامل">🧪 جرّب</button><button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="استبعاد مؤقت من ملفي التنزيل في هذه الجلسة (لا يُحفظ)">✕ شيلها</button>`;
-    const chkCell = u.excluded ? `` : `<input type="checkbox" class="test-chk" data-sku="${esc(u.sku)}" ${chk} onchange="toggleTest('${esc(u.sku)}', this.checked)">`;
+    const chkCell = u.excluded ? `` : `<input type="checkbox" class="test-chk" data-sku="${esc(u.sku)}" ${chk} aria-label="تحديد ${esc(u.sku)} للتنزيل التجريبي" onchange="toggleTest('${esc(u.sku)}', this.checked)">`;
     return `<tr class="${warn ? "row-warn " : ""}${u.excluded ? "row-excluded" : ""}" data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
       `<td class="chk-cell">${chkCell}</td>` +
       `<td class="mono">${esc(u.sku)}</td>` +
@@ -4194,9 +4265,9 @@ function updatedTableHTML(list) {
       <button class="mini-btn" onclick="toggleAllTest()">تحديد/إلغاء المعروض</button>
       <span class="hint" style="margin:0">ينزل ملفان معاً: <b>test_quantities</b> (زد: استيراد ← تحديث الكميات فقط) و<b>test_prices</b> (زد: استيراد ← تحديث المنتجات ← حدّد حقلَي السعر ومنشور ← تجاهل الفراغات). إن لم يكن في المحدد تغيّر سعر/نشر يُنزَّل ملف الكميات فقط.</span>
     </div>
-    <table>
+    <table aria-label="الأصناف التي تم تحديثها">
     <colgroup><col style="width:36px"><col class="c-sku"><col><col><col style="width:70px"><col style="width:110px"><col style="width:190px"><col style="width:150px"></colgroup>
-    <thead><tr><th></th><th>SKU زد</th><th>اسم المنتج (زد)</th><th>اسم المنتج (المستودع)</th><th>سعر زد</th><th>سعر المستودع</th><th>الكمية (السابق → الجديد)</th><th>إجراء</th></tr></thead>
+    <thead><tr><th scope="col"><span class="sr-only">تحديد</span></th><th scope="col">SKU زد</th><th scope="col">اسم المنتج (زد)</th><th scope="col">اسم المنتج (المستودع)</th><th scope="col">سعر زد</th><th scope="col">سعر المستودع</th><th scope="col">الكمية (السابق → الجديد)</th><th scope="col">إجراء</th></tr></thead>
     <tbody id="unBody">${rows}</tbody>
   </table>`;
 }
@@ -4350,8 +4421,8 @@ function renderOffsetsList() {
     .map(o => `<tr>` +
       `<td class="mono">${esc(o.sk)}</td>` +
       `<td>${esc(o.name) || "—"}</td>` +
-      `<td><input type="number" class="off-inline" value="${esc(String(o.val))}" onchange="editOffsetInline('${esc(o.sk)}', this.value)" onkeydown="if(event.key==='Enter')this.blur()"> ＋ر.س</td>` +
-      `<td><button class="mini-btn danger" onclick="deleteOffset('${esc(o.sk)}')" title="حذف الزيادة">✕</button></td>` +
+      `<td><input type="number" class="off-inline" aria-label="زيادة سعر ${esc(o.sk)} بالريال" value="${esc(String(o.val))}" onchange="editOffsetInline('${esc(o.sk)}', this.value)" onkeydown="if(event.key==='Enter')this.blur()"> ＋ر.س</td>` +
+      `<td><button class="mini-btn danger" onclick="deleteOffset('${esc(o.sk)}')" aria-label="حذف زيادة ${esc(o.sk)}" title="حذف الزيادة">✕</button></td>` +
       `</tr>`).join("");
   body.innerHTML = rows || `<tr><td colspan="4" style="color:var(--muted-2);padding:12px">لا توجد زيادات محفوظة بعد — أضِفها من زر «⚙ زيادة» في جدول «تم تحديثه».</td></tr>`;
 }
@@ -4371,9 +4442,9 @@ function deleteOffset(sk) {
 
 function listTableHTML(list) {
   const rows = list.map(u => `<tr data-search="${esc(normText(u.sku + " " + u.name))}"><td class="mono">${esc(u.sku)}</td><td>${esc(u.name) || "—"}</td></tr>`).join("");
-  return `<table>
+  return `<table aria-label="قائمة الأصناف">
     <colgroup><col class="c-sku"><col></colgroup>
-    <thead><tr><th>SKU زد</th><th>اسم المنتج</th></tr></thead>
+    <thead><tr><th scope="col">SKU زد</th><th scope="col">اسم المنتج</th></tr></thead>
     <tbody id="unBody">${rows}</tbody>
   </table>`;
 }
@@ -4385,9 +4456,9 @@ function catBadge(cat) {
 }
 function allTableHTML(list) {
   const rows = list.map(u => `<tr data-search="${esc(normText(u.sku + " " + (u.name || "")))}"><td class="mono">${esc(u.sku)}</td><td>${esc(u.name) || "—"}</td><td>${catBadge(u._cat)}</td></tr>`).join("");
-  return `<table>
+  return `<table aria-label="كل الأصناف بدون ربط مع حالتها">
     <colgroup><col class="c-sku"><col><col style="width:130px"></colgroup>
-    <thead><tr><th>SKU زد</th><th>اسم المنتج</th><th>الحالة</th></tr></thead>
+    <thead><tr><th scope="col">SKU زد</th><th scope="col">اسم المنتج</th><th scope="col">الحالة</th></tr></thead>
     <tbody id="unBody">${rows}</tbody>
   </table>`;
 }
