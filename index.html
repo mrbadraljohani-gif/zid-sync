@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -17,7 +17,7 @@
     --bg: #14110c;
     --text: #f1e9d8;
     --muted: #b3a88f;
-    --muted-2: #857b64;
+    --muted-2: #a29984;   /* كان #857b64 = 3.45:1 على بطاقات الوضع الداكن */
     --panel: rgba(255,255,255,.035);
     --panel-2: rgba(255,255,255,.055);
     --border: rgba(226,191,107,.14);
@@ -27,6 +27,9 @@
     --green: #7ba884;
     --green-2: #9dd0a6;
     --danger: #e59087;
+    /* توكنان دلاليان يوحّدان ألواناً كانت مثبّتة بلا مقابل في الوضع الفاتح */
+    --info: #9db3cc;        /* كان #a9b6c6 · #93a2b5 · #9fc0e0 */
+    --amber: #f4bd7a;       /* كان #f0b46a · #e6a34a · #e0b060 */
     /* رسائل شاشتَي الدخول/الاسترجاع — مقيسة على خلفية الصندوق لا خلفية الصفحة */
     --login-err: #e08a8a;   /* 6.88:1 على #1c1810 */
     --login-ok: #8fbf98;    /* 8.48:1 على #1c1810 */
@@ -37,17 +40,21 @@
   :root[data-theme="light"] {
     --bg: #f4eee2;
     --text: #2a2216;
-    --muted: #6b6150;
-    --muted-2: #9a8d76;
+    /* القيم أدناه محلولة بالقياس على أغمق خلفيات الوضع الفاتح فعلياً (بطاقات ＋ تدرّجات الصفحة):
+       نفس الدرجة والتشبّع، تعديل الإضاءة فقط — الهوية كما هي والتباين ≥4.5:1 */
+    --muted: #4a4335;       /* كان #6b6150 = 4.00:1 */
+    --muted-2: #5c5344;     /* كان #9a8d76 = 2.14:1 */
     --panel: rgba(42,34,22,.05);
     --panel-2: rgba(42,34,22,.085);
     --border: rgba(150,108,24,.28);
     --border-strong: rgba(150,108,24,.5);
-    --gold: #8a5e12;
-    --gold-2: #a97e22;
+    --gold: #66470e;        /* كان #8a5e12 = 4.10:1 (الطرف الغامق للتدرّج ＋ نص) */
+    --gold-2: #734f0f;      /* كان #a97e22 = 2.47:1 — الذهبي النصّي الموحّد */
     --green: #47845a;
-    --green-2: #356b40;
-    --danger: #b23a2e;
+    --green-2: #2f5d38;     /* كان #356b40 = 4.23:1 */
+    --danger: #9a3228;      /* كان #b23a2e = 4.31:1 */
+    --info: #3d5775;        /* مقابل #9db3cc الداكن */
+    --amber: #7e4a0a;       /* مقابل #f4bd7a الداكن */
     /* الفاتح: القيم السابقة كانت ترسب على #fffdf7 (خطأ 2.53:1 · نجاح 2.05:1) */
     --login-err: #b3261e;   /* 6.43:1 على #fffdf7 */
     --login-ok: #15803d;    /* 4.93:1 على #fffdf7 */
@@ -83,7 +90,10 @@
   :root[data-theme="light"] .btn-run:not(:disabled),
   :root[data-theme="light"] .step,
   :root[data-theme="light"] .chip.on,
-  :root[data-theme="light"] .mini.bind { color: #fff8ec; }
+  :root[data-theme="light"] .stage-n,
+  :root[data-theme="light"] .exp-chip.on,
+  :root[data-theme="light"] .mc-btn.bind.gold,
+  :root[data-theme="light"] .mini.bind { color: #fff8ec; }   /* الذهبي في الفاتح غامق ⇒ النص فاتح فوقه */
   * { box-sizing: border-box; }
   body {
     font-family: 'Segoe UI', Tahoma, system-ui, sans-serif;
@@ -355,6 +365,11 @@
   @media (max-width: 1100px) { .steps-row { grid-template-columns: 1fr; gap: 0; } .steps-col .section-head { margin-top: 26px; } .steps-a .section-head { margin-top: 0; } }
   .stage-card { padding: 14px 16px; margin-bottom: 0; }
   .stage-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; font-size: 14.5px; flex-wrap: wrap; }
+  /* بدائل مُوكَّنة لألوان كانت مضمّنة في السمة style (تتبع الثيم الآن) */
+  .ok-txt { color: var(--green-2); font-weight: 700; }
+  .amber-txt { color: var(--amber); }
+  .info-txt { color: var(--info); }
+  .text-txt { color: var(--text); }
   .stage-n { width: 25px; height: 25px; border-radius: 8px; background: linear-gradient(120deg, var(--gold-2), var(--gold)); color: #1a160f; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .stage-sub { color: var(--muted); font-size: 12px; font-weight: 600; }
   .stage-card .grid2 { margin-bottom: 0; }
@@ -365,13 +380,13 @@
   .merge-result.wait { color: var(--gold-2); background: rgba(201,154,60,.10); border: 1px dashed rgba(201,154,60,.45); padding: 11px 15px; }
   .mr-grid { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
   .mr-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 7px 13px; border-radius: 11px; border: 1px solid var(--border); background: var(--panel-2); min-width: 66px; flex: 1 1 auto; }
-  .mr-num { font-size: 18px; font-weight: 800; color: var(--fg); line-height: 1.1; }
+  .mr-num { font-size: 18px; font-weight: 800; color: var(--text); line-height: 1.1; }   /* كان var(--fg) وهو توكن غير معرّف */
   .mr-lbl { font-size: 10.5px; color: var(--muted); font-weight: 600; white-space: nowrap; }
   .mr-cell.total { background: rgba(90,160,110,.15); border-color: rgba(90,160,110,.5); }
-  .mr-cell.total .mr-num, .mr-cell.shared .mr-num { color: #8fce9f; }
+  .mr-cell.total .mr-num, .mr-cell.shared .mr-num { color: var(--green-2); }   /* كان #8fce9f ثابتاً = 1.23:1 في الفاتح */
   .mr-cell.shared { border-color: rgba(90,160,110,.35); }
   .mr-cell.whonly { border-color: rgba(201,165,74,.42); } .mr-cell.whonly .mr-num { color: var(--gold-2); }
-  .mr-cell.bronly { border-color: rgba(120,150,180,.42); } .mr-cell.bronly .mr-num { color: #9db3cc; }
+  .mr-cell.bronly { border-color: rgba(120,150,180,.42); } .mr-cell.bronly .mr-num { color: var(--info); }   /* كان #9db3cc ثابتاً = 1.44:1 في الفاتح */
   .mr-cell.src .mr-num { font-size: 13px; }
   .mr-cell.nop { border-style: dashed; } .mr-cell.nop .mr-num { color: var(--muted-2); }
   .mr-dl { display: inline-flex; align-items: center; gap: 4px; align-self: center; margin-inline-start: auto; padding: 6px 11px; font-size: 12px; font-weight: 700; color: var(--gold-2); cursor: pointer; border-radius: 9px; white-space: nowrap; }
@@ -581,9 +596,9 @@
   .bt-qtys b { color: var(--fg); font-weight: 800; }
   .mc-btn.xrow { padding: 3px 8px; font-size: 12.5px; margin-inline-end: 3px; }
   .mc-btn.xs { padding: 2px 8px; font-size: 11px; }
-  .lost-tag { display: inline-block; margin-inline-start: 6px; font-size: 10.5px; font-weight: 800; color: #e0b060; background: rgba(224,176,96,.14); border: 1px solid rgba(224,176,96,.45); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
-  .lost-count { color: #e0b060; font-weight: 800; }
-  .mc-btn.on-lost { background: rgba(224,176,96,.18); border-color: rgba(224,176,96,.55); color: #e0b060; font-weight: 800; }
+  .lost-tag { display: inline-block; margin-inline-start: 6px; font-size: 10.5px; font-weight: 800; color: var(--amber); background: rgba(224,176,96,.14); border: 1px solid rgba(224,176,96,.45); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+  .lost-count { color: var(--amber); font-weight: 800; }
+  .mc-btn.on-lost { background: rgba(224,176,96,.18); border-color: rgba(224,176,96,.55); color: var(--amber); font-weight: 800; }
   .off-title { font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--gold-2); margin-bottom: 8px; }
   .off-box .hint { margin: 0 0 12px; }
   .off-box input { width: 100%; }
@@ -617,7 +632,7 @@
   .mc-sku { font-size: 12px; color: var(--muted); margin-top: 3px; text-align: start; }
   .mc-sku span { font-family: ui-monospace, Consolas, monospace; }
   .mc-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
-  .mc-auto { display: inline-block; margin-inline-start: 6px; padding: 1px 7px; border-radius: 20px; font-size: 10px; font-weight: 800; background: rgba(147,162,181,.16); color: #a9b6c6; border: 1px solid rgba(147,162,181,.4); font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
+  .mc-auto { display: inline-block; margin-inline-start: 6px; padding: 1px 7px; border-radius: 20px; font-size: 10px; font-weight: 800; background: rgba(147,162,181,.16); color: var(--info); border: 1px solid rgba(147,162,181,.4); font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
   .mc-mid { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 0 6px; border-inline: 1px dashed var(--border); }
   .mc-mid .simbadge { margin: 0; font-size: 14px; padding: 3px 12px; }
   .mc-mid .pbadge { margin: 0; }
@@ -630,7 +645,8 @@
   .mc-wh { flex: 1 1 30%; min-width: 0; }
   .mc-wh-empty { opacity: 0; }
   .mc-actions { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
-  .mc-btn { border: none; border-radius: 9px; padding: 9px 16px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
+  /* background: transparent ضروري — بلا تصريح يرث الزرّ خلفية المتصفح الافتراضية (رمادي فاتح) فيُخرّب الوضع الداكن */
+  .mc-btn { border: none; border-radius: 9px; padding: 9px 16px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; background: transparent; color: var(--muted); }
   .mc-btn.bind.gold { background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #0a1622; }
   .mc-btn.bind.gold:hover { filter: brightness(1.06); }
   .mc-btn.bind.outline { background: transparent; border: 1px solid var(--gold); color: var(--gold-2); }
@@ -638,7 +654,7 @@
   .mc-btn.ignore { background: transparent; border: 1px solid var(--border-strong); color: var(--muted); }
   .mc-btn.ignore:hover { border-color: var(--danger); color: var(--danger); }
   .mc-btn:disabled { opacity: .5; cursor: default; }
-  .sim-low { background: rgba(230,150,60,.18); color: #e6a34a; }
+  .sim-low { background: rgba(230,150,60,.18); color: var(--amber); }
   @media (max-width: 720px) {
     .mcard { flex-wrap: wrap; }
     .mc-mid { border-inline: none; border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border); width: 100%; flex-direction: row; padding: 8px 0; }
@@ -745,33 +761,33 @@
   /* شارات الحالة + المقاس */
   .cat-badge { display: inline-block; padding: 3px 11px; border-radius: 20px; font-size: 12px; font-weight: 800; }
   .cat-upd { background: rgba(157,208,166,.16); color: var(--green-2); }
-  .cat-new { background: rgba(230,163,74,.16); color: #f0b46a; }
+  .cat-new { background: rgba(230,163,74,.16); color: var(--amber); }
   .cat-ign { background: rgba(255,255,255,.06); color: var(--muted-2); }
-  .cat-inf { background: rgba(147,162,181,.16); color: #a9b6c6; }
+  .cat-inf { background: rgba(147,162,181,.16); color: var(--info); }
   .cat-abs { background: rgba(201,154,60,.16); color: var(--gold-2); }
   .cat-wait { background: rgba(201,154,60,.10); color: var(--gold); }
   .reactivated-msg { background: rgba(157,208,166,.14); border: 1px solid rgba(157,208,166,.5); color: var(--green-2); border-radius: 12px; padding: 11px 15px; margin-bottom: 14px; font-weight: 700; font-size: 13.5px; line-height: 1.7; }
   .wait-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(201,154,60,.14); color: var(--gold-2); border: 1px solid var(--border-strong); font-family: 'Segoe UI', Tahoma, sans-serif; }
   .pub-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(157,208,166,.16); color: var(--green-2); border: 1px solid rgba(157,208,166,.5); font-family: 'Segoe UI', Tahoma, sans-serif; }
-  .zero-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(147,162,181,.16); color: #a9b6c6; border: 1px solid rgba(147,162,181,.45); font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
+  .zero-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(147,162,181,.16); color: var(--info); border: 1px solid rgba(147,162,181,.45); font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
   .opt-num { min-width: 0; width: 68px; padding: 6px 8px; font-size: 13px; text-align: center; }
   .dist-tag { cursor: help; font-size: 14px; }
   .from-merge { color: #9dd0a6; font-weight: 800; }
   .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px); z-index: 200; max-width: 90vw; padding: 12px 20px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: var(--text); background: #1c1810; border: 1px solid var(--border-strong); box-shadow: 0 14px 40px rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
   :root[data-theme="light"] .toast { background: #fffdf7; box-shadow: 0 14px 40px rgba(120,90,20,.18); }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  .mc-btn.wait { border-color: var(--border-strong); color: var(--gold-2); }
+  .mc-btn.wait { border: 1px solid var(--border-strong); background: transparent; color: var(--gold-2); }
   .mc-btn.wait.on { background: rgba(201,154,60,.16); }
   .mcard.waiting { opacity: .82; }
   .danger-hint { color: var(--danger); font-weight: 700; }
   .sim-bad { background: rgba(229,144,135,.18); color: var(--danger); }
   .size-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(229,144,135,.16); color: var(--danger); border: 1px solid rgba(229,144,135,.4); }
-  .by-code-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(147,162,181,.16); color: #a9b6c6; border: 1px solid rgba(147,162,181,.4); }
+  .by-code-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(147,162,181,.16); color: var(--info); border: 1px solid rgba(147,162,181,.4); }
   .size-ok { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(157,208,166,.16); color: var(--green-2); border: 1px solid rgba(157,208,166,.4); }
   /* صمامات الأمان + كشف المنتجات الجديدة */
   .alert-new { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 800; font-size: 14.5px; border-radius: 14px; padding: 14px 16px; margin-bottom: 16px;
-    color: #f4bd7a; background: linear-gradient(135deg, rgba(230,163,74,.18), rgba(230,163,74,.08)); border: 1px solid rgba(230,163,74,.55); transition: all .15s; }
-  .alert-new:hover { border-color: #e6a34a; transform: translateY(-1px); box-shadow: 0 8px 22px rgba(230,163,74,.18); }
+    color: var(--amber); background: linear-gradient(135deg, rgba(230,163,74,.18), rgba(230,163,74,.08)); border: 1px solid rgba(230,163,74,.55); transition: all .15s; }
+  .alert-new:hover { border-color: var(--amber); transform: translateY(-1px); box-shadow: 0 8px 22px rgba(230,163,74,.18); }
   .verify-ok { margin-top: 10px; color: var(--green-2); background: rgba(123,168,132,.12); border: 1px solid rgba(123,168,132,.35); border-radius: 10px; padding: 11px 14px; font-size: 13.5px; font-weight: 700; }
   .verify-fail { margin-top: 10px; color: var(--danger); background: rgba(229,144,135,.12); border: 1px solid rgba(229,144,135,.45); border-radius: 10px; padding: 11px 14px; font-size: 13.5px; font-weight: 700; }
 
@@ -802,11 +818,11 @@
   .exp-chip { font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid var(--border-strong); background: rgba(255,255,255,.03); color: var(--muted); border-radius: 999px; padding: 5px 11px; transition: all .12s; white-space: nowrap; }
   .exp-chip:hover { color: var(--text); border-color: var(--gold-2); }
   .exp-chip.on { background: var(--gold); color: #2a2100; border-color: var(--gold); }
-  .exp-chip.zero-btn { margin-inline-start: auto; border-color: rgba(107,147,192,.6); color: #9fc0e0; background: rgba(107,147,192,.08); }
+  .exp-chip.zero-btn { margin-inline-start: auto; border-color: rgba(107,147,192,.6); color: var(--info); background: rgba(107,147,192,.08); }
   .exp-chip.zero-btn:hover { border-color: #6b93c0; }
   .un-note { margin-inline-start: auto; font-size: 11px; font-weight: 700; color: var(--muted-2); cursor: help; }
   .managed-tag { display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--muted-2); background: rgba(140,150,160,.12); border: 1px solid var(--border); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: 'Segoe UI', Tahoma, sans-serif; }
-  .drift-tag { display: inline-block; font-size: 10.5px; font-weight: 800; color: #f4bd7a; background: rgba(230,163,74,.14); border: 1px solid rgba(230,163,74,.5); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  .drift-tag { display: inline-block; font-size: 10.5px; font-weight: 800; color: var(--amber); background: rgba(230,163,74,.14); border: 1px solid rgba(230,163,74,.5); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: 'Segoe UI', Tahoma, sans-serif; }
   /* المستكشف الشامل (بطاقة إجمالي الأسطر) */
   .exp-bar { position: sticky; top: 0; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 9px 15px; padding: 11px; background: var(--panel); border-bottom: 1px solid var(--border); }
   .exp-search { flex: 1 1 220px; min-width: 170px; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 10px; padding: 8px 12px; color: var(--text); font: inherit; font-size: 13px; }
@@ -1008,10 +1024,10 @@
     </div>
     <!-- ②  بطاقات الأرقام (KPI) -->
     <div class="stats">
-      <div class="stat" data-filter="updated" onclick="selectCard('updated')"><span class="stat-ic">✅</span><b style="color:#8fbf98" id="sUpd">0</b><span class="stat-lbl">تم تحديثه</span></div>
-      <div class="stat stat-wide" data-filter="unmatched" onclick="selectCard('unmatched')"><span class="stat-ic">🔶</span><b style="color:#e6a34a" id="sUn">0</b><span class="stat-lbl">بدون ربط</span><span class="stat-sub" id="sUnSub"></span></div>
-      <div class="stat" data-filter="infinite" onclick="selectCard('infinite')"><span class="stat-ic">∞</span><b style="color:#93a2b5" id="sInf">0</b><span class="stat-lbl">غير محدود بلا مطابقة</span></div>
-      <div class="stat" data-filter="explorer" onclick="selectCard('explorer')"><span class="stat-ic">📚</span><b style="color:#f1e9d8" id="sTot">0</b><span class="stat-lbl">إجمالي الأسطر — مستكشف</span></div>
+      <div class="stat" data-filter="updated" onclick="selectCard('updated')"><span class="stat-ic">✅</span><b class="ok-txt" id="sUpd">0</b><span class="stat-lbl">تم تحديثه</span></div>
+      <div class="stat stat-wide" data-filter="unmatched" onclick="selectCard('unmatched')"><span class="stat-ic">🔶</span><b class="amber-txt" id="sUn">0</b><span class="stat-lbl">بدون ربط</span><span class="stat-sub" id="sUnSub"></span></div>
+      <div class="stat" data-filter="infinite" onclick="selectCard('infinite')"><span class="stat-ic">∞</span><b class="info-txt" id="sInf">0</b><span class="stat-lbl">غير محدود بلا مطابقة</span></div>
+      <div class="stat" data-filter="explorer" onclick="selectCard('explorer')"><span class="stat-ic">📚</span><b class="text-txt" id="sTot">0</b><span class="stat-lbl">إجمالي الأسطر — مستكشف</span></div>
       <b id="sNew" hidden>0</b><span id="sAbsentLbl" hidden></span><b id="sAbsent" hidden>0</b>
     </div>
     <p class="stats-hint">اضغط أي بطاقة لعرض تفاصيلها في الجدول بالأسفل</p>
@@ -1680,13 +1696,13 @@ async function doSignup() {
   const email = (document.getElementById("suEmail").value || "").trim();
   const p1 = document.getElementById("suPass").value, p2 = document.getElementById("suPass2").value;
   const msg = document.getElementById("suMsg"), btn = document.getElementById("suBtn");
-  const fail = t => { msg.style.color = ""; msg.textContent = t; };
+  const fail = t => setLoginMsg(msg, t);
   if (!sb) { fail("لم تُحمّل مكتبة Supabase — تحقّق من الاتصال."); return; }
   if (!email || !p1) { fail("أدخل البريد وكلمة المرور."); return; }
   if (p1.length < 6) { fail("كلمة المرور 6 أحرف على الأقل."); return; }
   if (p1 !== p2) { fail("كلمتا المرور غير متطابقتين."); return; }
   const role = (signupRole === "viewer") ? "viewer" : "admin";   // لا owner من الواجهة إطلاقاً
-  btn.disabled = true; btn.textContent = "⏳ جارٍ الإنشاء…"; msg.style.color = ""; msg.textContent = "";
+  btn.disabled = true; btn.setAttribute("aria-busy", "true"); btn.textContent = "⏳ جارٍ الإنشاء…"; setLoginMsg(msg, "");
   try {
     const { data: cur } = await sb.auth.getSession();
     const adminSession = cur && cur.session;   // جلسة المالك الحالية — نستعيدها بعد الإنشاء
@@ -1703,10 +1719,10 @@ async function doSignup() {
     // ضبط الدور (يُنفَّذ بصلاحية المالك بعد استعادة جلسته)
     let roleNote = "";
     if (newId) { try { await db.roles.setRole(newId, role); } catch (e) { roleNote = ` (⚠ تعذّر ضبط الدور: ${e.message || e})`; } }
-    msg.style.color = "#8fbf98"; msg.textContent = `✓ أُنشئ الحساب (${email}) بدور «${roleLabel(role)}»${confirmNote}. جلستك كما هي.${roleNote}`;
+    setLoginMsg(msg, `✓ أُنشئ الحساب (${email}) بدور «${roleLabel(role)}»${confirmNote}. جلستك كما هي.${roleNote}`, true);
     document.getElementById("suPass").value = ""; document.getElementById("suPass2").value = ""; document.getElementById("suEmail").value = "";
   } catch (e) { fail("تعذّر الإنشاء: " + (e.message || e)); }
-  btn.disabled = false; btn.textContent = "➕ إنشاء الحساب";
+  btn.disabled = false; btn.removeAttribute("aria-busy"); btn.textContent = "➕ إنشاء الحساب";
 }
 
 // إظهار/إخفاء كلمة المرور (شكل فقط — لا مساس بالمنطق)
@@ -2841,7 +2857,7 @@ async function useZidFromDB() {
   try {
     if (btn) { btn.disabled = true; btn.textContent = "⏳ جارٍ الجلب…"; }
     const n = await loadZidData();
-    document.getElementById("stStatus").innerHTML = `<span style="color:#8fbf98">✓ من القاعدة — ${n} صنف (${ageText(zidSyncedAt)})</span>`;
+    document.getElementById("stStatus").innerHTML = `<span class="ok-txt">✓ من القاعدة — ${n} صنف (${ageText(zidSyncedAt)})</span>`;
     document.getElementById("stCard").classList.add("ok");
     if (typeof runZdQuery === "function") runZdQuery();
     const el = document.getElementById("zidSyncMsg"); if (el) { el.style.display = "block"; el.className = "zid-sync-msg ok"; el.innerHTML = `✓ اعتُمدت بيانات زد من القاعدة (<b>${n}</b> صنف · ${ageText(zidSyncedAt)}).` + (zidIsStale() ? ` ⚠ قديمة — يُنصح بتصدير جديد.` : ""); }
@@ -2864,7 +2880,7 @@ async function onStore(inp) {
     stData = { sheetName, rows, header };
     zidSource = "file"; zidSyncedAt = Date.now();   // ملف طازج ⇒ غير قديم
     rebuildFamilyIndex();   // فهرس العائلة الموحّد من ترتيب الملف
-    document.getElementById("stStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${rows.length - 1} سطر</span>`;
+    document.getElementById("stStatus").innerHTML = `<span class="ok-txt">✓ ${f.name} — ${rows.length - 1} سطر</span>`;
     document.getElementById("stCard").classList.add("ok");
     zidIndexCache = null; if (typeof runZdQuery === "function") runZdQuery();   // حدّث فهرس/نتائج «استعلام عن منتج»
     // مزامنة القاعدة (الملف الجديد = الحقيقة الكاملة) — أو الاستخدام المباشر عند عدم الاتصال (توافق تام)
@@ -2946,7 +2962,7 @@ async function onMergeWh(inp) {
     const { list, header, headers, colMap } = await readInvFileFull(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
     invHeaderDbg.wh = { headers, colMap };   // للتشخيص ?debug
     mergeWh = aggregateInv(list, "wh");   // تجميع بالكود (جمع الكمية) — يطابق منطق الدمج داخل الملف
-    document.getElementById("whStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${mergeWh.length} صنف</span>`;
+    document.getElementById("whStatus").innerHTML = `<span class="ok-txt">✓ ${f.name} — ${mergeWh.length} صنف</span>`;
     document.getElementById("whCard").classList.add("ok");
     if (dbOnline && sb) {
       try { const r = await syncInventoryToDB("wh", mergeWh, header, f.name); const sm = document.getElementById("whSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg ok"; sm.innerHTML = `✓ مزامنة المستودع: جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — الإجمالي ${r.total} صنف`; } }
@@ -2962,7 +2978,7 @@ async function onMergeBranch(inp) {
     const { list, header, headers, colMap } = await readInvFileFull(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
     invHeaderDbg.branch = { headers, colMap };   // للتشخيص ?debug
     const agg = aggregateInv(list, "branch"); mergeBranches = [agg];
-    document.getElementById("brStatus").innerHTML = `<span style="color:#8fbf98">✓ ${f.name} — ${agg.length} صنف</span>`;
+    document.getElementById("brStatus").innerHTML = `<span class="ok-txt">✓ ${f.name} — ${agg.length} صنف</span>`;
     document.getElementById("brCard").classList.add("ok");
     if (dbOnline && sb) {
       try { const r = await syncInventoryToDB("branch", agg, header, f.name); const sm = document.getElementById("brSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg ok"; sm.innerHTML = `✓ مزامنة الفرع: جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — الإجمالي ${r.total} صنف`; } }
