@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Select-String*)",
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(node --check*)",
+      "Bash(Get-Content*)",
+      "Bash(ls*)",
+      "Bash(grep*)",
+      "Bash(cat*)",
+      "Read(*)",
+      "Grep(*)",
+      "Glob(*)"
+    ]
+  }
+}
