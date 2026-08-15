@@ -27,6 +27,10 @@
     --green: #7ba884;
     --green-2: #9dd0a6;
     --danger: #e59087;
+    /* رسائل شاشتَي الدخول/الاسترجاع — مقيسة على خلفية الصندوق لا خلفية الصفحة */
+    --login-err: #e08a8a;   /* 6.88:1 على #1c1810 */
+    --login-ok: #8fbf98;    /* 8.48:1 على #1c1810 */
+    --login-link: var(--gold-2);
     --serif: 'Amiri', 'Playfair Display', Georgia, 'Times New Roman', serif;
   }
   /* ===== الوضع الفاتح ===== */
@@ -44,6 +48,10 @@
     --green: #47845a;
     --green-2: #356b40;
     --danger: #b23a2e;
+    /* الفاتح: القيم السابقة كانت ترسب على #fffdf7 (خطأ 2.53:1 · نجاح 2.05:1) */
+    --login-err: #b3261e;   /* 6.43:1 على #fffdf7 */
+    --login-ok: #15803d;    /* 4.93:1 على #fffdf7 */
+    --login-link: #8a5e12;  /* 5.59:1 على #fffdf7 (كان a97e22 = 3.63:1) */
   }
   :root[data-theme="light"] body {
     background:
@@ -494,8 +502,10 @@
   .pass-wrap { position: relative; }
   /* كلمة المرور: نص وسط، والعين مثبتة يميناً (الطرف المقابل لبداية الكتابة LTR) مع padding يمنع أي تراكب كتابةً وكشفاً */
   .pass-wrap input { text-align: center !important; padding-right: 42px !important; padding-left: 42px !important; }
+  /* هدف اللمس 32×32 على الأقل (كان ≈24×31 — على حدّ WCAG 2.2 بلا هامش) */
   .pass-eye { position: absolute; right: 6px; left: auto; top: 50%; transform: translateY(-50%);
-    background: transparent; border: none; cursor: pointer; font-size: 16px; opacity: .55; padding: 4px 7px; line-height: 1; border-radius: 8px; transition: opacity .15s; z-index: 3; }
+    display: inline-flex; align-items: center; justify-content: center; min-width: 32px; min-height: 32px;
+    background: transparent; border: none; cursor: pointer; font-size: 16px; opacity: .55; padding: 0; line-height: 1; border-radius: 8px; transition: opacity .15s; z-index: 3; }
   .pass-eye:hover, .pass-eye.on { opacity: 1; }
   /* إلغاء تبييض التعبئة التلقائية (Chrome) لإبقاء هوية الثيم الداكن/الكريمي */
   .login-box input:-webkit-autofill, .login-box input:-webkit-autofill:hover, .login-box input:-webkit-autofill:focus,
@@ -508,9 +518,10 @@
   .su-seg .chip { border: none; border-radius: 0; }
   body.nonowner #bindAllBtn { opacity: .5; }
   .login-box .btn-run { width: 100%; margin-top: 6px; height: 46px; }
-  .login-err { color: #e08a8a; font-size: 12.5px; margin-top: 12px; min-height: 16px; }
+  .login-err { color: var(--login-err); font-size: 12.5px; margin-top: 12px; min-height: 16px; }
+  .login-err.ok { color: var(--login-ok); }   /* رسائل النجاح — تُضبط بـsetLoginMsg لا بلون مضمّن */
   .login-offline { display: block; width: 100%; margin-top: 10px; background: transparent; border: none; color: var(--muted-2); font-size: 12px; cursor: pointer; text-decoration: underline; }
-  .login-link { display: block; width: 100%; margin-top: 12px; background: transparent; border: none; color: var(--gold-2); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  .login-link { display: block; width: 100%; margin-top: 12px; background: transparent; border: none; color: var(--login-link); font-size: 12.5px; font-weight: 700; cursor: pointer; }
   .login-link:hover { text-decoration: underline; }
   .migrate-bar { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 11px 18px; background: linear-gradient(120deg, rgba(201,154,60,.16), rgba(201,154,60,.08)); border-bottom: 1px solid rgba(201,154,60,.4); color: var(--gold-2); font-weight: 700; font-size: 13.5px; }
   .batch-inline { border: 1px solid var(--border-strong); border-radius: 14px; overflow: visible; background: var(--panel); }
@@ -1265,40 +1276,41 @@
 <div id="toast" class="toast"></div>
 
 <!-- شاشة تسجيل الدخول (Supabase Auth) -->
-<div id="loginOverlay" class="login-overlay" style="display:none">
+<div id="loginOverlay" class="login-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
   <div class="login-box">
     <div class="login-mark">🔐</div>
-    <div id="loginForm">
-      <div class="login-title">تسجيل الدخول</div>
+    <!-- نموذج حقيقي: Enter يُرسل أصلياً (onsubmit يمنع الافتراضي ويستدعي doLogin) -->
+    <form id="loginForm" novalidate onsubmit="event.preventDefault();doLogin();return false">
+      <div class="login-title" id="loginTitle">تسجيل الدخول</div>
       <p class="login-sub">أداة مزامنة المخزون — ASJ</p>
       <div class="login-field">
         <label for="loginEmail">البريد الإلكتروني</label>
-        <input type="email" id="loginEmail" dir="ltr" placeholder="name@asj.com" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+        <input type="email" id="loginEmail" dir="ltr" placeholder="name@asj.com" autocomplete="username" aria-describedby="loginErr">
       </div>
       <div class="login-field">
         <label for="loginPass">كلمة المرور</label>
         <div class="pass-wrap">
-          <input type="password" id="loginPass" dir="ltr" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-          <button type="button" class="pass-eye" id="loginEye" onclick="togglePass('loginPass','loginEye')" aria-label="إظهار/إخفاء كلمة المرور" title="إظهار/إخفاء">👁</button>
+          <input type="password" id="loginPass" dir="ltr" placeholder="••••••••" autocomplete="current-password" aria-describedby="loginErr">
+          <button type="button" class="pass-eye" id="loginEye" onclick="togglePass('loginPass','loginEye')" aria-pressed="false" aria-label="إظهار كلمة المرور" title="إظهار كلمة المرور">👁</button>
         </div>
       </div>
-      <button class="btn-run" id="loginBtn" onclick="doLogin()">دخول</button>
-      <div id="loginErr" class="login-err"></div>
+      <button type="submit" class="btn-run" id="loginBtn">دخول</button>
+      <div id="loginErr" class="login-err" role="alert"></div>
       <button type="button" class="login-link" id="forgotBtn" onclick="forgotPassword()">نسيت كلمة المرور؟</button>
-    </div>
-    <div id="recoverForm" style="display:none">
-      <div class="login-title">تعيين كلمة مرور جديدة</div>
+    </form>
+    <form id="recoverForm" novalidate style="display:none" onsubmit="event.preventDefault();setNewPassword();return false">
+      <div class="login-title" id="recoverTitle">تعيين كلمة مرور جديدة</div>
       <p class="login-sub">أدخل كلمة المرور الجديدة لحسابك</p>
       <div class="login-field">
         <label for="newPass">كلمة المرور الجديدة</label>
         <div class="pass-wrap">
-          <input type="password" id="newPass" dir="ltr" placeholder="6 أحرف على الأقل" autocomplete="new-password" onkeydown="if(event.key==='Enter')setNewPassword()">
-          <button type="button" class="pass-eye" id="newEye" onclick="togglePass('newPass','newEye')" aria-label="إظهار/إخفاء كلمة المرور" title="إظهار/إخفاء">👁</button>
+          <input type="password" id="newPass" dir="ltr" placeholder="6 أحرف على الأقل" autocomplete="new-password" aria-describedby="recoverErr">
+          <button type="button" class="pass-eye" id="newEye" onclick="togglePass('newPass','newEye')" aria-pressed="false" aria-label="إظهار كلمة المرور" title="إظهار كلمة المرور">👁</button>
         </div>
       </div>
-      <button class="btn-run" id="newPassBtn" onclick="setNewPassword()">حفظ كلمة المرور</button>
-      <div id="recoverErr" class="login-err"></div>
-    </div>
+      <button type="submit" class="btn-run" id="newPassBtn">حفظ كلمة المرور</button>
+      <div id="recoverErr" class="login-err" role="alert"></div>
+    </form>
   </div>
 </div>
 
@@ -1321,7 +1333,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "0816f0f";
+const APP_VERSION = "4fe3a44";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1530,12 +1542,12 @@ function initSupabase() {
 async function doLogin() {
   const email = document.getElementById("loginEmail").value.trim(), pass = document.getElementById("loginPass").value;
   const err = document.getElementById("loginErr"), btn = document.getElementById("loginBtn");
-  if (!email || !pass) { err.textContent = "أدخل البريد وكلمة المرور."; return; }
-  if (!sb) { err.textContent = "لم تُحمّل مكتبة Supabase — تحقّق من الاتصال."; return; }
-  err.textContent = ""; btn.disabled = true; btn.textContent = "جارٍ الدخول…";
+  if (!email || !pass) { setLoginMsg(err, "أدخل البريد وكلمة المرور."); return; }
+  if (!sb) { setLoginMsg(err, "لم تُحمّل مكتبة Supabase — تحقّق من الاتصال."); return; }
+  setLoginMsg(err, ""); btn.disabled = true; btn.setAttribute("aria-busy", "true"); btn.textContent = "جارٍ الدخول…";
   try { const { error } = await sb.auth.signInWithPassword({ email, password: pass }); if (error) throw error; }
-  catch (e) { err.textContent = "فشل الدخول: " + (e.message || e); }
-  btn.disabled = false; btn.textContent = "دخول";
+  catch (e) { setLoginMsg(err, "فشل الدخول: " + (e.message || e)); }
+  btn.disabled = false; btn.removeAttribute("aria-busy"); btn.textContent = "دخول";
 }
 async function doLogout() { if (sb) await sb.auth.signOut(); }
 // زر الخروج في قاع القائمة الجانبية — نفس signOut مع تأكيد خفيف لتفادي الضغط الخاطئ
@@ -1702,7 +1714,13 @@ function togglePass(inputId, eyeId) {
   const inp = document.getElementById(inputId), eye = document.getElementById(eyeId); if (!inp) return;
   const show = inp.type === "password";
   inp.type = show ? "text" : "password";
-  if (eye) { eye.textContent = show ? "🙈" : "👁"; eye.classList.toggle("on", show); }
+  if (eye) {
+    eye.textContent = show ? "🙈" : "👁"; eye.classList.toggle("on", show);
+    // زر تبديل: الحالة تُعلَن بـaria-pressed والتسمية تصف الإجراء القادم
+    eye.setAttribute("aria-pressed", show ? "true" : "false");
+    const lbl = show ? "إخفاء كلمة المرور" : "إظهار كلمة المرور";
+    eye.setAttribute("aria-label", lbl); eye.title = lbl;
+  }
   inp.focus();
 }
 
@@ -1710,29 +1728,30 @@ function togglePass(inputId, eyeId) {
 async function forgotPassword() {
   const email = document.getElementById("loginEmail").value.trim();
   const err = document.getElementById("loginErr");
-  if (!sb) { err.style.color = ""; err.textContent = "لم تُحمّل مكتبة Supabase — تحقّق من الاتصال."; return; }
-  if (!email) { err.style.color = ""; err.textContent = "أدخل بريدك الإلكتروني في الحقل أعلاه ثم اضغط «نسيت كلمة المرور؟»."; return; }
+  if (!sb) { setLoginMsg(err, "لم تُحمّل مكتبة Supabase — تحقّق من الاتصال."); return; }
+  if (!email) { setLoginMsg(err, "أدخل بريدك الإلكتروني في الحقل أعلاه ثم اضغط «نسيت كلمة المرور؟»."); return; }
   const btn = document.getElementById("forgotBtn"); btn.disabled = true;
-  err.style.color = ""; err.textContent = "جارٍ إرسال رابط إعادة التعيين…";
+  setLoginMsg(err, "جارٍ إرسال رابط إعادة التعيين…");
   try {
     const redirectTo = window.location.href.split("#")[0].split("?")[0];   // نفس صفحة الأداة (يجب إضافتها في Supabase → Redirect URLs)
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
-    err.style.color = "#8fbf98"; err.textContent = "✓ أُرسل رابط إعادة التعيين إلى بريدك — افتحه من نفس المتصفح لتعيين كلمة مرور جديدة.";
-  } catch (e) { err.style.color = ""; err.textContent = "تعذّر الإرسال: " + (e.message || e); }
+    setLoginMsg(err, "✓ أُرسل رابط إعادة التعيين إلى بريدك — افتحه من نفس المتصفح لتعيين كلمة مرور جديدة.", true);
+  } catch (e) { setLoginMsg(err, "تعذّر الإرسال: " + (e.message || e)); }
   btn.disabled = false;
 }
 function showRecover() {
   const lf = document.getElementById("loginForm"), rf = document.getElementById("recoverForm");
   if (lf) lf.style.display = "none"; if (rf) rf.style.display = "";
+  const ov = document.getElementById("loginOverlay"); if (ov) ov.setAttribute("aria-labelledby", "recoverTitle");
   showLogin(); const np = document.getElementById("newPass"); if (np) np.focus();
 }
 async function setNewPassword() {
   const pass = document.getElementById("newPass").value, err = document.getElementById("recoverErr");
-  if (!pass || pass.length < 6) { err.style.color = ""; err.textContent = "كلمة المرور 6 أحرف على الأقل."; return; }
-  if (!sb) { err.textContent = "لم تُحمّل مكتبة Supabase."; return; }
-  const btn = document.getElementById("newPassBtn"); btn.disabled = true; btn.textContent = "جارٍ الحفظ…";
-  err.style.color = ""; err.textContent = "";
+  if (!pass || pass.length < 6) { setLoginMsg(err, "كلمة المرور 6 أحرف على الأقل."); return; }
+  if (!sb) { setLoginMsg(err, "لم تُحمّل مكتبة Supabase."); return; }
+  const btn = document.getElementById("newPassBtn"); btn.disabled = true; btn.setAttribute("aria-busy", "true"); btn.textContent = "جارٍ الحفظ…";
+  setLoginMsg(err, "");
   try {
     const { error } = await sb.auth.updateUser({ password: pass });
     if (error) throw error;
@@ -1740,15 +1759,43 @@ async function setNewPassword() {
     document.getElementById("recoverForm").style.display = "none";
     document.getElementById("loginForm").style.display = "";
     document.getElementById("newPass").value = "";
+    const ov = document.getElementById("loginOverlay"); if (ov) ov.setAttribute("aria-labelledby", "loginTitle");
     hideLogin(); const lb = document.getElementById("logoutBtn"); if (lb) lb.style.display = "";
     loadMappingsFromDB(); showToast("✓ حُدّثت كلمة المرور بنجاح — تم تسجيل دخولك.");
-  } catch (e) { err.style.color = ""; err.textContent = "تعذّر الحفظ: " + (e.message || e); }
-  btn.disabled = false; btn.textContent = "حفظ كلمة المرور";
+  } catch (e) { setLoginMsg(err, "تعذّر الحفظ: " + (e.message || e)); }
+  btn.disabled = false; btn.removeAttribute("aria-busy"); btn.textContent = "حفظ كلمة المرور";
 }
 // متابعة بلا اتصال: يُغلق شاشة الدخول ويعمل بالنسخة المحلية للقراءة فقط (الكتابة معطّلة، شارة 🔴)
 function continueOffline() { hideLogin(); dbOnline = false; setDbBadge(false, "وضع محلي"); }
-function showLogin() { const o = document.getElementById("loginOverlay"); if (o) o.style.display = "flex"; }
+// رسائل شاشتَي الدخول/الاسترجاع: اللون من التوكنات (يتبع الثيم) لا من style مضمّن، والعنصر role=alert فيُعلَن فور تغيّره
+function setLoginMsg(el, text, ok) {
+  if (!el) return;
+  el.style.color = "";                    // يزيل أي لون مضمّن قديم فتسري --login-err/--login-ok
+  el.classList.toggle("ok", !!ok);
+  el.textContent = text;
+}
+function showLogin() {
+  const o = document.getElementById("loginOverlay"); if (!o) return;
+  o.style.display = "flex";
+  // نقل التركيز إلى أول حقل — إلا إذا كانت شاشة الاسترجاع هي الظاهرة (showRecover يركّز newPass بنفسه)
+  const lf = document.getElementById("loginForm"), em = document.getElementById("loginEmail");
+  if (em && lf && lf.style.display !== "none") setTimeout(() => em.focus(), 0);
+}
 function hideLogin() { const o = document.getElementById("loginOverlay"); if (o) o.style.display = "none"; }
+// حصر التركيز داخل طبقة الدخول: Tab لا يخرج إلى التطبيق المغطّى خلفها
+function trapLoginFocus(e) {
+  if (e.key !== "Tab") return;
+  const o = document.getElementById("loginOverlay");
+  if (!o || getComputedStyle(o).display === "none") return;
+  const f = Array.from(o.querySelectorAll("input, button, select, textarea, a[href]"))
+    .filter(el => !el.disabled && el.offsetWidth > 0 && el.offsetHeight > 0);
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (!o.contains(document.activeElement)) { e.preventDefault(); first.focus(); return; }
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+document.addEventListener("keydown", trapLoginFocus);
 
 // تحميل الروابط من القاعدة واعتمادها مصدر الحقيقة؛ عند الفشل ⇒ وضع عدم الاتصال (قراءة محلية، منع الكتابة)
 async function loadMappingsFromDB() {
