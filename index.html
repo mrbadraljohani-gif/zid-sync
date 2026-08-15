@@ -8,7 +8,9 @@
 <link rel="apple-touch-icon" href="asj-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+<!-- Amiri للشعار والعناوين · IBM Plex Sans Arabic للواجهة (عربي ＋ لاتيني من عائلة واحدة).
+     أُزيل Playfair Display: لا يحوي محارف عربية إطلاقاً فكان تحميلاً بلا أثر. -->
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>try{var _t=localStorage.getItem("zid-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
@@ -34,7 +36,9 @@
     --login-err: #e08a8a;   /* 6.88:1 على #1c1810 */
     --login-ok: #8fbf98;    /* 8.48:1 على #1c1810 */
     --login-link: var(--gold-2);
-    --serif: 'Amiri', 'Playfair Display', Georgia, 'Times New Roman', serif;
+    --serif: 'Amiri', Georgia, 'Times New Roman', serif;                       /* الشعار والعناوين */
+    --sans: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, system-ui, sans-serif;  /* كل نص الواجهة */
+    --mono: ui-monospace, Consolas, monospace;                                  /* الأكواد والـSKU */
   }
   /* ===== الوضع الفاتح ===== */
   :root[data-theme="light"] {
@@ -96,7 +100,11 @@
   :root[data-theme="light"] .mini.bind { color: #fff8ec; }   /* الذهبي في الفاتح غامق ⇒ النص فاتح فوقه */
   * { box-sizing: border-box; }
   body {
-    font-family: 'Segoe UI', Tahoma, system-ui, sans-serif;
+    font-family: var(--sans);
+    /* Amiri له وزنان (400/700) وPlex Arabic يصل إلى 700 — بلا هذا السطر تُصنّع
+       المتصفحات وزن 800 المطلوب في بعض القواعد فيخرج العربي عريضاً مشوّهاً.
+       المنع يجعلها تختار 700 الحقيقي بدل التزوير. */
+    font-synthesis-weight: none;
     color: var(--text);
     margin: 0;
     padding: 0;
@@ -169,7 +177,7 @@
   .acc-status-row { display: flex; flex-wrap: wrap; gap: 10px; }
   .acc-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
   .acc-stat { flex: 1 1 120px; text-align: center; padding: 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); }
-  .acc-stat b { display: block; font-size: 24px; font-weight: 800; color: var(--gold-2); font-family: var(--serif); }
+  .acc-stat b { display: block; font-size: 24px; font-weight: 700; color: var(--gold-2); font-family: var(--serif); }
   .acc-stat span { font-size: 12px; color: var(--muted); font-weight: 600; }
   .acc-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-top: 12px; }
   .signup-card { max-width: 460px; }
@@ -520,7 +528,7 @@
   .login-box { width: 380px; max-width: 94vw; background: #1c1810; border: 1px solid var(--border-strong); border-radius: 18px; padding: 26px 24px; box-shadow: 0 24px 60px rgba(0,0,0,.6); text-align: center; }
   :root[data-theme="light"] .login-box { background: #fffdf7; }
   .login-mark { font-size: 40px; margin-bottom: 6px; }
-  .login-title { font-family: var(--serif); font-size: 21px; font-weight: 800; color: var(--gold-2); }
+  .login-title { font-family: var(--serif); font-size: 21px; font-weight: 700; color: var(--gold-2); }   /* 700 = أثقل وزن حقيقي في Amiri */
   .login-sub { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin: 8px 0 18px; }
   .login-field { text-align: right; margin-bottom: 14px; }
   .login-field label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin: 0 3px 6px; }
@@ -653,7 +661,7 @@
   .mc-sku { font-size: 12px; color: var(--muted); margin-top: 3px; text-align: start; }
   .mc-sku span { font-family: ui-monospace, Consolas, monospace; }
   .mc-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
-  .mc-auto { display: inline-block; margin-inline-start: 6px; padding: 1px 7px; border-radius: 20px; font-size: 10px; font-weight: 800; background: rgba(147,162,181,.16); color: var(--info); border: 1px solid rgba(147,162,181,.4); font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
+  .mc-auto { display: inline-block; margin-inline-start: 6px; padding: 1px 7px; border-radius: 20px; font-size: 10px; font-weight: 800; background: rgba(147,162,181,.16); color: var(--info); border: 1px solid rgba(147,162,181,.4); font-family: var(--sans); direction: rtl; }
   .mc-mid { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 0 6px; border-inline: 1px dashed var(--border); }
   .mc-mid .simbadge { margin: 0; font-size: 14px; padding: 3px 12px; }
   .mc-mid .pbadge { margin: 0; }
@@ -723,8 +731,8 @@
   .parent-badge { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(133,123,100,.18); color: var(--muted); border: 1px solid var(--muted-2); }
   .col-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
   .col-pill b { color: var(--danger); font-family: ui-monospace, Consolas, monospace; }
-  .col-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(229,144,135,.18); color: var(--danger); border: 1px solid rgba(229,144,135,.5); font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
-  .sess-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(230,197,111,.16); color: var(--gold-2); border: 1px solid var(--border-strong); font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
+  .col-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(229,144,135,.18); color: var(--danger); border: 1px solid rgba(229,144,135,.5); font-family: var(--sans); direction: rtl; }
+  .sess-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(230,197,111,.16); color: var(--gold-2); border: 1px solid var(--border-strong); font-family: var(--sans); direction: rtl; }
   tr.row-excluded { opacity: .45; }
   tr.row-excluded:hover { opacity: .7; }
   .sess-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: 700; color: var(--gold-2); background: rgba(230,197,111,.10); border: 1px solid var(--border-strong); }
@@ -788,9 +796,9 @@
   .cat-abs { background: rgba(201,154,60,.16); color: var(--gold-2); }
   .cat-wait { background: rgba(201,154,60,.10); color: var(--gold); }
   .reactivated-msg { background: rgba(157,208,166,.14); border: 1px solid rgba(157,208,166,.5); color: var(--green-2); border-radius: 12px; padding: 11px 15px; margin-bottom: 14px; font-weight: 700; font-size: 13.5px; line-height: 1.7; }
-  .wait-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(201,154,60,.14); color: var(--gold-2); border: 1px solid var(--border-strong); font-family: 'Segoe UI', Tahoma, sans-serif; }
-  .pub-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(157,208,166,.16); color: var(--green-2); border: 1px solid rgba(157,208,166,.5); font-family: 'Segoe UI', Tahoma, sans-serif; }
-  .zero-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(147,162,181,.16); color: var(--info); border: 1px solid rgba(147,162,181,.45); font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
+  .wait-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(201,154,60,.14); color: var(--gold-2); border: 1px solid var(--border-strong); font-family: var(--sans); }
+  .pub-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(157,208,166,.16); color: var(--green-2); border: 1px solid rgba(157,208,166,.5); font-family: var(--sans); }
+  .zero-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(147,162,181,.16); color: var(--info); border: 1px solid rgba(147,162,181,.45); font-family: var(--sans); direction: rtl; }
   .opt-num { min-width: 0; width: 68px; padding: 6px 8px; font-size: 13px; text-align: center; }
   .dist-tag { cursor: help; font-size: 14px; }
   .from-merge { color: #9dd0a6; font-weight: 800; }
@@ -842,8 +850,8 @@
   .exp-chip.zero-btn { margin-inline-start: auto; border-color: rgba(107,147,192,.6); color: var(--info); background: rgba(107,147,192,.08); }
   .exp-chip.zero-btn:hover { border-color: #6b93c0; }
   .un-note { margin-inline-start: auto; font-size: 11px; font-weight: 700; color: var(--muted-2); cursor: help; }
-  .managed-tag { display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--muted-2); background: rgba(140,150,160,.12); border: 1px solid var(--border); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: 'Segoe UI', Tahoma, sans-serif; }
-  .drift-tag { display: inline-block; font-size: 10.5px; font-weight: 800; color: var(--amber); background: rgba(230,163,74,.14); border: 1px solid rgba(230,163,74,.5); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  .managed-tag { display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--muted-2); background: rgba(140,150,160,.12); border: 1px solid var(--border); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: var(--sans); }
+  .drift-tag { display: inline-block; font-size: 10.5px; font-weight: 800; color: var(--amber); background: rgba(230,163,74,.14); border: 1px solid rgba(230,163,74,.5); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: var(--sans); }
   /* المستكشف الشامل (بطاقة إجمالي الأسطر) */
   .exp-bar { position: sticky; top: 0; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 9px 15px; padding: 11px; background: var(--panel); border-bottom: 1px solid var(--border); }
   .exp-search { flex: 1 1 220px; min-width: 170px; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 10px; padding: 8px 12px; color: var(--text); font: inherit; font-size: 13px; }
@@ -1370,7 +1378,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "6be4103";
+const APP_VERSION = "a28868d";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
