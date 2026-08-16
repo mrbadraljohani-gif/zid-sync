@@ -90,10 +90,20 @@
   :root[data-theme="light"] .btn-run:disabled { background: rgba(42,34,22,.06); }
   :root[data-theme="light"] input[type=text],
   :root[data-theme="light"] input[type=password],
-  :root[data-theme="light"] input[type=number] { background: rgba(42,34,22,.04); }
+  :root[data-theme="light"] input[type=number],
+  :root[data-theme="light"] input[type=search],
+  :root[data-theme="light"] input[type=email],
+  :root[data-theme="light"] input[type=url],
+  :root[data-theme="light"] input[type=tel],
+  :root[data-theme="light"] textarea { background: rgba(42,34,22,.04); }
   :root[data-theme="light"] input[type=text]:focus,
   :root[data-theme="light"] input[type=password]:focus,
-  :root[data-theme="light"] input[type=number]:focus { background: rgba(42,34,22,.07); }
+  :root[data-theme="light"] input[type=number]:focus,
+  :root[data-theme="light"] input[type=search]:focus,
+  :root[data-theme="light"] input[type=email]:focus,
+  :root[data-theme="light"] input[type=url]:focus,
+  :root[data-theme="light"] input[type=tel]:focus,
+  :root[data-theme="light"] textarea:focus { background: rgba(42,34,22,.07); }
   /* نصوص أزرار التعبئة الذهبية/الخضراء تصبح فاتحة لتباين أعلى فوق التدرّج الأغمق في الوضع الفاتح */
   :root[data-theme="light"] .btn-run:not(:disabled),
   :root[data-theme="light"] .step,
@@ -942,12 +952,22 @@
   details#ignoredCard summary::-webkit-details-marker { display: none; }
   details#ignoredCard[open] summary { color: var(--text); }
   #ignoredBody td { font-size: 14px; }
-  input[type=text], input[type=password], input[type=number] {
+  /* تنسيق موحّد لكل حقول الإدخال النصّية. يشمل search وemail وurl وtel وtextarea
+     — بلا ذلك يرث type=search إطار المتصفح الافتراضي (2px inset · زوايا حادّة · بلا حشو). */
+  input[type=text], input[type=password], input[type=number],
+  input[type=search], input[type=email], input[type=url], input[type=tel], textarea {
     padding: 11px 13px; border-radius: 10px; border: 1px solid var(--border-strong); font-size: 14px;
-    background: rgba(255,255,255,.04); color: var(--text); outline: none; flex: 1; min-width: 150px; font-family: inherit; transition: border-color .15s;
+    background: rgba(255,255,255,.04); color: var(--text); outline: none; flex: 1; min-width: 150px; font-family: inherit; transition: border-color .15s, box-shadow .15s;
+    -webkit-appearance: none; appearance: none; box-sizing: border-box;
   }
-  input::placeholder { color: var(--muted-2); }
-  input[type=text]:focus, input[type=password]:focus, input[type=number]:focus { border-color: var(--gold); background: rgba(255,255,255,.06); }
+  /* زرّ المسح الافتراضي في حقول البحث (يرسمه المتصفح بلون خارج الثيم) */
+  input[type=search]::-webkit-search-decoration,
+  input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; }
+  input::placeholder, textarea::placeholder { color: var(--muted-2); }
+  input[type=text]:focus, input[type=password]:focus, input[type=number]:focus,
+  input[type=search]:focus, input[type=email]:focus, input[type=url]:focus, input[type=tel]:focus, textarea:focus {
+    border-color: var(--gold); background: rgba(255,255,255,.06); box-shadow: 0 0 0 3px rgba(230,197,111,.18);
+  }
   .off-inline { min-width: 0; width: 96px; padding: 6px 9px; font-size: 13px; text-align: center; }
   .maprow { display: flex; gap: 8px; flex-wrap: wrap; }
   .map-counter { display: inline-flex; align-items: center; gap: 8px; background: rgba(230,197,111,.10); border: 1px solid rgba(230,197,111,.35); border-radius: 20px; padding: 7px 15px; font-size: 13.5px; font-weight: 700; color: var(--gold-2); margin-bottom: 12px; }
@@ -1413,7 +1433,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "bf87b79";
+const APP_VERSION = "f7fa7b1";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
