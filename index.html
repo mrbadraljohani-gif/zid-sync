@@ -98,7 +98,6 @@
   :root[data-theme="light"] .btn-run:not(:disabled),
   :root[data-theme="light"] .step,
   :root[data-theme="light"] .chip.on,
-  :root[data-theme="light"] .stage-n,
   :root[data-theme="light"] .exp-chip.on,
   :root[data-theme="light"] .mc-btn.bind.gold,
   :root[data-theme="light"] .mini.bind { color: #fff8ec; }   /* الذهبي في الفاتح غامق ⇒ النص فاتح فوقه */
@@ -351,7 +350,9 @@
 
   /* Section rhythm */
   .section-head { display: flex; align-items: center; gap: 12px; margin: 26px 2px 14px; }
-  .section-head .n { width: 28px; height: 28px; border-radius: 9px; background: var(--panel-2); border: 1px solid var(--border-strong); color: var(--gold); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  /* شارة ترقيم واحدة لكل الصفحات: أقسام الرئيسية (.n) ومراحل صفحة التحديث (.stage-n) */
+  .section-head .n,
+  .stage-n { width: 28px; height: 28px; border-radius: 9px; background: var(--panel-2); border: 1px solid var(--border-strong); color: var(--gold); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .section-head h2 { font-family: var(--serif); font-size: 19px; margin: 0; font-weight: 700; }
   .section-head .line { flex: 1; height: 1px; background: linear-gradient(to left, var(--border-strong), transparent); }
   .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin-bottom: 14px; }
@@ -411,7 +412,7 @@
   .amber-txt { color: var(--amber); }
   .info-txt { color: var(--info); }
   .text-txt { color: var(--text); }
-  .stage-n { width: 25px; height: 25px; border-radius: 8px; background: linear-gradient(120deg, var(--gold-2), var(--gold)); color: #1a160f; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  /* .stage-n تُنسَّق الآن مع .section-head .n في قاعدة واحدة (شارة ترقيم موحّدة) */
   .stage-sub { color: var(--muted); font-size: 12px; font-weight: 600; }
   .stage-card .grid2 { margin-bottom: 0; }
   .upload.block { max-width: none; }
@@ -1047,6 +1048,7 @@
   <div class="section-head"><span class="n">١</span><h2>الجاهزية</h2><span class="line"></span></div>
   <div class="ready-bar" id="readyBar"></div>
 
+  <div class="section-head"><span class="n">٢</span><h2>طابق وأنشئ الملف المحدث</h2><span class="line"></span></div>
   <button class="btn-run" id="runBtn" disabled onclick="runFromDB()">🔄 طابق وأنشئ الملف المحدث</button>
   <div class="rebind-hint" id="rebindHint" style="display:none">⟳ عدّلت الروابط بعد آخر مطابقة — اضغط «طابق وأنشئ الملف المحدث» ليشمل الملفُ التغييرات قبل التحميل.</div>
   <div class="error" id="err"></div>
@@ -1134,7 +1136,7 @@
     <div id="resyncWarn" class="zid-stale-warn" style="display:none;margin-bottom:14px"></div>
 
     <div class="card stage-card">
-      <div class="stage-head"><span class="stage-n">أ</span><b>المستودع والفرع</b><span class="stage-sub">جدولان مستقلان — حدّث كلاً على حدة؛ يُوحّدان عند المطابقة (اتحاد بجمع الكميات)</span></div>
+      <div class="stage-head"><span class="stage-n">١</span><b>المستودع والفرع</b><span class="stage-sub">جدولان مستقلان — حدّث كلاً على حدة؛ يُوحّدان عند المطابقة (اتحاد بجمع الكميات)</span></div>
       <div class="grid2">
         <label class="upload" id="whCard">
           <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeWh(this)">
@@ -1159,7 +1161,7 @@
     </div>
 
     <div class="card stage-card" style="margin-top:14px">
-      <div class="stage-head"><span class="stage-n">ب</span><b>متجر زد</b><span class="stage-sub">مستقل عن المخزن — تُنطلق المطابقة متى اكتمل المخزن ＋ زد</span></div>
+      <div class="stage-head"><span class="stage-n">٢</span><b>متجر زد</b><span class="stage-sub">مستقل عن المخزن — تُنطلق المطابقة متى اكتمل المخزن ＋ زد</span></div>
       <div id="zidDbPanel" class="zid-db" style="display:none">
         <div class="zid-db-info">
           <span class="zid-db-count">منتجات زد من القاعدة: <b id="zidDbCount">0</b> صنف</span>
@@ -1386,7 +1388,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "a0c2942";
+const APP_VERSION = "ebb455d";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
