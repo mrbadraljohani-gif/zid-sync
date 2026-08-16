@@ -396,11 +396,11 @@
   /* هدف لمس ≥32×32 لكل الأزرار المضغوطة المشتركة (قاعدة واحدة بدل تعديل كل زرّ).
      inline-flex ＋ توسيط يحفظ الشكل، وpadding الأصلي يبقى هو المتحكّم في العرض. */
   .mini-btn, .mini, .exp-chip, .chip, .bt-tab, .mc-btn, .batch-close,
-  .theme-btn, .notif-btn, .hamburger, .side-toggle, .su-logout, .login-link, .pass-eye {
+  .theme-btn, .notif-btn, .hamburger, .su-logout, .login-link, .pass-eye {
     min-height: 32px; min-width: 32px;
   }
-  /* التوسيط منفصل: .hamburger و.side-toggle يتحكّم استعلام الوسائط في display عندهما
-     (none/inline-flex حسب العرض) فلا يجوز أن تفرضه هذه القاعدة عليهما */
+  /* التوسيط منفصل: .hamburger يتحكّم استعلام الوسائط في display عنده
+     (none/inline-flex حسب العرض) فلا يجوز أن تفرضه هذه القاعدة عليه */
   .mini-btn, .mini, .exp-chip, .chip, .bt-tab, .mc-btn, .batch-close,
   .theme-btn, .notif-btn, .su-logout, .login-link, .pass-eye {
     display: inline-flex; align-items: center; justify-content: center; gap: 5px;
@@ -1389,7 +1389,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "e28c18e";
+const APP_VERSION = "829daac";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1670,10 +1670,6 @@ function toggleSidebar() {
   if (c) c.classList.toggle("show", open);
   const h = document.querySelector(".hamburger"); if (h) h.setAttribute("aria-expanded", open ? "true" : "false");
 }
-// طيّ القائمة كان خاصاً بالتخطيط الجانبي؛ بعد التحوّل لشريط علوي لم يعد له معنى.
-// أُبقيت الدالتان فارغتين لأن الإقلاع يستدعي applySidebarCollapsed.
-function toggleSidebarCollapse() {}
-function applySidebarCollapsed() {}
 // بطاقة بريد المستخدم في القائمة الجانبية (من جلسة Supabase) — تختفي بلا جلسة
 function renderSideUser() {
   const el = document.getElementById("sideUser"), em = document.getElementById("sideUserEmail");
@@ -2629,7 +2625,6 @@ function repoStatus(cls, msg) {
 }
 // تبديل الوضع الفاتح/الغامق (يُحفظ الاختيار)
 const THEME_KEY = "zid-theme";
-const SIDEBAR_KEY = "zid-sidebar-collapsed";
 function currentTheme() { return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark"; }
 function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
@@ -4856,7 +4851,6 @@ function renderFingerprint() {
 
 applyOpts();
 applyTheme(currentTheme());   // ضبط أيقونة زر الوضع حسب الحالة المحفوظة
-applySidebarCollapsed();       // آخر وضع طيّ للقائمة الجانبية
 renderSideUser();              // بطاقة بريد المستخدم (تظهر عند توفّر جلسة)
 applyRoleUI();                 // إخفاء «مستخدم جديد» حتى يُحمّل الدور (يظهر للمالك بعد loadMyRole)
 renderReadiness(); renderInvCards();   // حالة أولية (تُحدَّث بعد loadInventoryMeta)
