@@ -135,14 +135,9 @@
     border: 1px solid var(--border); box-shadow: 0 10px 34px rgba(0,0,0,.34); }
   :root[data-theme="light"] .tn-bar { background: linear-gradient(180deg, rgba(150,108,24,.05), transparent 60%), rgba(255,253,247,.93);
     box-shadow: 0 10px 30px rgba(120,90,20,.13); }
-  .side-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-  .side-mark { width: 38px; height: 38px; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-    background: radial-gradient(circle at 34% 26%, #1e1a12, #14110c); box-shadow: 0 3px 12px rgba(0,0,0,.4), 0 0 0 1.5px rgba(230,197,111,.6); }
-  :root[data-theme="light"] .side-mark { background: radial-gradient(circle at 34% 26%, #fffdf9, #efe7d6); box-shadow: 0 3px 12px rgba(120,90,20,.16), 0 0 0 1.5px rgba(150,108,24,.5); }
-  .side-mark img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.24) translateY(1.5%); filter: invert(1) hue-rotate(180deg); }
-  :root[data-theme="light"] .side-mark img { filter: none; }
-  .side-mark svg { width: 100%; height: 100%; color: var(--gold-2); }
-  .side-brand-txt { display: flex; flex-direction: column; line-height: 1; }
+  .side-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; text-decoration: none; border-radius: 10px; }
+  .side-brand:hover .side-brand-txt span { color: var(--gold-2); }
+  .side-brand-txt { display: flex; flex-direction: column; line-height: 1; transition: color .15s; }
   .side-brand-txt b { font-family: var(--serif); font-size: 19px; letter-spacing: .16em; background: linear-gradient(120deg, var(--gold-2), var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .side-brand-txt span { font-size: 8px; letter-spacing: .28em; color: var(--muted); text-transform: uppercase; margin-top: 4px; direction: ltr; }
   /* الروابط في المنتصف: هامش تلقائي على الجانبين يدفع الشعار يميناً والإجراءات يساراً */
@@ -988,17 +983,10 @@
   <!-- شريط تنقّل علوي عائم: الشعار يميناً · الروابط وسطاً · الإجراءات يساراً (RTL) -->
   <header class="topnav">
    <div class="tn-bar">
-    <div class="side-brand">
-      <span class="side-mark">
-        <img src="asj-logo.png" alt="ASJ" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-        <svg viewBox="0 0 100 100" style="display:none" aria-label="ASJ">
-          <circle cx="50" cy="50" r="48.5" fill="none" stroke="currentColor" stroke-width="0.9" opacity=".65"/>
-          <path fill="currentColor" fill-rule="evenodd" d="M50 8 L12 44 L26 44 L26 78 L74 78 L74 44 L88 44 Z M40 78 L40 56 L50 40 L60 56 L60 78 Z"/>
-          <path fill="currentColor" d="M50 46 L45 55 L55 55 Z"/>
-        </svg>
-      </span>
-      <div class="side-brand-txt"><b>ASJ</b><span>Inventory Sync</span></div>
-    </div>
+    <!-- شعار واحد: النصّ نفسه هو رابط الرئيسية (أُزيلت الأيقونة الدائرية المكرّرة) -->
+    <a class="side-brand" href="#home" aria-label="الرئيسية" onclick="event.preventDefault();goPage('home')">
+      <span class="side-brand-txt"><b>ASJ</b><span>Inventory Sync</span></span>
+    </a>
     <nav class="side-nav" id="sidebar" aria-label="التنقّل الرئيسي">
       <button type="button" class="side-link active" aria-current="page" data-page="home" onclick="goPage('home')"><span class="si">🏠</span><span class="sl">الرئيسية</span></button>
       <button type="button" class="side-link" data-page="db" onclick="goPage('db')"><span class="si">🔄</span><span class="sl">تحديث قاعدة البيانات</span></button>
@@ -1398,7 +1386,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "eb20d44";
+const APP_VERSION = "a0c2942";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
