@@ -1408,7 +1408,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "3da8e99";
+const APP_VERSION = "d80f726";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -3896,22 +3896,6 @@ function toggleUnpublish(sku, on) {
   if (on) unpublishSet.add(String(sku)); else unpublishSet.delete(String(sku));
   if (on) logActivity("unpublish_added", sku, null);
   run(true);
-}
-function toggleZero(sku, on) {
-  const k = String(sku);
-  if (on) zeroSelected.add(k); else zeroSelected.delete(k);
-  const n = document.getElementById("zeroN"); if (n) n.textContent = zeroSelected.size;
-}
-function selectVisibleZero() {   // يطبّق على المعروض فقط (بعد البحث)
-  document.querySelectorAll("#unBody input.zero-chk").forEach(c => {
-    const tr = c.closest("tr");
-    if (tr && tr.style.display !== "none") { c.checked = true; toggleZero(c.dataset.sku, true); }
-  });
-}
-function clearZeroSel() {
-  zeroSelected = new Set();
-  document.querySelectorAll("#unBody input.zero-chk").forEach(c => c.checked = false);
-  const n = document.getElementById("zeroN"); if (n) n.textContent = 0;
 }
 // ملف تصفير مستقل تماماً: نموذج الكميات الرسمي، المحدد فقط بكمية 0 (لا يمس الأسعار)
 function downloadZeroAbsent() {
