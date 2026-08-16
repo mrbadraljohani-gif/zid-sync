@@ -576,6 +576,8 @@
   .su-seg .chip { border: none; border-radius: 0; }
   body.nonowner #bindAllBtn { opacity: .5; }
   .login-box .btn-run { width: 100%; margin-top: 6px; height: 46px; }
+  /* زرّ الإجراء الرئيسي في الرئيسية: عرض مضبوط وموسّط بدل امتداد كامل الحاوية */
+  #runBtn { width: 60%; min-width: 280px; margin-inline: auto; }
   .login-err { color: var(--login-err); font-size: 12.5px; margin-top: 12px; min-height: 16px; }
   .login-err.ok { color: var(--login-ok); }   /* رسائل النجاح — تُضبط بـsetLoginMsg لا بلون مضمّن */
   .login-offline { display: block; width: 100%; margin-top: 10px; background: transparent; border: none; color: var(--muted-2); font-size: 12px; cursor: pointer; text-decoration: underline; }
@@ -1387,7 +1389,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "fc7a7f2";
+const APP_VERSION = "1790544";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
