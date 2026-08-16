@@ -210,7 +210,18 @@
     background: #1c1810; border: 1px solid var(--border-strong); border-radius: 14px; padding: 10px; box-shadow: 0 18px 46px rgba(0,0,0,.5); }
   :root[data-theme="light"] .notif-panel { background: #fffdf7; border-color: rgba(150,108,24,.45); box-shadow: 0 18px 46px rgba(120,90,20,.18); }
   .notif-head { font-weight: 800; font-size: 13px; color: var(--gold-2); padding: 4px 6px 8px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
-  .notif-list { max-height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+  /* سجل النشاط: شريط تمرير رفيع بألوان الثيم ＋ تلاشٍ سفلي يدلّ على محتوى إضافي.
+     الحاوية .act-scroll تحمل التلاشي (::after ثابت) والقائمة بداخلها هي التي تمرّر. */
+  .notif-list { max-height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
+    scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+  .notif-list::-webkit-scrollbar { width: 8px; }
+  .notif-list::-webkit-scrollbar-track { background: transparent; }
+  .notif-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; }
+  .notif-list::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+  .act-scroll { position: relative; }
+  .act-scroll::after { content: ""; position: absolute; inset-inline: 0; bottom: 0; height: 42px; pointer-events: none;
+    background: linear-gradient(to top, var(--bg), transparent); opacity: .95; border-radius: 0 0 12px 12px; }
+  .act-scroll.at-end::after { opacity: 0; transition: opacity .2s; }
   .notif-empty { color: var(--muted); font-size: 12.5px; padding: 16px; text-align: center; }
   .act-item { display: flex; align-items: flex-start; gap: 9px; padding: 8px 7px; border-radius: 9px; }
   .act-item:hover { background: var(--panel); }
@@ -1285,7 +1296,7 @@
         </select>
         <button type="button" class="btn-run sm" onclick="renderActivityFull()">↻ تحديث</button>
       </div>
-      <div class="notif-list" id="activityFull" style="max-height:440px"><div class="notif-empty">…</div></div>
+      <div class="act-scroll"><div class="notif-list" id="activityFull" style="max-height:440px" onscroll="actFade(this)"><div class="notif-empty">…</div></div></div>
     </div>
     <div class="card acc-card">
       <div class="clabel">معلومات النسخة والبصمة</div>
@@ -1389,7 +1400,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "1790544";
+const APP_VERSION = "c889d60";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1724,7 +1735,17 @@ function toggleActivityPanel(e) { if (e) e.stopPropagation(); const p = document
 function openActivityPanel() { const p = document.getElementById("notifPanel"); if (!p) return; p.style.display = "block"; loadActivityInto("activityList", "", 50); setTimeout(() => document.addEventListener("click", actOutside), 0); }
 function closeActivityPanel() { const p = document.getElementById("notifPanel"); if (p) p.style.display = "none"; document.removeEventListener("click", actOutside); }
 function actOutside(e) { if (!e.target.closest(".notif-menu")) closeActivityPanel(); }
-function renderActivityFull() { const sel = document.getElementById("actFilter"); loadActivityInto("activityFull", sel ? sel.value : "", 200); }
+// التلاشي السفلي يختفي عند بلوغ نهاية القائمة (وعند غياب محتوى قابل للتمرير أصلاً)
+function actFade(el) {
+  const w = el.closest(".act-scroll"); if (!w) return;
+  const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 4;
+  w.classList.toggle("at-end", atEnd);
+}
+function renderActivityFull() {
+  const sel = document.getElementById("actFilter");
+  loadActivityInto("activityFull", sel ? sel.value : "", 200);
+  const el = document.getElementById("activityFull"); if (el) setTimeout(() => actFade(el), 60);
+}
 
 // عدّادات صفحة «الحساب والنظام» (قراءة الحالة الحالية — عرض فقط)
 function renderAccount() {
