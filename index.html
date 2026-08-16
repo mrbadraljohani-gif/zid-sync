@@ -98,6 +98,8 @@
   :root[data-theme="light"] .btn-run:not(:disabled),
   :root[data-theme="light"] .step,
   :root[data-theme="light"] .chip.on,
+  :root[data-theme="light"] .section-head .n,
+  :root[data-theme="light"] .stage-n,
   :root[data-theme="light"] .exp-chip.on,
   :root[data-theme="light"] .mc-btn.bind.gold,
   :root[data-theme="light"] .mini.bind { color: #fff8ec; }   /* الذهبي في الفاتح غامق ⇒ النص فاتح فوقه */
@@ -351,9 +353,10 @@
 
   /* Section rhythm */
   .section-head { display: flex; align-items: center; gap: 12px; margin: 26px 2px 14px; }
-  /* شارة ترقيم واحدة لكل الصفحات: أقسام الرئيسية (.n) ومراحل صفحة التحديث (.stage-n) */
+  /* شارة ترقيم واحدة لكل الصفحات: أقسام الرئيسية (.n) ومراحل صفحة التحديث (.stage-n).
+     التدرّج الذهبي محفوظ على الاثنتين؛ النص يفتح في الوضع الفاتح لأن الذهبي يغمق فيه. */
   .section-head .n,
-  .stage-n { width: 28px; height: 28px; border-radius: 9px; background: var(--panel-2); border: 1px solid var(--border-strong); color: var(--gold); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .stage-n { width: 28px; height: 28px; border-radius: 9px; background: linear-gradient(120deg, var(--gold-2), var(--gold)); border: 1px solid var(--border-strong); color: #1a160f; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .section-head h2 { font-family: var(--serif); font-size: 19px; margin: 0; font-weight: 700; }
   .section-head .line { flex: 1; height: 1px; background: linear-gradient(to left, var(--border-strong), transparent); }
   .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin-bottom: 14px; }
@@ -1389,7 +1392,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "829daac";
+const APP_VERSION = "822fff9";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
