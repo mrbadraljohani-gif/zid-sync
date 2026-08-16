@@ -36,6 +36,10 @@
     --login-err: #e08a8a;   /* 6.88:1 على #1c1810 */
     --login-ok: #8fbf98;    /* 8.48:1 على #1c1810 */
     --login-link: var(--gold-2);
+    /* عمود واحد يحكم عرض الشريط العلوي وكل الصفحات — فتتطابق حوافّها تماماً */
+    --shell-max: 1200px;
+    --shell-pad: 26px;
+    --topbar-h: 64px;
     --serif: 'Amiri', Georgia, 'Times New Roman', serif;                       /* الشعار والعناوين */
     --sans: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, system-ui, sans-serif;  /* كل نص الواجهة */
     --mono: ui-monospace, Consolas, monospace;                                  /* الأكواد والـSKU */
@@ -121,9 +125,11 @@
   /* ===== هيكل SPA: شريط تنقّل علوي عائم + صفحات تُظهر/تُخفى ===== */
   .app-shell { display: block; min-height: 100vh; max-width: 1680px; margin: 0 auto; }
   /* الشريط العائم: بطاقة مستديرة ملتصقة بأعلى الشاشة عند التمرير */
-  .topnav { position: sticky; top: 0; z-index: 100; padding: 14px 22px 4px; }
+  .topnav { position: sticky; top: 0; z-index: 100; padding: 14px var(--shell-pad) 4px; }
+  /* العرض مشتق من نفس عمود المحتوى ⇒ حافة الشريط فوق حافة البطاقات تماماً */
   .tn-bar { display: flex; align-items: center; gap: 16px; position: relative;
-    max-width: 1560px; margin: 0 auto; padding: 9px 12px 9px 16px; border-radius: 20px; box-sizing: border-box;
+    max-width: calc(var(--shell-max) - var(--shell-pad) * 2); margin: 0 auto;
+    min-height: var(--topbar-h); padding: 8px 12px 8px 16px; border-radius: 20px; box-sizing: border-box;
     background: linear-gradient(180deg, rgba(230,197,111,.06), transparent 60%), rgba(20,17,12,.88);
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border); box-shadow: 0 10px 34px rgba(0,0,0,.34); }
@@ -150,7 +156,8 @@
   /* الإجراءات في الطرف المقابل للشعار */
   .tn-actions { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
   .side-foot { margin: 0; padding: 0; border: none; }
-  .side-userrow { display: flex; align-items: center; gap: 7px; padding: 5px 9px; max-width: 200px; border-radius: 11px; border: 1px solid var(--border); background: var(--panel); overflow: hidden; }
+  /* بلا إطار ولا خلفية: كتلة المستخدم جزء من الشريط لا جزيرة عائمة داخله */
+  .side-userrow { display: flex; align-items: center; gap: 7px; padding: 0; max-width: 200px; overflow: hidden; }
   .side-userrow .su-ico { font-size: 15px; flex-shrink: 0; }
   .side-userrow .su-email { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 700; color: var(--muted); direction: ltr; text-align: start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .su-logout { flex-shrink: 0; background: transparent; border: 1px solid var(--border-strong); color: var(--gold-2); border-radius: 8px; padding: 4px 8px; font-size: 13px; line-height: 1; cursor: pointer; transition: all .15s; }
@@ -161,7 +168,7 @@
   .hamburger:hover { border-color: var(--gold); color: var(--gold); background: var(--panel); }
   .thin-theme { font-size: 15px !important; padding: 6px 11px !important; line-height: 1; }
   .db-badge.mini { font-size: 11.5px; padding: 6px 12px; }
-  .page-wrap { flex: 1 1 auto; width: 100%; max-width: 1200px; margin: 0 auto; padding: 22px 26px 40px; box-sizing: border-box; }
+  .page-wrap { width: 100%; max-width: var(--shell-max); margin: 0 auto; padding: 22px var(--shell-pad) 40px; box-sizing: border-box; }
   .page { display: none; }
   .page.active { display: block; animation: pageIn .22s ease; }
   @keyframes pageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -231,7 +238,8 @@
   }
   /* الجوال: الروابط تنسدل من تحت الشريط بزر الهمبرغر */
   @media (max-width: 860px) {
-    .topnav { padding: 10px 12px 4px; }
+    :root { --shell-pad: 15px; }   /* التوكن يضبط الشريط والصفحات معاً فتبقى الحواف متطابقة */
+    .topnav { padding: 10px var(--shell-pad) 4px; }
     .tn-bar { gap: 10px; padding: 8px 10px; }
     .hamburger { display: inline-flex; align-items: center; order: 3; }
     .side-nav { position: absolute; top: calc(100% + 8px); right: 0; left: 0; z-index: 120;
@@ -248,7 +256,7 @@
     .side-userrow .su-email { display: none; }
     .side-userrow { max-width: none; }
     .sidebar-scrim.show { display: block; position: fixed; inset: 0; z-index: 110; background: rgba(0,0,0,.5); }
-    .page-wrap { padding: 18px 15px 40px; }
+    .page-wrap { padding: 18px var(--shell-pad) 40px; }
   }
   @media (max-width: 560px) { .side-brand-txt { display: none; } .db-badge.mini { display: none; } }
   /* كل الأقسام تملأ العرض الكامل (تصميم عريض) */
@@ -1390,7 +1398,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "6cbd829";
+const APP_VERSION = "eb20d44";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
