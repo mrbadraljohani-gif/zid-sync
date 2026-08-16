@@ -126,15 +126,17 @@
   /* ===== هيكل SPA: شريط تنقّل علوي عائم + صفحات تُظهر/تُخفى ===== */
   .app-shell { display: block; min-height: 100vh; max-width: 1680px; margin: 0 auto; }
   /* الشريط العائم: بطاقة مستديرة ملتصقة بأعلى الشاشة عند التمرير */
-  .topnav { position: sticky; top: 0; z-index: 100; padding: 14px var(--shell-pad) 4px; }
+  /* خلفية معتمة من توكن السطح: المحتوى الممرَّر لا يعبر حشو الشريط ولا يظهر خلفه */
+  .topnav { position: sticky; top: 0; z-index: 100; padding: 14px var(--shell-pad) 4px; background: var(--bg); }
   /* العرض مشتق من نفس عمود المحتوى ⇒ حافة الشريط فوق حافة البطاقات تماماً */
   .tn-bar { display: flex; align-items: center; gap: 16px; position: relative;
     max-width: calc(var(--shell-max) - var(--shell-pad) * 2); margin: 0 auto;
     min-height: var(--topbar-h); padding: 8px 12px 8px 16px; border-radius: 20px; box-sizing: border-box;
-    background: linear-gradient(180deg, rgba(230,197,111,.06), transparent 60%), rgba(20,17,12,.88);
+    /* الطبقة الأخيرة معتمة (--bg) والتدرّج ＋ panel فوقها زخرفة، وblur طبقة إضافية لا بديل */
+    background: linear-gradient(180deg, rgba(230,197,111,.06), transparent 60%), linear-gradient(var(--panel-2), var(--panel-2)), var(--bg);
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border); box-shadow: 0 10px 34px rgba(0,0,0,.34); }
-  :root[data-theme="light"] .tn-bar { background: linear-gradient(180deg, rgba(150,108,24,.05), transparent 60%), rgba(255,253,247,.93);
+  :root[data-theme="light"] .tn-bar { background: linear-gradient(180deg, rgba(150,108,24,.05), transparent 60%), linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,.75)), var(--bg);
     box-shadow: 0 10px 30px rgba(120,90,20,.13); }
   .side-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; text-decoration: none; border-radius: 10px; }
   .side-brand:hover .side-brand-txt span { color: var(--gold-2); }
@@ -877,7 +879,8 @@
   .stat .stat-lbl { display: block; font-size: 11.5px; color: var(--muted); font-weight: 700; margin-top: 4px; line-height: 1.4; }
   .stat .stat-sub { display: block; font-size: 10px; color: var(--muted-2); font-weight: 700; margin-top: 5px; line-height: 1.55; }
   /* تبويبات بطاقة «بدون ربط» + شارات دورة الحياة (مُدار/انحرف) */
-  .un-chips { position: sticky; top: 0; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 10px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  /* معتمة: panel مركّبة فوق --bg بنفس مظهر سطح البطاقة، فلا تظهر صفوف الجدول خلفها */
+  .un-chips { position: sticky; top: 0; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 10px; background: linear-gradient(var(--panel), var(--panel)), var(--bg); border-bottom: 1px solid var(--border); }
   .exp-chip { font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid var(--border-strong); background: rgba(255,255,255,.03); color: var(--muted); border-radius: 999px; padding: 5px 11px; transition: all .12s; white-space: nowrap; }
   .exp-chip:hover { color: var(--text); border-color: var(--gold-2); }
   .exp-chip.on { background: var(--gold); color: #2a2100; border-color: var(--gold); }
@@ -887,7 +890,7 @@
   .managed-tag { display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--muted-2); background: rgba(140,150,160,.12); border: 1px solid var(--border); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: var(--sans); }
   .drift-tag { display: inline-block; font-size: 10.5px; font-weight: 800; color: var(--amber); background: rgba(230,163,74,.14); border: 1px solid rgba(230,163,74,.5); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: var(--sans); }
   /* المستكشف الشامل (بطاقة إجمالي الأسطر) */
-  .exp-bar { position: sticky; top: 0; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 9px 15px; padding: 11px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .exp-bar { position: sticky; top: 0; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; gap: 9px 15px; padding: 11px; background: linear-gradient(var(--panel), var(--panel)), var(--bg); border-bottom: 1px solid var(--border); }
   .exp-search { flex: 1 1 220px; min-width: 170px; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 10px; padding: 8px 12px; color: var(--text); font: inherit; font-size: 13px; }
   .exp-grp { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
   .exp-grp-lbl { font-size: 11px; color: var(--muted-2); font-weight: 800; margin-inline-end: 2px; }
@@ -1408,7 +1411,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "b062409";
+const APP_VERSION = "6fc379b";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
