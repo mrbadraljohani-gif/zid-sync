@@ -145,7 +145,12 @@
   .side-nav { display: flex; flex-direction: row; align-items: center; gap: 3px; margin-inline: auto; }
   .side-link { display: flex; align-items: center; gap: 8px; width: auto; text-align: start; cursor: pointer; font-family: inherit; white-space: nowrap;
     font-size: 13.5px; font-weight: 700; color: var(--muted); background: transparent; border: 1px solid transparent; border-radius: 11px; padding: 9px 13px; transition: all .15s; }
-  .side-link .si { font-size: 15px; text-align: center; flex-shrink: 0; }
+  .side-link .si { font-size: 15px; text-align: center; flex-shrink: 0; display: inline-flex; }
+  /* أيقونات الواجهة: SVG خطّية بسُمك موحّد ولون currentColor فتتبع حالة العنصر تلقائياً */
+  .ico { width: 17px; height: 17px; flex-shrink: 0; display: block; }
+  .theme-btn .ico, .notif-btn .ico { width: 16px; height: 16px; }
+  .ph-ico .ico { width: 21px; height: 21px; }
+  .btn-run .ico { width: 16px; height: 16px; }
   .side-link:hover { color: var(--text); background: var(--panel); }
   /* الحالة النشطة: خطّ سفلي (يناسب الشريط الأفقي) بدل الشريط الجانبي السابق */
   .side-link.active { color: var(--gold-2); background: linear-gradient(180deg, rgba(230,197,111,.16), rgba(230,197,111,.05)); border-color: var(--border-strong); box-shadow: inset 0 -3px 0 var(--gold-2); }
@@ -1001,16 +1006,16 @@
       <span class="side-brand-txt"><b>ASJ</b><span>Inventory Sync</span></span>
     </a>
     <nav class="side-nav" id="sidebar" aria-label="التنقّل الرئيسي">
-      <button type="button" class="side-link active" aria-current="page" data-page="home" onclick="goPage('home')"><span class="si">🏠</span><span class="sl">الرئيسية</span></button>
-      <button type="button" class="side-link" data-page="db" onclick="goPage('db')"><span class="si">🔄</span><span class="sl">تحديث قاعدة البيانات</span></button>
-      <button type="button" class="side-link" data-page="options" onclick="goPage('options')"><span class="si">⚙</span><span class="sl">الخيارات</span></button>
-      <button type="button" class="side-link" data-page="account" onclick="goPage('account')"><span class="si">👤</span><span class="sl">الحساب والنظام</span></button>
-      <button type="button" class="side-link" data-page="newuser" onclick="goPage('newuser')"><span class="si">➕</span><span class="sl">مستخدم جديد</span></button>
+      <button type="button" class="side-link active" aria-current="page" data-page="home" onclick="goPage('home')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.5 20v-6h5v6"/></svg></span><span class="sl">الرئيسية</span></button>
+      <button type="button" class="side-link" data-page="db" onclick="goPage('db')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14-4.5L4 9"/><path d="M4 5v4h4"/><path d="M4 13a8 8 0 0 0 14 4.5L20 15"/><path d="M20 19v-4h-4"/></svg></span><span class="sl">تحديث قاعدة البيانات</span></button>
+      <button type="button" class="side-link" data-page="options" onclick="goPage('options')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 8 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H2a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 3.6 8a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H8a1.6 1.6 0 0 0 1-1.5V2a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V8a1.6 1.6 0 0 0 1.5 1H22a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg></span><span class="sl">الخيارات</span></button>
+      <button type="button" class="side-link" data-page="account" onclick="goPage('account')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg></span><span class="sl">الحساب والنظام</span></button>
+      <button type="button" class="side-link" data-page="newuser" onclick="goPage('newuser')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="sl">مستخدم جديد</span></button>
     </nav>
     <div class="tn-actions">
     <button type="button" class="theme-btn thin-theme" id="themeBtn" onclick="toggleTheme()" aria-label="تبديل الوضع الداكن/الفاتح" title="تبديل الوضع الداكن/الفاتح">☀</button>
     <div class="notif-menu">
-      <button type="button" class="notif-btn" id="notifBtn" onclick="toggleActivityPanel(event)" aria-label="آخر النشاطات" aria-expanded="false" title="آخر النشاطات">🔔</button>
+      <button type="button" class="notif-btn" id="notifBtn" onclick="toggleActivityPanel(event)" aria-label="آخر النشاطات" aria-expanded="false" title="آخر النشاطات"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/></svg></button>
       <div class="notif-panel" id="notifPanel" style="display:none">
         <div class="notif-head">آخر النشاطات</div>
         <div class="notif-list" id="activityList"><div class="notif-empty">…</div></div>
@@ -1144,7 +1149,7 @@
 
   <!-- ============ الصفحة: تحديث قاعدة البيانات ============ -->
   <section class="page" id="page-db">
-    <div class="page-head"><span class="ph-ico">🔄</span><div class="ph-txt"><h2>تحديث قاعدة البيانات</h2><p>المخزن (مستودع/فرع) ومنتجات زد مرآةً في القاعدة — حدّث كلاً عند الحاجة</p></div></div>
+    <div class="page-head"><span class="ph-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14-4.5L4 9"/><path d="M4 5v4h4"/><path d="M4 13a8 8 0 0 0 14 4.5L20 15"/><path d="M20 19v-4h-4"/></svg></span><div class="ph-txt"><h2>تحديث قاعدة البيانات</h2><p>المخزن (مستودع/فرع) ومنتجات زد مرآةً في القاعدة — حدّث كلاً عند الحاجة</p></div></div>
     <div id="resyncWarn" class="zid-stale-warn" style="display:none;margin-bottom:14px"></div>
 
     <div class="card stage-card">
@@ -1193,7 +1198,7 @@
 
   <!-- ============ الصفحة: الخيارات ============ -->
   <section class="page" id="page-options">
-    <div class="page-head"><span class="ph-ico">⚙</span><div class="ph-txt"><h2>الخيارات</h2><p>تُطبَّق عالمياً على المطابقة في الرئيسية — تغييرها هنا يسري فوراً</p></div></div>
+    <div class="page-head"><span class="ph-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v2M12 19.5v2M4.2 7l1.7 1M18.1 16l1.7 1M4.2 17l1.7-1M18.1 8l1.7-1"/></svg></span><div class="ph-txt"><h2>الخيارات</h2><p>تُطبَّق عالمياً على المطابقة في الرئيسية — تغييرها هنا يسري فوراً</p></div></div>
     <div class="card settings">
       <div class="setrow">
         <span class="setlabel">السعر المُرسل إلى زد</span>
@@ -1247,7 +1252,7 @@
 
   <!-- ============ الصفحة: الحساب والنظام ============ -->
   <section class="page" id="page-account">
-    <div class="page-head"><span class="ph-ico">👤</span><div class="ph-txt"><h2>الحساب والنظام</h2><p>الاتصال والحفظ والمظهر ومعلومات النسخة</p></div></div>
+    <div class="page-head"><span class="ph-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg></span><div class="ph-txt"><h2>الحساب والنظام</h2><p>الاتصال والحفظ والمظهر ومعلومات النسخة</p></div></div>
     <div class="card acc-card">
       <div class="clabel">حالة الاتصال</div>
       <div class="acc-status-row" style="margin-top:10px">
@@ -1307,7 +1312,7 @@
 
   <!-- ============ الصفحة: مستخدم جديد ============ -->
   <section class="page" id="page-newuser">
-    <div class="page-head"><span class="ph-ico">➕</span><div class="ph-txt"><h2>مستخدم جديد</h2><p>إنشاء حساب دخول جديد للأداة</p></div></div>
+    <div class="page-head"><span class="ph-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><div class="ph-txt"><h2>مستخدم جديد</h2><p>إنشاء حساب دخول جديد للأداة</p></div></div>
     <form class="card acc-card signup-card" id="signupForm" novalidate onsubmit="event.preventDefault();doSignup();return false">
       <div class="login-field"><label for="suEmail">البريد الإلكتروني</label><input type="email" id="suEmail" dir="ltr" placeholder="name@asj.com" autocomplete="off" aria-describedby="suMsg"></div>
       <div class="login-field"><label for="suPass">كلمة المرور</label>
@@ -1328,7 +1333,7 @@
           <button type="button" role="radio" aria-checked="false" class="chip" data-role="viewer" onclick="pickSignupRole(this)">مشاهد (قراءة فقط)</button>
         </span>
       </div>
-      <button type="submit" class="btn-run" id="suBtn">➕ إنشاء الحساب</button>
+      <button type="submit" class="btn-run" id="suBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> إنشاء الحساب</button>
       <div id="suMsg" class="login-err" role="alert"></div>
       <p class="hint" style="margin-top:14px;line-height:1.7">ℹ️ كتابة الروابط صلاحية <b>المالك</b> وحده. قد يتطلب النظام تأكيد البريد قبل أول دخول (حسب إعدادات Supabase)، ولن تتأثر جلستك الحالية. لإدارة كاملة للمستخدمين استخدم لوحة <b>Supabase → Authentication</b>.</p>
     </form>
@@ -1400,7 +1405,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "c889d60";
+const APP_VERSION = "5606193";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1786,7 +1791,7 @@ async function doSignup() {
     setLoginMsg(msg, `✓ أُنشئ الحساب (${email}) بدور «${roleLabel(role)}»${confirmNote}. جلستك كما هي.${roleNote}`, true);
     document.getElementById("suPass").value = ""; document.getElementById("suPass2").value = ""; document.getElementById("suEmail").value = "";
   } catch (e) { fail("تعذّر الإنشاء: " + (e.message || e)); }
-  btn.disabled = false; btn.removeAttribute("aria-busy"); btn.textContent = "➕ إنشاء الحساب";
+  btn.disabled = false; btn.removeAttribute("aria-busy"); btn.innerHTML = ICO.plus + " إنشاء الحساب";
 }
 
 // إظهار/إخفاء كلمة المرور (شكل فقط — لا مساس بالمنطق)
@@ -2644,14 +2649,21 @@ function repoStatus(cls, msg) {
   if (st) { st.className = "repo-status" + (cls ? " " + cls : ""); st.textContent = msg || ""; }
   setGhDot(cls);   // اعكس الحالة على المؤشر الأخضر/الكهرماني/الأحمر في الترويسة
 }
+// أيقونات SVG خطّية موحّدة السُمك بلون currentColor (تُحقن ديناميكياً؛ الثابتة في الترميز)
+const ICO = {
+  sun: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`,
+  plus: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`,
+  moon: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>`,
+};
+
 // تبديل الوضع الفاتح/الغامق (يُحفظ الاختيار)
 const THEME_KEY = "zid-theme";
 function currentTheme() { return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark"; }
 function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
   try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
-  const btn = document.getElementById("themeBtn");   // أيقونة مصغّرة في الترويسة الرفيعة (ظاهرة في كل الصفحات)
-  if (btn) { btn.textContent = t === "light" ? "🌙" : "☀"; btn.title = t === "light" ? "التبديل للوضع الغامق" : "التبديل للوضع الفاتح"; }
+  const btn = document.getElementById("themeBtn");   // أيقونة SVG في الشريط العلوي (ظاهرة في كل الصفحات)
+  if (btn) { btn.innerHTML = t === "light" ? ICO.moon : ICO.sun; btn.title = t === "light" ? "التبديل للوضع الغامق" : "التبديل للوضع الفاتح"; }
 }
 function toggleTheme() { applyTheme(currentTheme() === "light" ? "dark" : "light"); }
 
