@@ -179,7 +179,8 @@
   .acc-stat b { display: block; font-size: 24px; font-weight: 700; color: var(--gold-2); font-family: var(--serif); }
   .acc-stat span { font-size: 12px; color: var(--muted); font-weight: 600; }
   .acc-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-top: 12px; }
-  .signup-card { max-width: 460px; }
+  /* نموذج التسجيل موسّط أفقياً بعرض أقصى موحّد بدل التثبيت في جانب الصفحة */
+  .signup-card { max-width: 480px; margin-inline: auto; }
   .zid-mini { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 4px; padding: 10px 15px; border-radius: 11px;
     border: 1px solid var(--border); background: var(--panel); font-size: 13px; font-weight: 700; color: var(--muted); }
   .zid-mini b { color: var(--text); }
@@ -1388,7 +1389,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "ebb455d";
+const APP_VERSION = "e28c18e";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
