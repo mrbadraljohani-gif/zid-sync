@@ -170,13 +170,25 @@
   .tn-actions { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
   .side-foot { margin: 0; padding: 0; border: none; }
   /* بلا إطار ولا خلفية: كتلة المستخدم جزء من الشريط لا جزيرة عائمة داخله */
-  /* صفّ المستخدم عنصر واحد ضمن .tn-actions: نفس المحاذاة الرأسية والمسافات كبقية الأدوات.
-     بلا overflow:hidden — كان يقصّ حلقة تركيز زرّ الخروج؛ القصّ على البريد وحده. */
-  .side-userrow { display: flex; align-items: center; gap: 8px; padding: 0; max-width: 210px; }
-  .side-userrow .su-ico { flex-shrink: 0; display: inline-flex; color: var(--muted); }
-  .side-userrow .su-email { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 700; color: var(--muted); direction: ltr; text-align: start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .su-logout { flex-shrink: 0; background: transparent; border: 1px solid var(--border-strong); color: var(--gold-2); border-radius: 10px; padding: 0; font-size: 13px; line-height: 1; cursor: pointer; transition: all .15s; }
-  .su-logout:hover { color: var(--danger); background: rgba(200,90,90,.10); border-color: rgba(200,90,90,.35); }
+  /* كتلة المستخدم: أيقونة وحدها في الشريط ＋ قائمة منسدلة بالتفاصيل */
+  .user-menu { position: relative; display: flex; align-items: center; }
+  /* القائمة معتمة (panel فوق --bg) كقاعدة العناصر اللاصقة، وz أعلى من الشريط (100) ورؤوس الجداول (3) والفلاتر (6) */
+  .user-panel { position: absolute; top: calc(100% + 8px); left: 0; right: auto; z-index: 300;
+    width: 258px; max-width: min(258px, calc(100vw - 24px)); text-align: start; padding: 10px;
+    background: linear-gradient(var(--panel), var(--panel)), var(--bg);
+    border: 1px solid var(--border-strong); border-radius: 14px; box-shadow: 0 18px 46px rgba(0,0,0,.5); }
+  :root[data-theme="light"] .user-panel { box-shadow: 0 18px 46px rgba(120,90,20,.18); }
+  .up-head { display: flex; align-items: center; gap: 8px; padding: 4px 6px 9px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+  .up-head .up-ico { flex-shrink: 0; display: inline-flex; color: var(--muted); }
+  .up-email { min-width: 0; font-size: 12px; font-weight: 700; color: var(--text); direction: ltr; text-align: start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .up-status { padding: 0 4px 9px; }
+  .up-logout { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+    background: transparent; border: 1px solid var(--border-strong); color: var(--danger);
+    border-radius: 10px; padding: 9px 12px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s; }
+  .up-logout:hover { background: rgba(200,90,90,.10); border-color: var(--danger); }
+  /* حالة تركيز ظاهرة على كل عنصر داخل القائمة في الثيمين */
+  .user-panel button:focus-visible, .user-panel a:focus-visible,
+  .user-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   .main-col { display: block; min-width: 0; }
   .hamburger { font-size: 18px; line-height: 1; background: transparent; border: 1px solid var(--border-strong); color: var(--gold-2); border-radius: 10px; padding: 6px 11px; cursor: pointer; transition: all .15s; }
   .hamburger { display: none; }   /* الجوال فقط */
@@ -260,8 +272,6 @@
       overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
     .side-link { padding: 9px 11px; }
     .side-link .si { font-size: 17px; }
-    .side-userrow .su-email { display: none; }
-    .side-userrow { max-width: none; }
   }
   /* الجوال: الروابط تنسدل من تحت الشريط بزر الهمبرغر */
   @media (max-width: 860px) {
@@ -280,8 +290,6 @@
     .side-link .sl { display: inline; }
     .side-link.active { box-shadow: inset 3px 0 0 var(--gold-2); }   /* عمودياً: شريط جانبي أوضح من خطّ سفلي */
     .tn-actions { margin-inline-start: auto; gap: 7px; }
-    .side-userrow .su-email { display: none; }
-    .side-userrow { max-width: none; }
     .sidebar-scrim.show { display: block; position: fixed; inset: 0; z-index: 110; background: rgba(0,0,0,.5); }
     .page-wrap { padding: 18px var(--shell-pad) 40px; }
   }
@@ -424,13 +432,13 @@
   /* هدف لمس ≥32×32 لكل الأزرار المضغوطة المشتركة (قاعدة واحدة بدل تعديل كل زرّ).
      inline-flex ＋ توسيط يحفظ الشكل، وpadding الأصلي يبقى هو المتحكّم في العرض. */
   .mini-btn, .mini, .exp-chip, .chip, .bt-tab, .mc-btn, .batch-close,
-  .theme-btn, .notif-btn, .hamburger, .su-logout, .login-link, .pass-eye {
+  .theme-btn, .notif-btn, .hamburger, .up-logout, .login-link, .pass-eye {
     min-height: 32px; min-width: 32px;
   }
   /* التوسيط منفصل: .hamburger يتحكّم استعلام الوسائط في display عنده
      (none/inline-flex حسب العرض) فلا يجوز أن تفرضه هذه القاعدة عليه */
   .mini-btn, .mini, .exp-chip, .chip, .bt-tab, .mc-btn, .batch-close,
-  .theme-btn, .notif-btn, .su-logout, .login-link, .pass-eye {
+  .theme-btn, .notif-btn, .up-logout, .login-link, .pass-eye {
     display: inline-flex; align-items: center; justify-content: center; gap: 5px;
   }
   /* الصفوف والأشرطة تُحاذي عناصرها وسطياً بعد رفع الارتفاع */
@@ -1049,12 +1057,22 @@
         <a class="notif-more" onclick="goPage('account')">عرض الكل في «الحساب والنظام» ←</a>
       </div>
     </div>
-    <span class="db-badge mini" id="dbBadgeMini" title="حالة الاتصال بقاعدة البيانات">⚪ …</span>
-    <div class="side-foot">
-      <div class="side-userrow" id="sideUser" style="display:none">
-        <span class="su-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg></span>
-        <span class="su-email" id="sideUserEmail"></span>
-        <button type="button" class="su-logout" onclick="sideLogout()" title="تسجيل الخروج" aria-label="تسجيل الخروج"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H15"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h10"/></svg></button>
+    <!-- كتلة المستخدم: أيقونة وحدها في الشريط، والتفاصيل في قائمة منسدلة -->
+    <div class="user-menu" id="sideUser" style="display:none">
+      <button type="button" class="notif-btn user-btn" id="userBtn" onclick="toggleUserMenu(event)"
+              aria-haspopup="menu" aria-expanded="false" aria-controls="userPanel" aria-label="حساب المستخدم" title="حساب المستخدم">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>
+      </button>
+      <div class="user-panel" id="userPanel" role="menu" aria-labelledby="userBtn" style="display:none">
+        <div class="up-head">
+          <span class="up-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg></span>
+          <span class="up-email" id="sideUserEmail"></span>
+        </div>
+        <div class="up-status"><span class="db-badge mini" id="dbBadgeMini" title="حالة الاتصال بقاعدة البيانات">⚪ …</span></div>
+        <button type="button" role="menuitem" class="up-logout" onclick="sideLogout()">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H15"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h10"/></svg>
+          <span>تسجيل الخروج</span>
+        </button>
       </div>
     </div>
     </div><!-- /tn-actions -->
@@ -1433,7 +1451,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "f7fa7b1";
+const APP_VERSION = "09df145";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1650,7 +1668,48 @@ async function doLogin() {
 }
 async function doLogout() { if (sb) await sb.auth.signOut(); }
 // زر الخروج في قاع القائمة الجانبية — نفس signOut مع تأكيد خفيف لتفادي الضغط الخاطئ
-function sideLogout() { if (confirm("تسجيل الخروج؟")) doLogout(); }
+function sideLogout() { closeUserMenu(); if (confirm("تسجيل الخروج؟")) doLogout(); }
+
+// ===== قائمة المستخدم المنسدلة (البريد ＋ حالة الاتصال ＋ الخروج) =====
+function umItems() {
+  const p = document.getElementById("userPanel"); if (!p) return [];
+  return [...p.querySelectorAll('button, a[href], [tabindex]:not([tabindex="-1"])')]
+    .filter(el => !el.disabled && el.offsetWidth > 0);
+}
+function userMenuOpen() { const p = document.getElementById("userPanel"); return !!p && p.style.display === "block"; }
+function toggleUserMenu(e) { if (e) e.stopPropagation(); userMenuOpen() ? closeUserMenu(true) : openUserMenu(); }
+function openUserMenu() {
+  closeActivityPanel();   // لا تُفتح قائمتان معاً
+  const p = document.getElementById("userPanel"), b = document.getElementById("userBtn");
+  if (!p) return;
+  p.style.display = "block";
+  if (b) b.setAttribute("aria-expanded", "true");
+  document.addEventListener("mousedown", userOutside);
+  document.addEventListener("keydown", userKey);
+  const it = umItems(); if (it.length) it[0].focus();
+}
+// returnFocus: يعيد التركيز للأيقونة (عند Esc أو الإغلاق بالزرّ) لا عند النقر خارجها
+function closeUserMenu(returnFocus) {
+  const p = document.getElementById("userPanel"), b = document.getElementById("userBtn");
+  if (p) p.style.display = "none";
+  if (b) { b.setAttribute("aria-expanded", "false"); if (returnFocus) b.focus(); }
+  document.removeEventListener("mousedown", userOutside);
+  document.removeEventListener("keydown", userKey);
+}
+// e.target قد يكون document (لا closest عليه) — الحارس يمنع رمي استثناء يوقف بقية المستمعين
+function userOutside(e) { const t = e.target; if (!(t && t.closest && t.closest("#sideUser"))) closeUserMenu(); }
+function userKey(e) {
+  if (!userMenuOpen()) return;
+  if (e.key === "Escape") { e.preventDefault(); closeUserMenu(true); return; }
+  const it = umItems(); if (!it.length) return;
+  const i = it.indexOf(document.activeElement);
+  const go = n => { e.preventDefault(); it[(n + it.length) % it.length].focus(); };
+  if (e.key === "Tab") go(i + (e.shiftKey ? -1 : 1));            // التنقّل محصور داخل القائمة
+  else if (e.key === "ArrowDown") go(Math.max(i, -1) + 1);
+  else if (e.key === "ArrowUp") go(Math.max(i, 0) - 1);
+  else if (e.key === "Home") go(0);
+  else if (e.key === "End") go(it.length - 1);
+}
 
 // ===== أدوار المستخدمين =====
 let myRole = null;          // 'owner' | 'admin' | 'viewer' | null (غير محمّل)
@@ -1718,8 +1777,8 @@ function renderSideUser() {
   const el = document.getElementById("sideUser"), em = document.getElementById("sideUserEmail");
   const email = (authSession && authSession.user && authSession.user.email) ? authSession.user.email : "";
   if (!el) return;
-  if (email) { el.style.display = "flex"; el.title = email; if (em) em.textContent = email; }
-  else { el.style.display = "none"; el.title = ""; if (em) em.textContent = ""; }
+  if (email) { el.style.display = "flex"; if (em) { em.textContent = email; em.title = email; } }
+  else { el.style.display = "none"; closeUserMenu(); if (em) { em.textContent = ""; em.title = ""; } }
 }
 function closeSidebar() {
   const s = document.getElementById("sidebar"), c = document.getElementById("sidebarScrim");
