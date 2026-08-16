@@ -306,7 +306,7 @@
   #ghBtn:hover { color: var(--gold); background: linear-gradient(180deg, rgba(230,197,111,.22), rgba(230,197,111,.08)); }
   .gh-menu { position: relative; }
   .gh-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold-2); display: inline-block; flex-shrink: 0; }
-  .gh-dot.ok { background: #4fae63; box-shadow: 0 0 0 3px rgba(79,174,99,.18); }
+  .gh-dot.ok { background: var(--green); box-shadow: 0 0 0 3px rgba(79,174,99,.18); }
   .gh-dot.warn { background: var(--gold-2); }
   .gh-dot.fail { background: var(--danger); box-shadow: 0 0 0 3px rgba(229,144,135,.18); }
   .gh-panel { position: absolute; top: calc(100% + 8px); inset-inline-end: 0; z-index: 60; width: 330px; max-width: 88vw; text-align: start;
@@ -544,7 +544,7 @@
   .wh-bar span { font-family: ui-monospace, Consolas, monospace; }
   /* زيادة سعر المتغيرات */
   .off-line { font-size: 11.5px; margin-top: 3px; color: var(--muted); }
-  .off-badge { display: inline-block; padding: 1px 7px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(168,120,220,.18); color: #c9a3ea; border: 1px solid rgba(168,120,220,.45); }
+  .off-badge { display: inline-block; padding: 1px 7px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(168,120,220,.18); color: var(--info); border: 1px solid rgba(168,120,220,.45); }
   .off-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 20px; }
   .off-box { width: 420px; max-width: 92vw; background: #1c1810; border: 1px solid var(--border-strong); border-radius: 16px; padding: 18px; box-shadow: 0 24px 60px rgba(0,0,0,.55); text-align: start; }
   :root[data-theme="light"] .off-box { background: #fffdf7; }
@@ -623,7 +623,7 @@
   .bt-table .bt-c-num { width: 70px; }
   .bt-sku { font-family: var(--mono, monospace); font-size: 11px; direction: ltr; word-break: break-all; color: var(--fg); display: block; }
   .bt-nm { color: var(--muted); font-size: 11.5px; margin-top: 3px; line-height: 1.45; }
-  .bt-reason { color: #9dd0a6; font-size: 11px; line-height: 1.5; }
+  .bt-reason { color: var(--green-2); font-size: 11px; line-height: 1.5; }
   .bt-cand-name { color: var(--muted); font-size: 11px; margin-top: 3px; line-height: 1.4; }
   .bt-cand-full { font-size: 11.5px; line-height: 1.45; margin-bottom: 5px; word-break: break-word; color: var(--fg); }
   .bt-cand-full .bt-sku { display: inline; margin-inline-end: 4px; }
@@ -748,7 +748,7 @@
   .vg-list { margin-top: 8px; max-height: 260px; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
   .vg-row { display: flex; flex-direction: column; gap: 3px; padding: 7px 10px; border-radius: 9px; background: var(--panel-2); }
   .sc-info { background: rgba(201,120,60,.10); border: 1px solid rgba(201,120,60,.45); border-radius: 12px; padding: 12px 15px; margin-bottom: 14px; }
-  .sc-head { color: #e0a878; font-weight: 800; font-size: 14px; }
+  .sc-head { color: var(--amber); font-weight: 800; font-size: 14px; }
   .sc-sub { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin-top: 5px; }
   .sc-info details { margin-top: 8px; }
   .sc-info summary { cursor: pointer; color: var(--muted-2); font-weight: 700; font-size: 13px; }
@@ -833,7 +833,7 @@
   .zero-tag { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(147,162,181,.16); color: var(--info); border: 1px solid rgba(147,162,181,.45); font-family: var(--sans); direction: rtl; }
   .opt-num { min-width: 0; width: 68px; padding: 6px 8px; font-size: 13px; text-align: center; }
   .dist-tag { cursor: help; font-size: 14px; }
-  .from-merge { color: #9dd0a6; font-weight: 800; }
+  .from-merge { color: var(--green-2); font-weight: 800; }
   .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px); z-index: 200; max-width: 90vw; padding: 12px 20px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: var(--text); background: #1c1810; border: 1px solid var(--border-strong); box-shadow: 0 14px 40px rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
   :root[data-theme="light"] .toast { background: #fffdf7; box-shadow: 0 14px 40px rgba(120,90,20,.18); }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -857,17 +857,17 @@
   .result-status { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding-bottom: 12px; margin-bottom: 15px; border-bottom: 1px solid var(--border); }
   .rs-title { font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--gold-2); }
   .rs-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--muted-2); transition: background .2s; }
-  .rs-dot.fresh { background: #5fae63; box-shadow: 0 0 0 3px rgba(95,174,99,.18); }
+  .rs-dot.fresh { background: var(--green); box-shadow: 0 0 0 3px rgba(95,174,99,.18); }
   .rs-dot.stale { background: var(--gold-2); box-shadow: 0 0 0 3px rgba(230,197,111,.2); }
   .rs-inv { font-size: 12px; font-weight: 700; color: var(--muted); }
   .rs-inv b { color: var(--text); }
   /* ② بطاقات KPI: شريط لون علوي + أيقونة + رقم بارز */
   .stat { position: relative; overflow: hidden; padding-top: 16px; }
   .stat::before { content: ""; position: absolute; top: 0; inset-inline: 0; height: 3px; background: var(--muted-2); }
-  .stat[data-filter="updated"]::before { background: #5fae63; }
+  .stat[data-filter="updated"]::before { background: var(--green); }
   .stat[data-filter="new"]::before { background: var(--gold); }
   .stat[data-filter="unmatched"]::before { background: var(--gold); }
-  .stat[data-filter="infinite"]::before { background: #8a8f99; }
+  .stat[data-filter="infinite"]::before { background: var(--muted-2); }
   .stat[data-filter="explorer"]::before { background: var(--border-strong); }
   .stat-wide { flex: 1.7 1 170px; }
   .stat .stat-ic { display: block; font-size: 14px; opacity: .75; line-height: 1; margin-bottom: 3px; color: var(--muted); }
@@ -880,7 +880,7 @@
   .exp-chip:hover { color: var(--text); border-color: var(--gold-2); }
   .exp-chip.on { background: var(--gold); color: #2a2100; border-color: var(--gold); }
   .exp-chip.zero-btn { margin-inline-start: auto; border-color: rgba(107,147,192,.6); color: var(--info); background: rgba(107,147,192,.08); }
-  .exp-chip.zero-btn:hover { border-color: #6b93c0; }
+  .exp-chip.zero-btn:hover { border-color: var(--info); }
   .un-note { margin-inline-start: auto; font-size: 11px; font-weight: 700; color: var(--muted-2); cursor: help; }
   .managed-tag { display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--muted-2); background: rgba(140,150,160,.12); border: 1px solid var(--border); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: var(--sans); }
   .drift-tag { display: inline-block; font-size: 10.5px; font-weight: 800; color: var(--amber); background: rgba(230,163,74,.14); border: 1px solid rgba(230,163,74,.5); border-radius: 8px; padding: 1px 7px; margin-inline-start: 6px; font-family: var(--sans); }
@@ -900,7 +900,7 @@
   .action-center > div { margin-bottom: 0 !important; }
   .action-center .col-warn { border-inline-start: 4px solid var(--danger); }
   .action-center .alert-new { border-inline-start: 4px solid var(--gold); margin-bottom: 0; }
-  .action-center .sc-info { border-inline-start: 4px solid #d98b4e; }
+  .action-center .sc-info { border-inline-start: 4px solid var(--amber); }
   .action-center .zid-stale-warn { border-inline-start: 4px solid var(--gold-2); margin-bottom: 0; }
   .action-center .vg-info { border-inline-start: 4px solid #6b93c0; }
   .action-center .pp-info { border-inline-start: 4px solid #5fae63; }
@@ -961,16 +961,16 @@
   .q-name { font-size: 12.5px; font-weight: 600; color: var(--text); flex: 1 1 auto; min-width: 0; line-height: 1.5; overflow-wrap: anywhere; }
   .q-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
   .q-chip { font-size: 11px; font-weight: 700; border-radius: 8px; padding: 2px 8px; border: 1px solid var(--border); color: var(--muted); background: rgba(255,255,255,.03); white-space: nowrap; }
-  .q-chip.qty-in { color: #8fbf98; border-color: rgba(143,191,152,.4); background: rgba(143,191,152,.10); }
-  .q-chip.qty-out { color: #d99; border-color: rgba(200,120,120,.4); background: rgba(200,120,120,.10); }
+  .q-chip.qty-in { color: var(--green-2); border-color: rgba(143,191,152,.4); background: rgba(143,191,152,.10); }
+  .q-chip.qty-out { color: var(--danger); border-color: rgba(200,120,120,.4); background: rgba(200,120,120,.10); }
   .q-chip.price { color: var(--gold-2); border-color: rgba(230,197,111,.4); background: rgba(230,197,111,.08); }
   .q-chip.bar { font-family: ui-monospace, monospace; }
   .q-chip.src-wh { color: var(--gold-2); border-color: rgba(230,197,111,.45); background: rgba(230,197,111,.10); }
-  .q-chip.src-br { color: #9ab6cc; border-color: rgba(140,170,200,.45); background: rgba(140,170,200,.10); }
-  .q-chip.src-both { color: #8fbf98; border-color: rgba(143,191,152,.45); background: rgba(143,191,152,.10); }
-  .q-chip.pub-yes { color: #8fbf98; border-color: rgba(143,191,152,.45); background: rgba(143,191,152,.10); }
-  .q-chip.pub-no { color: #d99; border-color: rgba(200,120,120,.45); background: rgba(200,120,120,.10); }
-  .q-chip.parent { color: #c9a6e0; border-color: rgba(180,140,220,.45); background: rgba(180,140,220,.10); }
+  .q-chip.src-br { color: var(--info); border-color: rgba(140,170,200,.45); background: rgba(140,170,200,.10); }
+  .q-chip.src-both { color: var(--green-2); border-color: rgba(143,191,152,.45); background: rgba(143,191,152,.10); }
+  .q-chip.pub-yes { color: var(--green-2); border-color: rgba(143,191,152,.45); background: rgba(143,191,152,.10); }
+  .q-chip.pub-no { color: var(--danger); border-color: rgba(200,120,120,.45); background: rgba(200,120,120,.10); }
+  .q-chip.parent { color: var(--info); border-color: rgba(180,140,220,.45); background: rgba(180,140,220,.10); }
   @media (max-width: 900px) { .query-row { grid-template-columns: 1fr; } }
   .repo-box { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
   .repo-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px; background: none; border: none; cursor: pointer; font-family: inherit; padding: 0; text-align: start;
@@ -980,7 +980,7 @@
   .repo-toggle:hover .repo-caret { color: var(--gold-2); }
   .repo-body { margin-top: 12px; }
   .repo-status { margin-top: 10px; font-size: 13px; font-weight: 700; min-height: 1em; }
-  .repo-status.ok { color: #8fbf98; }
+  .repo-status.ok { color: var(--green-2); }
   .repo-status.warn { color: var(--gold-2); }
   .repo-status.fail { color: var(--danger); }
   .pills { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; }
@@ -991,7 +991,7 @@
   .fingerprint b { color: var(--gold-2); }
   .fingerprint .mono { font-family: ui-monospace, Consolas, monospace; color: var(--gold-2); }
   .fp-warn { font-size: 13px; font-weight: 700; color: var(--gold-2); background: rgba(230,197,111,.12); border: 1px solid var(--border-strong); border-radius: 10px; padding: 11px 14px; margin-top: 18px; line-height: 1.7; }
-  .merge-summary { margin-top: 12px; font-size: 13.5px; font-weight: 700; color: #8fbf98; background: rgba(123,168,132,.12); border: 1px solid rgba(123,168,132,.35); border-radius: 10px; padding: 10px 14px; }
+  .merge-summary { margin-top: 12px; font-size: 13.5px; font-weight: 700; color: var(--green-2); background: rgba(123,168,132,.12); border: 1px solid rgba(123,168,132,.35); border-radius: 10px; padding: 10px 14px; }
   /* قسم النتائج يملأ عرض الحاوية الكامل (حتى 1320px) ويبقى متمركزاً */
   #result { display: none; }
 </style>
@@ -1405,7 +1405,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "5606193";
+const APP_VERSION = "0fcff5d";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
