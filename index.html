@@ -1408,7 +1408,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "d80f726";
+const APP_VERSION = "b062409";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1457,7 +1457,6 @@ let lastHasVarYes = new Set(), lastHvWouldEnter = [];   // أكواد زد has_v
 // فحص نهائي حاسم: يحذف أي صف كوده منتج أب (has_variants=Yes) من أي مصفوفة صفوف كميات قبل الكتابة (يحافظ على صف الرأس)
 function stripHasVar(rows) { return (!lastHasVarYes || !lastHasVarYes.size) ? rows : rows.filter((r, i) => i === 0 || !lastHasVarYes.has(String(r[0]))); }
 let testSelected = new Set();                   // أصناف محدّدة لتنزيل ملف اختبار جماعي
-let zeroSelected = new Set();                   // أصناف محدّدة لتصفير كميتها (in-memory للجلسة فقط — التوفر بالفروع يتغيّر)
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
 
 /* ================= Supabase — المرحلة 1: قاعدة الروابط (mappings) هي المصدر الأساسي ================= */
@@ -3779,8 +3778,7 @@ function run(reprocess) {
     // === تصنيف الأصناف بدون ربط + بيانات الفلاتر ===
     lastWhList = whList;
     lastWhTokenIndex = buildWhTokenIndex(whList);
-    if (!reprocess) { suggCache = new Map(); testSelected = new Set(); excludedSet = new Set(); zeroSelected = new Set(); unpublishSet = new Set(); }   // بيانات جديدة ⇒ أعِد بناء الذاكرة والتحديد وصفّر الاستبعاد/التصفير/إلغاء النشر المؤقتين
-    unmatched.forEach(u => { if (u.waiting) zeroSelected.add(String(u.sku)); });   // ⏳ الموسومة: محدّدة تلقائياً للتصفير المستمر (0) في كل دورة
+    if (!reprocess) { suggCache = new Map(); testSelected = new Set(); excludedSet = new Set(); unpublishSet = new Set(); }   // بيانات جديدة ⇒ أعِد بناء الذاكرة والتحديد وصفّر الاستبعاد وإلغاء النشر المؤقتين
     lastUnmatchedRaw = unmatched;
     lastUpdated = updatedList;
     lastInfinite = infiniteList;
@@ -3896,31 +3894,6 @@ function toggleUnpublish(sku, on) {
   if (on) unpublishSet.add(String(sku)); else unpublishSet.delete(String(sku));
   if (on) logActivity("unpublish_added", sku, null);
   run(true);
-}
-// ملف تصفير مستقل تماماً: نموذج الكميات الرسمي، المحدد فقط بكمية 0 (لا يمس الأسعار)
-function downloadZeroAbsent() {
-  if (!zeroSelected.size) { showErr("حدّد صنفاً واحداً على الأقل من الجدول أولاً."); return; }
-  if (!stData) { showErr("شغّل «طابق وأنشئ» أولاً."); return; }
-  const H = stData.header, iSku = H.indexOf("sku"), iName = H.indexOf("name_ar"), iNameEn = H.indexOf("name_en");
-  const byRaw = {};
-  for (let r = 1; r < stData.rows.length; r++) { const raw = String(stData.rows[r][iSku]); if (!(raw in byRaw)) byRaw[raw] = stData.rows[r]; }
-  let rows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
-  zeroSelected.forEach(sk => { const row = byRaw[String(sk)]; if (row) rows.push([String(sk), iName >= 0 ? row[iName] : "", iNameEn >= 0 ? row[iNameEn] : "", 0]); });
-  rows = stripHasVar(rows);   // فحص نهائي حاسم: لا صف has_variants=Yes حتى في ملف التصفير
-  // استبعاد ما هو 0 أصلاً في زد (بلا تغيير). ⏳ المُدارة تُبقى فقط إن انحرفت كميتها عن الصفر (رقم>0 أو «غير محدود»/فارغ)
-  { const iQtyZ = H.indexOf("quantity"); const cur = raw => { const row = byRaw[String(raw)]; return row ? row[iQtyZ] : ""; };
-    const nc = stripNoChangeQty(rows, cur, (sn, c) => waitingSet.has(sn) && !(c === 0)); if (nc.dropped) showToast(`استُبعد ${nc.dropped} صنف كميته 0 أصلاً في زد (بلا تغيير).`); rows = nc.rows; }
-  if (rows.length <= 1) { showErr("لا شيء لتصفيره — إمّا منتجات أب، أو كلها مصفّرة أصلاً في زد."); return; }
-  const v = verifyQuantities(rows);   // صمام الأمان نفسه (4 أعمدة، sku غير فارغ، كميات صحيحة ≥ 0)
-  if (!v.ok) { showErr("تعذّر إنشاء ملف التصفير — " + v.msg); return; }
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-  const blob = new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = `zid_zero_absent_${rows.length - 1}.xlsx`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /* ---------- تصنيف + عرض تفاصيل الفلاتر (البطاقات) ---------- */
