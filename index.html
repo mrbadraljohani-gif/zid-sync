@@ -1218,12 +1218,10 @@
     </div>
     <p class="stats-hint">اضغط أي بطاقة لعرض تفاصيلها في الجدول بالأسفل</p>
     <!-- ③  مركز التنبيهات — مرتّب بالأهمية -->
+    <!-- تصادم الأكواد · بدون ربط · أب/خيار: انتقلت إلى «المخزون ← ١ يحتاج انتباهك» (نقل لا نسخ) -->
     <div class="action-center">
-      <div id="collisionWarn" style="display:none"></div>
-      <div id="newAlert" class="alert-new" style="display:none" onclick="scrollToNew()"></div>
       <div id="saleConflictMsg" style="display:none"></div>
       <div id="zidStaleWarn" class="zid-stale-warn" style="display:none"></div>
-      <div id="variantInfo" style="display:none"></div>
       <div id="parentPublishMsg" style="display:none"></div>
       <div id="reactivatedMsg" class="reactivated-msg" style="display:none"></div>
     </div>
@@ -1286,6 +1284,12 @@
     </div>
     <div class="section-head"><span class="n">١</span><h2>يحتاج انتباهك</h2><span class="line"></span></div>
     <div class="inv-grid" id="invAttention"></div>
+    <!-- تفاصيل البطاقات: تظهر عند وجود ما يُعرض (نفس دوالّ الرسم القائمة) -->
+    <div class="action-center inv-details">
+      <div id="collisionWarn" style="display:none"></div>
+      <div id="newAlert" class="alert-new" style="display:none" onclick="invStartBatch()"></div>
+      <div id="variantInfo" style="display:none"></div>
+    </div>
 
     <div class="section-head"><span class="n">٢</span><h2>المخزن الموحّد</h2><span class="line"></span></div>
     <div class="card"><div id="mergeResult" class="merge-result" style="display:none"></div>
@@ -1546,7 +1550,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "00d61de";
+const APP_VERSION = "5f84364";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2033,10 +2037,11 @@ function renderInventoryAttention() {
 }
 
 // الانتقال إلى لوحة في الرئيسية (التصادم/الأب-خيار) — تُعرض هناك ولا تُكرَّر هنا
+// اللوحتان صارتا في المخزون نفسه ⇒ تمرير داخل الصفحة لا انتقال بين صفحتين
 function invGoto(id) {
-  goPage("home");
   const el = document.getElementById(id);
-  if (el && el.style.display !== "none") setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
+  if (!el || el.style.display === "none") { showToast("لا تفاصيل لعرضها — العدّاد صفر."); return; }
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 function invStartBatch() {
   goPage("home");
@@ -4764,7 +4769,7 @@ function updateNewCount() {
   const alert = document.getElementById("newAlert");
   if (newCount > 0) {
     alert.style.display = "flex";
-    alert.textContent = `🆕 ${newCount} منتجاً جديداً بدون ربط — كمياتها لن تتحدث · اضغط لبدء الربط الذكي ←`;
+    alert.innerHTML = `${ICO.link2} <bdi>${newCount}</bdi> منتجاً جديداً بدون ربط — كمياتها لن تتحدث · اضغط لبدء الربط الذكي ←`;
   } else alert.style.display = "none";
 }
 
@@ -4801,7 +4806,6 @@ function unignore(i) {
   renderFingerprint();
 }
 
-function scrollToNew() { currentFilter = "unmatched"; unmatchedSub = "new"; renderDetail(); document.getElementById("unBlock").scrollIntoView({ behavior: "smooth", block: "start" }); }
 
 // بطاقة مطابقة: كتلة زد (يمين) · مؤشر (وسط) · مستودع (يسار الوسط) · أزرار (أقصى اليسار)
 function cardHtml(it, i) {
