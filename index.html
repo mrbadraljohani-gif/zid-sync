@@ -896,6 +896,8 @@
   :root[data-theme="light"] .toast { background: #fffdf7; box-shadow: 0 14px 40px rgba(120,90,20,.18); }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .mc-btn.wait { border: 1px solid var(--border-strong); background: transparent; color: var(--gold-2); }
+  .mc-btn.unpub { border: 1px solid var(--border-strong); background: transparent; color: var(--danger); }
+  .mc-btn.unpub.on { background: rgba(200,90,90,.12); border-color: var(--danger); }
   .mc-btn.wait.on { background: rgba(201,154,60,.16); }
   .mcard.waiting { opacity: .82; }
   .danger-hint { color: var(--danger); font-weight: 700; }
@@ -1485,7 +1487,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "153263e";
+const APP_VERSION = "f6401f4";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -4681,7 +4683,13 @@ function cardHtml(it, i) {
   const waitBtn = it.waiting
     ? `<button class="mc-btn wait on" onclick="unwaitRow(${i})" title="أزِله من قائمة الانتظار">⏳ بانتظار التوفر — إلغاء</button>`
     : `<button class="mc-btn wait" onclick="waitRow(${i})" title="سجّله «غير متوفر حالياً»: يُستثنى من تنبيه الجديد، ويُفعَّل تلقائياً فور ظهور كوده في ملف المستودع">⏳ غير متوفر حالياً</button>`;
-  const actions = `<div class="mc-actions">${bindBtn}${ignoreBtn}${waitBtn}</div>`;
+  // 🚫 إلغاء النشر — للمنتجات الرئيسية فقط (النشر يُدار من الأب في زد)، وهو الزناد الوحيد لـunpublishSet
+  const isMain = !lastParentOf[String(it.sku)] && !lastHasVarYes.has(String(it.sku));
+  const on = unpublishSet.has(String(it.sku));
+  const unpubBtn = isMain
+    ? `<button class="mc-btn unpub${on ? " on" : ""}" aria-pressed="${on}" onclick="toggleUnpublish('${esc(it.sku)}', ${!on})" title="${on ? "تراجع عن إلغاء النشر" : "أضِف صفّ published=No لهذا المنتج في ملف الأسعار"}">${ICO.ban} ${on ? "سيُلغى نشره — تراجع" : "إلغاء النشر"}</button>`
+    : "";
+  const actions = `<div class="mc-actions">${bindBtn}${ignoreBtn}${waitBtn}${unpubBtn}</div>`;
   const search = esc(normText(it.sku + " " + it.name + " " + (s ? s.code + " " + s.name : "")));
   const cls = "mcard" + (it.isZ ? " zrow" : "") + (it.bound ? " bound" : "") + (it.ignored ? " ignored" : "") + (it.variant ? " variant" : "") + (it.waiting ? " waiting" : "");
   return `<div id="un-${i}" class="${cls}" data-search="${search}">${zid}${mid}${wh}${actions}</div>`;
@@ -4906,15 +4914,6 @@ function runZdQuery() {
 }
 
 // منطق الربط اليدوي (يبقى في الكود) — صار دالة قابلة لإعادة الاستخدام بمعاملات بلا اعتماد على واجهة ③ المُزالة
-async function addMapping(sku, code) {
-  sku = String(sku == null ? "" : sku).trim(); code = String(code == null ? "" : code).trim();
-  if (!sku || !code) return;
-  try { await dbSetMapping(sku, code, "manual"); } catch { return; }   // القاعدة أولاً
-  excludedSet.delete(normCode(sku));   // الربط اليدوي قرار صريح يلغي الاستبعاد المؤقت
-  renderPills();
-  markDirty();
-}
-
 function renderPills() {
   const mc = document.getElementById("mapCount"); if (mc) mc.textContent = Object.keys(manualMap).length;
   if (typeof renderAccount === "function") renderAccount();
