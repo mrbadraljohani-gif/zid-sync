@@ -163,6 +163,15 @@
   .theme-btn .ico, .notif-btn .ico { width: 16px; height: 16px; }
   .ph-ico .ico { width: 21px; height: 21px; }
   .btn-run .ico { width: 16px; height: 16px; }
+  .rc-head .ico { width: 15px; height: 15px; }
+  .bt-tab .ico, .batch-title .ico, .db-badge .ico { width: 15px; height: 15px; }
+  /* نقطة حالة بتوكنات الثيم بدل إيموجي المؤشرات (🟢🟡🔴) */
+  .sdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; vertical-align: middle; }
+  .sdot.ok { background: var(--green-2); }
+  .sdot.mid { background: var(--amber); }
+  .sdot.bad { background: var(--danger); }
+  /* أزرار التبويب والشارات تحاذي الأيقونة/النقطة مع النص */
+  .bt-tab, .batch-title, .rc-head, .db-badge { display: inline-flex; align-items: center; gap: 6px; }
   .side-link:hover { color: var(--text); background: var(--panel); }
   /* الحالة النشطة: خطّ سفلي (يناسب الشريط الأفقي) بدل الشريط الجانبي السابق */
   .side-link.active { color: var(--gold-2); background: linear-gradient(180deg, rgba(230,197,111,.16), rgba(230,197,111,.05)); border-color: var(--border-strong); box-shadow: inset 0 -3px 0 var(--gold-2); }
@@ -282,18 +291,43 @@
     .side-nav { position: absolute; top: calc(100% + 8px); right: 0; left: 0; z-index: 120;
       flex-direction: column; align-items: stretch; gap: 4px; margin: 0; padding: 10px;
       border-radius: 16px; border: 1px solid var(--border-strong);
-      background: rgba(20,17,12,.97); backdrop-filter: blur(12px); box-shadow: 0 18px 40px rgba(0,0,0,.45);
+      background: linear-gradient(var(--panel), var(--panel)), var(--bg); box-shadow: 0 18px 40px rgba(0,0,0,.45);
       display: none; }
-    :root[data-theme="light"] .side-nav { background: rgba(255,253,247,.98); box-shadow: 0 18px 40px rgba(120,90,20,.18); }
+    :root[data-theme="light"] .side-nav { box-shadow: 0 18px 40px rgba(120,90,20,.18); }
     .side-nav.open { display: flex; }
     .side-link { width: 100%; }
     .side-link .sl { display: inline; }
     .side-link.active { box-shadow: inset 3px 0 0 var(--gold-2); }   /* عمودياً: شريط جانبي أوضح من خطّ سفلي */
     .tn-actions { margin-inline-start: auto; gap: 7px; }
-    .sidebar-scrim.show { display: block; position: fixed; inset: 0; z-index: 110; background: rgba(0,0,0,.5); }
+    /* التعتيم فوق المحتوى وتحت .topnav (100): اللوحة ابنة .topnav فتقع داخل سياق تكديسه،
+       فلو كان التعتيم أعلى منه لغطّاها والتقط النقر بدلاً منها. */
+    .sidebar-scrim.show { display: block; position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.5); }
     .page-wrap { padding: 18px var(--shell-pad) 40px; }
   }
-  @media (max-width: 560px) { .side-brand-txt { display: none; } .db-badge.mini { display: none; } }
+  @media (max-width: 560px) { .side-brand-txt { display: none; } }
+
+  /* ===== الجوال: التحليل الذكي ===== */
+  /* دفاع عام ضد التجاوز الأفقي: نصوص طويلة (SKU/أسماء) تلتفّ، والصور لا تتجاوز حاويتها */
+  .mcard, .bt-fam, .batch-inline, .bt-bar, .up-email, .mc-sku, .bt-sku, .q-code { overflow-wrap: anywhere; }
+  .mcard img, .thumb img, .prodcell img { max-width: 100%; height: auto; }
+  .bt-count { white-space: nowrap; }   /* العدّاد وحده لا ينكسر، وbdi يعزل اتجاهه عن العربية */
+  @media (max-width: 700px) {
+    /* رأس المجموعة يُكدَّس: العنوان سطراً · العدّاد · أزرار التحديد · الاعتماد بعرض كامل */
+    .bt-fam-head { flex-wrap: wrap; gap: 8px; }
+    .bt-fam-head > b { flex: 1 1 100%; }
+    .bt-fam-head .btn-run { margin-inline-start: 0; flex: 1 1 100%; }
+    .bt-fam-head .mc-btn { flex: 0 0 auto; min-height: 44px; }
+    .bt-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .bt-bar-actions { flex-wrap: wrap; gap: 8px; }
+    .bt-bar-actions > * { min-height: 44px; }
+    .bt-actionrow .btn-run { width: 100%; }
+    /* بطاقات الإحصاء: عمودان بدل صفّ مضغوط */
+    .batch-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 10px 12px 0; }
+    .bt-tab { width: 100%; }
+    /* البطاقة عموداً كاملاً بلا تجاوز */
+    .mcard { flex-direction: column; gap: 10px; }
+    .mcards, .bt-fam, .batch-inline { min-width: 0; }
+  }
   /* كل الأقسام تملأ العرض الكامل (تصميم عريض) */
 
   /* Brand top bar */
@@ -431,13 +465,13 @@
 
   /* هدف لمس ≥32×32 لكل الأزرار المضغوطة المشتركة (قاعدة واحدة بدل تعديل كل زرّ).
      inline-flex ＋ توسيط يحفظ الشكل، وpadding الأصلي يبقى هو المتحكّم في العرض. */
-  .mini-btn, .mini, .exp-chip, .chip, .bt-tab, .mc-btn, .batch-close,
+  .mini-btn, button.mini, .exp-chip, .chip, .bt-tab, .mc-btn, .batch-close,
   .theme-btn, .notif-btn, .hamburger, .up-logout, .login-link, .pass-eye {
     min-height: 32px; min-width: 32px;
   }
   /* التوسيط منفصل: .hamburger يتحكّم استعلام الوسائط في display عنده
      (none/inline-flex حسب العرض) فلا يجوز أن تفرضه هذه القاعدة عليه */
-  .mini-btn, .mini, .exp-chip, .chip, .bt-tab, .mc-btn, .batch-close,
+  .mini-btn, button.mini, .exp-chip, .chip, .bt-tab, .mc-btn, .batch-close,
   .theme-btn, .notif-btn, .up-logout, .login-link, .pass-eye {
     display: inline-flex; align-items: center; justify-content: center; gap: 5px;
   }
@@ -528,9 +562,9 @@
   .seg .chip:first-child { border-inline-start: none; }
   .seg .chip:hover { color: var(--text); background: rgba(255,255,255,.03); }
   .seg .chip.on { background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #0a1622; font-weight: 800; }
-  .lowfields { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); }
+  .lowfields { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); }
   .lowfields .unit { color: var(--muted); white-space: nowrap; }
-  .lowfields .opt-num { width: 62px; }
+  .lowfields .opt-num { width: 62px; min-width: 0; flex: 0 0 auto; }
   .hint.mini { font-size: 11.5px; margin: 8px 2px 2px; }
   .btn-run {
     width: 100%; border: none; border-radius: 14px; padding: 15px; font-size: 15.5px; font-weight: 800;
@@ -805,12 +839,12 @@
   .unbar { display: flex; gap: 10px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
   .unbar input { flex: 1; min-width: 200px; }
   .unbar .bindall { margin: 0 !important; flex-shrink: 0; }
-  .mini { border: none; border-radius: 8px; padding: 7px 12px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
-  .mini.bind { background: linear-gradient(135deg, var(--green-2), var(--green)); color: #08160d; }
-  .mini.bind:hover:not(:disabled) { filter: brightness(1.06); }
-  .mini.ignore { background: transparent; border: 1px solid var(--border-strong); color: var(--muted); }
-  .mini.ignore:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
-  .mini:disabled { opacity: .4; cursor: default; }
+  button.mini { border: none; border-radius: 8px; padding: 7px 12px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
+  button.mini.bind { background: linear-gradient(135deg, var(--green-2), var(--green)); color: #08160d; }
+  button.mini.bind:hover:not(:disabled) { filter: brightness(1.06); }
+  button.mini.ignore { background: transparent; border: 1px solid var(--border-strong); color: var(--muted); }
+  button.mini.ignore:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
+  button.mini:disabled { opacity: .4; cursor: default; }
   .sugg-code { color: var(--gold-2); font-weight: 700; font-family: ui-monospace, Consolas, monospace; direction: ltr; unicode-bidi: embed; font-size: 14px; }
   .sugg-name { color: var(--muted); }
   .sugg-note { color: var(--muted-2); font-size: 12.5px; }
@@ -1076,7 +1110,7 @@
       </div>
     </div>
     </div><!-- /tn-actions -->
-    <button type="button" class="hamburger" onclick="toggleSidebar()" aria-label="القائمة" aria-expanded="false" aria-controls="sidebar">☰</button>
+    <button type="button" class="hamburger" onclick="toggleSidebar()" aria-label="القائمة" aria-expanded="false" aria-controls="sidebar"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
    </div><!-- /tn-bar -->
   </header>
   <div class="sidebar-scrim" id="sidebarScrim" onclick="closeSidebar()"></div>
@@ -1111,7 +1145,7 @@
   <div class="ready-bar" id="readyBar"></div>
 
   <div class="section-head"><span class="n">٢</span><h2>طابق وأنشئ الملف المحدث</h2><span class="line"></span></div>
-  <button class="btn-run" id="runBtn" disabled onclick="runFromDB()">🔄 طابق وأنشئ الملف المحدث</button>
+  <button class="btn-run" id="runBtn" disabled onclick="runFromDB()"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14-4.5L4 9"/><path d="M4 5v4h4"/><path d="M4 13a8 8 0 0 0 14 4.5L20 15"/><path d="M20 19v-4h-4"/></svg> طابق وأنشئ الملف المحدث</button>
   <div class="rebind-hint" id="rebindHint" style="display:none">⟳ عدّلت الروابط بعد آخر مطابقة — اضغط «طابق وأنشئ الملف المحدث» ليشمل الملفُ التغييرات قبل التحميل.</div>
   <div class="error" id="err"></div>
 
@@ -1158,8 +1192,8 @@
     <div id="unBlock" style="display:none">
       <div class="clabel" style="margin-top:18px" id="unTitle"></div>
       <div class="unbar">
-        <input type="text" id="unSearch" aria-label="ابحث في منتجات زد بالكود أو الاسم" placeholder="🔍 ابحث في منتجات زد (بالكود أو الاسم)..." oninput="filterUnmatched()">
-        <button class="btn-run sm batch" id="batchBtn" onclick="openBatchAnalysis()" style="display:none">🤖 تحليل الكل</button>
+        <input type="text" id="unSearch" aria-label="ابحث في منتجات زد بالكود أو الاسم" placeholder="ابحث في منتجات زد (بالكود أو الاسم)…" oninput="filterUnmatched()">
+        <button class="btn-run sm batch" id="batchBtn" onclick="openBatchAnalysis()" style="display:none"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M12 8V4.5"/><circle cx="12" cy="3.4" r="1.2"/><circle cx="9" cy="13" r="1.1"/><circle cx="15" cy="13" r="1.1"/><path d="M9.5 16.3h5"/></svg> تحليل الكل</button>
         <button class="btn-run sm bindall" id="bindAllBtn" onclick="bindAll90()">اربط الاقتراحات المؤكدة</button>
       </div>
       <div class="twrap" id="detailTable"></div>
@@ -1172,19 +1206,19 @@
     <div class="query-row">
       <div class="query-col" role="search" aria-label="بحث في المخزن">
         <div class="query-head">🏬 بحث في المخزن <span class="q-count" id="whQCount"></span></div>
-        <input type="search" id="whQuery" class="query-input" aria-label="ابحث في المخزن بالكود أو الاسم أو الباركود" aria-controls="whQResults" placeholder="🔎 بالكود أو الاسم أو الباركود…" oninput="qDebounce('wh')">
+        <input type="search" id="whQuery" class="query-input" aria-label="ابحث في المخزن بالكود أو الاسم أو الباركود" aria-controls="whQResults" placeholder="بالكود أو الاسم أو الباركود…" oninput="qDebounce('wh')">
         <div class="q-results" id="whQResults" role="region" aria-live="polite" aria-label="نتائج بحث المخزن"><div class="q-empty">اكتب للبحث في المخزن الموحّد (مستودع ＋ فرع)…</div></div>
       </div>
       <div class="query-col" role="search" aria-label="بحث في متجر زد">
         <div class="query-head">🏪 بحث في متجر زد <span class="q-count" id="zdQCount"></span></div>
-        <input type="search" id="zdQuery" class="query-input" aria-label="ابحث في متجر زد بالـSKU أو الاسم أو الباركود" aria-controls="zdQResults" placeholder="🔎 بالـSKU أو الاسم أو الباركود…" oninput="qDebounce('zd')">
+        <input type="search" id="zdQuery" class="query-input" aria-label="ابحث في متجر زد بالـSKU أو الاسم أو الباركود" aria-controls="zdQResults" placeholder="بالـSKU أو الاسم أو الباركود…" oninput="qDebounce('zd')">
         <div class="q-results" id="zdQResults" role="region" aria-live="polite" aria-label="نتائج بحث متجر زد"><div class="q-empty">اكتب للبحث في تصدير زد المرفوع…</div></div>
       </div>
     </div>
   </div>
 
   <details class="card" id="ignoredCard" style="display:none">
-    <summary>🚫 متجاهلة سابقاً (<span id="ignoredCount">0</span>) — اضغط للعرض</summary>
+    <summary><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg> متجاهلة سابقاً (<span id="ignoredCount">0</span>) — اضغط للعرض</summary>
     <div class="twrap" style="margin-top:12px"><table aria-label="الأصناف المتجاهَلة">
       <colgroup><col class="c-sku"><col><col style="width:140px"></colgroup>
       <thead><tr><th scope="col">SKU زد</th><th scope="col">اسم المنتج</th><th scope="col">إجراء</th></tr></thead>
@@ -1284,9 +1318,9 @@
     </div>
 
     <details class="card" id="offsetsCard" style="margin-top:14px" ontoggle="if(this.open)renderOffsetsList()">
-      <summary>⚙ الزيادات المحفوظة (<span id="offCount">0</span>) — اضغط للعرض والتعديل</summary>
+      <summary><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v2M12 19.5v2M4.2 7l1.7 1M18.1 16l1.7 1M4.2 17l1.7-1M18.1 8l1.7-1"/></svg> الزيادات المحفوظة (<span id="offCount">0</span>) — اضغط للعرض والتعديل</summary>
       <div style="margin-top:12px">
-        <input type="text" id="offSearch" aria-label="ابحث في زيادات الأسعار بالكود أو الاسم" placeholder="🔎 ابحث بالكود أو الاسم..." oninput="renderOffsetsList()">
+        <input type="text" id="offSearch" aria-label="ابحث في زيادات الأسعار بالكود أو الاسم" placeholder="ابحث بالكود أو الاسم…" oninput="renderOffsetsList()">
         <div class="twrap" style="max-height:340px;margin-top:10px"><table aria-label="زيادات أسعار المتغيّرات المحفوظة">
           <colgroup><col class="c-sku"><col><col style="width:150px"><col style="width:90px"></colgroup>
           <thead><tr><th scope="col">SKU زد</th><th scope="col">اسم المنتج</th><th scope="col">الزيادة (ر.س)</th><th scope="col">حذف</th></tr></thead>
@@ -1303,7 +1337,7 @@
       <div class="clabel">حالة الاتصال</div>
       <div class="acc-status-row" style="margin-top:10px">
         <span class="db-badge" id="dbBadge" title="حالة الاتصال بقاعدة البيانات">⚪ …</span>
-        <span class="db-badge map-badge" id="mapCountBadge" title="الروابط اليدوية المحفوظة (تُدار من لوحة التحليل الذكي)">🔗 الروابط: <b id="mapCount">0</b></span>
+        <span class="db-badge map-badge" id="mapCountBadge" title="الروابط اليدوية المحفوظة (تُدار من لوحة التحليل الذكي)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1.4 1.4"/><path d="M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1.4-1.4"/></svg> الروابط: <b id="mapCount">0</b></span>
         <span class="role-badge" id="roleBadge" title="دورك في النظام"></span>
       </div>
       <div class="acc-stats">
@@ -1316,14 +1350,14 @@
       <div class="clabel">الحفظ والمظهر والجلسة</div>
       <div class="acc-actions">
         <div class="gh-menu">
-          <button type="button" class="theme-btn" id="ghBtn" onclick="toggleGhMenu(event)"><span class="gh-dot" id="ghDot"></span>☁ الحفظ في الريبو</button>
+          <button type="button" class="theme-btn" id="ghBtn" onclick="toggleGhMenu(event)"><span class="gh-dot" id="ghDot"></span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18h10a3.5 3.5 0 0 0 .3-7A5 5 0 0 0 7.6 10 3.9 3.9 0 0 0 7 18z"/></svg> الحفظ في الريبو</button>
           <div class="gh-panel" id="ghPanel" style="display:none">
-            <div class="clabel">☁ الحفظ المباشر في الريبو (GitHub)</div>
+            <div class="clabel"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18h10a3.5 3.5 0 0 0 .3-7A5 5 0 0 0 7.6 10 3.9 3.9 0 0 0 7 18z"/></svg> الحفظ المباشر في الريبو (GitHub)</div>
             <p class="hint">الروابط تُحفظ في الريبو تلقائياً بعد تحميل الملف المحدّث. أدخل رمز GitHub مرة واحدة (بصلاحية Contents: Read and write على مستودع <b>zid-sync</b>)؛ يُخزَّن في متصفحك فقط.</p>
             <input type="password" id="ghToken" placeholder="رمز GitHub (github_pat_… أو ghp_…)" onkeydown="if(event.key==='Enter')saveToken()">
             <div class="gh-panel-btns">
               <button class="btn-run sm" onclick="saveToken()">حفظ الرمز</button>
-              <button class="btn-run sm export-btn" onclick="saveToRepo('حفظ يدوي')">☁ حفظ الآن</button>
+              <button class="btn-run sm export-btn" onclick="saveToRepo('حفظ يدوي')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18h10a3.5 3.5 0 0 0 .3-7A5 5 0 0 0 7.6 10 3.9 3.9 0 0 0 7 18z"/></svg> حفظ الآن</button>
             </div>
             <div id="repoStatus" class="repo-status"></div>
             <button class="btn-run sm export-btn gh-export" onclick="exportConfig()">⬇ تصدير يدوي (بديل بدون رمز)</button>
@@ -1364,13 +1398,13 @@
       <div class="login-field"><label for="suPass">كلمة المرور</label>
         <div class="pass-wrap">
           <input type="password" id="suPass" dir="ltr" placeholder="6 أحرف على الأقل" autocomplete="new-password" aria-describedby="suMsg">
-          <button type="button" class="pass-eye" id="suEye" onclick="togglePass('suPass','suEye')" aria-pressed="false" aria-label="إظهار كلمة المرور" title="إظهار كلمة المرور">👁</button>
+          <button type="button" class="pass-eye" id="suEye" onclick="togglePass('suPass','suEye')" aria-pressed="false" aria-label="إظهار كلمة المرور" title="إظهار كلمة المرور"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
       </div>
       <div class="login-field"><label for="suPass2">تأكيد كلمة المرور</label>
         <div class="pass-wrap">
           <input type="password" id="suPass2" dir="ltr" placeholder="أعد كتابتها" autocomplete="new-password" aria-describedby="suMsg">
-          <button type="button" class="pass-eye" id="suEye2" onclick="togglePass('suPass2','suEye2')" aria-pressed="false" aria-label="إظهار كلمة المرور" title="إظهار كلمة المرور">👁</button>
+          <button type="button" class="pass-eye" id="suEye2" onclick="togglePass('suPass2','suEye2')" aria-pressed="false" aria-label="إظهار كلمة المرور" title="إظهار كلمة المرور"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
       </div>
       <div class="login-field"><label id="suRoleLbl">الصلاحية</label>
@@ -1409,7 +1443,7 @@
         <label for="loginPass">كلمة المرور</label>
         <div class="pass-wrap">
           <input type="password" id="loginPass" dir="ltr" placeholder="••••••••" autocomplete="current-password" aria-describedby="loginErr">
-          <button type="button" class="pass-eye" id="loginEye" onclick="togglePass('loginPass','loginEye')" aria-pressed="false" aria-label="إظهار كلمة المرور" title="إظهار كلمة المرور">👁</button>
+          <button type="button" class="pass-eye" id="loginEye" onclick="togglePass('loginPass','loginEye')" aria-pressed="false" aria-label="إظهار كلمة المرور" title="إظهار كلمة المرور"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
       </div>
       <button type="submit" class="btn-run" id="loginBtn">دخول</button>
@@ -1423,7 +1457,7 @@
         <label for="newPass">كلمة المرور الجديدة</label>
         <div class="pass-wrap">
           <input type="password" id="newPass" dir="ltr" placeholder="6 أحرف على الأقل" autocomplete="new-password" aria-describedby="recoverErr">
-          <button type="button" class="pass-eye" id="newEye" onclick="togglePass('newPass','newEye')" aria-pressed="false" aria-label="إظهار كلمة المرور" title="إظهار كلمة المرور">👁</button>
+          <button type="button" class="pass-eye" id="newEye" onclick="togglePass('newPass','newEye')" aria-pressed="false" aria-label="إظهار كلمة المرور" title="إظهار كلمة المرور"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
       </div>
       <button type="submit" class="btn-run" id="newPassBtn">حفظ كلمة المرور</button>
@@ -1451,7 +1485,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "09df145";
+const APP_VERSION = "153263e";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1679,7 +1713,7 @@ function umItems() {
 function userMenuOpen() { const p = document.getElementById("userPanel"); return !!p && p.style.display === "block"; }
 function toggleUserMenu(e) { if (e) e.stopPropagation(); userMenuOpen() ? closeUserMenu(true) : openUserMenu(); }
 function openUserMenu() {
-  closeActivityPanel();   // لا تُفتح قائمتان معاً
+  closeActivityPanel(); closeSidebar();   // لا تُفتح قائمتان معاً (في الاتجاهين)
   const p = document.getElementById("userPanel"), b = document.getElementById("userBtn");
   if (!p) return;
   p.style.display = "block";
@@ -1766,11 +1800,41 @@ function routeFromHash() {
 }
 function onHashChange() { routeFromHash(); }
 // فتح/إغلاق قائمة الجوال المنسدلة تحت الشريط العلوي
-function toggleSidebar() {
+function navOpen() { const s = document.getElementById("sidebar"); return !!s && s.classList.contains("open"); }
+function navItems() {
+  const s = document.getElementById("sidebar"); if (!s) return [];
+  return [...s.querySelectorAll("button, a[href]")].filter(el => !el.disabled && el.offsetWidth > 0);
+}
+function toggleSidebar() { navOpen() ? closeSidebar(true) : openSidebar(); }
+function openSidebar() {
+  closeUserMenu(); closeActivityPanel();   // لا تُفتح قائمتان معاً
   const s = document.getElementById("sidebar"), c = document.getElementById("sidebarScrim");
-  const open = s ? s.classList.toggle("open") : false;
-  if (c) c.classList.toggle("show", open);
-  const h = document.querySelector(".hamburger"); if (h) h.setAttribute("aria-expanded", open ? "true" : "false");
+  if (!s) return;
+  s.classList.add("open"); if (c) c.classList.add("show");
+  const h = document.querySelector(".hamburger"); if (h) h.setAttribute("aria-expanded", "true");
+  document.body.style.overflow = "hidden";   // منع تمرير الخلفية ما دامت مفتوحة
+  document.addEventListener("keydown", navKey);
+  const it = navItems(); if (it.length) it[0].focus();
+}
+function closeSidebar(returnFocus) {
+  const s = document.getElementById("sidebar"), c = document.getElementById("sidebarScrim");
+  if (s) s.classList.remove("open"); if (c) c.classList.remove("show");
+  const h = document.querySelector(".hamburger");
+  if (h) { h.setAttribute("aria-expanded", "false"); if (returnFocus) h.focus(); }
+  document.body.style.overflow = "";
+  document.removeEventListener("keydown", navKey);
+}
+function navKey(e) {
+  if (!navOpen()) return;
+  if (e.key === "Escape") { e.preventDefault(); closeSidebar(true); return; }
+  const it = navItems(); if (!it.length) return;
+  const i = it.indexOf(document.activeElement);
+  const go = n => { e.preventDefault(); it[(n + it.length) % it.length].focus(); };
+  if (e.key === "Tab") go(i + (e.shiftKey ? -1 : 1));            // التنقّل محصور داخل اللوحة
+  else if (e.key === "ArrowDown") go(Math.max(i, -1) + 1);
+  else if (e.key === "ArrowUp") go(Math.max(i, 0) - 1);
+  else if (e.key === "Home") go(0);
+  else if (e.key === "End") go(it.length - 1);
 }
 // بطاقة بريد المستخدم في القائمة الجانبية (من جلسة Supabase) — تختفي بلا جلسة
 function renderSideUser() {
@@ -1779,11 +1843,6 @@ function renderSideUser() {
   if (!el) return;
   if (email) { el.style.display = "flex"; if (em) { em.textContent = email; em.title = email; } }
   else { el.style.display = "none"; closeUserMenu(); if (em) { em.textContent = ""; em.title = ""; } }
-}
-function closeSidebar() {
-  const s = document.getElementById("sidebar"), c = document.getElementById("sidebarScrim");
-  if (s) s.classList.remove("open"); if (c) c.classList.remove("show");
-  const h = document.querySelector(".hamburger"); if (h) h.setAttribute("aria-expanded", "false");
 }
 
 // ===== سجل النشاط (activity_log): وصف عربي ＋ لوحة 🔔 ＋ قسم موسّع في الحساب =====
@@ -1886,7 +1945,7 @@ function togglePass(inputId, eyeId) {
   const show = inp.type === "password";
   inp.type = show ? "text" : "password";
   if (eye) {
-    eye.textContent = show ? "🙈" : "👁"; eye.classList.toggle("on", show);
+    eye.innerHTML = show ? ICO.eyeOff : ICO.eye; eye.classList.toggle("on", show);
     // زر تبديل: الحالة تُعلَن بـaria-pressed والتسمية تصف الإجراء القادم
     eye.setAttribute("aria-pressed", show ? "true" : "false");
     const lbl = show ? "إخفاء كلمة المرور" : "إظهار كلمة المرور";
@@ -2000,11 +2059,11 @@ function setDbBadge(ok, extra) {
   const b = document.getElementById("dbBadge");
   if (b) {
     b.className = "db-badge " + (ok ? "ok" : "off");
-    b.textContent = ok ? `🟢 متصل بالقاعدة (${Object.keys(manualMap).length})` : "🔴 غير متصل" + (extra ? " — " + extra : "");
+    b.innerHTML = ok ? `${DOT_OK} متصل بالقاعدة (${Object.keys(manualMap).length})` : `${DOT_BAD} غير متصل` + (extra ? " — " + esc(extra) : "");
   }
   // مرآة مصغّرة في الترويسة الرفيعة (كل الصفحات)
   const bm = document.getElementById("dbBadgeMini");
-  if (bm) { bm.className = "db-badge mini " + (ok ? "ok" : "off"); bm.textContent = ok ? "🟢 متصل" : "🔴 غير متصل"; }
+  if (bm) { bm.className = "db-badge mini " + (ok ? "ok" : "off"); bm.innerHTML = ok ? `${DOT_OK} متصل` : `${DOT_BAD} غير متصل`; }
   if (typeof renderAccount === "function") renderAccount();
 }
 function updateDbBadge() { setDbBadge(dbOnline); }
@@ -2474,7 +2533,7 @@ function tabKey(e) {
 function batchTabBtns() {
   const g = batchData.green.length, y = batchData.yellow.length, r = batchData.red.length;
   const mk = (id, label, n) => `<button role="tab" id="bttab-${id}" aria-selected="${batchTab === id}" aria-controls="batchBody" tabindex="${batchTab === id ? 0 : -1}" class="bt-tab ${batchTab === id ? "on" : ""}" onkeydown="tabKey(event)" onclick="switchBatchTab('${id}')">${label} <b>${n}</b></button>`;
-  return mk("green", "🟢 مؤكد", g) + mk("yellow", "🟡 محتمل", y) + mk("red", "🔴 بلا مرشح", r);
+  return mk("green", `${DOT_OK} مؤكد`, g) + mk("yellow", `${DOT_MID} محتمل`, y) + mk("red", `${DOT_BAD} بلا مرشح`, r);
 }
 function batchBar() {
   const g = batchData.green.length, y = batchData.yellow.length, r = batchData.red.length;
@@ -2484,7 +2543,7 @@ function batchBar() {
     <span class="bt-bar-actions">
       ${lost ? `<button class="mc-btn ${batchLostOnly ? "on-lost" : ""}" onclick="toggleLostOnly()" title="أصناف كوّدها في تاريخ المطابقة ولا تُطابَق بالكود الآن — روابط يدوية ضائعة، أولى بإعادة الربط">${batchLostOnly ? "✓ سبق ربطه فقط" : "🔗 المفقودة فقط"}</button>` : ""}
       <button class="mc-btn" onclick="undoLastBatch()" ${lastBatchUndo ? "" : "disabled"}>↩ تراجع عن آخر اعتماد${lastBatchUndo ? " (" + lastBatchUndo.count + ")" : ""}</button>
-      <button class="btn-run sm export-btn" onclick="saveToRepo('اعتماد ربط دفعي')">☁ احفظ في الريبو</button>
+      <button class="btn-run sm export-btn" onclick="saveToRepo('اعتماد ربط دفعي')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18h10a3.5 3.5 0 0 0 .3-7A5 5 0 0 0 7.6 10 3.9 3.9 0 0 0 7 18z"/></svg> احفظ في الريبو</button>
     </span></div>`;
 }
 function toggleLostOnly() { batchLostOnly = !batchLostOnly; renderBatchTab(); }
@@ -2501,7 +2560,7 @@ function renderBatchTab() {
   const target = document.getElementById("detailTable"); if (!target) return;
   const body = batchTab === "green" ? renderGreen() : (batchTab === "yellow" ? renderYellow() : renderRed());
   target.innerHTML = `<div class="batch-inline">
-    <div class="batch-inline-head"><span class="batch-title">🤖 التحليل الذكي</span> <span class="batch-sub">مطابقة بالمقاس والسعر والاسم — على الجدول نفسه</span>
+    <div class="batch-inline-head"><span class="batch-title"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M12 8V4.5"/><circle cx="12" cy="3.4" r="1.2"/><circle cx="9" cy="13" r="1.1"/><circle cx="15" cy="13" r="1.1"/><path d="M9.5 16.3h5"/></svg> التحليل الذكي</span> <span class="batch-sub">مطابقة بالمقاس والسعر والاسم — على الجدول نفسه</span>
       <button class="batch-close" onclick="closeBatchAnalysis()">✕ عودة للعرض العادي</button></div>
     <div id="batchBar">${batchBar()}</div>
     <div id="batchTabs" class="batch-tabs" role="tablist" aria-label="تصنيف نتائج التحليل الذكي">${batchTabBtns()}</div>
@@ -2535,7 +2594,7 @@ function batchCardHTML(r, chkCls, famAttr) {
       </div></div></div>`;
   const wh = `<div class="mc-wh"><span class="mc-tag whs">WAREHOUSE</span>
       <div id="whd-${uid}">${batchWhInner(r)}</div>
-      <div class="bt-combo"><input class="bt-search" id="s-${uid}" aria-label="ابحث في المستودع بالكود أو الاسم لربط هذا الصنف" role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="🔎 غيّر/ابحث في المستودع بالكود أو الاسم…" oninput="comboSearch('${uid}')" onfocus="comboOpen('${uid}')" onkeydown="comboKey('${uid}',event)"></div>
+      <div class="bt-combo"><input class="bt-search" id="s-${uid}" aria-label="ابحث في المستودع بالكود أو الاسم لربط هذا الصنف" role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="غيّر/ابحث في المستودع بالكود أو الاسم…" oninput="comboSearch('${uid}')" onfocus="comboOpen('${uid}')" onkeydown="comboKey('${uid}',event)"></div>
     </div>`;
   const actions = `<div class="mc-actions">
       <label class="bt-card-chk"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${c ? "checked" : ""}><span>اعتماد</span></label>
@@ -2549,7 +2608,7 @@ function renderGreen() {
   const list = btFilter(batchData.green);
   if (!list.length) return `<div class="bt-empty">${batchLostOnly ? "لا «سبق ربطه» في المؤكد." : "لا توجد مطابقات مؤكدة. جرّب تبويب 🟡."}</div>`;
   const cards = list.map(r => batchCardHTML(r, "bt-g", "")).join("");
-  return `<div class="bt-actionrow"><button class="btn-run sm" onclick="acceptGreen()">✓ اعتماد المحدد (<span id="btGN">${list.length}</span> من ${list.length})</button>
+  return `<div class="bt-actionrow"><button class="btn-run sm bt-accept" onclick="acceptGreen()">✓ اعتماد المحدد <bdi class="bt-count">(<span id="btGN">${list.length}</span> من ${list.length})</bdi></button>
     <button class="mc-btn" onclick="btToggleAll('bt-g',true,null,'btGN')">تحديد الكل</button><button class="mc-btn" onclick="btToggleAll('bt-g',false,null,'btGN')">إلغاء الكل</button></div>
     <div class="mcards" onchange="btCount('bt-g','btGN')">${cards}</div>`;
 }
@@ -2562,7 +2621,7 @@ function renderYellow() {
     const cards = f.rows.map(r => batchCardHTML(r, "bt-y", `data-fam="${fi}"`)).join("");
     return `<div class="bt-fam"><div class="bt-fam-head"><b>${esc(f.root)}</b> <span class="bt-fam-n">${m} صنف</span>
       <button class="mc-btn xs" onclick="btToggleAll('bt-y',true,${fi},'famN-${fi}')">الكل</button><button class="mc-btn xs" onclick="btToggleAll('bt-y',false,${fi},'famN-${fi}')">لا شيء</button>
-      <button class="btn-run sm" onclick="acceptFamily(${fi})">✓ اعتماد المحدد (<span id="famN-${fi}">${m}</span> من ${m})</button></div>
+      <button class="btn-run sm bt-accept" onclick="acceptFamily(${fi})">✓ اعتماد المحدد <bdi class="bt-count">(<span id="famN-${fi}">${m}</span> من ${m})</bdi></button></div>
       <div class="mcards" onchange="btCount('bt-y','famN-${fi}',${fi})">${cards}</div></div>`;
   }).join("");
 }
@@ -2736,7 +2795,20 @@ function repoStatus(cls, msg) {
   setGhDot(cls);   // اعكس الحالة على المؤشر الأخضر/الكهرماني/الأحمر في الترويسة
 }
 // أيقونات SVG خطّية موحّدة السُمك بلون currentColor (تُحقن ديناميكياً؛ الثابتة في الترميز)
+const DOT_OK = '<span class="sdot ok" aria-hidden="true"></span>';
+const DOT_MID = '<span class="sdot mid" aria-hidden="true"></span>';
+const DOT_BAD = '<span class="sdot bad" aria-hidden="true"></span>';
 const ICO = {
+  eye: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  eyeOff: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.6 6.1A8.6 8.6 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-3 3.6M6.2 7.9A17 17 0 0 0 2.5 12S6 18 12 18a8.9 8.9 0 0 0 3.4-.7"/><path d="M3 3l18 18"/></svg>`,
+  warn2: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 2.8 20h18.4L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r=".9" fill="currentColor" stroke="none"/></svg>`,
+  ban: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg>`,
+  list: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none"/></svg>`,
+  inbox: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h4l1.5 3h7L17 13h4"/><path d="M4.4 5.6 3 13v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5l-1.4-7.4A2 2 0 0 0 17.7 4H6.3a2 2 0 0 0-1.9 1.6z"/></svg>`,
+  warehouse: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V8.5L12 4l9 4.5V21"/><path d="M2 21h20"/><rect x="7" y="12" width="4" height="9"/><rect x="13" y="12" width="4" height="9"/></svg>`,
+  branch: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="7" r="2.2"/><path d="M6 8.2v7.6"/><path d="M18 9.2c0 4-3 5-6 5"/></svg>`,
+  store: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18l-1.2 4.2a2.6 2.6 0 0 1-2.5 1.9H6.7a2.6 2.6 0 0 1-2.5-1.9L3 4z"/><path d="M5 10.5V21h14V10.5"/><rect x="9" y="14" width="4" height="4"/></svg>`,
+  warn: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 2.8 20h18.4L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r=".9" fill="currentColor" stroke="none"/></svg>`,
   sun: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`,
   plus: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`,
   moon: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>`,
@@ -2955,7 +3027,7 @@ function updateZidMini() {
   }
   const stale = zidIsStale();
   mini.className = "zid-mini" + (stale ? " stale" : "");
-  mini.innerHTML = `<span>${txt}${stale ? " ⚠" : ""}</span><a class="zid-mini-link" onclick="goPage('db')">تحديث ←</a>`;
+  mini.innerHTML = `<span>${txt}${stale ? " " + ICO.warn : ""}</span><a class="zid-mini-link" onclick="goPage('db')">تحديث ←</a>`;
 }
 
 async function loadZidMeta() {
@@ -3337,7 +3409,7 @@ async function runFromDB() {
 // شريط الجاهزية في الرئيسية: بطاقات المستودع / الفرع / زد من القاعدة
 function readyCard(icon, label, count, ms, used) {
   const stale = ms != null && (Date.now() - ms) > ZID_STALE_MS;
-  const info = used ? `<b>${count}</b> صنف · ${invAge(ms)}${stale ? " ⚠" : ""}` : `— غير مستخدم`;
+  const info = used ? `<b>${count}</b> صنف · ${invAge(ms)}${stale ? " " + ICO.warn : ""}` : `— غير مستخدم`;
   return `<div class="ready-card${stale && used ? " stale" : ""}${used ? "" : " off"}"><div class="rc-head">${icon} ${label}</div><div class="rc-info">${info}</div><a class="zid-mini-link" onclick="goPage('db')">تحديث ←</a></div>`;
 }
 // كشف تلوّث «شامل الضريبة الفارغ»: صفوف كثيرة لها «قبل» لكن «شامل» فارغ ⇒ رأس السعر لم يُلتقط (بيانات ما قبل الإصلاح)
@@ -3374,7 +3446,7 @@ function renderReadiness() {
   const whC = invMeta && invMeta.wh_count ? invMeta.wh_count : 0, whMs = invMeta && invMeta.wh_synced_at ? Date.parse(invMeta.wh_synced_at) : null;
   const brC = invMeta && invMeta.branch_count ? invMeta.branch_count : 0, brMs = invMeta && invMeta.branch_synced_at ? Date.parse(invMeta.branch_synced_at) : null;
   const zC = zidDbMeta && zidDbMeta.product_count ? zidDbMeta.product_count : 0, zMs = zidDbMeta && zidDbMeta.synced_at ? Date.parse(zidDbMeta.synced_at) : null;
-  el.innerHTML = readyCard("🏬", "المستودع", whC, whMs, whC > 0) + readyCard("🌿", "الفرع", brC, brMs, brC > 0) + readyCard("🏪", "متجر زد", zC, zMs, zC > 0);
+  el.innerHTML = readyCard(ICO.warehouse, "المستودع", whC, whMs, whC > 0) + readyCard(ICO.branch, "الفرع", brC, brMs, brC > 0) + readyCard(ICO.store, "متجر زد", zC, zMs, zC > 0);
 }
 
 // طبّع كمية زد الحالية: رقم، و«غير محدود»/فارغ ⇒ NaN (لا تساوي أي رقم — يبقى تغييراً حقيقياً)
@@ -4096,10 +4168,10 @@ function renderUnmatchedCard(bindBtn, title, wrap) {
   const chip = (key, label, n) => `<button role="tab" id="untab-${key}" aria-selected="${sub === key}" aria-controls="unBody" tabindex="${sub === key ? 0 : -1}" class="exp-chip${sub === key ? " on" : ""}" onkeydown="tabKey(event)" onclick="setUnmatchedSub('${key}')">${label} (${n})</button>`;
   const chips = `<div class="un-chips" role="tablist" aria-label="تصنيفات الأصناف بدون ربط">`
     + chip("new", "🆕 يحتاج قرار", cnt.new)
-    + chip("pending", "⚠ سيُصفَّر", cnt.pending)
+    + chip("pending", ICO.warn + " سيُصفَّر", cnt.pending)
     + chip("managed", "✓ مُدار", cnt.managed)
     + chip("ignored", "✕ متجاهَل", cnt.ignored)
-    + chip("all", "📋 الكل", cnt.all)
+    + chip("all", ICO.list + " الكل", cnt.all)
     + `<span class="un-note" title="أصناف ⏳ تدخل «ملف الكميات» الرئيسي بكمية 0 وتُخفى في «ملف الأسعار» (published=No) تلقائياً — المصفّر/المخفي أصلاً في زد يُستبعَد بلا استيراد عبثي">ℹ ⏳ يُصفَّر ويُخفى ضمن الملفين الرئيسيين</span>`
     + `</div>`;
   wrap.innerHTML = chips + suggestionsCardsHTML(items);
@@ -4177,7 +4249,7 @@ function explorerBodyHTML(shown) {
     return `<tr><td class="mono">${esc(r.sku)}</td><td>${esc(r.name) || "—"}</td>`
       + `<td>${typeLbl}</td>`
       + `<td class="mono">${r.qtyKind === "inf" ? "∞" : esc(r.qtyDisplay)}</td>`
-      + `<td><span class="q-chip ${r.pub ? "pub-yes" : "pub-no"}">${r.pub ? "✅" : "🚫"}</span></td>`
+      + `<td><span class="q-chip ${r.pub ? "pub-yes" : "pub-no"}">${r.pub ? DOT_OK : DOT_BAD}</span></td>`
       + `<td><span class="cat-badge ${r.linked ? "cat-upd" : "cat-new"}">${r.linked ? "مربوط" : "بلا ربط"}</span></td>`
       + `<td>${expBadges(r) || "—"}</td></tr>`;
   }).join("");
@@ -4191,12 +4263,12 @@ function renderExplorer(wrap) {
     + opts.map(([k, t, a]) => { const on = f[dim].has(k); const nm = `${label}: ${a || t}`;
         return `<button class="exp-chip${on ? " on" : ""}" aria-pressed="${on}" aria-label="${nm}" title="${nm}" onclick="toggleExpFilter('${dim}','${k}')">${t}</button>`; }).join("") + `</div>`;
   const bar = `<div class="exp-bar">
-    <input type="text" id="expSearch" class="exp-search" aria-label="ابحث في المستكشف بالـSKU أو الاسم أو الباركود" placeholder="🔍 ابحث بالـSKU أو الاسم أو الباركود…" value="${esc(expSearchRaw)}" oninput="onExpSearch(this.value)">
+    <input type="text" id="expSearch" class="exp-search" aria-label="ابحث في المستكشف بالـSKU أو الاسم أو الباركود" placeholder="ابحث بالـSKU أو الاسم أو الباركود…" value="${esc(expSearchRaw)}" oninput="onExpSearch(this.value)">
     ${grp("link", "الربط", [["linked", "مربوط"], ["unlinked", "بدون ربط"]])}
     ${grp("pub", "النشر", [["pub", "منشور"], ["unpub", "غير منشور"]])}
     ${grp("type", "النوع", [["parent", "أب"], ["variant", "متغيّر"], ["simple", "بسيط"]])}
     ${grp("qty", "الكمية", [["zero", "صفر"], ["pos", ">0", "أكبر من صفر"], ["inf", "∞", "غير محدود"]])}
-    ${grp("admin", "إداري", [["waiting", "⏳", "بانتظار التوفر"], ["managed", "✓ مُدار"], ["unpublish", "🚫", "إلغاء النشر"], ["ignored", "متجاهَل"], ["absent", "غائب 📭", "غائب عن الملف"]])}
+    ${grp("admin", "إداري", [["waiting", "⏳", "بانتظار التوفر"], ["managed", "✓ مُدار"], ["unpublish", ICO.ban, "إلغاء النشر"], ["ignored", "متجاهَل"], ["absent", "غائب " + ICO.inbox, "غائب عن الملف"]])}
     <div class="exp-actions">
       <span class="exp-count" id="expCount">يعرض <b>${shown.length}</b> من ${rows.length}</span>
       <button class="exp-chip" onclick="clearExpFilters()">مسح الفلاتر</button>
@@ -4289,12 +4361,12 @@ function updatedTableHTML(list) {
     const pubFlag = u.republish ? `<span class="pub-tag" title="حالته published=No وكميته ستصبح > 0 — سيُغيَّر إلى Yes في ملف الأسعار">🔆 سيُعاد نشره</span>` : "";
     const zeroFlag = u.zeroedLowValue ? `<span class="zero-tag" title="سعره أقل من ${opts.lowPrice || 400} ر.س وكميته ≤ ${opts.lowQty != null ? opts.lowQty : 3} — صُدِّر بكمية 0">📉 صُفّر (قيمة منخفضة)</span>` : "";
     const isVar = String(u.sku).includes(".");
-    const offBtn = isVar ? `<button class="mini-btn" onclick="openOffset('${esc(u.skuN)}')" title="زيادة سعر لهذا المتغير عن سعر المستودع (إضافات مدفوعة)">⚙ زيادة</button>` : "";
+    const offBtn = isVar ? `<button class="mini-btn" onclick="openOffset('${esc(u.skuN)}')" title="زيادة سعر لهذا المتغير عن سعر المستودع (إضافات مدفوعة)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v2M12 19.5v2M4.2 7l1.7 1M18.1 16l1.7 1M4.2 17l1.7-1M18.1 8l1.7-1"/></svg> زيادة</button>` : "";
     const chk = testSelected.has(String(u.sku)) ? "checked" : "";
     // المستبعد: صف باهت بزر «استعادة» فقط (لا تحديد ولا تنزيل تجريبي). غيره: أزرار العمل المعتادة
     const actCell = u.excluded
       ? `<button class="mini-btn" onclick="restoreExcluded('${esc(u.skuN)}')" title="أعِد هذا الصنف إلى ملفي التنزيل">↩ استعادة</button>`
-      : `${offBtn}<button class="mini-btn" onclick="downloadOne('${esc(u.skuN)}')" title="نزّل ملف اختبار يحوي هذا المنتج وحده لتجرّبه في زد قبل الاستيراد الكامل">🧪 جرّب</button><button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="استبعاد مؤقت من ملفي التنزيل في هذه الجلسة (لا يُحفظ)">✕ شيلها</button>`;
+      : `${offBtn}<button class="mini-btn" onclick="downloadOne('${esc(u.skuN)}')" title="نزّل ملف اختبار يحوي هذا المنتج وحده لتجرّبه في زد قبل الاستيراد الكامل"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3v6.2L4.8 17a2 2 0 0 0 1.7 3h11a2 2 0 0 0 1.7-3l-4.7-7.8V3"/><path d="M8.5 3h7"/><path d="M7.2 14h9.6"/></svg> جرّب</button><button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="استبعاد مؤقت من ملفي التنزيل في هذه الجلسة (لا يُحفظ)">✕ شيلها</button>`;
     const chkCell = u.excluded ? `` : `<input type="checkbox" class="test-chk" data-sku="${esc(u.sku)}" ${chk} aria-label="تحديد ${esc(u.sku)} للتنزيل التجريبي" onchange="toggleTest('${esc(u.sku)}', this.checked)">`;
     return `<tr class="${warn ? "row-warn " : ""}${u.excluded ? "row-excluded" : ""}" data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
       `<td class="chk-cell">${chkCell}</td>` +
@@ -4603,7 +4675,7 @@ function cardHtml(it, i) {
   let bindBtn;
   if (it.bound) bindBtn = `<button class="mc-btn bind" disabled>مربوط ✓</button>`;
   else if (reliable && pct >= 85) bindBtn = `<button class="mc-btn bind gold" onclick="bindRow(${i})">ربط المنتج</button>`;
-  else bindBtn = `<button class="mc-btn bind outline" onclick="startManualLink('${esc(it.skuN)}')">🔍 ربط يدوي</button>`;
+  else bindBtn = `<button class="mc-btn bind outline" onclick="startManualLink('${esc(it.skuN)}')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8 20 20"/></svg> ربط يدوي</button>`;
   const ignoreBtn = it.ignored ? `<button class="mc-btn ignore" disabled>متجاهَل</button>`
     : `<button class="mc-btn ignore" onclick="ignoreRow(${i})">تجاهل</button>`;
   const waitBtn = it.waiting
@@ -4825,7 +4897,7 @@ function runZdQuery() {
     return `<div class="q-card"><div class="q-card-top"><span class="q-code" dir="ltr">${esc(z.sku)}</span><span class="q-name">${esc(z.name) || "—"}</span>`
       + (z.isParent ? `<span class="q-chip parent" title="منتج أب has_variants=Yes">أب</span>` : "")
       + `</div><div class="q-meta">`
-      + `<span class="q-chip ${z.pub ? "pub-yes" : "pub-no"}" title="${z.isParent ? "حالة نشر هذا الأب" : "حالة النشر (من الأب إن كان متغيّراً)"}">${z.pub ? "✅ منشور" : "🚫 غير منشور"}</span>`
+      + `<span class="q-chip ${z.pub ? "pub-yes" : "pub-no"}" title="${z.isParent ? "حالة نشر هذا الأب" : "حالة النشر (من الأب إن كان متغيّراً)"}">${z.pub ? DOT_OK + " منشور" : DOT_BAD + " غير منشور"}</span>`
       + (price != null ? `<span class="q-chip price">${price} ر.س</span>` : "")
       + `<span class="q-chip">كمية: ${qShow}</span>`
       + (z.bar ? `<span class="q-chip bar" dir="ltr" title="باركود">${esc(z.bar)}</span>` : "")
