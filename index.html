@@ -1545,7 +1545,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "bf962d7";
+const APP_VERSION = "8244123";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1832,12 +1832,31 @@ function pickSignupRole(btn) {
   btn.classList.add("on"); btn.setAttribute("aria-checked", "true"); signupRole = btn.dataset.role || "admin";
 }
 
+// ===== حفظ موضع التمرير حول إعادة بناء innerHTML (قاعدة وقائية عامة) =====
+// أي دالّة تعيد بناء جدول/قائمة كبيرة قد تفقد scrollTop لحاويتها — خصوصاً إن مرّت بعنصر نائب
+// («جارٍ التحميل…») يقلّص المحتوى لحظياً فيقصّه المتصفح إلى 0 ثم لا يعود.
+// scrollMark() يلتقط موضع النافذة ＋ حاويات التمرير، وrestore() يعيده بعد البناء.
+// آمن دائماً: المتصفح يقصّ القيمة تلقائياً إن قصُر المحتوى فعلاً، فلا خطر من موضع قديم.
+const SCROLL_KEEP_SEL = ".twrap, .notif-list, .q-results, .wh-results, .col-list, .vg-list, .sc-list";
+function scrollMark(el) {
+  const wx = window.scrollX, wy = window.scrollY, marks = [];
+  const list = el ? [el] : [...document.querySelectorAll(SCROLL_KEEP_SEL)];
+  list.forEach(n => { if (n && n.scrollTop) marks.push([n, n.scrollTop]); });
+  return function restore() {
+    for (const [n, top] of marks) if (n.isConnected && n.scrollTop !== top) n.scrollTop = top;
+    if (window.scrollX !== wx || window.scrollY !== wy) window.scrollTo(wx, wy);   // فوري (بلا smooth) فلا وميض
+  };
+}
+function keepScroll(fn) { const restore = scrollMark(); try { return fn(); } finally { restore(); } }
+
 // ===== تنقّل SPA بين الصفحات (أقسام تُظهر/تُخفى — الحالة مشتركة، لا فقدان لشيء) =====
 // خريطة الصفحة ⇄ hash للرابط (بقاء الصفحة عبر التحديث + رجوع/تقدم المتصفح + الإشارات المرجعية)
 const PAGE_HASH = { home: "home", inventory: "inventory", db: "db-update", options: "options", newuser: "new-user" };
 const HASH_PAGE = { home: "home", inventory: "inventory", "db-update": "db", options: "options", account: "inventory", "new-user": "newuser" };   // #account القديم ⇒ المخزون (روابط محفوظة)
 function goPage(id, fromHash) {
   if (id === "newuser" && !isOwner()) { if (!fromHash) showToast("🔒 صفحة إنشاء المستخدمين للمالك فقط."); return; }   // حماية إضافية (الرابط مخفي أصلاً)
+  const cur = document.querySelector(".page.active");
+  const changed = !cur || cur.id !== "page-" + id;   // هل تغيّرت الصفحة فعلاً؟ (يحكم التمرير للأعلى في آخر الدالّة)
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + id));
   document.querySelectorAll(".side-link").forEach(a => {
     const on = a.dataset.page === id;
@@ -1851,7 +1870,11 @@ function goPage(id, fromHash) {
   closeSidebar();
   const h = PAGE_HASH[id] || "home";   // حدّث الـhash (بلا إعادة تحميل) ما لم يأتِ التنقّل من الـhash أصلاً
   if (!fromHash && location.hash.replace(/^#/, "") !== h) { try { location.hash = h; } catch (e) {} }
-  try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { window.scrollTo(0, 0); }
+  // التمرير للأعلى **فقط** عند تنقّل حقيقي: تغيّر الصفحة، أو نقر صريح من المستخدم (!fromHash).
+  // بدون هذا الشرط كان `routeFromHash()` — الذي يستدعيه `loadMappingsFromDB` بعد حدث SIGNED_IN
+  // الذي تُطلقه مكتبة Supabase عند عودة التبويب (visibilitychange ⇐ _recoverAndRefresh) —
+  // يصفّر موضع القراءة في منتصف الجدول عند كل عودة من تبويب آخر.
+  if (changed || !fromHash) { try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { window.scrollTo(0, 0); } }
 }
 // افتح الصفحة من الـhash الحالي (hash مجهول/فارغ ⇒ الرئيسية · «مستخدم جديد» لغير المالك ⇒ الرئيسية صامتاً)
 function routeFromHash() {
@@ -1935,12 +1958,14 @@ function actItemHTML(row) {
 }
 async function loadActivityInto(containerId, type, limit) {
   const box = document.getElementById(containerId); if (!box) return;
-  if (!(dbOnline && sb)) { box.innerHTML = '<div class="notif-empty">🔴 غير متصل بالقاعدة.</div>'; return; }
+  const restore = scrollMark(box);   // العنصر النائب يقلّص القائمة ⇒ يُقصّ الموضع إلى 0؛ نلتقطه قبل ونعيده بعد
+  if (!(dbOnline && sb)) { box.innerHTML = '<div class="notif-empty">🔴 غير متصل بالقاعدة.</div>'; restore(); return; }
   box.innerHTML = '<div class="notif-empty">⏳ جارٍ التحميل…</div>';
   try {
     const rows = type ? await db.activity.getByType(type, limit) : await db.activity.getRecent(limit);
     box.innerHTML = rows.length ? rows.map(actItemHTML).join("") : '<div class="notif-empty">لا نشاط بعد.</div>';
   } catch (e) { box.innerHTML = '<div class="notif-empty">تعذّر تحميل السجل: ' + esc(e.message || String(e)) + '</div>'; }
+  restore();
 }
 function toggleActivityPanel(e) { if (e) e.stopPropagation(); const p = document.getElementById("notifPanel"); if (!p) return; (p.style.display === "none") ? openActivityPanel() : closeActivityPanel(); }
 function openActivityPanel() { const p = document.getElementById("notifPanel"); if (!p) return; p.style.display = "block"; loadActivityInto("activityList", "", 50); setTimeout(() => document.addEventListener("click", actOutside), 0); }
@@ -2711,7 +2736,9 @@ const lostTag = r => r.wasLinked ? `<span class="lost-tag" title="سبق ربط�
 const priceCell = (z, w) => `<span dir="ltr">${priceInt(z) ?? "—"} / ${priceInt(w) ?? "—"}</span>${priceBadge(z, w)}`;
 const reasonText = b => [b.sizeM ? "مقاس✓" : "", b.priceM ? "سعر✓" : "", b.sim >= 0.5 ? "اسم " + Math.round(b.sim * 100) + "٪" : "", b.aliasHit ? "زوج معروف" : ""].filter(Boolean).join(" · ");
 
-function renderBatchTab() {
+// غلاف حافظ للموضع — بطاقات التحليل تُبنى داخل #detailTable نفسه (القاعدة الوقائية العامة)
+function renderBatchTab() { keepScroll(renderBatchTabBody); }
+function renderBatchTabBody() {
   batchRowByUid = {}; btUidSeq = 0;   // إعادة بناء سجل الصفوف مع كل عرض
   const target = document.getElementById("detailTable"); if (!target) return;
   const body = batchTab === "green" ? renderGreen() : (batchTab === "yellow" ? renderYellow() : renderRed());
@@ -4272,7 +4299,9 @@ function buildItems(raw) {
   return items;
 }
 
-function renderDetail() {
+// غلاف حافظ للموضع — كل نداءات renderDetail() الخارجية تمرّ من هنا (القاعدة الوقائية العامة)
+function renderDetail() { keepScroll(renderDetailBody); }
+function renderDetailBody() {
   // الخروج من وضع التحليل الذكي عند عرض أي بطاقة عادية (استعادة شريط البحث/العنوان)
   if (batchMode) { batchMode = false; const b = document.querySelector("#unBlock .unbar"); if (b) b.style.display = ""; }
   const f = currentFilter;
