@@ -986,6 +986,16 @@
   /* تبويبات بطاقة «بدون ربط» + شارات دورة الحياة (مُدار/انحرف) */
   /* معتمة: panel مركّبة فوق --bg بنفس مظهر سطح البطاقة، فلا تظهر صفوف الجدول خلفها */
   .un-chips { position: sticky; top: 0; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 10px; background: linear-gradient(var(--panel), var(--panel)), var(--bg); border-bottom: 1px solid var(--border); }
+  /* القائمة الموحّدة «بدون ربط» (ب-٢): شريط حالة لاصق ومعتم (طبقة panel فوق bg = بلا شفافية) */
+  .uni-bar { position: sticky; top: 0; z-index: 7; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 10px 12px; margin-bottom: 10px; background: linear-gradient(var(--panel), var(--panel)), var(--bg); border: 1px solid var(--border); border-radius: 12px; font-size: 13px; }
+  .uni-counts { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 6px; }
+  .uni-need { color: var(--gold-2); white-space: nowrap; }
+  .uni-conf { color: var(--muted); white-space: nowrap; }
+  .uni-st { color: var(--muted); white-space: nowrap; }
+  .uni-sep { color: var(--muted-2); }
+  .uni-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .mcard.uni-light { opacity: .9; }
+  .mcard.uni-light .mc-actions { align-self: center; }
   .exp-chip { font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid var(--border-strong); background: rgba(255,255,255,.03); color: var(--muted); border-radius: 999px; padding: 5px 11px; transition: all .12s; white-space: nowrap; }
   .exp-chip:hover { color: var(--text); border-color: var(--gold-2); }
   .exp-chip.on { background: var(--gold); color: #2a2100; border-color: var(--gold); }
@@ -1547,7 +1557,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "309052b";
+const APP_VERSION = "c4f3c32";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2730,9 +2740,8 @@ async function batchApply(pairs, tag) {
   // تعلُّم aliases: القاعدة أولاً (bulk)، وعند النجاح فقط تُضاف للذاكرة (بأفضل جهد — لا يُفشل الاعتماد)
   if (newAliases.length) { try { await db.aliases.bulkUpsert(newAliases); newAliases.forEach(p => batchAliases.add(p)); } catch (e) { console.warn("aliases DB upsert:", e); } }
   renderPills(); markDirty(); updateNewCount();
-  if (currentFilter === "unmatched") renderDetail();
   batchData = analyzeBatch();
-  renderBatchTab();
+  if (currentFilter === "unmatched") renderDetail();   // القائمة الموحّدة تستعمل batchData المُحدَّث
   showToast(`✓ اعتُمد ${pairs.length} رابط في القاعدة (${tag === "auto-confirmed" ? "🟢 مؤكد" : tag === "auto-approved" ? "🟡 معتمد" : "يدوي"}).`);
 }
 async function undoLastBatch() {
@@ -2751,8 +2760,8 @@ async function undoLastBatch() {
   updateDbBadge();
   const n = lastBatchUndo.count; lastBatchUndo = null;
   renderPills(); markDirty(); updateNewCount();
+  batchData = analyzeBatch();
   if (currentFilter === "unmatched") renderDetail();
-  batchData = analyzeBatch(); renderBatchTab();
   showToast(`↩ تم التراجع عن آخر اعتماد (${n} رابط).`);
 }
 
@@ -2810,7 +2819,7 @@ function batchBar() {
       <button class="btn-run sm export-btn" onclick="saveToRepo('اعتماد ربط دفعي')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18h10a3.5 3.5 0 0 0 .3-7A5 5 0 0 0 7.6 10 3.9 3.9 0 0 0 7 18z"/></svg> احفظ في الريبو</button>
     </span></div>`;
 }
-function toggleLostOnly() { batchLostOnly = !batchLostOnly; renderBatchTab(); }
+function toggleLostOnly() { batchLostOnly = !batchLostOnly; renderDetail(); }
 // تطبيق فلتر «سبق ربطه فقط» على قائمة تبويب
 function btFilter(list) { return batchLostOnly ? list.filter(r => r.wasLinked) : list; }
 // عائلات 🟡 وفق الفلتر الحالي — تُستخدم في العرض وpickAlt وacceptFamily معاً (تطابق الفهارس fi/ri)
@@ -2832,6 +2841,101 @@ function renderBatchTabBody() {
     <div id="batchTabs" class="batch-tabs" role="tablist" aria-label="تصنيف نتائج التحليل الذكي">${batchTabBtns()}</div>
     <div id="batchBody" class="batch-content-inline" role="tabpanel" aria-labelledby="bttab-${batchTab}" tabindex="0">${body}</div>
   </div>`;
+}
+
+// ==================== القائمة الموحّدة «بدون ربط» (الدفعة ب-٢) — قائمة واحدة، لا تبويبات ====================
+// الأساس = بطاقة التحليل (batchCardHTML). كل الأصناف في قائمة متصلة: «يحتاج قرار» (بطاقات كاملة،
+// ترتيب الثقة green→yellow→red) أولاً ثم المُقرَّرة (صفوف خفيفة تفاعلية). رسم تدريجي + بحث فوق الكل.
+let unifiedPending = null, unifiedRAF = 0;   // مخزّن الرسم التدريجي المؤجَّل (ج)
+const UNI_CHUNK = 40;                          // حجم دفعة الرسم التدريجي
+
+// صفّ خفيف لصنف مُقرَّر (سيُصفَّر/مُدار/متجاهَل) — يبقى تفاعلياً: تراجع مباشر بلا تحويله لبطاقة كاملة
+function unifiedLightRow(u, status) {
+  const badge = status === "pending" ? `<span class="cat-badge cat-wait">⚠ سيُصفَّر</span>`
+    : status === "managed" ? `<span class="cat-badge cat-mng">✓ مُدار</span>`
+    : `<span class="cat-badge cat-ign">✕ متجاهَل</span>`;
+  const undo = status === "ignored"
+    ? `<button class="mc-btn" onclick="undoIgnoreDecision('${esc(String(u.sku))}','${esc(u.skuN)}')">↩ إلغاء التجاهل</button>`
+    : `<button class="mc-btn" onclick="undoWaitDecision('${esc(String(u.sku))}','${esc(u.skuN)}')">↩ تراجع</button>`;
+  const search = esc(normText(String(u.sku) + " " + (u.name || "")));
+  return `<div class="mcard uni-light" data-status="${status}" data-search="${search}">`
+    + `<div class="mc-zid"><div class="mc-row"><div class="mc-txt">`
+    + `<div class="mc-name">${esc(u.name) || "—"} ${badge}</div>`
+    + `<div class="mc-sku">SKU: <span dir="ltr">${esc(String(u.sku))}</span></div>`
+    + `</div></div></div><div class="mc-actions">${undo}</div></div>`;
+}
+async function undoWaitDecision(rawSku, skuN) { try { await unmarkWaiting(rawSku, skuN); } catch { return; } run(true); }   // يمسّ الإخراج ⇒ أعِد المعالجة
+async function undoIgnoreDecision(rawSku, skuN) { try { await dbDelIgnored(rawSku, skuN); } catch { return; } refreshUnmatchedUI(); renderFingerprint(); }
+
+// شريط الحالة (لاصق ومعتم): عدّادات الحالة + ثقة «يحتاج قرار» + فلتر «سبق ربطه» + اعتماد جماعي
+function unifiedBar(g, y, r, p, m, ig) {
+  const need = g + y + r, lost = batchData.lostCount || 0;
+  return `<div class="uni-bar">
+    <div class="uni-counts">
+      <b class="uni-need">🆕 يحتاج قرار ${need}</b> <span class="uni-conf">${DOT_OK} ${g} · ${DOT_MID} ${y} · ${DOT_BAD} ${r}</span>
+      <span class="uni-sep">·</span> <span class="uni-st">⚠ سيُصفَّر ${p}</span> · <span class="uni-st">✓ مُدار ${m}</span> · <span class="uni-st">✕ متجاهَل ${ig}</span>${lost ? ` · <span class="lost-count">🔗 سبق ربطه ${lost}</span>` : ""}
+    </div>
+    <div class="uni-actions">
+      ${lost ? `<button class="mc-btn ${batchLostOnly ? "on-lost" : ""}" onclick="toggleLostOnly()" title="روابط يدوية ضائعة — أولى بإعادة الربط">${batchLostOnly ? "✓ سبق ربطه فقط" : "🔗 المفقودة فقط"}</button>` : ""}
+      <button class="btn-run sm" onclick="acceptUnified('green')">✓ اعتماد المؤكد</button>
+      <button class="mc-btn" onclick="acceptUnified('all')">✓ اعتماد كل المحدد</button>
+      <button class="mc-btn" onclick="undoLastBatch()" ${lastBatchUndo ? "" : "disabled"}>↩ تراجع${lastBatchUndo ? ` (${lastBatchUndo.count})` : ""}</button>
+    </div></div>`;
+}
+// اعتماد المحدد: green فقط أو كل المحدد (green+yellow+red). يقرأ المرشّح المثبَّت لكل صف
+function acceptUnified(scope) {
+  const sel = scope === "green" ? "#unBody .bt-g:checked"
+    : "#unBody .bt-g:checked, #unBody .bt-y:checked, #unBody .bt-rd:checked";
+  const pairs = [...document.querySelectorAll(sel)].filter(c => !c.disabled).map(c => {
+    const r = batchRowByUid[c.dataset.uid], cc = r && (r.chosen || r.best);
+    return cc ? { sku: r.z.sku, code: cc.code } : null;
+  }).filter(Boolean);
+  if (!pairs.length) { showToast("لم تحدد شيئاً."); return; }
+  batchApply(pairs, scope === "green" ? "auto-confirmed" : "auto-approved");
+}
+
+function renderUnifiedList(bindBtn, title, wrap) {
+  if (!batchData) batchData = analyzeBatch();
+  const raw0 = lastUnmatchedRaw || [];
+  const isW = u => waitingSet.has(normCode(u.skuN));
+  const pending = raw0.filter(u => isW(u) && curQtyNum(u.qty) !== 0);
+  const managed = raw0.filter(u => isW(u) && curQtyNum(u.qty) === 0);
+  const ignored = raw0.filter(u => ignoredSet.has(normCode(u.skuN)));
+  bindBtn.style.display = "none";
+  { const bb = document.getElementById("batchBtn"); if (bb) bb.style.display = "none"; }
+  title.style.display = "none";   // العنوان القديم يُستبدل بشريط الحالة اللاصق
+  // بطاقات «يحتاج قرار» بترتيب الثقة (green→yellow→red؛ «سبق ربطه» أولاً داخل كلٍّ من analyzeBatch)
+  batchRowByUid = {}; btUidSeq = 0;
+  const g = btFilter(batchData.green), y = btFilter(batchData.yellow), r = btFilter(batchData.red);
+  const full = [...g.map(x => batchCardHTML(x, "bt-g", "")), ...y.map(x => batchCardHTML(x, "bt-y", "")), ...r.map(x => batchCardHTML(x, "bt-rd", ""))];
+  const light = [...pending.map(u => unifiedLightRow(u, "pending")), ...managed.map(u => unifiedLightRow(u, "managed")), ...ignored.map(u => unifiedLightRow(u, "ignored"))];
+  const allRows = [...full, ...light];
+  wrap.innerHTML = unifiedBar(g.length, y.length, r.length, pending.length, managed.length, ignored.length)
+    + `<div class="mcards uni-list" id="unBody"></div>`;
+  const host = document.getElementById("unBody");
+  cancelAnimationFrame(unifiedRAF); unifiedPending = null;
+  const q = normText((document.getElementById("unSearch") || {}).value || "");
+  if (q) { host.innerHTML = allRows.join(""); filterUnmatched(); return; }   // بحث نشط ⇒ ارسم الكل ثم صفِّ
+  host.innerHTML = allRows.slice(0, UNI_CHUNK).join("");                     // رسم تدريجي: دفعة أولى فوراً
+  if (allRows.length > UNI_CHUNK) { unifiedPending = { rows: allRows, idx: UNI_CHUNK, host }; scheduleUnifiedChunk(); }
+}
+function scheduleUnifiedChunk() {
+  unifiedRAF = requestAnimationFrame(() => {
+    if (!unifiedPending) return;
+    const s = unifiedPending;
+    if (s.idx >= s.rows.length) { unifiedPending = null; return; }
+    s.host.insertAdjacentHTML("beforeend", s.rows.slice(s.idx, s.idx + UNI_CHUNK).join(""));
+    s.idx += UNI_CHUNK;
+    scheduleUnifiedChunk();
+  });
+}
+// أدخِل كل المتبقّي فوراً — يضمن أن البحث يعمل فوق الـ300 كاملة لا المرسوم تدريجياً فقط
+function flushUnified() {
+  cancelAnimationFrame(unifiedRAF);
+  if (!unifiedPending) return;
+  const s = unifiedPending;
+  if (s.idx < s.rows.length) s.host.insertAdjacentHTML("beforeend", s.rows.slice(s.idx).join(""));
+  unifiedPending = null;
 }
 
 // بطاقة الربط الدفعي — بنفس شكل بطاقات «جديد يحتاج قراراً» (صورة ＋ 3 أعمدة منظّمة) ＋ تحديد ＋ بحث هجين ＋ ⏳/✕
@@ -2867,7 +2971,8 @@ function batchCardHTML(r, chkCls, famAttr) {
       <button class="mc-btn wait" onclick="batchExclude('${uid}','wait')" title="سجّله «غير متوفر حالياً» (⏳)">⏳ غير متوفر</button>
       <button class="mc-btn ignore" onclick="batchExclude('${uid}','ignore')" title="تجاهله (✕)">✕ تجاهل</button>
     </div>`;
-  return `<div class="mcard batch-card${r.wasLinked ? " lost" : ""}" title="${tip}">${zid}${wh}${actions}</div>`;
+  const search = esc(normText(String(r.z.sku) + " " + (r.z.name || "") + " " + (c ? String(c.code) + " " + (c.name || "") : "")));
+  return `<div class="mcard batch-card${r.wasLinked ? " lost" : ""}" data-status="need" data-search="${search}" title="${tip}">${zid}${wh}${actions}</div>`;
 }
 // 🟢 المؤكد — الكل محدد افتراضياً؛ الاعتماد للمحدد فقط
 function renderGreen() {
@@ -2989,7 +3094,7 @@ async function batchExclude(uid, action) {
   ["green", "yellow", "red"].forEach(k => { batchData[k] = batchData[k].filter(x => x !== r); });
   batchData.lostCount = [...batchData.green, ...batchData.yellow, ...batchData.red].filter(x => x.wasLinked).length;
   renderIgnored(lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN))));
-  updateNewCount(); renderFingerprint(); renderBatchTab();
+  updateNewCount(); renderFingerprint(); renderDetail();   // القائمة الموحّدة: الصنف ينتقل لصفّ خفيف
   showToast(`${action === "wait" ? "⏳ نُقل للانتظار" : "🚫 تجاهل"}: ${r.z.sku} — حُفظ في القاعدة.`);
 }
 
@@ -4331,6 +4436,7 @@ function refreshUnmatchedUI() {
   renderIgnored(ignored);
   updateNewCount();
   updateUnmatchedCard();
+  batchData = null;   // بيانات «بدون ربط» تغيّرت ⇒ أعِد تحليل الثقة عند الرسم التالي
   renderDetail();
 }
 
@@ -4374,8 +4480,6 @@ function buildItems(raw) {
 // غلاف حافظ للموضع — كل نداءات renderDetail() الخارجية تمرّ من هنا (القاعدة الوقائية العامة)
 function renderDetail() { keepScroll(renderDetailBody); }
 function renderDetailBody() {
-  // الخروج من وضع التحليل الذكي عند عرض أي بطاقة عادية (استعادة شريط البحث/العنوان)
-  if (batchMode) { batchMode = false; const b = document.querySelector("#unBlock .unbar"); if (b) b.style.display = ""; }
   const f = currentFilter;
   document.querySelectorAll("#result .stat").forEach(s => {
     const on = s.dataset.filter === f;
@@ -4391,7 +4495,7 @@ function renderDetailBody() {
 
   if (f === "unmatched") {
     if (unbar) unbar.style.display = "";
-    renderUnmatchedCard(bindBtn, title, wrap);
+    renderUnifiedList(bindBtn, title, wrap);
   } else if (f === "updated") {
     if (unbar) unbar.style.display = ""; bindBtn.style.display = "none"; hideBatch();
     const susp = lastUpdated.filter(isSuspicious).length;
@@ -4993,6 +5097,7 @@ function isConfirmed(it) {
 }
 
 function filterUnmatched() {
+  if (currentFilter === "unmatched") flushUnified();   // ابحث فوق الـ300 كاملة لا المرسوم تدريجياً فقط
   const q = normText(document.getElementById("unSearch").value);
   document.querySelectorAll("#unBody > *").forEach(el => {
     const hay = el.getAttribute("data-search") || "";

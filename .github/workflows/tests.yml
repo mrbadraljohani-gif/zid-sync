@@ -18,6 +18,8 @@ jobs:
           node --check /tmp/main.js
       - name: Batch (أ) storage/offline invariants
         run: node tests/batch-a-invariants.mjs
+      - name: Batch (ب-٢) unified-list static guards
+        run: node tests/b2-invariants.mjs
 
   perf-list:
     runs-on: ubuntu-latest
@@ -46,7 +48,11 @@ jobs:
         run: google-chrome-stable --version
       - name: Install deps (puppeteer-core فقط)
         run: npm ci
-      - name: Self-check — الحارس يرسب على الكود المعطوب
+      - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
-      - name: Horizontal-overflow guard @360/390 (viewport حقيقي)
+      - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)
         run: node tests/perf/overflow-guard.mjs
+      - name: Self-check — اختبار الرسم التدريجي يرسب بلا flush
+        run: node tests/perf/progressive-search.mjs --broken
+      - name: Progressive render does not break search-over-all
+        run: node tests/perf/progressive-search.mjs

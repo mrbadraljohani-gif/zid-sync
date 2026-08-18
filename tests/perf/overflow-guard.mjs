@@ -52,19 +52,23 @@ const fullCard = (i, extra = "") => `<div class="mcard batch-card${i % 7 === 0 ?
     <button class="mc-btn wait">⏳ غير متوفر</button>
     <button class="mc-btn ignore">✕ تجاهل</button>
   </div></div>`;
-const lightRow = i => `<div class="mcard batch-card light">
-  <div class="mc-zid"><span class="mc-tag zid">ZID</span><div class="mc-row"><div class="mc-txt">
+// صفّ خفيف مطابِق لـunifiedLightRow في ب-٢ (نفس الأصناف: mcard uni-light)
+const lightRow = i => `<div class="mcard uni-light" data-status="managed">
+  <div class="mc-zid"><div class="mc-row"><div class="mc-txt">
     <div class="mc-name">صنف مُدار ${i} <span class="cat-badge cat-mng">✓ مُدار</span></div>
     <div class="mc-sku">SKU: <span dir="ltr">451070${i}</span></div></div></div></div>
   <div class="mc-actions"><button class="mc-btn">↩ تراجع</button></div></div>`;
+// شريط الحالة اللاصق (uni-bar) كما في ب-٢ — لاختبار «لاصق معتم» + عدم التجاوز
+const uniBar = `<div class="uni-bar"><div class="uni-counts"><b class="uni-need">🆕 يحتاج قرار 24</b> <span class="uni-conf">● 12 · ● 8 · ● 4</span> · <span class="uni-st">⚠ سيُصفَّر 3</span> · <span class="uni-st">✓ مُدار 24</span></div>
+  <div class="uni-actions"><button class="btn-run sm">✓ اعتماد المؤكد</button><button class="mc-btn">✓ اعتماد كل المحدد</button></div></div>`;
 
-const cards = Array.from({ length: 24 }, (_, i) => fullCard(i)).join("")
+const cards = uniBar + Array.from({ length: 24 }, (_, i) => fullCard(i)).join("")
   + Array.from({ length: 24 }, (_, i) => lightRow(i)).join("")
   + (BROKEN ? fullCard(999, '<div style="width:900px;flex:0 0 auto"></div>') : "");   // بطاقة معطوبة للتحقّق الذاتي
 
 const page = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head>
-<body class="app-shell"><div class="mcards">${cards}</div></body></html>`;
+<body class="app-shell"><div class="mcards uni-list">${cards}</div></body></html>`;
 
 const exe = findChrome();
 if (!exe) { console.error("✗ لم يُعثر على Chrome. اضبط CHROME_PATH."); process.exit(2); }
@@ -86,11 +90,22 @@ try {
         const ov = Math.max(0, Math.round(rc.right - vw), Math.round(-rc.left));
         if (ov > worstOv) { worstOv = ov; worst = (el.className || el.tagName) + " «" + (el.textContent || "").slice(0, 24) + "»"; }
       }
-      return { vw, docOverflow: Math.round(docOverflow), worstOv, worst };
+      // حارس «لاصق معتم»: شريط uni-bar sticky يجب أن تكون خلفيته غير شفّافة (alpha=1) وإلا يشفّ المحتوى تحته
+      const bar = document.querySelector(".uni-bar");
+      let stickyOpaque = true, barBg = "";
+      if (bar) {
+        const cs = getComputedStyle(bar);
+        barBg = cs.backgroundColor + " | " + cs.backgroundImage.slice(0, 40);
+        const solidColor = cs.backgroundColor && !/rgba\([^)]*,\s*0(\.0+)?\)/.test(cs.backgroundColor) && cs.backgroundColor !== "transparent";
+        const hasBgImage = cs.backgroundImage && cs.backgroundImage !== "none";   // طبقة linear-gradient(panel) فوق bg = معتم
+        stickyOpaque = (cs.position === "sticky") && (solidColor || hasBgImage);
+      }
+      return { vw, docOverflow: Math.round(docOverflow), worstOv, worst, stickyOpaque, barBg };
     });
     const bad = r.docOverflow > 1 || r.worstOv > 1;
-    console.log(`  ${bad ? "✗" : "✓"} @${w}px · vw=${r.vw} · docOverflow=${r.docOverflow}px · أسوأ عنصر=${r.worstOv}px ${r.worst ? "(" + r.worst + ")" : ""}`);
+    console.log(`  ${bad ? "✗" : "✓"} @${w}px · vw=${r.vw} · docOverflow=${r.docOverflow}px · أسوأ عنصر=${r.worstOv}px · لاصق-معتم=${r.stickyOpaque} ${r.worst ? "(" + r.worst + ")" : ""}`);
     if (bad) fails.push(`تجاوز أفقي @${w}px (docOverflow=${r.docOverflow}, عنصر=${r.worstOv})`);
+    if (!BROKEN && !r.stickyOpaque) fails.push(`شريط uni-bar اللاصق ليس معتماً @${w}px (${r.barBg})`);
     await p.close();
   }
 } finally { await browser.close(); }
