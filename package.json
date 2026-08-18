@@ -1,0 +1,22 @@
+{
+  "name": "zid-sync",
+  "version": "1.0.0",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test:invariants": "node tests/batch-a-invariants.mjs",
+    "test:bench": "node tests/perf/run-bench.mjs --assert",
+    "test:overflow": "node tests/perf/overflow-guard.mjs",
+    "test:overflow:self": "node tests/perf/overflow-guard.mjs --broken",
+    "test": "npm run test:invariants && npm run test:overflow"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "ASJ zid-sync — أداة مزامنة المستودع مع متجر زد",
+  "devDependencies": {
+    "puppeteer-core": "^25.8.0"
+  },
+  "private": true
+}

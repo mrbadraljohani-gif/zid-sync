@@ -1,3 +1,5 @@
 .DS_Store
 # إعدادات Claude Code المحلية لكل جهاز — لا تُرفع (settings.json المشترك يُرفع)
 .claude/settings.local.json
+
+node_modules/

@@ -31,3 +31,22 @@ jobs:
         run: google-chrome-stable --version || google-chrome --version
       - name: List perf benchmark (headless, synchronous)
         run: node tests/perf/run-bench.mjs --assert
+
+  overflow-guard:
+    runs-on: ubuntu-latest
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: '1'   # puppeteer-core لا يُنزّل Chromium — نستعمل Chrome النظامي
+      CHROME_PATH: /usr/bin/google-chrome-stable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Locate Chrome
+        run: google-chrome-stable --version
+      - name: Install deps (puppeteer-core فقط)
+        run: npm ci
+      - name: Self-check — الحارس يرسب على الكود المعطوب
+        run: node tests/perf/overflow-guard.mjs --broken
+      - name: Horizontal-overflow guard @360/390 (viewport حقيقي)
+        run: node tests/perf/overflow-guard.mjs
