@@ -18,3 +18,16 @@ jobs:
           node --check /tmp/main.js
       - name: Batch (أ) storage/offline invariants
         run: node tests/batch-a-invariants.mjs
+
+  perf-list:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # google-chrome-stable مثبّت مسبقاً على ubuntu-latest — نستعمله بلا puppeteer/تنزيل Chromium
+      - name: Locate Chrome
+        run: google-chrome-stable --version || google-chrome --version
+      - name: List perf benchmark (headless, synchronous)
+        run: node tests/perf/run-bench.mjs --assert
