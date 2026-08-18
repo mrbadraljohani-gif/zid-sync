@@ -230,10 +230,22 @@
 - **الواجهة تجمّل فقط** (`myRole`, `loadMyRole` عبر `db.roles.mine`، `applyRoleUI`): `requireOwner()` في `dbSetMapping/dbSetMappings/dbDelMapping` يمنع الربط لغير المالك بتوست «🔒 الربط صلاحية المالك» (RLS هو الحاجز الفعلي؛ `myRole=null` غير محمّل ⇒ نترك القاعدة تقرّر). `body.nonowner` يعتّم `#bindAllBtn`، وشارة الدور `#roleBadge` في صفحة الحساب.
 - **صفحة «مستخدم جديد» للمالك فقط**: `applyRoleUI` يخفي رابط القائمة لغير المالك و`goPage('newuser')` يرفض الدخول. النموذج فيه segmented (admin افتراضي / viewer — بلا owner)؛ `doSignup` بعد `signUp` ＋ استعادة جلسة المالك يستدعي `db.roles.setRole(newId, role)` (ينجح لأن المنفّذ owner). حقول النموذج بنمط شاشة الدخول (`.signup-card` يشارك CSS `.login-box input`، بريد `dir=ltr`، عيون إظهار كلمة المرور).
 
+## القرارات في القاعدة حصراً — الدفعة (أ)  ⚠️ SQL يدوي
+نُقلت **كل قرارات المستخدم** إلى Supabase مصدراً وحيداً، وأُزيل تخزينها المحلي نهائياً. **لا تُستعمل الأداة بلا اتصال.**
+- **الجداول** (`supabase_decisions.sql`، يُنفَّذ **يدوياً بعد** `supabase_user_roles.sql`، مرة واحدة — لا يفترضه الكود): `public.ignored_items` (المتجاهَلات) · `public.aliases` (أزواج «جذر\|\|\|جذر») · ＋ `ALTER waiting_items` بأعمدة `kind`('wait' الآن، 'unpublish' لاحقاً في ج) · `missed_rounds` · `last_seen_at`. RLS بنمط `waiting`: قراءة كل موثّق · كتابة owner+admin.
+- **الوحدات**: `db.ignored{getAll,upsert,bulkUpsert,remove}` · `db.aliases{getAll,add,bulkUpsert}` · توسيع `db.waiting`.
+- **كل كتابة القاعدة أولاً** (`markWaiting`/`unmarkWaiting`/`dbAddIgnored`/`dbDelIgnored`/`dbSetMapping*`): `requireOnline()` ثم `await db…`؛ **الذاكرة تُحدَّث بعد نجاح القاعدة فقط** (فشل ⇒ `dbFail` يُظهر توست ولا يترك أثراً — لا تشعّب صامت). `batchApply` يتعلّم `aliases` بـ`db.aliases.bulkUpsert` (بأفضل جهد، لا يُفشل الاعتماد).
+- **التحميل من القاعدة** (بعد الدخول في `loadMappingsFromDB`): `loadIgnoredFromDB`/`loadAliasesFromDB`/`loadWaitingFromDB` **تستبدل الذاكرة إن كانت القاعدة غير فارغة** (وإلا تُبقي المحلي كبذرة ترحيل).
+- **`link-tags.json` أُسقط** نهائياً — الوسم يُشتقّ من `mappings.source`.
+- **الترحيل لكل جدول على حدة** (`migPending`/`doMigration(type)`): لقطات إقلاع `bootLocalMap`/`bootLocalIgnored`/`bootLocalWaiting`/`bootLocalAliases` (من `mapping/ignored/waiting/aliases.json` ＋ localStorage القديم، **قراءة بذرة فقط**). شريط `#migrateBar` يعرض زرّاً لكل نوع قاعدته فارغة ومحلّيه غير فارغ؛ الفشل الجزئي لا يمسّ بقية الأنواع ولا يمسح المصدر.
+- **حجب عدم الاتصال** (`setOfflineGate`/`blockedOffline`، بانر `#offlineBar`): `!dbOnline` ⇒ بانر أحمر ظاهر ＋ `body.db-offline` يعتّم ويعطّل `#runBtn` وأزرار التنزيل، و`runFromDB`/`downloadSelected`/`downloadOne`/`downloadMerge` تُحجب بـ`blockedOffline()`، و`wireDl` لا يفعّل التنزيل إلا `dbOnline`. `setDbBadge` يستدعي `setOfflineGate` فيغطّي كل مسارات الحالة.
+- **حارس انحدار** (`tests/batch-a-invariants.mjs` ＋ `.github/workflows/tests.yml`): فحص ثابت يرسب إن عاد أي `localStorage.setItem` للقرارات، أو كُسر ترتيب «القاعدة قبل الذاكرة»، أو سقط حجب التنزيل، أو تأثّرت مسارات `run` الجوهرية. **مقياس أداء 300 صفّ (headless) يأتي في الدفعة (ب)** (يقيس رسم قائمتها).
+- **خارج النطاق (يبقى محلياً):** `matchedHistory` (الدفعة د لاحقاً) و`priceOffsets` — عبر `saveMatchedHistory`/`saveOffsets`، ويُصدَّران في `exportConfig`/`saveToRepo` فقط.
+
 ## الحفظ والإعدادات (localStorage + الريبو)
-- خمسة ملفات إعداد تُحفظ في الريبو مباشرةً عبر GitHub Contents API (زر «☁ الحفظ في الريبو» بالترويسة، وتلقائياً بعد تحميل أي ملف): الروابط `mapping.json`، المتجاهلات `ignored.json`، زيادات الأسعار `price-offsets.json`، **تاريخ المطابقة `matched-history.json`** (أكواد سبق أن طوبقت — لتمييز الغائب عن الجديد)، و**قائمة الانتظار `waiting.json`**. كلها بنفس المنظومة: تحميل بـ`fetch` عند الفتح ← دمج مع localStorage ← تصدير يدوي (`exportConfig`) ← حفظ في الريبو (`saveToRepo`). `matched-history.json` يتراكم تلقائياً في كل مطابقة ناجحة (يُحفظ محلياً فوراً، وللريبو عند الحفظ).
+- بعد الدفعة (أ): القرارات الستة (روابط/تجاهل/انتظار/aliases/وسوم) **ليست في localStorage ولا الريبو** — مصدرها القاعدة. يبقى في الريبو (`exportConfig`/`saveToRepo`) فقط: زيادات الأسعار `price-offsets.json` وتاريخ المطابقة `matched-history.json` (`matched-history` يتراكم تلقائياً في كل مطابقة ناجحة).
 - **الاستبعاد (`excludedSet`) ليس ضمن هذه المنظومة**: مؤقت للجلسة فقط (in-memory)، لا localStorage ولا ملف في الريبو — راجع زر «✕ شيلها» في قسم الواجهة.
-- **بصمة الجلسة** (`renderFingerprint`) تعرض لكل نوع إعداد عدد «بالملف» مقابل «محلي غير مصدَّر» (روابط · تجاهلات · انتظار · تاريخ مطابقة)، وتنبّه إن كان هناك محلي غير محفوظ في الريبو.
+- **بصمة الجلسة** (`renderFingerprint`، بعد الدفعة أ): الروابط/التجاهل/الانتظار تُعرض كـ«(قاعدة)»؛ و`matchedHistory` وحده يُظهر «محلي غير مصدَّر» وينبّه للحفظ في الريبو.
 - رمز GitHub (fine-grained, Contents R/W على `zid-sync`) يُخزَّن في localStorage لكل جهاز — **لا يُوضع في الكود إطلاقاً** (الموقع عام).
 - وضع فاتح/غامق (`zid-theme`)، خيارات (`zid-options-v1`).
 

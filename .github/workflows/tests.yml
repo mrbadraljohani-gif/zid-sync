@@ -1,0 +1,20 @@
+name: tests
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  static-invariants:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: JS syntax check (main <script> block)
+        run: |
+          node -e "const fs=require('fs');const h=fs.readFileSync('index.html','utf8');const s=h.lastIndexOf('\n<script>\n');const e=h.lastIndexOf('\n</script>');fs.writeFileSync('/tmp/main.js',h.slice(s+9,e));"
+          node --check /tmp/main.js
+      - name: Batch (أ) storage/offline invariants
+        run: node tests/batch-a-invariants.mjs

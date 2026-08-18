@@ -703,6 +703,10 @@
   .login-link { display: block; width: 100%; margin-top: 12px; background: transparent; border: none; color: var(--login-link); font-size: 12.5px; font-weight: 700; cursor: pointer; }
   .login-link:hover { text-decoration: underline; }
   .migrate-bar { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 11px 18px; background: linear-gradient(120deg, rgba(201,154,60,.16), rgba(201,154,60,.08)); border-bottom: 1px solid rgba(201,154,60,.4); color: var(--gold-2); font-weight: 700; font-size: 13.5px; }
+  .migrate-bar .mig-head { width: 100%; text-align: center; }
+  .offline-bar { padding: 12px 18px; margin-bottom: 14px; border-radius: 12px; text-align: center; background: rgba(229,144,135,.14); border: 1px solid rgba(229,144,135,.55); color: var(--danger); font-weight: 800; font-size: 13.5px; line-height: 1.7; }
+  body.db-offline #runBtn { opacity: .5; pointer-events: none; }
+  body.db-offline .btn-dl { opacity: .5; pointer-events: none; }
   .batch-inline { border: 1px solid var(--border-strong); border-radius: 14px; overflow: visible; background: var(--panel); }
   .batch-inline-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 15px; border-bottom: 1px solid var(--border); }
   .batch-title { font-weight: 800; font-size: 16px; color: var(--gold-2); }
@@ -1164,10 +1168,8 @@
 
   <div class="main-col">
 
-  <div id="migrateBar" class="migrate-bar" style="display:none">
-    <span>📤 لديك روابط محلية غير مرحّلة إلى القاعدة السحابية.</span>
-    <button class="btn-run sm" id="migrateBtn" onclick="doMigration()">⬆ ترحيل الروابط الحالية للقاعدة</button>
-  </div>
+  <div id="offlineBar" class="offline-bar" style="display:none" role="alert">🔴 غير متصل بالقاعدة السحابية — الأداة تتطلّب الاتصال. الإجراءات وتنزيل الملفات و«طابق وأنشئ» معطّلة حتى يعود الاتصال (سجّل الدخول / تحقّق من الشبكة).</div>
+  <div id="migrateBar" class="migrate-bar" style="display:none"></div>
 
   <main class="page-wrap">
 
@@ -1545,7 +1547,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "8244123";
+const APP_VERSION = "309052b";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1568,8 +1570,8 @@ let unpublishSet = new Set();     // 🚫 أصناف رئيسية طُلب إل�
 let lastUnpublish = [], lastParentOf = {};   // ما سيُلغى نشره هذه الدورة + خريطة المتغيّر→أبيه (لتحديد المنتجات الرئيسية)
 let lastSaleConflicts = [];   // أصناف تخفيضها المخزَّن ≥ سعرها الجديد ⇒ مُستبعَدة من ملف الأسعار (تُعالَج يدوياً في زد)
 let lastMatchedWhCodes = new Set();   // أكواد المستودع المطابَقة في آخر تشغيل (تُستبعد من مرشّحي الربط الدفعي)
-let batchAliases = new Set();          // aliases.json: مجموعة «جذر زد|||جذر مستودع» — تمنح +40 للأزواج المعروفة
-let linkTags = {};                     // link-tags.json: {sku:{tag:auto-confirmed|auto-approved|manual, date}}
+let batchAliases = new Set();          // (aliases) مجموعة «جذر زد|||جذر مستودع» — القاعدة مصدرها (الدفعة أ). +40 للأزواج المعروفة
+// linkTags أُسقط (الدفعة أ): الوسم يُشتقّ من mappings.source
 let lastBatchUndo = null;              // {entries:[{sku,prev}], count, tag} — للتراجع عن آخر اعتماد دفعي
 let batchData = null;                  // نتائج آخر تحليل دفعي {green,yellow,red}
 let batchTab = "green";                // التبويب النشط في لوحة الربط الدفعي
@@ -1602,6 +1604,7 @@ try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}
 const SUPA_URL = "https://pfbcyxciqrttukayskkg.supabase.co";
 const SUPA_KEY = "sb_publishable_2HUBheWf6LHP9IRKcoeCvQ_Ms75eNZW";   // مفتاح النشر (آمن مع RLS) — لا secret key إطلاقاً
 let sb = null, dbOnline = false, dbMappings = [], bootLocalMap = {}, authSession = null;   // bootLocalMap = روابط المحلي (mapping.json+localStorage) وقت الإقلاع — لا تُمَسّ بعد ذلك (لكشف الترحيل)
+let bootLocalIgnored = new Set(), bootLocalWaiting = new Set(), bootLocalAliases = new Set();   // لقطات محلية للترحيل (الدفعة أ) — لا تُمَسّ بعد الإقلاع
 
 const db = {
   mappings: {
@@ -1611,10 +1614,24 @@ const db = {
     async remove(zid_sku) { const { error } = await sb.from("mappings").delete().eq("zid_sku", String(zid_sku)); if (error) throw error; },
     async bulkRemove(skus) { if (!skus.length) return; const { error } = await sb.from("mappings").delete().in("zid_sku", skus.map(String)); if (error) throw error; },
   },
+  // المتجاهَلات ✕ (ignored_items) — القاعدة مصدرها الوحيد (الدفعة أ)
+  ignored: {
+    async getAll() { const { data, error } = await sb.from("ignored_items").select("zid_sku,name"); if (error) throw error; return data || []; },
+    async upsert(zid_sku, name) { const { error } = await sb.from("ignored_items").upsert({ zid_sku: String(zid_sku), name: name || "" }, { onConflict: "zid_sku" }); if (error) throw error; },
+    async bulkUpsert(rows) { if (!rows.length) return; const { error } = await sb.from("ignored_items").upsert(rows, { onConflict: "zid_sku" }); if (error) throw error; },
+    async remove(zid_sku) { const { error } = await sb.from("ignored_items").delete().eq("zid_sku", String(zid_sku)); if (error) throw error; },
+  },
+  // aliases المتعلَّمة (جذر زد|||جذر مستودع) — القاعدة مصدرها الوحيد (الدفعة أ)
+  aliases: {
+    async getAll() { const { data, error } = await sb.from("aliases").select("pair"); if (error) throw error; return (data || []).map(r => r.pair); },
+    async add(pair) { const { error } = await sb.from("aliases").upsert({ pair: String(pair) }, { onConflict: "pair" }); if (error) throw error; },
+    async bulkUpsert(pairs) { if (!pairs.length) return; const { error } = await sb.from("aliases").upsert(pairs.map(p => ({ pair: String(p) })), { onConflict: "pair" }); if (error) throw error; },
+  },
   // قائمة الانتظار ⏳ (waiting_items) — أصناف تُصدَّر بكمية 0 حتى تعود؛ نفس نمط mappings
   waiting: {
-    async getAll() { const { data, error } = await sb.from("waiting_items").select("zid_sku,name"); if (error) throw error; return data || []; },
+    async getAll() { const { data, error } = await sb.from("waiting_items").select("zid_sku,name,kind,missed_rounds,last_seen_at"); if (error) throw error; return data || []; },
     async upsert(zid_sku, name) { const { error } = await sb.from("waiting_items").upsert({ zid_sku: String(zid_sku), name: name || "" }, { onConflict: "zid_sku" }); if (error) throw error; },
+    async bulkUpsert(rows) { if (!rows.length) return; const { error } = await sb.from("waiting_items").upsert(rows, { onConflict: "zid_sku" }); if (error) throw error; },
     async remove(zid_sku) { const { error } = await sb.from("waiting_items").delete().eq("zid_sku", String(zid_sku)); if (error) throw error; },
     async bulkRemove(skus) { if (!skus.length) return; const { error } = await sb.from("waiting_items").delete().in("zid_sku", skus.map(String)); if (error) throw error; },
   },
@@ -1711,32 +1728,62 @@ function logActivity(event_type, zid_sku, details) {
   if (!(dbOnline && sb)) return;
   try { db.activity.insert(event_type, zid_sku, details).catch(e => console.warn("activity log:", e)); } catch (e) { console.warn("activity log:", e); }
 }
-// كتابة مزدوجة: المحلي فوراً (waiting.json احتياطي بالتوازي) ＋ القاعدة بأفضل جهد (لا يعطّل عند فشل الاتصال)
-function markWaiting(rawSku, skuN, name) {
-  waitingSet.add(normCode(skuN)); saveWaiting();
-  if (dbOnline && sb) db.waiting.upsert(rawSku, name || "").catch(e => console.warn("waiting DB upsert:", e));
-  logActivity("waiting_added", rawSku, { name: name || "" });
+// الدفعة أ: كل قرارات المستخدم القاعدة أولاً — عند نجاح القاعدة فقط يُحدَّث الذاكرة (لا localStorage إطلاقاً).
+// فشل القاعدة ⇒ يرمي، فلا يتغيّر شيء في الذاكرة (لا تشعّب صامت). المنادي يلتقط الاستثناء.
+const dbFail = e => { showToast("✗ تعذّر الحفظ في القاعدة: " + (e && e.message ? e.message : e) + " — لم يتغيّر شيء."); throw e; };
+async function markWaiting(rawSku, skuN, name) {
+  requireOnline();
+  try { await db.waiting.upsert(rawSku, name || ""); } catch (e) { dbFail(e); }
+  waitingSet.add(normCode(skuN)); logActivity("waiting_added", rawSku, { name: name || "" });
 }
-function unmarkWaiting(rawSku, skuN) {
-  waitingSet.delete(normCode(skuN)); saveWaiting();
-  if (dbOnline && sb) db.waiting.remove(rawSku).catch(e => console.warn("waiting DB remove:", e));
-  logActivity("waiting_removed", rawSku, null);
+async function unmarkWaiting(rawSku, skuN) {
+  requireOnline();
+  try { await db.waiting.remove(rawSku); } catch (e) { dbFail(e); }
+  waitingSet.delete(normCode(skuN)); logActivity("waiting_removed", rawSku, null);
 }
+async function dbAddIgnored(rawSku, skuN, name) {
+  requireOnline();
+  try { await db.ignored.upsert(rawSku, name || ""); } catch (e) { dbFail(e); }
+  ignoredSet.add(normCode(skuN)); logActivity("ignored_added", rawSku, { name: name || "" });
+}
+async function dbDelIgnored(rawSku, skuN) {
+  requireOnline();
+  try { await db.ignored.remove(rawSku); } catch (e) { dbFail(e); }
+  ignoredSet.delete(normCode(skuN)); logActivity("ignored_removed", rawSku, null);
+}
+// تحميل القرارات من القاعدة مصدراً وحيداً (يستبدل الذاكرة — لا اتحاد مع المحلي)
+let dbIgnoredCount = 0, dbWaitingCount = 0, dbAliasesCount = 0;   // أعداد القاعدة (لعرض شريط الترحيل لكل جدول)
 async function loadWaitingFromDB() {
   if (!sb) return;
-  try {
-    const rows = await db.waiting.getAll();
-    let changed = false;
-    rows.forEach(r => { if (r.zid_sku != null) { const k = normCode(r.zid_sku); if (!waitingSet.has(k)) { waitingSet.add(k); changed = true; } } });
-    if (changed) saveWaiting();   // اتحاد مع المحلي (لا نمسح: waiting.json احتياطي)
-  } catch (e) { console.warn("waiting DB load failed:", e); }
+  try { const rows = await db.waiting.getAll(); dbWaitingCount = rows.length; if (rows.length) waitingSet = new Set(rows.map(r => normCode(r.zid_sku)).filter(Boolean)); }
+  catch (e) { console.warn("waiting DB load failed:", e); }   // قاعدة فارغة ⇒ نُبقي المحلي (بذرة ترحيل) ونعرض شريط الترحيل
+}
+async function loadIgnoredFromDB() {
+  if (!sb) return;
+  try { const rows = await db.ignored.getAll(); dbIgnoredCount = rows.length; if (rows.length) ignoredSet = new Set(rows.map(r => normCode(r.zid_sku)).filter(Boolean)); }
+  catch (e) { console.warn("ignored DB load failed:", e); }
+}
+async function loadAliasesFromDB() {
+  if (!sb) return;
+  try { const pairs = await db.aliases.getAll(); dbAliasesCount = pairs.length; if (pairs.length) batchAliases = new Set(pairs.map(String)); }
+  catch (e) { console.warn("aliases DB load failed:", e); }
 }
 function requireOnline() { if (!dbOnline) { showToast("🔴 غير متصل بالقاعدة — الكتابة معطّلة لمنع تشعّب البيانات."); throw new Error("db-offline"); } }
-// كل كتابة: القاعدة أولاً، وعند النجاح فقط تحديث المحلي (الذاكرة ＋ localStorage)
+// حجب عدم الاتصال (الدفعة أ): بلا اتصال ⇒ الإجراءات والتنزيل و«طابق وأنشئ» معطّلة + بانر ظاهر
+function setOfflineGate() {
+  const bar = document.getElementById("offlineBar"); if (bar) bar.style.display = dbOnline ? "none" : "block";
+  document.body.classList.toggle("db-offline", !dbOnline);
+}
+function blockedOffline() {   // true ⇒ العملية محجوبة (مع توست) لأن لا اتصال
+  if (dbOnline) return false;
+  showToast("🔴 غير متصل بالقاعدة — العملية معطّلة. سجّل الدخول / تحقّق من الشبكة.");
+  return true;
+}
+// كل كتابة: القاعدة أولاً، وعند النجاح فقط تحديث الذاكرة (بلا localStorage)
 function requireOwner() { if (linkForbidden()) { showToast("🔒 الربط صلاحية المالك — غير متاح لهذا الحساب."); throw new Error("not-owner"); } }
-async function dbSetMapping(sku, code, source) { requireOnline(); requireOwner(); await db.mappings.upsert(sku, code, source); manualMap[String(sku)] = normCode(code); localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge(); logActivity("link_added", sku, { code: normCode(code), source: source || "manual" }); }
-async function dbSetMappings(pairs, source) { requireOnline(); requireOwner(); const rows = pairs.map(p => ({ zid_sku: String(p.sku), warehouse_code: normCode(p.code), source: source || "manual" })); await db.mappings.bulkUpsert(rows); for (const p of pairs) manualMap[String(p.sku)] = normCode(p.code); localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge(); logActivity("link_added", pairs.length === 1 ? pairs[0].sku : null, { count: pairs.length, source: source || "manual" }); }
-async function dbDelMapping(sku) { requireOnline(); requireOwner(); await db.mappings.remove(sku); delete manualMap[String(sku)]; localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge(); logActivity("link_removed", sku, null); }
+async function dbSetMapping(sku, code, source) { requireOnline(); requireOwner(); await db.mappings.upsert(sku, code, source); manualMap[String(sku)] = normCode(code); updateDbBadge(); logActivity("link_added", sku, { code: normCode(code), source: source || "manual" }); }
+async function dbSetMappings(pairs, source) { requireOnline(); requireOwner(); const rows = pairs.map(p => ({ zid_sku: String(p.sku), warehouse_code: normCode(p.code), source: source || "manual" })); await db.mappings.bulkUpsert(rows); for (const p of pairs) manualMap[String(p.sku)] = normCode(p.code); updateDbBadge(); logActivity("link_added", pairs.length === 1 ? pairs[0].sku : null, { count: pairs.length, source: source || "manual" }); }
+async function dbDelMapping(sku) { requireOnline(); requireOwner(); await db.mappings.remove(sku); delete manualMap[String(sku)]; updateDbBadge(); logActivity("link_removed", sku, null); }
 
 function initSupabase() {
   if (!window.supabase) { setDbBadge(false, "تعذّر تحميل مكتبة Supabase"); return; }
@@ -2221,20 +2268,21 @@ async function loadMappingsFromDB() {
     const rows = await db.mappings.getAll();
     dbOnline = true; dbMappings = rows;
     if (rows.length > 0) {
-      // القاعدة فيها بيانات ⇒ هي مصدر الحقيقة، نعتمدها
+      // القاعدة فيها بيانات ⇒ هي مصدر الحقيقة، نعتمدها (بلا localStorage — الدفعة أ)
       manualMap = {}; rows.forEach(r => { if (r.zid_sku != null) manualMap[String(r.zid_sku)] = normCode(r.warehouse_code); });
-      localStorage.setItem(MAP_KEY, JSON.stringify(manualMap));
     }
-    // القاعدة فارغة ⇒ **لا نمسح المحلي إطلاقاً** (كان يُكتب {} فيمحو mapping.json المحلي ومصدر الترحيل).
-    // نُبقي manualMap/localStorage كما حمّلهما loadConfig، ونعرض زر الترحيل.
+    // القاعدة فارغة ⇒ **لا نمسح المحلي** (يبقى ما حمّله loadConfig مصدراً للترحيل) ونعرض شريط الترحيل.
+    await loadIgnoredFromDB();   // المتجاهَلات من القاعدة (تستبدل الذاكرة إن كانت غير فارغة)
+    await loadAliasesFromDB();   // aliases المتعلَّمة من القاعدة
+    await loadWaitingFromDB();   // قائمة الانتظار من القاعدة (تستبدل الذاكرة) — تتزامن بين الأجهزة
     renderPills(); setDbBadge(true); checkMigration();
-    await loadWaitingFromDB();   // قائمة الانتظار من القاعدة (اتحاد مع المحلي) — تتزامن بين الأجهزة
+    setOfflineGate();            // تفعيل/رفع حجب عدم الاتصال بعد معرفة الحالة
     await loadZidMeta();         // ميتا منتجات زد (المرحلة 3): العدد + آخر مزامنة لعرض لوحة القاعدة
     await loadMyRole();          // دور المستخدم الحالي (owner/admin/viewer) لتجميل الواجهة
     await loadInventoryMeta();    // المرحلة 4: ميتا المخزن (مستودع/فرع) لشريط الجاهزية وبطاقات التحديث
     routeFromHash();             // بعد معرفة الدور: افتح صفحة الـhash المطلوبة (يصحّح «مستخدم جديد» للمالك)
     if (document.getElementById("result").style.display === "block") markDirty();
-  } catch (e) { dbOnline = false; setDbBadge(false, e.message); console.warn("DB load failed:", e); }
+  } catch (e) { dbOnline = false; setDbBadge(false, e.message); setOfflineGate(); console.warn("DB load failed:", e); }
 }
 function setDbBadge(ok, extra) {
   const b = document.getElementById("dbBadge");
@@ -2245,21 +2293,58 @@ function setDbBadge(ok, extra) {
   // مرآة مصغّرة في الترويسة الرفيعة (كل الصفحات)
   const bm = document.getElementById("dbBadgeMini");
   if (bm) { bm.className = "db-badge mini " + (ok ? "ok" : "off"); bm.innerHTML = ok ? `${DOT_OK} متصل` : `${DOT_BAD} غير متصل`; }
+  if (typeof setOfflineGate === "function") setOfflineGate();   // الدفعة أ: حجب الإجراءات/التنزيل عند عدم الاتصال
   if (typeof renderInventoryPage === "function") renderInventoryPage();
 }
 function updateDbBadge() { setDbBadge(dbOnline); }
-function checkMigration() {
-  const bar = document.getElementById("migrateBar"), btn = document.getElementById("migrateBtn"); if (!bar) return;
-  const n = Object.keys(bootLocalMap || {}).length, show = dbOnline && dbMappings.length === 0 && n > 0;
-  bar.style.display = show ? "flex" : "none";
-  if (show && btn) btn.textContent = `⬆ ترحيل الروابط الحالية للقاعدة (${n})`;
+// شريط ترحيل لكل جدول على حدة: يظهر النوع الذي قاعدته فارغة ومحلّيه غير فارغ.
+// الفشل الجزئي لا يمسّ بقية الأنواع ولا يمسح المصدر المحلي (اللقطة تبقى).
+function migPending() {
+  if (!dbOnline) return [];
+  const out = [];
+  const nMap = Object.keys(bootLocalMap || {}).length;
+  if (dbMappings.length === 0 && nMap > 0) out.push({ type: "map", label: "الروابط", n: nMap });
+  if (dbIgnoredCount === 0 && bootLocalIgnored.size > 0) out.push({ type: "ignored", label: "المتجاهَلات", n: bootLocalIgnored.size });
+  if (dbWaitingCount === 0 && bootLocalWaiting.size > 0) out.push({ type: "waiting", label: "قائمة الانتظار", n: bootLocalWaiting.size });
+  if (dbAliasesCount === 0 && bootLocalAliases.size > 0) out.push({ type: "aliases", label: "aliases المتعلَّمة", n: bootLocalAliases.size });
+  return out;
 }
-async function doMigration() {
-  const entries = Object.entries(bootLocalMap || {}); if (!entries.length) return;
-  const btn = document.getElementById("migrateBtn"); if (btn) { btn.disabled = true; btn.textContent = "⏳ جارٍ الترحيل…"; }
-  const rows = entries.map(([sku, code]) => ({ zid_sku: String(sku), warehouse_code: normCode(code), source: "imported" }));
-  try { await db.mappings.bulkUpsert(rows); await loadMappingsFromDB(); showToast(`✓ رُحّل ${rows.length} رابط إلى القاعدة السحابية.`); document.getElementById("migrateBar").style.display = "none"; }
-  catch (e) { showToast("✗ فشل الترحيل: " + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = "⬆ إعادة المحاولة"; } }
+function checkMigration() {
+  const bar = document.getElementById("migrateBar"); if (!bar) return;
+  const pend = migPending();
+  if (!pend.length) { bar.style.display = "none"; bar.innerHTML = ""; return; }
+  bar.style.display = "flex";
+  bar.innerHTML = `<span class="mig-head">⬆ بيانات محلية غير مُرحّلة للقاعدة — رحّل كلّ نوع على حدة:</span>`
+    + pend.map(p => `<button class="btn-run sm" id="migBtn-${p.type}" onclick="doMigration('${p.type}')">⬆ ${p.label} (${p.n})</button>`).join("");
+}
+async function doMigration(type) {
+  const btn = document.getElementById("migBtn-" + type);
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ جارٍ الترحيل…"; }
+  try {
+    if (type === "map") {
+      const rows = Object.entries(bootLocalMap || {}).map(([sku, code]) => ({ zid_sku: String(sku), warehouse_code: normCode(code), source: "imported" }));
+      if (!rows.length) return;
+      await db.mappings.bulkUpsert(rows); dbMappings = await db.mappings.getAll();
+      manualMap = {}; dbMappings.forEach(r => { if (r.zid_sku != null) manualMap[String(r.zid_sku)] = normCode(r.warehouse_code); });
+      renderPills(); updateDbBadge();
+      showToast(`✓ رُحّل ${rows.length} رابط إلى القاعدة.`);
+    } else if (type === "ignored") {
+      const rows = [...bootLocalIgnored].map(k => ({ zid_sku: String(k), name: "" }));
+      await db.ignored.bulkUpsert(rows); await loadIgnoredFromDB();
+      showToast(`✓ رُحّل ${rows.length} متجاهَل إلى القاعدة.`);
+    } else if (type === "waiting") {
+      const rows = [...bootLocalWaiting].map(k => ({ zid_sku: String(k), name: "" }));
+      await db.waiting.bulkUpsert(rows); await loadWaitingFromDB();
+      showToast(`✓ رُحّل ${rows.length} صنف انتظار إلى القاعدة.`);
+    } else if (type === "aliases") {
+      await db.aliases.bulkUpsert([...bootLocalAliases]); await loadAliasesFromDB();
+      showToast(`✓ رُحّلت ${bootLocalAliases.size} alias إلى القاعدة.`);
+    }
+    checkMigration();   // يُزيل النوع المُرحَّل فقط؛ البقية تبقى
+  } catch (e) {
+    showToast("✗ فشل ترحيل «" + type + "»: " + (e.message || e) + " — المصدر المحلي سليم، أعد المحاولة.");
+    if (btn) { btn.disabled = false; btn.textContent = "⬆ إعادة المحاولة"; }
+  }
 }
 
 // تحميل mapping.json و ignored.json عبر fetch، ودمجهما مع localStorage (يتعامل مع 404 بهدوء)
@@ -2294,19 +2379,15 @@ async function loadConfig() {
   for (const src of [baseOff, localOff]) {
     if (src && typeof src === "object") for (const k in src) { const v = Number(src[k]); if (Number.isFinite(v) && v !== 0) priceOffsets[normCode(k)] = Math.round(v); }
   }
-  // aliases.json (تعلُّم الربط الدفعي) + link-tags.json (وسوم الروابط) — نفس منظومة الملف + localStorage
-  batchAliases = new Set(); linkTags = {};
+  // aliases: تُقرأ محلياً (aliases.json + localStorage) **كبذرة ترحيل فقط**؛ القاعدة تستبدلها بعد الدخول (loadAliasesFromDB).
+  // link-tags أُسقط نهائياً (يُشتقّ الوسم من mappings.source).
+  batchAliases = new Set();
   try { const r = await fetch("aliases.json", { cache: "no-store" }); if (r.ok) { const a = await r.json(); if (Array.isArray(a)) a.forEach(k => batchAliases.add(String(k))); } } catch {}
   try { const loc = JSON.parse(localStorage.getItem(ALIAS_KEY) || "[]"); if (Array.isArray(loc)) loc.forEach(k => batchAliases.add(String(k))); } catch {}
-  try { const r = await fetch("link-tags.json", { cache: "no-store" }); if (r.ok) { const o = await r.json(); if (o && typeof o === "object") Object.assign(linkTags, o); } } catch {}
-  try { const loc = JSON.parse(localStorage.getItem(TAGS_KEY) || "{}"); if (loc && typeof loc === "object") Object.assign(linkTags, loc); } catch {}
 }
-function saveIgnored() { localStorage.setItem(IGN_KEY, JSON.stringify([...ignoredSet])); }
-function saveOffsets() { localStorage.setItem(OFF_KEY, JSON.stringify(priceOffsets)); }
-function saveMatchedHistory() { localStorage.setItem(HIST_KEY, JSON.stringify([...matchedHistory])); }
-function saveWaiting() { localStorage.setItem(WAIT_KEY, JSON.stringify([...waitingSet])); }
-function saveAliases() { localStorage.setItem(ALIAS_KEY, JSON.stringify([...batchAliases])); }
-function saveLinkTags() { localStorage.setItem(TAGS_KEY, JSON.stringify(linkTags)); }
+// الدفعة أ: أُزيلت saveIgnored/saveWaiting/saveAliases/saveLinkTags — القرارات تُكتب في القاعدة أولاً بلا localStorage.
+function saveOffsets() { localStorage.setItem(OFF_KEY, JSON.stringify(priceOffsets)); }        // priceOffsets يبقى محلياً (خارج نطاق الدفعة أ)
+function saveMatchedHistory() { localStorage.setItem(HIST_KEY, JSON.stringify([...matchedHistory])); }   // matchedHistory يبقى محلياً (الدفعة د لاحقاً)
 // ترحيل mapping.json من المفاتيح المطبَّعة القديمة إلى مفاتيح SKU الخام (يعتمد الأصفار كما في زد)
 function migrateMapping(rawByNorm, rawSet) {
   let changed = false;
@@ -2319,7 +2400,8 @@ function migrateMapping(rawByNorm, rawSet) {
     else if (raws.length > 1) { changed = true; }                // غامض (يتصادم) ⇒ أسقطه ليُعاد ربطه يدوياً
     else { out[k] = v; }                                         // ليس في هذا الملف ⇒ أبقه كما هو
   }
-  if (changed) { manualMap = out; localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); renderPills(); }
+  // الدفعة أ: بلا localStorage — روابط القاعدة خام أصلاً فهذا التطبيع غالباً inert؛ تغييرٌ في الذاكرة فقط لعرض متسق.
+  if (changed) { manualMap = out; renderPills(); }
 }
 
 const normCode = v => {
@@ -2633,18 +2715,20 @@ async function batchApply(pairs, tag) {
   if (!pairs.length) return;
   const undo = pairs.map(p => ({ sku: String(p.sku), prev: (String(p.sku) in manualMap) ? manualMap[String(p.sku)] : null }));
   setBusy("batchBody", true);
-  try { await dbSetMappings(pairs, tag); } catch { setBusy("batchBody", false); return; }   // طلب واحد للقاعدة؛ يحدّث manualMap+localStorage عند النجاح
+  try { await dbSetMappings(pairs, tag); }   // طلب واحد للقاعدة؛ يحدّث manualMap عند النجاح فقط
+  catch (e) { setBusy("batchBody", false); const m = e && e.message; if (m && m !== "db-offline" && m !== "not-owner") showToast("✗ تعذّر اعتماد الروابط في القاعدة: " + m); return; }
   setBusy("batchBody", false);
+  const newAliases = [];
   for (const { sku, code } of pairs) {
     boundSet.add(String(sku));
     excludedSet.delete(normCode(sku));
-    linkTags[String(sku)] = { tag, date: new Date().toISOString() };
     const z = lastUnmatchedRaw.find(u => String(u.sku) === String(sku));
     const w = lastWhList.find(x => normCode(x.code) === normCode(code));
-    if (z && w) { const zr = nameRoot(z.name), wr = nameRoot(w.name); if (zr && wr) batchAliases.add(zr + "|||" + wr); }
+    if (z && w) { const zr = nameRoot(z.name), wr = nameRoot(w.name); if (zr && wr) { const p = zr + "|||" + wr; if (!batchAliases.has(p)) newAliases.push(p); } }
   }
   lastBatchUndo = { entries: undo, count: pairs.length, tag };
-  saveAliases(); saveLinkTags();
+  // تعلُّم aliases: القاعدة أولاً (bulk)، وعند النجاح فقط تُضاف للذاكرة (بأفضل جهد — لا يُفشل الاعتماد)
+  if (newAliases.length) { try { await db.aliases.bulkUpsert(newAliases); newAliases.forEach(p => batchAliases.add(p)); } catch (e) { console.warn("aliases DB upsert:", e); } }
   renderPills(); markDirty(); updateNewCount();
   if (currentFilter === "unmatched") renderDetail();
   batchData = analyzeBatch();
@@ -2662,11 +2746,10 @@ async function undoLastBatch() {
   } catch (e) { showToast("✗ تعذّر التراجع في القاعدة: " + (e.message || e)); return; }
   for (const e of lastBatchUndo.entries) {
     if (e.prev === null) delete manualMap[e.sku]; else manualMap[e.sku] = e.prev;
-    boundSet.delete(e.sku); delete linkTags[e.sku];
+    boundSet.delete(e.sku);
   }
-  localStorage.setItem(MAP_KEY, JSON.stringify(manualMap)); updateDbBadge();
+  updateDbBadge();
   const n = lastBatchUndo.count; lastBatchUndo = null;
-  saveLinkTags();
   renderPills(); markDirty(); updateNewCount();
   if (currentFilter === "unmatched") renderDetail();
   batchData = analyzeBatch(); renderBatchTab();
@@ -2898,15 +2981,16 @@ function comboPick(uid, code) {
 }
 
 // ==== الاستبعاد الفردي: ⏳ انتظار / ✕ تجاهل — يُحفظ فوراً ويُزال من العائلة بلا اعتماد ====
-function batchExclude(uid, action) {
+async function batchExclude(uid, action) {
   const r = batchRowByUid[uid]; if (!r) return;
   const skuN = normCode(r.z.skuN);
-  if (action === "wait") { markWaiting(r.z.sku, skuN, r.z.name); } else { ignoredSet.add(skuN); saveIgnored(); }
+  try { if (action === "wait") await markWaiting(r.z.sku, skuN, r.z.name); else await dbAddIgnored(r.z.sku, skuN, r.z.name); }
+  catch { return; }   // فشل القاعدة ⇒ لا تغيير في الذاكرة (رسالة الخطأ من requireOnline)
   ["green", "yellow", "red"].forEach(k => { batchData[k] = batchData[k].filter(x => x !== r); });
   batchData.lostCount = [...batchData.green, ...batchData.yellow, ...batchData.red].filter(x => x.wasLinked).length;
   renderIgnored(lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN))));
   updateNewCount(); renderFingerprint(); renderBatchTab();
-  showToast(`${action === "wait" ? "⏳ نُقل للانتظار" : "🚫 تجاهل"}: ${r.z.sku} — لا تنسَ ☁ الحفظ في الريبو.`);
+  showToast(`${action === "wait" ? "⏳ نُقل للانتظار" : "🚫 تجاهل"}: ${r.z.sku} — حُفظ في القاعدة.`);
 }
 
 // قراءة المحدد ⇒ أزواج (sku, code) من المرشّح المثبَّت لكل صف
@@ -2957,14 +3041,10 @@ function download(name, text) {
   document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
 }
+// الدفعة أ: القرارات الستة صارت في القاعدة حصراً؛ التصدير المحلي يقتصر على ما بقي محلياً (خارج نطاق الدفعة أ)
 function exportConfig() {
-  download("mapping.json", JSON.stringify(manualMap, null, 2));
-  download("ignored.json", JSON.stringify([...ignoredSet].sort(), null, 2));
   download("price-offsets.json", JSON.stringify(priceOffsets, null, 2));
   download("matched-history.json", JSON.stringify([...matchedHistory].sort(), null, 2));
-  download("waiting.json", JSON.stringify([...waitingSet].sort(), null, 2));
-  download("aliases.json", JSON.stringify([...batchAliases].sort(), null, 2));
-  download("link-tags.json", JSON.stringify(linkTags, null, 2));
 }
 
 /* ---------- الحفظ المباشر في الريبو عبر GitHub API ---------- */
@@ -3046,28 +3126,19 @@ async function putFileToRepo(path, content, token, message) {
 async function saveToRepo(reason) {
   const token = localStorage.getItem(TOKEN_KEY);
   if (!token) { repoStatus("warn", "⚠ لم تُدخل رمز GitHub بعد — الروابط محفوظة محلياً فقط. أدخل الرمز للحفظ في الريبو."); return; }
-  const mapping = JSON.stringify(manualMap, null, 2);
-  const ignored = JSON.stringify([...ignoredSet].sort(), null, 2);
+  // الدفعة أ: القرارات الستة (روابط/تجاهل/انتظار/aliases/وسوم) في القاعدة حصراً؛ الريبو يحفظ ما بقي محلياً فقط.
   const offsets = JSON.stringify(priceOffsets, null, 2);
   const history = JSON.stringify([...matchedHistory].sort(), null, 2);
-  const waiting = JSON.stringify([...waitingSet].sort(), null, 2);
-  const aliases = JSON.stringify([...batchAliases].sort(), null, 2);
-  const tags = JSON.stringify(linkTags, null, 2);
-  const sig = mapping + " " + ignored + " " + offsets + " " + history + " " + waiting + " " + aliases + " " + tags;
+  const sig = offsets + " " + history;
   if (sig === lastSavedSig) { repoStatus("ok", "✓ لا تغييرات جديدة — الريبو محدّث بالفعل."); return; }
   repoStatus("", "⏳ جاري الحفظ في الريبو…");
   try {
-    await putFileToRepo("mapping.json", mapping, token, `تحديث الروابط (${reason})`);
-    await putFileToRepo("ignored.json", ignored, token, `تحديث المتجاهلات (${reason})`);
     await putFileToRepo("price-offsets.json", offsets, token, `تحديث زيادات الأسعار (${reason})`);
     await putFileToRepo("matched-history.json", history, token, `تحديث تاريخ المطابقة (${reason})`);
-    await putFileToRepo("waiting.json", waiting, token, `تحديث قائمة الانتظار (${reason})`);
-    if (batchAliases.size) await putFileToRepo("aliases.json", aliases, token, `تحديث الأسماء البديلة (${reason})`);
-    if (Object.keys(linkTags).length) await putFileToRepo("link-tags.json", tags, token, `تحديث وسوم الروابط (${reason})`);
     lastSavedSig = sig;
-    baseMap = { ...manualMap }; baseIgnSet = new Set(ignoredSet); baseHistSet = new Set(matchedHistory); baseWaitSet = new Set(waitingSet);   // صار كل المحلي مصدَّراً للريبو
+    baseHistSet = new Set(matchedHistory);
     renderFingerprint();
-    repoStatus("ok", `✓ حُفظت الإعدادات في الريبو (${Object.keys(manualMap).length} ربط · ${Object.keys(priceOffsets).length} زيادة سعر · ${waitingSet.size} بانتظار) — قد تظهر على الأجهزة الأخرى خلال دقيقة.`);
+    repoStatus("ok", `✓ حُفظ محلياً في الريبو (${Object.keys(priceOffsets).length} زيادة سعر · ${matchedHistory.size} تاريخ مطابقة). القرارات (روابط/تجاهل/انتظار) في القاعدة السحابية مباشرةً.`);
   } catch (e) {
     repoStatus("fail", "✗ فشل الحفظ في الريبو: " + e.message + " — تحقّق من الرمز وصلاحياته.");
     openGhMenu();   // افتح القائمة ليتمكّن من إصلاح الرمز
@@ -3519,6 +3590,7 @@ function autoAdopt() {
 }
 // طبقة التنزيل الاختيارية فوق دالة الدمج (للفحص اليدوي) — تعمل مع المستودع وحده أو مع فرع
 function downloadMerge() {
+  if (blockedOffline()) return;
   if (!mergeWh) { showErr("ارفع «ملف المستودع» أولاً."); return; }
   const res = mergeInventory(mergeWh, mergeBranches);
   const main = [["رقم الصنف", "اسم الصنف", "الكمية", "سعر البيع شامل الضريبة", "سعر البيع قبل الضريبة", "مصدر الكمية"]];
@@ -3599,6 +3671,7 @@ async function loadInventoryFromDB() {
 // زر الرئيسية «طابق وأنشئ»: يضمن تحميل المخزن (قاعدة أو رفع) ثم يبني الموحّد ويطابق
 async function runFromDB() {
   showErr("");
+  if (blockedOffline()) return;   // بلا اتصال ⇒ المطابقة معطّلة
   if (!mergeWh) {
     if (invDbAvailable()) { showToast("⏳ تحميل المخزن من القاعدة…"); try { await loadInventoryFromDB(); } catch (e) { showErr("تعذّر جلب المخزن: " + (e.message || e)); return; } }
     else { showErr("لا يوجد مخزن — ارفع «ملف المستودع» من صفحة «🔄 تحديث قاعدة البيانات»."); goPage("db"); return; }
@@ -4076,7 +4149,7 @@ function run(reprocess) {
     const vm = document.getElementById("verifyMsg");
     const wireDl = (id, ok, aoa, count, reason) => {
       const el = document.getElementById(id);
-      if (ok && count > 0) {
+      if (ok && count > 0 && dbOnline) {   // بلا اتصال ⇒ لا تنزيل (الدفعة أ)
         el.href = URL.createObjectURL(mkBlob(aoa)); el.classList.remove("disabled");
         el.onclick = () => { logActivity("file_generated", null, { kind: id === "dlQty" ? "quantities" : "prices", count }); saveToRepo(reason); };
       } else { el.removeAttribute("href"); el.classList.add("disabled"); }
@@ -4119,10 +4192,9 @@ function run(reprocess) {
         + `\nتعارض موضعي/parent_sku (اعتُمدت الموضعية): ${lastParentConflicts.length}` + lastParentConflicts.slice(0, 15).map(c => `\n  ${c.sku}: موضعي=${c.pos} · parent_sku=${c.pref}`).join("");
     }
 
-    // احفظ تاريخ المطابقة وقائمة الانتظار محلياً إن تغيّرا (تُصدَّر/تُحفظ في الريبو ضمن المنظومة)
+    // matchedHistory يبقى محلياً (الدفعة د لاحقاً)؛ قائمة الانتظار مصدرها القاعدة فقط (بلا localStorage)
     if (histChanged) saveMatchedHistory();
-    if (waitChanged) saveWaiting();
-    // التعافي التلقائي: أصناف عادت للتوفر ⇒ احذفها من قائمة الانتظار في القاعدة أيضاً (best-effort)
+    // التعافي التلقائي: أصناف عادت للتوفر ⇒ احذفها من قائمة الانتظار في القاعدة (best-effort؛ ينتقل لخطاف الرفع في الدفعة ج)
     if (reactivated.length && dbOnline && sb) db.waiting.bulkRemove(reactivated.map(r => r.sku)).catch(e => console.warn("waiting DB bulkRemove:", e));
 
     // بطاقة «بدون ربط» تجمع كل أصناف زد بلا ربط (جديد + متجاهَل + ⏳ + مُدار)؛ تفكيكها في updateUnmatchedCard.
@@ -4606,6 +4678,7 @@ function toggleAllTest() {
 }
 // تنزيل ملفَي اختبار للأصناف المحددة معاً: الكميات + الأسعار (بالأسعار النهائية شاملة الزيادات وتعديلات النشر)
 function downloadSelected() {
+  if (blockedOffline()) return;
   if (!testSelected.size) { showErr("حدّد صنفاً واحداً على الأقل من القائمة أولاً."); return; }
   const iSkuP = stData.header.indexOf("sku");
   const inSel = sk => testSelected.has(String(sk));
@@ -4651,6 +4724,7 @@ function downloadSelected() {
 
 // تنزيل ملف اختبار يحوي هذا المنتج وحده — ملف لكل نوع تغيّر (الكميات و/أو الأسعار) ليُجرَّب المساران في زد
 function downloadOne(skuN) {
+  if (blockedOffline()) return;
   const target = normCode(skuN);
   const iSkuP = stData.header.indexOf("sku");
   const files = [];
@@ -4821,11 +4895,10 @@ function renderIgnored(list) {
     `<td><button class="mini ignore" onclick="unignore(${i})">إلغاء التجاهل ↩</button></td></tr>`).join("");
 }
 
-function unignore(i) {
+async function unignore(i) {
   const u = lastIgnored[i];
   if (!u) return;
-  ignoredSet.delete(normCode(u.skuN));
-  saveIgnored();
+  try { await dbDelIgnored(u.sku, u.skuN); } catch { return; }   // قاعدة أولاً؛ فشل ⇒ لا تغيير
   refreshUnmatchedUI();
   renderFingerprint();
 }
@@ -4958,12 +5031,11 @@ async function bindRow(i) {
   updateNewCount();
 }
 
-function ignoreRow(i) {
+async function ignoreRow(i) {
   const it = lastUnmatched[i];
   if (!it || it.ignored) return;
-  ignoredSet.add(normCode(it.skuN));
+  try { await dbAddIgnored(it.sku, it.skuN, it.name); } catch { return; }   // قاعدة أولاً؛ فشل ⇒ لا تغيير
   it.ignored = true;
-  saveIgnored();
   fadeRemoveRow(i);
   renderIgnored(lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN))));
   updateBindAllCount();
@@ -4971,18 +5043,18 @@ function ignoreRow(i) {
   renderFingerprint();
 }
 
-// «غير متوفر حالياً»: يسجّله في قائمة الانتظار (يختفي من «جديد»، يُفعّل تلقائياً عند ظهور كوده)
-function waitRow(i) {
+// «غير متوفر حالياً»: يسجّله في قائمة الانتظار (القاعدة أولاً؛ فشل ⇒ لا تغيير)
+async function waitRow(i) {
   const it = lastUnmatched[i];
   if (!it || it.waiting) return;
-  markWaiting(it.sku, it.skuN, it.name);   // محلي ＋ قاعدة (waiting_items)
-  run(true);   // أعِد المعالجة فوراً: يُصفَّر (ملف تصفير الغائب) ويُخفى (published=No في ملف الأسعار) في نفس اللحظة — لا انتظار «طابق وأنشئ»
+  try { await markWaiting(it.sku, it.skuN, it.name); } catch { return; }
+  run(true);   // أعِد المعالجة فوراً: يُصفَّر ويُخفى (published=No) في نفس اللحظة — لا انتظار «طابق وأنشئ»
 }
-function unwaitRow(i) {
+async function unwaitRow(i) {
   const it = lastUnmatched[i];
   if (!it) return;
-  unmarkWaiting(it.sku, it.skuN);
-  run(true);   // أعِد المعالجة: يخرج من التصفير/الإخفاء (ويُعاد نشره إن عاد بكمية عبر المطابقة)
+  try { await unmarkWaiting(it.sku, it.skuN); } catch { return; }
+  run(true);   // أعِد المعالجة: يخرج من التصفير/الإخفاء
 }
 
 function updateBindAllCount() {
@@ -5127,26 +5199,22 @@ async function delMap(s) { try { await dbDelMapping(s); } catch { return; } rend
 // بصمة الجلسة: تشخيص اختلاف النتائج بين الأجهزة (ملف مقابل محلي غير مصدَّر)
 function renderFingerprint() {
   const el = document.getElementById("fingerprint"); if (!el) return;
-  const fileMap = Object.keys(baseMap).length;
-  const localMapExtra = Object.keys(manualMap).filter(k => baseMap[k] !== manualMap[k]).length;
-  const fileIgn = baseIgnSet.size;
-  const localIgnExtra = [...ignoredSet].filter(k => !baseIgnSet.has(k)).length;
-  const localWaitExtra = [...waitingSet].filter(k => !baseWaitSet.has(k)).length;
+  // الدفعة أ: الروابط/التجاهل/الانتظار مصدرها القاعدة مباشرةً (لا «محلي غير مصدَّر»). matchedHistory وحده يبقى محلياً.
   const localHistExtra = [...matchedHistory].filter(k => !baseHistSet.has(k)).length;
   const zid = stData ? (stData.rows.length - 1) : 0;
   const wh = whRows ? whRows.length : 0;
   el.innerHTML = `🔎 بصمة الجلسة · ` +
-    `الروابط: ${fileMap} بالملف` + (localMapExtra ? ` <b>+${localMapExtra} محلي غير مصدَّر</b>` : ` · 0 محلي`) + ` · ` +
-    `التجاهلات: ${fileIgn} بالملف` + (localIgnExtra ? ` <b>+${localIgnExtra} محلي غير مصدَّر</b>` : ` · 0 محلي`) + ` · ` +
-    `الانتظار: ${waitingSet.size}` + (localWaitExtra ? ` <b>(+${localWaitExtra} غير مصدَّر)</b>` : ``) + ` · ` +
+    `الروابط: ${Object.keys(manualMap).length} (قاعدة) · ` +
+    `التجاهلات: ${ignoredSet.size} (قاعدة) · ` +
+    `الانتظار: ${waitingSet.size} (قاعدة) · ` +
     `تاريخ المطابقة: ${matchedHistory.size}` + (localHistExtra ? ` <b>(+${localHistExtra} غير مصدَّر)</b>` : ``) + ` · ` +
     `صفوف زد: ${zid} · صفوف المستودع: ${wh} · ` +
     `النسخة: <span class="mono">${APP_VERSION}</span>`;
   const warn = document.getElementById("fpWarn");
   if (warn) {
-    if (localMapExtra || localIgnExtra || localWaitExtra || localHistExtra) {
+    if (localHistExtra) {
       warn.style.display = "block";
-      warn.innerHTML = `⚠ لديك تغييرات محلية غير محفوظة في الريبو (روابط ${localMapExtra} · تجاهلات ${localIgnExtra} · انتظار ${localWaitExtra} · تاريخ مطابقة ${localHistExtra}) — احفظها في الريبو (زر «☁ الحفظ في الريبو»)، وإلا لن تظهر على أجهزتك الأخرى.`;
+      warn.innerHTML = `⚠ لديك ${localHistExtra} من تاريخ المطابقة غير محفوظ في الريبو — احفظه بزر «☁ الحفظ في الريبو».`;
     } else { warn.style.display = "none"; warn.innerHTML = ""; }
   }
 }
@@ -5161,11 +5229,12 @@ routeFromHash();               // الإقلاع: افتح صفحة الـhash (
 (async () => {
   await loadConfig();
   bootLocalMap = { ...manualMap };   // روابط المحلي (mapping.json ＋ localStorage) قبل أي تفاعل مع القاعدة — مرجع الترحيل الثابت
+  bootLocalIgnored = new Set(ignoredSet); bootLocalWaiting = new Set(waitingSet); bootLocalAliases = new Set(batchAliases);   // لقطات الترحيل (الدفعة أ)
   renderPills();
   renderOffsetsList();
   initSupabase();   // بعد تحميل المحلي: أنشئ عميل القاعدة، وعند وجود جلسة اعتمد الروابط من القاعدة مصدراً للحقيقة
   // الحالة المحمّلة من الريبو هي المرجع الحالي — لا نعيد حفظها ما لم تتغيّر
-  lastSavedSig = JSON.stringify(manualMap, null, 2) + " " + JSON.stringify([...ignoredSet].sort(), null, 2) + " " + JSON.stringify(priceOffsets, null, 2) + " " + JSON.stringify([...matchedHistory].sort(), null, 2) + " " + JSON.stringify([...waitingSet].sort(), null, 2);
+  lastSavedSig = JSON.stringify(priceOffsets, null, 2) + " " + JSON.stringify([...matchedHistory].sort(), null, 2);   // الدفعة أ: الريبو يحفظ ما بقي محلياً فقط
   // مؤشر أخضر فقط عند وجود رمز محفوظ (بدون نص)، وإلا كهرماني
   const hasToken = !!localStorage.getItem(TOKEN_KEY);
   repoStatus(hasToken ? "ok" : "warn", "");
