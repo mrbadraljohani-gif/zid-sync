@@ -771,6 +771,7 @@
   .pub-badge.on { color: var(--green); border-color: var(--green); }
   .pub-badge.off { color: var(--muted); border-color: var(--border); }
   .pub-arrow { color: var(--muted); font-weight: 600; }
+  .wait-note { font-size: 10.5px; color: var(--muted); line-height: 1.5; margin-top: 3px; max-width: 170px; }
   .mc-btn.on-lost { background: rgba(224,176,96,.18); border-color: rgba(224,176,96,.55); color: var(--amber); font-weight: 800; }
   .off-title { font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--gold-2); margin-bottom: 8px; }
   .off-box .hint { margin: 0 0 12px; }
@@ -1557,7 +1558,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "7916bd1";
+const APP_VERSION = "4f66288";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2714,6 +2715,15 @@ function pubBadge(z) {
     ? `<span class="pub-badge on" title="منشور في متجر زد">${ICO_EYE} منشور</span>`
     : `<span class="pub-badge off" title="غير منشور في متجر زد">${ICO_EYE_OFF} غير منشور</span>`;
 }
+// عطل ١ (أ): «غير متوفر» بلا أثر = no-op ⇒ يُعطَّل الزرّ مع سبب دائم. الشروط **نفسها** التي يستعملها run:
+//   كمية زد=0 (كـcurQtyNum في الحلقة، فيُسقطها stripNoChangeQty) و(متغيّر: النشر يُدار من الأب لا هنا · أو بسيط غير منشور: مُخفى أصلاً).
+//   بسيط منشور بكمية 0 ⇒ سيُخفى (published=No) = أثر حقيقي ⇒ يبقى فعّالاً. يُعيد سبب التعطيل أو "" (فعّال).
+function waitNoopReason(z) {
+  if (curQtyNum(z.qty) !== 0) return "";                                   // كمية ≠ 0 ⇒ التصفير أثر حقيقي
+  if (famIndex && famIndex.parentOfSku(z.sku)) return "النشر يُدار من الأب";   // متغيّر (＋كمية 0) ⇒ لا إخفاء فردي ولا تغيير كمية
+  const pub = String(z.published || "").trim().toLowerCase() === "yes";
+  return pub ? "" : "مصفّر ومخفي أصلاً — لا تغيير مطلوب";                    // بسيط غير منشور ＋ 0 ⇒ no-op · بسيط منشور ＋ 0 ⇒ سيُخفى (فعّال)
+}
 // عائلات 🟡 وفق الفلتر الحالي — تُستخدم في العرض وpickAlt وacceptFamily معاً (تطابق الفهارس fi/ri)
 const lostTag = r => (r.reappeared ? `<span class="lost-tag" title="عاد كوده للمخزن بعد أن كان «غير متوفر» — أُزيل من الانتظار وينتظر قرارك (بلا مطابقة تلقائية)">↩ توفّر</span>` : "") + (r.isAbsent ? `<span class="cat-badge cat-abs" title="غائب عن ملف المستودع الحالي — قد يكون في فرع آخر (المرحلة 1)">📭 غائب</span>` : "") + (r.wasLinked ? `<span class="lost-tag" title="غائب رغم كود سابق محفوظ يدوياً — رابط يدوي ضائع، أولوية إعادة ربط">🔗 سبق ربطه</span>` : "");
 const priceCell = (z, w) => `<span dir="ltr">${priceInt(z) ?? "—"} / ${priceInt(w) ?? "—"}</span>${priceBadge(z, w)}`;
@@ -2782,19 +2792,23 @@ function renderUnifiedList(title, wrap) {
   title.style.display = "none";   // العنوان القديم يُستبدل بشريط الحالة اللاصق
   // ترتيب: «يحتاج قرار» (غير الغائب، بترتيب الثقة green→yellow→red) ثم «غائب» ثم المُقرَّرة
   batchRowByUid = {}; btUidSeq = 0;
-  const g = btFilter(batchData.green), y = btFilter(batchData.yellow), r = btFilter(batchData.red);
+  // عطل ٢: العدّادات من **غير المُصفّى** دائماً (batchData الخام)؛ btFilter يغيّر **البطاقات المرسومة** فقط.
+  const gAll = batchData.green, yAll = batchData.yellow, rAll = batchData.red;
+  const g = btFilter(gAll), y = btFilter(yAll), r = btFilter(rAll);   // للبطاقات المرسومة فقط
   const mk = (arr, cls, absent) => arr.filter(x => !!x.isAbsent === absent).map(x => batchCardHTML(x, cls, ""));
   const needCards = [...mk(g, "bt-g", false), ...mk(y, "bt-y", false), ...mk(r, "bt-rd", false)];
   const absCards = [...mk(g, "bt-g", true), ...mk(y, "bt-y", true), ...mk(r, "bt-rd", true)];
-  const gN = g.filter(x => !x.isAbsent).length, yN = y.filter(x => !x.isAbsent).length, rN = r.filter(x => !x.isAbsent).length;
-  // البند ٢: «غير متوفر» (pending/managed) يخرج من القائمة ما دام غائباً عن المستودع — يبقى مُحتسَباً في الشريط ومُعالَجاً في الملفّين (تصفير+إخفاء)، ويعود للقائمة فقط عند ظهور كوده (البند ٣). المتجاهَل يبقى صفّاً خفيفاً (قرار دائم مرئي للتراجع).
-  const light = [...ignored.map(u => unifiedLightRow(u, "ignored"))];
+  const notAbs = a => a.filter(x => !x.isAbsent).length, isAbs = a => a.filter(x => x.isAbsent).length;
+  const gN = notAbs(gAll), yN = notAbs(yAll), rN = notAbs(rAll);            // عدّادات الثقة من الخام
+  const needN = gN + yN + rN, absentN = isAbs(gAll) + isAbs(yAll) + isAbs(rAll);   // «يحتاج قرار»/«غائب» من الخام
+  // (أ) الأصناف «غير المتوفرة» تظهر كصفوف خفيفة (⚠ سيُصفَّر / ✓ مُدار) بجانب المتجاهَل — تراجع عن خروجها من القائمة، ليبقى التأكيد مرئياً مع تراجع مباشر.
+  const light = [...pending.map(u => unifiedLightRow(u, "pending")), ...managed.map(u => unifiedLightRow(u, "managed")), ...ignored.map(u => unifiedLightRow(u, "ignored"))];
   const rows = [...needCards];
   if (absCards.length) { rows.push(`<div class="uni-sec">📭 غائب عن ملف المستودع (${absCards.length}) — لها كود سابق وغائبة عن الملف الحالي (قد تكون في فرع آخر)</div>`, ...absCards); }
-  if (light.length) { rows.push(`<div class="uni-sec">✕ متجاهَل (${light.length})</div>`, ...light); }
+  if (light.length) { rows.push(`<div class="uni-sec">قرارات سابقة (⚠ سيُصفَّر · ✓ مُدار · ✕ متجاهَل)</div>`, ...light); }
   const allRows = rows;
   const sa = document.getElementById("sAbsent"); if (sa) sa.textContent = batchData.absentCount || 0;   // البطاقة العلوية = نفس مصدر الشريط
-  wrap.innerHTML = unifiedBar(needCards.length, gN, yN, rN, absCards.length, pending.length, managed.length, ignored.length)
+  wrap.innerHTML = unifiedBar(needN, gN, yN, rN, absentN, pending.length, managed.length, ignored.length)
     + `<div class="mcards uni-list" id="unBody"></div>`;
   const host = document.getElementById("unBody");
   cancelAnimationFrame(unifiedRAF); unifiedPending = null;
@@ -2845,9 +2859,13 @@ function batchCardHTML(r, chkCls, famAttr) {
       <div id="whd-${uid}">${batchWhInner(r)}</div>
       <div class="bt-combo"><input class="bt-search" id="s-${uid}" aria-label="ابحث في المستودع بالكود أو الاسم لربط هذا الصنف" role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="غيّر/ابحث في المستودع بالكود أو الاسم…" oninput="comboSearch('${uid}')" onfocus="comboOpen('${uid}')" onkeydown="comboKey('${uid}',event)"></div>
     </div>`;
+  const noop = waitNoopReason(r.z);   // عطل ١(أ): سبب تعطيل «غير متوفر» إن كان بلا أثر
+  const waitBtn = noop
+    ? `<button class="mc-btn wait" disabled aria-disabled="true">⏳ غير متوفر</button><div class="wait-note">${esc(noop)}</div>`
+    : `<button class="mc-btn wait" onclick="batchExclude('${uid}','wait')" title="سجّله «غير متوفر حالياً» (⏳)">⏳ غير متوفر</button>`;
   const actions = `<div class="mc-actions">
       <label class="bt-card-chk"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${c ? "checked" : ""}><span>اعتماد</span></label>
-      <button class="mc-btn wait" onclick="batchExclude('${uid}','wait')" title="سجّله «غير متوفر حالياً» (⏳)">⏳ غير متوفر</button>
+      ${waitBtn}
       <button class="mc-btn ignore" onclick="batchExclude('${uid}','ignore')" title="تجاهله (✕)">✕ تجاهل</button>
     </div>`;
   const search = esc(normText(String(r.z.sku) + " " + (r.z.name || "") + " " + (c ? String(c.code) + " " + (c.name || "") : "")));
@@ -2940,7 +2958,15 @@ async function batchExclude(uid, action) {
   const r = batchRowByUid[uid]; if (!r) return;
   const skuN = normCode(r.z.skuN);
   const ok = await applyDecision(() => action === "wait" ? markWaiting(r.z.sku, skuN, r.z.name) : dbAddIgnored(r.z.sku, skuN, r.z.name));
-  if (ok) showToast(`${action === "wait" ? "⏳ نُقل للانتظار" : "🚫 تجاهل"}: ${r.z.sku} — حُفظ في القاعدة.`);
+  if (!ok) return;
+  // (ب) تنبيه المتغيّر: كمية المتغيّر تُصفَّر لكن النشر يُدار من الأب — يُخفى الأب فقط حين تصير كل متغيّراته 0.
+  const parent = action === "wait" && famIndex ? famIndex.parentOfSku(r.z.sku) : null;
+  if (parent) {
+    const n = (famIndex.childrenOf[String(parent)] || []).length;
+    showToast(`⏳ صُفّرت كمية المتغيّر ${r.z.sku}. النشر يُدار من المنتج الأب (${parent}) — سيُخفى الأب تلقائياً حين تصير كل متغيّراته${n ? ` الـ${n}` : ""} صفراً.`);
+  } else {
+    showToast(`${action === "wait" ? "⏳ نُقل للانتظار" : "🚫 تجاهل"}: ${r.z.sku} — حُفظ في القاعدة.`);
+  }
 }
 
 // قراءة المحدد ⇒ أزواج (sku, code) من المرشّح المثبَّت لكل صف

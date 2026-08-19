@@ -78,6 +78,16 @@ function infCfg() {
   };
 }
 
+// عطل ٢: خليط «يحتاج قرار» (جديد، ليس wasLinked) + «غائب مربوط يدوياً» (wasLinked) — لتفعيل فلتر «سبق ربطه فقط»
+function countsCfg() {
+  const rows = [HEADER, Z("N1", "5", "100"), Z("N2", "6", "100"), Z("L1", "2", "300"), Z("L2", "2", "300")];
+  return {
+    stData: { sheetName: "P", header: HEADER, rows }, whRows: [], lastMerge: merge([]),
+    manualMap: { L1: "WL1", L2: "WL2" }, waiting: [], ignored: [], history: ["L1", "L2"],
+    opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: false, callHook: false, countsProbe: true,
+  };
+}
+
 // دالّة داخل الصفحة: تهيّئ الحالة، تستدعي الخطاف+run (＋قرار اختياري)، وتُعيد القراءات (دفاعية للنسخ القديمة)
 async function inpage(cfg) {
   const mk = () => { const c = { select() { return c; }, upsert: async () => ({ error: null }), delete() { return c; }, insert: async () => ({ error: null }), eq: async () => ({ error: null }), in: async () => ({ error: null }), order() { return c; }, range: async () => ({ data: [], error: null }) }; return c; };
@@ -101,12 +111,23 @@ async function inpage(cfg) {
   if (cfg.decision && cfg.decision.type === "wait") {
     try { await applyDecision(() => markWaiting(cfg.decision.raw, cfg.decision.skuN, "")); } catch (e) { err = (err ? err + " | " : "") + "dec:" + e; }
   }
+  let countsProbe = null;
+  if (cfg.countsProbe) {
+    try {
+      const need = () => { const el = document.querySelector(".uni-need"); return el ? el.textContent.replace(/[^\d]/g, "") : "?"; };
+      const absent = () => { const e = [...document.querySelectorAll(".uni-st")].find(x => x.textContent.includes("غائب")); return e ? e.textContent.replace(/[^\d]/g, "") : "?"; };
+      batchLostOnly = false; renderDetail(); const offN = need(), offA = absent();
+      batchLostOnly = true; renderDetail(); const onN = need(), onA = absent();
+      batchLostOnly = false; renderDetail();
+      countsProbe = { offN, onN, offA, onA };
+    } catch (e) { countsProbe = { err: String(e) }; }
+  }
   const H = stData.header;
   const iSku = H.indexOf("sku"), iPub = H.indexOf("published"), iPrice = H.indexOf("price");
   const pr = lastPriceRows || [], qr = lastQtyRows || [];
   const qtySku = r => String(r[0]);
   return {
-    err, snap,
+    err, snap, countsProbe,
     qtyRows: qr,
     qtySkus: qr.slice(1).map(qtySku),
     qtyOf: (() => { const m = {}; qr.slice(1).forEach(r => { m[String(r[0])] = r[3]; }); return m; })(),
@@ -204,6 +225,16 @@ try {
   if (Z0.qtySkus.includes("ZP")) fails.push("عطل١-تشخيص: ZP (زد=0) دخل ملف الكميات — كان يجب أن يُسقطه stripNoChangeQty");
   if (!Z0.priceSkus.includes("ZP")) fails.push("عطل١-تشخيص: ZP المنشور البسيط لم يُخفَ (published=No) — مسار الإخفاء معطّل");
   notes.push(`عطل١ تشخيص: ZP(زد qty 0، منشور بسيط) بعد wait ⇒ كميات=${Z0.qtySkus.includes("ZP") ? "موجود(خطأ)" : "غائب(صحيح — 0==0)"} · أسعار=${Z0.priceSkus.includes("ZP") ? "published=No (يُخفى)" : "لا صفّ"}`);
+
+  // ===== عطل ٢: تفعيل btFilter لا يغيّر عدّادات الشريط (المحسوب من الخام) =====
+  const CC = await bootRead(browser, curHtml, countsCfg());
+  const cp = CC.countsProbe || {};
+  if (!(cp.offN === cp.onN && cp.offA === cp.onA)) fails.push(`عطل٢: العدّاد تغيّر بالفلتر (يحتاج قرار ${cp.offN}→${cp.onN} · غائب ${cp.offA}→${cp.onA})`);
+  notes.push(`عطل٢: الفلتر مُطفأ/مُفعّل ⇒ يحتاج قرار ${cp.offN}/${cp.onN} · غائب ${cp.offA}/${cp.onA} (يجب تطابقهما)`);
+  const CCold = await bootRead(browser, showAt("4f66288"), countsCfg());
+  const cpo = CCold.countsProbe || {};
+  if (cpo.offN === cpo.onN && cpo.offA === cpo.onA) fails.push(`أسنان عطل٢: على 4f66288 لم يتغيّر العدّاد بالفلتر (${cpo.offN}/${cpo.onN}) — بلا أسنان`);
+  notes.push(`أسنان عطل٢ (4f66288 قبل الإصلاح): يحتاج قرار ${cpo.offN}→${cpo.onN} · غائب ${cpo.offA}→${cpo.onA} (يتغيّر = العطل)`);
 
   // ===== ج-١ حياد: before(1a036f4، فيه isInf) == after(8bb0486) =====
   const before = await bootRead(browser, showAt("8bb0486^"), infCfg());

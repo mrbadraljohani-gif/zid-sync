@@ -60,10 +60,17 @@ check(script.includes("undoWaitDecision(rawSku, skuN) { await applyDecision") &&
 // (1ج) الدفعة ج البند ١: unpublishSet/toggleUnpublish أُزيلا (دُمجا في «غير متوفر» = qty0+published No)
 check(!script.includes("unpublishSet") && !/function\s+toggleUnpublish/.test(script), "unpublishSet/toggleUnpublish محذوفان");
 
-// (2ج) الدفعة ج البند ٢: «غير متوفر» يخرج من القائمة ما دام غائباً (الصفوف الخفيفة = المتجاهَل فقط)
-check(/const light = \[\.\.\.ignored\.map\(u => unifiedLightRow\(u, "ignored"\)\)\];/.test(uni), "الصفوف الخفيفة = المتجاهَل فقط (waiting يخرج من القائمة)");
-check(!/pending\.map\(u => unifiedLightRow/.test(uni) && !/managed\.map\(u => unifiedLightRow/.test(uni), "waiting (pending/managed) لا يُرسَم صفوفاً");
-check(fnSrc("unifiedBar").includes("pending") || uni.includes("pending.length"), "عدّاد «سيُصفَّر/مُدار» يبقى في الشريط (مُحتسَب لا مُخفى)");
+// (2ج) قرار المستخدم: «غير متوفر» يعود صفّاً خفيفاً (⚠ سيُصفَّر/✓ مُدار) بجانب المتجاهَل — تراجع عن خروجه من القائمة
+check(/pending\.map\(u => unifiedLightRow\(u, "pending"\)\)/.test(uni) && /managed\.map\(u => unifiedLightRow\(u, "managed"\)\)/.test(uni) && /ignored\.map\(u => unifiedLightRow\(u, "ignored"\)\)/.test(uni), "الصفوف الخفيفة تشمل سيُصفَّر/مُدار/متجاهَل");
+// (عطل ٢) عدّادات الشريط من غير المُصفّى؛ btFilter للبطاقات المرسومة فقط
+check(/const gAll = batchData\.green/.test(uni) && /unifiedBar\(needN, gN, yN, rN, absentN,/.test(uni), "عطل٢: عدّاد الشريط من batchData الخام (needN/absentN)");
+check(/const g = btFilter\(gAll\)/.test(uni), "btFilter على البطاقات المرسومة فقط");
+// (عطل ١أ) تعطيل «غير متوفر» للـno-op — نفس شروط run (مصدر واحد)
+const wn = fnSrc("waitNoopReason");
+check(wn.includes("curQtyNum(z.qty)") && wn.includes("famIndex") && wn.includes('=== "yes"'), "waitNoopReason بنفس شروط run (curQtyNum + published + famIndex)");
+check(fnSrc("batchCardHTML").includes("waitNoopReason(r.z)") && fnSrc("batchCardHTML").includes("disabled") && fnSrc("batchCardHTML").includes("wait-note"), "الزرّ يُعطَّل مع سبب دائم (wait-note لا tooltip)");
+// (عطل ١ب) تنبيه المتغيّر عند «غير متوفر»
+check(/النشر يُدار من المنتج الأب/.test(fnSrc("batchExclude")), "تنبيه المتغيّر (النشر من الأب) عند «غير متوفر»");
 // (2ج-ب) خطاف الرفع (missed_rounds): مُوصّل ومحكوم بعَلَم الرفع الفعلي (لا عدّ لتحميل القاعدة)
 check(fnSrc("autoAdopt").includes("processWaitingOnUpload()"), "autoAdopt يستدعي خطاف الرفع قبل المطابقة");
 const hook = fnSrc("processWaitingOnUpload");
