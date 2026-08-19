@@ -63,6 +63,12 @@ check(!script.includes("unpublishSet") && !/function\s+toggleUnpublish/.test(scr
 check(/const light = \[\.\.\.ignored\.map\(u => unifiedLightRow\(u, "ignored"\)\)\];/.test(uni), "الصفوف الخفيفة = المتجاهَل فقط (waiting يخرج من القائمة)");
 check(!/pending\.map\(u => unifiedLightRow/.test(uni) && !/managed\.map\(u => unifiedLightRow/.test(uni), "waiting (pending/managed) لا يُرسَم صفوفاً");
 check(fnSrc("unifiedBar").includes("pending") || uni.includes("pending.length"), "عدّاد «سيُصفَّر/مُدار» يبقى في الشريط (مُحتسَب لا مُخفى)");
+// (2ج-ب) خطاف الرفع (missed_rounds): مُوصّل ومحكوم بعَلَم الرفع الفعلي (لا عدّ لتحميل القاعدة)
+check(fnSrc("autoAdopt").includes("processWaitingOnUpload()"), "autoAdopt يستدعي خطاف الرفع قبل المطابقة");
+const hook = fnSrc("processWaitingOnUpload");
+check(/const uploaded = whWasUploaded; whWasUploaded = false;/.test(hook) && /if \(!uploaded/.test(hook), "الخطاف محكوم بعَلَم الرفع (يُستهلَك) — لا عدّ لتحميل القاعدة");
+check(hook.includes("missed_rounds") && hook.includes("bumpMeta"), "الخطاف يكتب missed_rounds عبر db.waiting.bumpMeta");
+check(fnSrc("onMergeWh").includes("whWasUploaded = true") && fnSrc("onMergeBranch").includes("whWasUploaded = true"), "onMergeWh/onMergeBranch يرفعان عَلَم الرفع الفعلي");
 
 // (5ج) الدفعة ج البند ٥: إخفاء الأب بالإجماع لا لمساً مباشراً
 const runSrc = fnSrc("run");

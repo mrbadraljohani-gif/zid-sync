@@ -1569,6 +1569,8 @@ let manualMap = {};
 let baseMap = {}, baseIgnSet = new Set();   // نسخة الملف (mapping.json/ignored.json) للتمييز عن المحلي غير المصدَّر
 let matchedHistory = new Set();   // skuN لكل صنف طوبق سابقاً (يتراكم عبر الجلسات — منظومة matched-history.json)
 let waitingSet = new Set();       // skuN لأصناف بانتظار التوفر (waiting.json)
+let waitingMeta = new Map();      // normCode(skuN) ⇒ {sku الخام, name, missed عدد الرفعات الغائبة, lastSeen} — لعدّاد missed_rounds/last_seen_at (خطاف الرفع)
+let whWasUploaded = false;        // رُفع ملف مخزن فعلاً هذه الدورة (لا تحميل من القاعدة) — يُفعّل عدّ missed_rounds؛ يُستهلك في خطاف الرفع
 let baseHistSet = new Set(), baseWaitSet = new Set();
 let lastAbsent = [], lastReactivated = [];   // الغائبون عن الملف + من عاد للتوفر هذه المطابقة
 let lastParentOf = {};   // خريطة المتغيّر→أبيه (تُبنى في run)
@@ -1631,8 +1633,9 @@ const db = {
   // قائمة الانتظار ⏳ (waiting_items) — أصناف تُصدَّر بكمية 0 حتى تعود؛ نفس نمط mappings
   waiting: {
     async getAll() { const { data, error } = await sb.from("waiting_items").select("zid_sku,name,kind,missed_rounds,last_seen_at"); if (error) throw error; return data || []; },
-    async upsert(zid_sku, name) { const { error } = await sb.from("waiting_items").upsert({ zid_sku: String(zid_sku), name: name || "" }, { onConflict: "zid_sku" }); if (error) throw error; },
+    async upsert(zid_sku, name, patch) { const { error } = await sb.from("waiting_items").upsert({ zid_sku: String(zid_sku), name: name || "", ...(patch || {}) }, { onConflict: "zid_sku" }); if (error) throw error; },
     async bulkUpsert(rows) { if (!rows.length) return; const { error } = await sb.from("waiting_items").upsert(rows, { onConflict: "zid_sku" }); if (error) throw error; },
+    async bumpMeta(rows) { if (!rows.length) return; const { error } = await sb.from("waiting_items").upsert(rows, { onConflict: "zid_sku" }); if (error) throw error; },   // تحديث missed_rounds/last_seen_at لصفوف قائمة (لا يمسّ name/kind)
     async remove(zid_sku) { const { error } = await sb.from("waiting_items").delete().eq("zid_sku", String(zid_sku)); if (error) throw error; },
     async bulkRemove(skus) { if (!skus.length) return; const { error } = await sb.from("waiting_items").delete().in("zid_sku", skus.map(String)); if (error) throw error; },
   },
@@ -1734,13 +1737,15 @@ function logActivity(event_type, zid_sku, details) {
 const dbFail = e => { showToast("✗ تعذّر الحفظ في القاعدة: " + (e && e.message ? e.message : e) + " — لم يتغيّر شيء."); throw e; };
 async function markWaiting(rawSku, skuN, name) {
   requireOnline();
-  try { await db.waiting.upsert(rawSku, name || ""); } catch (e) { dbFail(e); }
-  waitingSet.add(normCode(skuN)); logActivity("waiting_added", rawSku, { name: name || "" });
+  const nowISO = new Date().toISOString();
+  try { await db.waiting.upsert(rawSku, name || "", { last_seen_at: nowISO, missed_rounds: 0 }); } catch (e) { dbFail(e); }   // وسم جديد ⇒ العدّاد صفر و«آخر ظهور» = الآن (أساس heuristic الأصناف الميتة)
+  const k = normCode(skuN); waitingSet.add(k); waitingMeta.set(k, { sku: rawSku, name: name || "", missed: 0, lastSeen: nowISO });
+  logActivity("waiting_added", rawSku, { name: name || "" });
 }
 async function unmarkWaiting(rawSku, skuN) {
   requireOnline();
   try { await db.waiting.remove(rawSku); } catch (e) { dbFail(e); }
-  waitingSet.delete(normCode(skuN)); logActivity("waiting_removed", rawSku, null);
+  const k = normCode(skuN); waitingSet.delete(k); waitingMeta.delete(k); logActivity("waiting_removed", rawSku, null);
 }
 async function dbAddIgnored(rawSku, skuN, name) {
   requireOnline();
@@ -1756,7 +1761,13 @@ async function dbDelIgnored(rawSku, skuN) {
 let dbIgnoredCount = 0, dbWaitingCount = 0, dbAliasesCount = 0;   // أعداد القاعدة (لعرض شريط الترحيل لكل جدول)
 async function loadWaitingFromDB() {
   if (!sb) return;
-  try { const rows = await db.waiting.getAll(); dbWaitingCount = rows.length; if (rows.length) waitingSet = new Set(rows.map(r => normCode(r.zid_sku)).filter(Boolean)); }
+  try {
+    const rows = await db.waiting.getAll(); dbWaitingCount = rows.length;
+    if (rows.length) {
+      waitingSet = new Set(rows.map(r => normCode(r.zid_sku)).filter(Boolean));
+      waitingMeta = new Map(); rows.forEach(r => { const k = normCode(r.zid_sku); if (k) waitingMeta.set(k, { sku: r.zid_sku, name: r.name || "", missed: r.missed_rounds || 0, lastSeen: r.last_seen_at || null }); });
+    }
+  }
   catch (e) { console.warn("waiting DB load failed:", e); }   // قاعدة فارغة ⇒ نُبقي المحلي (بذرة ترحيل) ونعرض شريط الترحيل
 }
 async function loadIgnoredFromDB() {
@@ -3380,6 +3391,7 @@ async function onMergeWh(inp) {
     const { list, header, headers, colMap } = await readInvFileFull(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
     invHeaderDbg.wh = { headers, colMap };   // للتشخيص ?debug
     mergeWh = aggregateInv(list, "wh");   // تجميع بالكود (جمع الكمية) — يطابق منطق الدمج داخل الملف
+    whWasUploaded = true;                 // رفع ملف فعلي ⇒ يُفعّل عدّ missed_rounds في خطاف الرفع
     document.getElementById("whStatus").innerHTML = `<span class="ok-txt">✓ ${f.name} — ${mergeWh.length} صنف</span>`;
     document.getElementById("whCard").classList.add("ok");
     if (dbOnline && sb) {
@@ -3396,6 +3408,7 @@ async function onMergeBranch(inp) {
     const { list, header, headers, colMap } = await readInvFileFull(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
     invHeaderDbg.branch = { headers, colMap };   // للتشخيص ?debug
     const agg = aggregateInv(list, "branch"); mergeBranches = [agg];
+    whWasUploaded = true;                 // رفع ملف فرع فعلي ⇒ يُفعّل عدّ missed_rounds في خطاف الرفع
     document.getElementById("brStatus").innerHTML = `<span class="ok-txt">✓ ${f.name} — ${agg.length} صنف</span>`;
     document.getElementById("brCard").classList.add("ok");
     if (dbOnline && sb) {
@@ -3466,6 +3479,21 @@ function renderMergeBar() {
 // هل صفحة المخزون معروضة؟ (حارس: تحديث الحالة دائماً، والرسم عند العرض فقط)
 function invVisible() { const s = document.getElementById("page-inventory"); return !!s && s.classList.contains("active"); }
 
+// خطاف الرفع (الدفعة ج، البنود ٢/٣): يمرّ على أصناف الانتظار مقابل أكواد المخزن الجديدة عند كل **رفع ملف** (لا تحميل قاعدة).
+// البند ٢: صنف ما زال كوده غائباً عن المخزن ⇒ missed_rounds++ (عدّ الرفعات الغائبة — أساس heuristic «الأصناف الميتة»). البند ٣ يضيف فرع العودة (ظهور الكود ⇒ «يحتاج قرار»+توفّر).
+function processWaitingOnUpload() {
+  const uploaded = whWasUploaded; whWasUploaded = false;   // يُستهلك مرة: العدّ لرفع الملف فقط لا لتحميل القاعدة (وإلا تضخّم كل جلسة)
+  if (!uploaded || !lastMerge || !waitingSet.size) return;
+  const whNorm = new Set([...(lastMerge.unified || []), ...(lastMerge.noPrice || [])].map(x => normCode(x.code)).filter(Boolean));
+  const missedBump = [];
+  waitingSet.forEach(skuN => {
+    if (whNorm.has(skuN)) return;                       // عاد كوده ⇒ ليس غائباً (تعالجه العودة — البند ٣)
+    const meta = waitingMeta.get(skuN); if (!meta) return;
+    meta.missed = (meta.missed || 0) + 1;
+    missedBump.push({ zid_sku: meta.sku, missed_rounds: meta.missed });
+  });
+  if (missedBump.length && dbOnline && sb) db.waiting.bumpMeta(missedBump).catch(e => console.warn("waiting missed bump:", e));
+}
 function autoAdopt() {
   const warn = document.getElementById("mergeWarn");
   document.getElementById("result").style.display = "none";
@@ -3483,6 +3511,7 @@ function autoAdopt() {
   const hasBr = mergeBranches.length > 0;
   if (hasBr && res.total && res.both === 0) { warn.style.display = "block"; warn.innerHTML = `⚠ لا يوجد أي كود مشترك بين المستودع والفرع — تأكّد أنهما من نفس النظام (قد تكون رفعت ملفاً خاطئاً).`; }
   else { warn.style.display = "none"; warn.innerHTML = ""; }
+  processWaitingOnUpload();   // خطاف الرفع: عدّ الرفعات الغائبة (البند ٢) — قبل المطابقة
   showErr(""); launchMatchIfReady();   // إن كانت بيانات زد جاهزة (ملف/قاعدة) تنطلق المطابقة تلقائياً
 }
 // طبقة التنزيل الاختيارية فوق دالة الدمج (للفحص اليدوي) — تعمل مع المستودع وحده أو مع فرع

@@ -22,6 +22,10 @@ jobs:
         run: node tests/b2-invariants.mjs
       - name: Batch (ب-٢) analyzeBatch count separation (mechanical)
         run: node tests/b2-analyze-counts.mjs
+      - name: Self-check — missed_rounds guard يرسب بلا بوابة الرفع
+        run: node tests/b2-missed-rounds.mjs --broken
+      - name: Batch (ج) missed_rounds upload-hook (mechanical)
+        run: node tests/b2-missed-rounds.mjs
 
   perf-list:
     runs-on: ubuntu-latest
