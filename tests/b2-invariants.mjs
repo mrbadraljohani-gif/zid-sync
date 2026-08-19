@@ -59,6 +59,12 @@ check(script.includes("undoWaitDecision(rawSku, skuN) { await applyDecision") &&
 // (1ج) الدفعة ج البند ١: unpublishSet/toggleUnpublish أُزيلا (دُمجا في «غير متوفر» = qty0+published No)
 check(!script.includes("unpublishSet") && !/function\s+toggleUnpublish/.test(script), "unpublishSet/toggleUnpublish محذوفان");
 
+// (5ج) الدفعة ج البند ٥: إخفاء الأب بالإجماع لا لمساً مباشراً
+const runSrc = fnSrc("run");
+check(runSrc.includes("hasVarYesSet.forEach(rk => parentRaws.add(rk))") && runSrc.includes("if (parentRaws.has(rawKey)) continue"), "الآباء مُستبعدون من حلقة الكميات (لا صفّ كمية للأب)");
+check(runSrc.includes("kids.find(c => childQ(c) > 0)") && runSrc.includes("if (live == null)"), "إخفاء الأب بالإجماع (كل الأبناء 0) وابن حيّ يحميه");
+check(!/finalQtyByRaw\[(P|parent|pSku)\b/.test(runSrc), "لا تصفير مباشر لكمية الأب (finalQtyByRaw[child] فقط)");
+
 // (5) حارس «لا أرقام قبل المطابقة»: العدّادات تبدأ 0 والكتلة مخفيّة حتى المطابقة
 check(/id="sUn">0</.test(html), "عدّاد «بدون ربط» يبدأ 0 في الترميز");
 check(/id="sUpd"[^>]*>0</.test(html) || /id="sUpd">0</.test(html), "عدّاد «تم تحديثه» يبدأ 0");
