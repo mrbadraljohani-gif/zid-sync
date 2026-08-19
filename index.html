@@ -976,7 +976,6 @@
   .stat[data-filter="updated"]::before { background: var(--green); }
   .stat[data-filter="new"]::before { background: var(--gold); }
   .stat[data-filter="unmatched"]::before { background: var(--gold); }
-  .stat[data-filter="infinite"]::before { background: var(--muted-2); }
   .stat[data-filter="explorer"]::before { background: var(--border-strong); }
   .stat-wide { flex: 1.7 1 170px; }
   .stat .stat-ic { display: block; font-size: 14px; opacity: .75; line-height: 1; margin-bottom: 3px; color: var(--muted); }
@@ -1221,7 +1220,6 @@
       <button type="button" class="stat stat-wide" data-filter="unmatched" aria-pressed="true" onclick="selectCard('unmatched')"><span class="stat-ic">🔶</span><b class="amber-txt" id="sUn">0</b><span class="stat-lbl">بدون ربط</span><span class="stat-sub" id="sUnSub"></span></button>
       <!-- عدّاد عرض (لا فلتر): «غائب» فئة مستقلّة تُرى ضمن القائمة الموحّدة — النقر يفتحها. بلا data-filter كي لا يتزامن توهّجه مع «بدون ربط» -->
       <button type="button" class="stat" aria-pressed="false" onclick="selectCard('unmatched')" title="أصناف لها كود سابق وغائبة عن ملف المستودع الحالي (فروع المرحلة 1) — اضغط لعرضها في القائمة"><span class="stat-ic">📭</span><b class="amber-txt" id="sAbsent">0</b><span class="stat-lbl">غائب عن الملف</span></button>
-      <button type="button" class="stat" data-filter="infinite" aria-pressed="false" onclick="selectCard('infinite')"><span class="stat-ic">∞</span><b class="info-txt" id="sInf">0</b><span class="stat-lbl">غير محدود بلا مطابقة</span></button>
       <button type="button" class="stat" data-filter="explorer" aria-pressed="false" onclick="selectCard('explorer')"><span class="stat-ic">📚</span><b class="text-txt" id="sTot">0</b><span class="stat-lbl">إجمالي الأسطر — مستكشف</span></button>
       <!-- مقصودة: «جديد» مدمج في «بدون ربط»، وهذه تبقى مخفية ليكتب فيها updateNewCount بلا فحص وجود — لا تحذفها -->
       <b id="sNew" hidden>0</b><span id="sAbsentLbl" hidden></span>
@@ -1308,7 +1306,6 @@
       <div class="acc-stat"><b id="accProducts"><bdi>0</bdi></b><span>منتجات زد (القاعدة)</span></div>
       <div class="acc-stat"><b id="accLinks"><bdi>0</bdi></b><span>الروابط</span></div>
       <div class="acc-stat"><b id="accWaiting"><bdi>0</bdi></b><span>قائمة الانتظار</span></div>
-      <div class="acc-stat"><b id="accInfinite"><bdi>0</bdi></b><span>غير محدود بلا مطابقة</span></div>
     </div></div>
 
     <div class="inv-grid" style="margin-top:14px">
@@ -1558,7 +1555,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "dfcaedc";
+const APP_VERSION = "1a036f4";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1594,7 +1591,7 @@ let excludedSet = new Set();           // استبعاد مؤقت للجلسة �
 let boundSet = new Set();
 let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [], lastIgnored = [];
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
-let lastUpdated = [], lastInfinite = [], currentFilter = "unmatched";
+let lastUpdated = [], currentFilter = "unmatched";
 let expFilters = { link: new Set(), pub: new Set(), type: new Set(), qty: new Set(), admin: new Set() };   // فلاتر المستكشف (تقاطع AND، تعدد داخل البُعد OR)
 let expSearch = "", expSearchRaw = "", lastExplorerShown = [];
 let lastCollisions = [];   // مجموعات أكواد زد الخام المتصادمة بعد التطبيع (الصعبة فقط — تحذير أحمر)
@@ -2135,7 +2132,6 @@ function renderInventoryPage() {
   set("accProducts", (zidDbMeta && zidDbMeta.product_count) ? zidDbMeta.product_count : 0);
   set("accLinks", Object.keys(manualMap).length);
   set("accWaiting", waitingSet ? waitingSet.size : 0);
-  set("accInfinite", lastInfinite.length);
   if (typeof renderFingerprint === "function") renderFingerprint();
 }
 
@@ -3821,7 +3817,7 @@ function run(reprocess) {
     const distItemCount = distByRaw.size, distGroupCount = [...whMembers.values()].filter(m => m.length > 1).length;
 
     let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0, noChangeDropped = 0;
-    const unmatched = [], updatedList = [], infiniteList = [], absentList = [], reactivated = [], saleConflicts = [], lowValDbg = [];
+    const unmatched = [], updatedList = [], absentList = [], reactivated = [], saleConflicts = [], lowValDbg = [];
     const parentsToPublish = new Map();   // كود الأب ⇒ {sku, name, variants[]} — نشر يُنقَل من المتغيّرات إلى صف الأب
     const finalQtyByRaw = {};             // كمية كل صنف زد النهائية بعد كل القواعد (لإجماع إخفاء الأب + الإخفاء الموحّد)
     const zeroDoor = {};                  // rawKey ⇒ باب التصفير غير المطابِق: "waiting"(⏳) / "absent"(غائب-صفر) — لتوحيد الإخفاء التلقائي عبر كل الأبواب
@@ -3867,12 +3863,10 @@ function run(reprocess) {
           }
           finalQtyByRaw[rawKey] = opts.absent === "zero" ? 0 : curQtyNum(orig[iQty]);   // «صفّر»⇒0 · «اترك»⇒كمية زد الحالية
           if (opts.absent === "zero") zeroDoor[rawKey] = "absent";   // غائب-صفر ⇒ يدخل الإخفاء الموحّد
-        } else if (isInf && !collided) {
-          infiniteList.push({ sku: rawKey, skuN, name: orig[iName] || "" });
-          finalQtyByRaw[rawKey] = Infinity;   // غير محدود بلا مطابقة ⇒ حيّ
         } else {
+          // يشمل الآن «غير محدود بلا مطابقة» (دُمج في «بدون ربط») — curQtyNum(infinite)=Infinity فيبقى حيّاً، بلا أي دفع إلى qtyRows/priceRows
           unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, noWhCode });
-          finalQtyByRaw[rawKey] = curQtyNum(orig[iQty]);   // لا يتغيّر ⇒ كمية زد الحالية
+          finalQtyByRaw[rawKey] = curQtyNum(orig[iQty]);   // لا يتغيّر ⇒ كمية زد الحالية (∞ للّانهائي)
         }
         continue;
       }
@@ -4103,7 +4097,6 @@ function run(reprocess) {
     // «الغائب عن الملف» لم يعد بطاقة مستقلة — المُدار انتقل لبطاقة «بدون ربط»، والغائب-له-تاريخ يُرى في المستكشف بفلتر (نفس منطق ⏳/الغائب/العودة).
     document.getElementById("sUpd").textContent = updatedList.length;
     document.getElementById("sUn").textContent = unmatched.length;
-    document.getElementById("sInf").textContent = infiniteList.length;
     document.getElementById("sTot").textContent = rows0.length - 1;
 
     // === تصنيف الأصناف بدون ربط + بيانات الفلاتر ===
@@ -4112,7 +4105,6 @@ function run(reprocess) {
     if (!reprocess) { suggCache = new Map(); testSelected = new Set(); excludedSet = new Set(); unpublishSet = new Set(); }   // بيانات جديدة ⇒ أعِد بناء الذاكرة والتحديد وصفّر الاستبعاد وإلغاء النشر المؤقتين
     lastUnmatchedRaw = unmatched;
     lastUpdated = updatedList;
-    lastInfinite = infiniteList;
     lastAbsent = absentList;
     lastReactivated = reactivated;
     lastSaleConflicts = saleConflicts;
@@ -4270,10 +4262,6 @@ function renderDetailBody() {
     const susp = lastUpdated.filter(isSuspicious).length;
     title.textContent = `الأصناف المحدَّثة (${lastUpdated.length}) — كاملة` + (susp ? ` · ⚠ ${susp} تحتاج مراجعة` : "");
     wrap.innerHTML = updatedTableHTML(lastUpdated);
-  } else if (f === "infinite") {
-    if (unbar) unbar.style.display = "";
-    title.textContent = `كمية غير محدودة — تُركت كما هي (${lastInfinite.length})`;
-    wrap.innerHTML = listTableHTML(lastInfinite);
   } else { // explorer — مستكشف منتجات زد الشامل (له شريط بحث/فلاتر خاص)
     if (unbar) unbar.style.display = "none";
     title.textContent = "📚 مستكشف منتجات زد — كل الأصناف بفلاتر متقاطعة";
@@ -4663,16 +4651,6 @@ function deleteOffset(sk) {
   renderOffsetsList();
   if (document.getElementById("result").style.display === "block") run(true);
 }
-
-function listTableHTML(list) {
-  const rows = list.map(u => `<tr data-search="${esc(normText(u.sku + " " + u.name))}"><td class="mono">${esc(u.sku)}</td><td>${esc(u.name) || "—"}</td></tr>`).join("");
-  return `<table aria-label="قائمة الأصناف">
-    <colgroup><col class="c-sku"><col></colgroup>
-    <thead><tr><th scope="col">SKU زد</th><th scope="col">اسم المنتج</th></tr></thead>
-    <tbody id="unBody">${rows}</tbody>
-  </table>`;
-}
-
 
 // شريط التنبيه البرتقالي + البطاقة الخامسة (يستبعد ما رُبط في هذه الجلسة)
 function updateNewCount() {
