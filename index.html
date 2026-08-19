@@ -840,7 +840,6 @@
   .test-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; padding: 10px 12px; background: rgba(230,197,111,.08); border: 1px solid var(--border-strong); border-radius: 10px; }
   .test-bar .btn-run.sm { margin: 0; }
   .chk-cell { text-align: center; }
-  .unpub-na { opacity: .45; cursor: help; font-size: 14px; }
   .test-chk { width: 17px; height: 17px; accent-color: var(--gold); cursor: pointer; }
   /* تحذير تصادم التطبيع */
   .col-warn { background: rgba(229,144,135,.12); border: 1px solid rgba(229,144,135,.5); border-radius: 12px; padding: 12px 15px; margin-bottom: 14px; }
@@ -945,8 +944,6 @@
   :root[data-theme="light"] .toast { background: #fffdf7; box-shadow: 0 14px 40px rgba(120,90,20,.18); }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .mc-btn.wait { border: 1px solid var(--border-strong); background: transparent; color: var(--gold-2); }
-  .mc-btn.unpub { border: 1px solid var(--border-strong); background: transparent; color: var(--danger); }
-  .mc-btn.unpub.on { background: rgba(200,90,90,.12); border-color: var(--danger); }
   .mc-btn.wait.on { background: rgba(201,154,60,.16); }
   .mcard.waiting { opacity: .82; }
   .danger-hint { color: var(--danger); font-weight: 700; }
@@ -1574,8 +1571,7 @@ let matchedHistory = new Set();   // skuN لكل صنف طوبق سابقاً (�
 let waitingSet = new Set();       // skuN لأصناف بانتظار التوفر (waiting.json)
 let baseHistSet = new Set(), baseWaitSet = new Set();
 let lastAbsent = [], lastReactivated = [];   // الغائبون عن الملف + من عاد للتوفر هذه المطابقة
-let unpublishSet = new Set();     // 🚫 أصناف رئيسية طُلب إلغاء نشرها في ملف الأسعار (للجلسة فقط — قرار واعٍ كل دورة)
-let lastUnpublish = [], lastParentOf = {};   // ما سيُلغى نشره هذه الدورة + خريطة المتغيّر→أبيه (لتحديد المنتجات الرئيسية)
+let lastParentOf = {};   // خريطة المتغيّر→أبيه (تُبنى في run)
 let lastSaleConflicts = [];   // أصناف تخفيضها المخزَّن ≥ سعرها الجديد ⇒ مُستبعَدة من ملف الأسعار (تُعالَج يدوياً في زد)
 let lastMatchedWhCodes = new Set();   // أكواد المستودع المطابَقة في آخر تشغيل (تُستبعد من مرشّحي الربط الدفعي)
 let batchAliases = new Set();          // (aliases) مجموعة «جذر زد|||جذر مستودع» — القاعدة مصدرها (الدفعة أ). +40 للأزواج المعروفة
@@ -3980,27 +3976,14 @@ function run(reprocess) {
       lastParentPublish.push({ sku: pSku, name: info.name, variants: info.variants });
     });
 
-    // === 🚫 إلغاء نشر المنتجات الرئيسية الموسومة (استثناء مضبوط: main فقط — بلا أب وليس أباً) ===
-    // كل صنف موسوم يُضاف لملف الأسعار بصفّه الأصلي كاملاً مع published=No فقط. الآباء/المتغيّرات مستبعدون (النشر يُدار من الأب).
-    lastUnpublish = [];
-    if (iPublished >= 0) unpublishSet.forEach(rawU => {
-      const rk = String(rawU), row = rowByRawSku[rk]; if (!row) return;
-      if (hasVarYesSet.has(rk) || parentOf[rk]) return;   // أب أو متغيّر ⇒ لا يُلغى نشره تلقائياً أبداً
-      if (String(row[iPublished]).trim().toLowerCase() !== "yes") return;   // غير منشور أصلاً ⇒ لا داعي
-      if (iSale >= 0) { const sv = Number(row[iSale]), pv = Number(row[iPrice]); if (Number.isFinite(sv) && sv > 0 && Number.isFinite(pv) && sv >= pv) return; }   // تعارض تخفيض ⇒ تخطَّ حمايةً للملف
-      const pr = [...row]; pr[iPublished] = "No";
-      for (let c = 0; c < pr.length; c++) { const s = String(pr[c] == null ? "" : pr[c]); if (s.length > 32767) pr[c] = s.slice(0, 32767); }
-      priceRows.push(pr); priceOrig.push(row);
-      priceCount++;
-      lastUnpublish.push({ sku: rk, name: iName >= 0 ? (row[iName] || "") : "" });
-    });
+    // (أُزيل مسار «🚫 إلغاء النشر» اليدوي — الدفعة ج البند ١: دُمج في «غير متوفر» الذي يصفّر ويُخفي عبر zeroDoor.)
 
     // === إخفاء تلقائي موحّد للبسطاء عبر كل الأبواب: أي صنف بسيط منشور صارت كميته النهائية 0 عبر ⏳ أو غائب-صفر ⇒ published=No ===
     // (باب القيمة المنخفضة والمطابَق-صفر يُعالَجان في الحلقة أعلاه؛ هنا نغطّي البابين اللذين يصفّران بلا مطابقة — سدّ فجوة «مصفّر لكن يبقى منشوراً»)
     // القاعدة موحّدة: نقطة الحكم = finalQtyByRaw لا مسار بعينه. المتغيّرات تُدار بإجماع الأب أدناه (finalQtyByRaw يغذّيه بـ0 أصلاً).
     if (iPublished >= 0) Object.keys(zeroDoor).forEach(rk => {
       if (finalQtyByRaw[rk] !== 0) return;                         // أُعيد تفعيله/ليس صفراً ⇒ لا إخفاء
-      if (autoUnpub.has(rk) || unpublishSet.has(rk)) return;       // عولج مسبقاً (مطابَق/يدوي 🚫)
+      if (autoUnpub.has(rk)) return;       // عولج مسبقاً (مطابَق-صفر/رخص)
       if (hasVarYesSet.has(rk) || parentOf[rk]) return;            // أب/متغيّر ⇒ يُدار بإجماع الأب لا هنا
       const row = rowByRawSku[rk]; if (!row) return;
       if (String(row[iPublished]).trim().toLowerCase() !== "yes") return;   // منشور فقط (وإلا فلا داعي)
@@ -4043,7 +4026,7 @@ function run(reprocess) {
     lastQtyRows = qtyRows; lastPriceRows = priceRows; lastPriceOrig = priceOrig;   // للتنزيل التجريبي (صف واحد أو المحدد) مع التحقق
     const mkBlob = aoa => { const ws = XLSX.utils.aoa_to_sheet(aoa); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1"); return new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }); };
     const vq = verifyQuantities(qtyRows);
-    const vp = verifyPrices(priceRows, priceOrig, H, new Set([...unpublishSet, ...autoUnpub]));   // يمرّر Yes→No للموسوم يدوياً 🚫 ＋ الآلي (بسيط/آباء)
+    const vp = verifyPrices(priceRows, priceOrig, H, autoUnpub);   // يمرّر Yes→No للإخفاء الآلي (بسيط/آباء عبر كل الأبواب)
     const vm = document.getElementById("verifyMsg");
     const wireDl = (id, ok, aoa, count, reason) => {
       const el = document.getElementById(id);
@@ -4061,7 +4044,7 @@ function run(reprocess) {
 
     if (vq.ok && vp.ok) {
       vm.className = "verify-ok"; vm.style.display = "block";
-      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (lastUnpublish.length ? ` · 🚫 سيُلغى نشرها: ${lastUnpublish.length} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + ((lastAutoUnpubSimple.length || lastAutoUnpubParents.length) ? (() => { const au = k => lastAutoUnpubSimple.filter(x => x.src === k).length; return ` · إخفاء تلقائي: ${lastAutoUnpubSimple.length + lastAutoUnpubParents.length} — بسيط ${lastAutoUnpubSimple.length} (رخص ${au("low")} · مطابَق٠ ${au("matched0")} · ⏳ ${au("waiting")} · غائب ${au("absent")}) · آباء ${lastAutoUnpubParents.length}`; })() : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
+      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + ((lastAutoUnpubSimple.length || lastAutoUnpubParents.length) ? (() => { const au = k => lastAutoUnpubSimple.filter(x => x.src === k).length; return ` · إخفاء تلقائي: ${lastAutoUnpubSimple.length + lastAutoUnpubParents.length} — بسيط ${lastAutoUnpubSimple.length} (رخص ${au("low")} · مطابَق٠ ${au("matched0")} · ⏳ ${au("waiting")} · غائب ${au("absent")}) · آباء ${lastAutoUnpubParents.length}`; })() : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
     } else {
       vm.className = "verify-fail"; vm.style.display = "block";
       vm.textContent = "✗ تم إيقاف التحميل — " + [!vq.ok ? "ملف الكميات: " + vq.msg : "", !vp.ok ? "ملف الأسعار: " + vp.msg : ""].filter(Boolean).join(" | ");
@@ -4104,7 +4087,7 @@ function run(reprocess) {
     // === تصنيف الأصناف بدون ربط + بيانات الفلاتر ===
     lastWhList = whList;
     lastWhTokenIndex = buildWhTokenIndex(whList);
-    if (!reprocess) { suggCache = new Map(); testSelected = new Set(); excludedSet = new Set(); unpublishSet = new Set(); }   // بيانات جديدة ⇒ أعِد بناء الذاكرة والتحديد وصفّر الاستبعاد وإلغاء النشر المؤقتين
+    if (!reprocess) { suggCache = new Map(); testSelected = new Set(); excludedSet = new Set(); }   // بيانات جديدة ⇒ أعِد بناء الذاكرة والتحديد وصفّر الاستبعاد المؤقت
     lastUnmatchedRaw = unmatched;
     lastUpdated = updatedList;
     lastAbsent = absentList;
@@ -4214,13 +4197,6 @@ function renderParentPublish() {
     <details><summary>عرض الآباء (${lastParentPublish.length})</summary><div class="sc-list">${rows}</div></details>
   </div>`;
 }
-// وسم/إزالة 🚫 إلغاء النشر (للجلسة فقط) ⇒ يعيد بناء ملف الأسعار ليضمّ/يزيل صف published=No ويحدّث العدّاد
-function toggleUnpublish(sku, on) {
-  if (on) unpublishSet.add(String(sku)); else unpublishSet.delete(String(sku));
-  if (on) logActivity("unpublish_added", sku, null);
-  run(true);
-}
-
 /* ---------- تصنيف + عرض تفاصيل الفلاتر (البطاقات) ---------- */
 function refreshUnmatchedUI() {
   const ignored = lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN)));
@@ -4313,7 +4289,6 @@ function buildExplorerRows() {
     const admin = [];
     if (waitingSet.has(skuN)) admin.push(qtyKind === "zero" ? "managed" : "waiting");
     if (ignoredSet.has(skuN)) admin.push("ignored");
-    if (unpublishSet.has(raw)) admin.push("unpublish");
     if (absentSet.has(skuN)) admin.push("absent");
     out.push({ sku: raw, name, pub, type, qtyKind, qtyDisplay, linked, admin, isParent, search: normText(raw + " " + name + " " + bar) });
   }
@@ -4336,7 +4311,7 @@ function explorerCompute() {
   return { rows, shown };
 }
 function expBadges(r) {
-  const m = { waiting: ["⏳ بانتظار", "cat-wait"], managed: ["✓ مُدار", "cat-mng"], unpublish: ["🚫 إخفاء", "cat-ign"], ignored: ["متجاهَل", "cat-ign"], absent: ["غائب 📭", "cat-abs"] };
+  const m = { waiting: ["⏳ بانتظار", "cat-wait"], managed: ["✓ مُدار", "cat-mng"], ignored: ["متجاهَل", "cat-ign"], absent: ["غائب 📭", "cat-abs"] };
   return r.admin.map(a => { const x = m[a]; return x ? `<span class="cat-badge ${x[1]}">${x[0]}</span>` : ""; }).join(" ");
 }
 function explorerBodyHTML(shown) {
@@ -4364,7 +4339,7 @@ function renderExplorer(wrap) {
     ${grp("pub", "النشر", [["pub", "منشور"], ["unpub", "غير منشور"]])}
     ${grp("type", "النوع", [["parent", "أب"], ["variant", "متغيّر"], ["simple", "بسيط"]])}
     ${grp("qty", "الكمية", [["zero", "صفر"], ["pos", ">0", "أكبر من صفر"], ["inf", "∞", "غير محدود"]])}
-    ${grp("admin", "إداري", [["waiting", "⏳", "بانتظار التوفر"], ["managed", "✓ مُدار"], ["unpublish", ICO.ban, "إلغاء النشر"], ["ignored", "متجاهَل"], ["absent", "غائب " + ICO.inbox, "غائب عن الملف"]])}
+    ${grp("admin", "إداري", [["waiting", "⏳", "بانتظار التوفر"], ["managed", "✓ مُدار"], ["ignored", "متجاهَل"], ["absent", "غائب " + ICO.inbox, "غائب عن الملف"]])}
     <div class="exp-actions">
       <span class="exp-count" id="expCount">يعرض <b>${shown.length}</b> من ${rows.length}</span>
       <button class="exp-chip" onclick="clearExpFilters()">مسح الفلاتر</button>
@@ -4389,7 +4364,7 @@ function clearExpFilters() { expFilters = { link: new Set(), pub: new Set(), typ
 function exportExplorer() {
   const rows = lastExplorerShown || [];
   if (!rows.length) { showErr("لا صفوف معروضة للتصدير — عدّل الفلاتر."); return; }
-  const admLbl = { waiting: "بانتظار", managed: "مُدار", unpublish: "إخفاء", ignored: "متجاهَل", absent: "غائب" };
+  const admLbl = { waiting: "بانتظار", managed: "مُدار", ignored: "متجاهَل", absent: "غائب" };
   const typeLbl = t => t === "parent" ? "أب" : (t === "variant" ? "متغيّر" : "بسيط");
   const aoa = [["SKU", "الاسم", "النوع", "الكمية", "النشر", "الربط", "الحالة الإدارية"],
     ...rows.map(r => [r.sku, r.name, typeLbl(r.type), r.qtyKind === "inf" ? "غير محدود" : r.qtyDisplay, r.pub ? "منشور" : "غير منشور", r.linked ? "مربوط" : "بلا ربط", r.admin.map(a => admLbl[a] || a).join(" ／ ")])];
