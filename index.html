@@ -1552,7 +1552,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "cd73819";
+const APP_VERSION = "b032e2b";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -3489,12 +3489,15 @@ function processWaitingOnUpload() {
   reappearedSet = new Set();                               // يُعاد حسابه لهذا المخزن
   if (!lastMerge || !waitingSet.size) { lastReactivated = []; return; }
   const whNorm = new Set([...(lastMerge.unified || []), ...(lastMerge.noPrice || [])].map(x => normCode(x.code)).filter(Boolean));
+  // «عاد كوده» = الكود المُحَلّ (نفس منطق resolveWhCode: ربط يدوي → كود ذاته → كود الأساس) صار موجوداً في المخزن — لا كود الـsku الخام فقط (وإلا فاتنا المربوطون يدوياً)
+  const codeBack = (skuN, raw) => { const m = manualMap[raw]; if (m) return whNorm.has(normCode(m)); return whNorm.has(skuN) || whNorm.has(baseOf(raw)); };
   const missedBump = [], reappeared = [];
   waitingSet.forEach(skuN => {
     const meta = waitingMeta.get(skuN);
-    if (whNorm.has(skuN)) {                                // عاد كوده ⇒ توفّر
+    const raw = meta ? meta.sku : skuN;
+    if (codeBack(skuN, raw)) {                             // عاد كوده (المُحَلّ) ⇒ توفّر
       reappearedSet.add(skuN);
-      reappeared.push({ skuN, sku: meta ? meta.sku : skuN, name: meta ? meta.name : "" });
+      reappeared.push({ skuN, sku: raw, name: meta ? meta.name : "" });
     } else if (uploaded && meta) {                         // ما زال غائباً + رفع فعلي ⇒ عدّ
       meta.missed = (meta.missed || 0) + 1;
       missedBump.push({ zid_sku: meta.sku, missed_rounds: meta.missed });

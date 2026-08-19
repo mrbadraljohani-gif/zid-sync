@@ -51,6 +51,8 @@ jobs:
       CHROME_PATH: /usr/bin/google-chrome-stable
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # المشغّل السلوكي يقارن نسخاً تاريخية (git show 8bb0486 / 917989d)
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -66,3 +68,5 @@ jobs:
         run: node tests/perf/progressive-search.mjs --broken
       - name: Progressive render does not break search-over-all
         run: node tests/perf/progressive-search.mjs
+      - name: Behavioral run() harness (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام · ٣+١ عودة + أسنان)
+        run: node tests/behavioral/run-behavior.mjs

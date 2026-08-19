@@ -37,6 +37,7 @@ function arrowConstSrc(name) {   // const NAME = v => { ... };
   return script.slice(m.index, i) + ";";
 }
 const normCodeSrc = arrowConstSrc("normCode");
+const baseOfSrc = (script.match(/const baseOf = [^\n]+;/) || [])[0] || (() => { throw new Error("لم يُوجد baseOf"); })();
 
 // بيئة مُحاكاة: 111 عاد كوده (موجود في المخزن) · 222 ما زال غائباً (missed=2) · 333 غائب (missed=0)
 function makeCtx(uploaded) {
@@ -52,11 +53,11 @@ function makeCtx(uploaded) {
       ["222", { sku: "222", missed: 2 }],
       ["333", { sku: "333", missed: 0 }],
     ]),
-    dbOnline: true, sb: {},
+    dbOnline: true, sb: {}, manualMap: {},
     db: { waiting: { bumpMeta: rows => { bumped.push(...rows); return Promise.resolve(); }, bulkRemove: skus => { removed.push(...skus); return Promise.resolve(); } } },
     console,
   };
-  const run = new Function("ctx", `with (ctx) {\n${normCodeSrc}\n${hookSrc}\nprocessWaitingOnUpload();\n}`);
+  const run = new Function("ctx", `with (ctx) {\n${normCodeSrc}\n${baseOfSrc}\n${hookSrc}\nprocessWaitingOnUpload();\n}`);
   run(ctx);
   return { ctx, bumped, removed };
 }

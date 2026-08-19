@@ -17,7 +17,8 @@
     "test:missed": "node tests/b2-missed-rounds.mjs",
     "test:missed:self": "node tests/b2-missed-rounds.mjs --broken",
     "test:runreg": "node tests/b3-run-regression.mjs",
-    "test:runreg:self": "node tests/b3-run-regression.mjs --broken"
+    "test:runreg:self": "node tests/b3-run-regression.mjs --broken",
+    "test:behavior": "node tests/behavioral/run-behavior.mjs"
   },
   "keywords": [],
   "author": "",
