@@ -1571,6 +1571,7 @@ let matchedHistory = new Set();   // skuN لكل صنف طوبق سابقاً (�
 let waitingSet = new Set();       // skuN لأصناف بانتظار التوفر (waiting.json)
 let waitingMeta = new Map();      // normCode(skuN) ⇒ {sku الخام, name, missed عدد الرفعات الغائبة, lastSeen} — لعدّاد missed_rounds/last_seen_at (خطاف الرفع)
 let whWasUploaded = false;        // رُفع ملف مخزن فعلاً هذه الدورة (لا تحميل من القاعدة) — يُفعّل عدّ missed_rounds؛ يُستهلك في خطاف الرفع
+let reappearedSet = new Set();     // skuN لأصناف انتظار عاد كودها للمخزن هذا الدور ⇒ «يحتاج قرار» بوسم «توفّر» بلا مطابقة تلقائية (خطاف الرفع — البند ٣)
 let baseHistSet = new Set(), baseWaitSet = new Set();
 let lastAbsent = [], lastReactivated = [];   // الغائبون عن الملف + من عاد للتوفر هذه المطابقة
 let lastParentOf = {};   // خريطة المتغيّر→أبيه (تُبنى في run)
@@ -2610,7 +2611,7 @@ function analyzeBatch() {
     // «سبق ربطه» (رابط يدوي ضائع) = غائب عن الملف الحالي **رغم وجود كود سابق محفوظ يدوياً** (لا matchedHistory المتشبّع).
     const isAbsent = absSet.has(String(z.sku));
     const wasLinked = isAbsent && !!manualMap[String(z.sku)];
-    return { z, scored: scored.slice(0, 5), best: scored[0] || null, second: scored[1] || null, demoted: false, wasLinked, isAbsent };
+    return { z, scored: scored.slice(0, 5), best: scored[0] || null, second: scored[1] || null, demoted: false, wasLinked, isAbsent, reappeared: !!z.reappeared };
   });
   // قاعدة السلامة: كود مستودع واحد لا يُعتمد تلقائياً لأكثر من صنف زد (إلا متغيّرات نفس الأساس) — الأعلى درجة يفوز والباقي يهبط
   const byCode = new Map();
@@ -2634,7 +2635,8 @@ function analyzeBatch() {
     r.cls = cls;
     (cls === "green" ? green : cls === "yellow" ? yellow : red).push(r);
   }
-  const byLost = (a, b) => (b.wasLinked ? 1 : 0) - (a.wasLinked ? 1 : 0);   // «سبق ربطه» أولاً
+  const prio = r => (r.reappeared ? 2 : 0) + (r.wasLinked ? 1 : 0);   // «↩ توفّر» ثم «سبق ربطه» أولاً
+  const byLost = (a, b) => prio(b) - prio(a);
   green.sort(byLost); yellow.sort(byLost); red.sort(byLost);
   const lostCount = results.filter(r => r.wasLinked).length;
   const needCount = results.filter(r => !r.isAbsent).length;      // «يحتاج قرار» = الجديدة فقط (unm)
@@ -2695,7 +2697,7 @@ function toggleLostOnly() { batchLostOnly = !batchLostOnly; renderDetail(); }
 // تطبيق فلتر «سبق ربطه فقط» على قائمة تبويب
 function btFilter(list) { return batchLostOnly ? list.filter(r => r.wasLinked) : list; }
 // عائلات 🟡 وفق الفلتر الحالي — تُستخدم في العرض وpickAlt وacceptFamily معاً (تطابق الفهارس fi/ri)
-const lostTag = r => (r.isAbsent ? `<span class="cat-badge cat-abs" title="غائب عن ملف المستودع الحالي — قد يكون في فرع آخر (المرحلة 1)">📭 غائب</span>` : "") + (r.wasLinked ? `<span class="lost-tag" title="غائب رغم كود سابق محفوظ يدوياً — رابط يدوي ضائع، أولوية إعادة ربط">🔗 سبق ربطه</span>` : "");
+const lostTag = r => (r.reappeared ? `<span class="lost-tag" title="عاد كوده للمخزن بعد أن كان «غير متوفر» — أُزيل من الانتظار وينتظر قرارك (بلا مطابقة تلقائية)">↩ توفّر</span>` : "") + (r.isAbsent ? `<span class="cat-badge cat-abs" title="غائب عن ملف المستودع الحالي — قد يكون في فرع آخر (المرحلة 1)">📭 غائب</span>` : "") + (r.wasLinked ? `<span class="lost-tag" title="غائب رغم كود سابق محفوظ يدوياً — رابط يدوي ضائع، أولوية إعادة ربط">🔗 سبق ربطه</span>` : "");
 const priceCell = (z, w) => `<span dir="ltr">${priceInt(z) ?? "—"} / ${priceInt(w) ?? "—"}</span>${priceBadge(z, w)}`;
 const reasonText = b => [b.sizeM ? "مقاس✓" : "", b.priceM ? "سعر✓" : "", b.sim >= 0.5 ? "اسم " + Math.round(b.sim * 100) + "٪" : "", b.aliasHit ? "زوج معروف" : ""].filter(Boolean).join(" · ");
 
@@ -3479,19 +3481,28 @@ function renderMergeBar() {
 // هل صفحة المخزون معروضة؟ (حارس: تحديث الحالة دائماً، والرسم عند العرض فقط)
 function invVisible() { const s = document.getElementById("page-inventory"); return !!s && s.classList.contains("active"); }
 
-// خطاف الرفع (الدفعة ج، البنود ٢/٣): يمرّ على أصناف الانتظار مقابل أكواد المخزن الجديدة عند كل **رفع ملف** (لا تحميل قاعدة).
-// البند ٢: صنف ما زال كوده غائباً عن المخزن ⇒ missed_rounds++ (عدّ الرفعات الغائبة — أساس heuristic «الأصناف الميتة»). البند ٣ يضيف فرع العودة (ظهور الكود ⇒ «يحتاج قرار»+توفّر).
+// خطاف الرفع (الدفعة ج، البنود ٢/٣): يمرّ على أصناف الانتظار مقابل أكواد المخزن الحالية عند كل بناء للمخزن.
+//  · عاد كوده للمخزن  ⇒ خروج من الانتظار (محلي + قاعدة) + وسم «توفّر» ⇒ «يحتاج قرار» بلا مطابقة تلقائية (البند ٣). يعمل دائماً (حالة، لا رفع).
+//  · ما زال غائباً + **رفع ملف فعلي** ⇒ missed_rounds++ (عدّ الرفعات الغائبة — البند ٢). محكوم بعَلَم الرفع فلا يتضخّم كل جلسة.
 function processWaitingOnUpload() {
-  const uploaded = whWasUploaded; whWasUploaded = false;   // يُستهلك مرة: العدّ لرفع الملف فقط لا لتحميل القاعدة (وإلا تضخّم كل جلسة)
-  if (!uploaded || !lastMerge || !waitingSet.size) return;
+  const uploaded = whWasUploaded; whWasUploaded = false;   // العدّ (missed) لرفع الملف فقط؛ العودة تُكتشَف دائماً
+  reappearedSet = new Set();                               // يُعاد حسابه لهذا المخزن
+  if (!lastMerge || !waitingSet.size) { lastReactivated = []; return; }
   const whNorm = new Set([...(lastMerge.unified || []), ...(lastMerge.noPrice || [])].map(x => normCode(x.code)).filter(Boolean));
-  const missedBump = [];
+  const missedBump = [], reappeared = [];
   waitingSet.forEach(skuN => {
-    if (whNorm.has(skuN)) return;                       // عاد كوده ⇒ ليس غائباً (تعالجه العودة — البند ٣)
-    const meta = waitingMeta.get(skuN); if (!meta) return;
-    meta.missed = (meta.missed || 0) + 1;
-    missedBump.push({ zid_sku: meta.sku, missed_rounds: meta.missed });
+    const meta = waitingMeta.get(skuN);
+    if (whNorm.has(skuN)) {                                // عاد كوده ⇒ توفّر
+      reappearedSet.add(skuN);
+      reappeared.push({ skuN, sku: meta ? meta.sku : skuN, name: meta ? meta.name : "" });
+    } else if (uploaded && meta) {                         // ما زال غائباً + رفع فعلي ⇒ عدّ
+      meta.missed = (meta.missed || 0) + 1;
+      missedBump.push({ zid_sku: meta.sku, missed_rounds: meta.missed });
+    }
   });
+  reappeared.forEach(r => { waitingSet.delete(r.skuN); waitingMeta.delete(r.skuN); });   // خروج من الانتظار محلياً (والقاعدة أدناه)؛ run يوجّهها إلى «يحتاج قرار» بوسم «توفّر»
+  lastReactivated = reappeared;                            // للّافتة (renderReactivated)
+  if (reappeared.length && dbOnline && sb) db.waiting.bulkRemove(reappeared.map(r => r.sku)).catch(e => console.warn("waiting reappear remove:", e));
   if (missedBump.length && dbOnline && sb) db.waiting.bumpMeta(missedBump).catch(e => console.warn("waiting missed bump:", e));
 }
 function autoAdopt() {
@@ -3845,14 +3856,14 @@ function run(reprocess) {
     const distItemCount = distByRaw.size, distGroupCount = [...whMembers.values()].filter(m => m.length > 1).length;
 
     let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0, noChangeDropped = 0;
-    const unmatched = [], updatedList = [], absentList = [], reactivated = [], saleConflicts = [], lowValDbg = [];
+    const unmatched = [], updatedList = [], absentList = [], saleConflicts = [], lowValDbg = [];   // العودة من الانتظار انتقلت إلى خطاف الرفع (البند ٣) — لا reactivated هنا
     const parentsToPublish = new Map();   // كود الأب ⇒ {sku, name, variants[]} — نشر يُنقَل من المتغيّرات إلى صف الأب
     const finalQtyByRaw = {};             // كمية كل صنف زد النهائية بعد كل القواعد (لإجماع إخفاء الأب + الإخفاء الموحّد)
     const zeroDoor = {};                  // rawKey ⇒ باب التصفير غير المطابِق: "waiting"(⏳) / "absent"(غائب-صفر) — لتوحيد الإخفاء التلقائي عبر كل الأبواب
     const autoUnpub = new Set();          // أصناف (خام) يُلغى نشرها آلياً (بسيط بكمية 0 عبر أي باب + آباء بإجماع)
     const lastAutoUnpubSimple = [], lastAutoUnpubParents = [], autoUnpubSurvivors = [];
     const matchedWhCodes = new Set();     // أكواد المستودع المأخوذة (لاستبعادها من مرشّحي الربط الدفعي)
-    let histChanged = false, waitChanged = false;
+    let histChanged = false;
     // ملف الكميات: 4 أعمدة بالترتيب والتسميات الحرفية المطلوبة
     let qtyRows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
     // ملف الأسعار: نفس بنية تصدير زد كاملة (رأس + الصفوف المتغيّر سعرها فقط)
@@ -3870,6 +3881,12 @@ function run(reprocess) {
       const collided = collidedNorm.has(skuN) ? Object.keys(rawByNorm[skuN]) : null;
       // الربط اليدوي بالـSKU الخام أولاً؛ ثم — للأصناف غير المتصادمة فقط — المطابقة التلقائية بالكود
       const mapped = manualMap[rawKey];
+      // البند ٣: عاد كوده للمخزن هذا الدور (خطاف الرفع) وبلا ربط يدوي سابق ولا تجاهُل ⇒ «يحتاج قرار» بوسم «توفّر» بلا مطابقة تلقائية. المربوط يدوياً يستأنف رابطه المقدّس، والمتجاهَل يبقى متجاهَلاً.
+      if (reappearedSet.has(skuN) && !mapped && !ignoredSet.has(skuN)) {
+        unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, reappeared: true, noWhCode: false });
+        finalQtyByRaw[rawKey] = curQtyNum(orig[iQty]);   // لا يتغيّر حتى يُقرِّر المستخدم
+        continue;
+      }
       const whCode = resolveWhCode(rawSku, skuN);   // نفس دالة تمريرة التوزيع بالضبط — لا اختلاف
       const wh = whCode ? whIndex[whCode] : null;
       if (!wh) {
@@ -3898,10 +3915,9 @@ function run(reprocess) {
         }
         continue;
       }
-      // مطابقة ناجحة: سجّلها في تاريخ المطابقة، وأعِد تفعيل ما كان بانتظار التوفر
+      // مطابقة ناجحة: سجّلها في تاريخ المطابقة (العودة من الانتظار تُعالَج في خطاف الرفع لا هنا — البند ٣: لا مطابقة تلقائية للعائد غير المربوط)
       matchedWhCodes.add(normCode(whCode));   // كود المستودع صار مأخوذاً (يُستبعد من مرشّحي الربط الدفعي)
       if (!matchedHistory.has(skuN)) { matchedHistory.add(skuN); histChanged = true; }
-      if (waitingSet.has(skuN)) { waitingSet.delete(skuN); waitChanged = true; reactivated.push({ sku: rawKey, skuN, name: orig[iName] || "" }); }
       const oldQty = orig[iQty], oldPrice = orig[iPrice];
       // الكمية الفعلية = حصة المتغيّر بعد توزيع كمية الكود (أو الكمية الكاملة إن كان الكود لمتغيّر واحد/وضع «الكمية الكاملة»)
       const whQtyReal = shareByRaw.has(rawKey) ? shareByRaw.get(rawKey) : Math.max(0, Math.round(Number(wh.qty) || 0));
@@ -4105,8 +4121,7 @@ function run(reprocess) {
 
     // matchedHistory يبقى محلياً (الدفعة د لاحقاً)؛ قائمة الانتظار مصدرها القاعدة فقط (بلا localStorage)
     if (histChanged) saveMatchedHistory();
-    // التعافي التلقائي: أصناف عادت للتوفر ⇒ احذفها من قائمة الانتظار في القاعدة (best-effort؛ ينتقل لخطاف الرفع في الدفعة ج)
-    if (reactivated.length && dbOnline && sb) db.waiting.bulkRemove(reactivated.map(r => r.sku)).catch(e => console.warn("waiting DB bulkRemove:", e));
+    // (العودة من الانتظار + حذفها من القاعدة انتقلا إلى processWaitingOnUpload — البند ٣)
 
     // بطاقة «بدون ربط» تجمع كل أصناف زد بلا ربط (جديد + متجاهَل + ⏳ + مُدار)؛ تفكيكها في updateUnmatchedCard.
     // «الغائب عن الملف» لم يعد بطاقة مستقلة — المُدار انتقل لبطاقة «بدون ربط»، والغائب-له-تاريخ يُرى في المستكشف بفلتر (نفس منطق ⏳/الغائب/العودة).
@@ -4121,7 +4136,7 @@ function run(reprocess) {
     lastUnmatchedRaw = unmatched;
     lastUpdated = updatedList;
     lastAbsent = absentList;
-    lastReactivated = reactivated;
+    // lastReactivated يُضبط في خطاف الرفع (processWaitingOnUpload) قبل المطابقة — لا يُلمس هنا (البند ٣)
     lastSaleConflicts = saleConflicts;
     lastMatchedWhCodes = matchedWhCodes;
     if (!reprocess) { boundSet = new Set(); currentFilter = "unmatched"; }
@@ -4187,13 +4202,13 @@ function renderVariantInfo() {
     <details><summary>عرض المجموعات (${lastVariantGroups.length})</summary><div class="vg-list">${rows}</div></details>
   </div>`;
 }
-// إشعار أخضر: أصناف كانت بانتظار التوفر وظهرت أكوادها في الملف فعُلّقت وحُدّثت تلقائياً
+// إشعار أخضر: أصناف كانت بانتظار التوفر وظهرت أكوادها في المخزن ⇒ أُزيلت من الانتظار وتنتظر قرارك في «بدون ربط» بوسم «توفّر» (بلا مطابقة تلقائية — البند ٣)
 function renderReactivated() {
   const el = document.getElementById("reactivatedMsg");
   if (!el) return;
   if (!lastReactivated.length) { el.style.display = "none"; el.innerHTML = ""; return; }
   el.style.display = "block";
-  el.innerHTML = `↩ عاد للتوفر: <b>${lastReactivated.length}</b> صنف — ظهرت أكوادها في ملف المستودع، فأُزيلت من الانتظار (والقاعدة) وحُدّثت تلقائياً بكمياتها الحقيقية: ` +
+  el.innerHTML = `↩ توفّر مجدداً: <b>${lastReactivated.length}</b> صنف — ظهرت أكوادها في المخزن فأُزيلت من الانتظار (والقاعدة). غير المربوطة تنتظر قرارك في «بدون ربط» بوسم «↩ توفّر» (بلا مطابقة تلقائية)، والمربوطة سابقاً تستأنف رابطها: ` +
     lastReactivated.slice(0, 30).map(r => `<span class="mono" dir="ltr">${esc(r.sku)}</span>`).join("، ") + (lastReactivated.length > 30 ? " …" : "");
 }
 // تعارض التخفيض: السعر الجديد ≤ سعر التخفيض المخزَّن في زد ⇒ استُبعد الصنف من ملف الأسعار (زد يرفض الاستيراد وإلا) — يُعالَج يدوياً

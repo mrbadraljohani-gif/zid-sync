@@ -33,6 +33,7 @@ check(!bar.includes("🟢") && !bar.includes("🟡") && !bar.includes("🔴"), "
 
 // (3) الرسم تدريجي + البحث عبر flush
 const uni = fnSrc("renderUnifiedList");
+const runSrc = fnSrc("run");
 check(uni.includes("UNI_CHUNK") && uni.includes("scheduleUnifiedChunk"), "renderUnifiedList رسم تدريجي (UNI_CHUNK + scheduleUnifiedChunk)");
 check(fnSrc("filterUnmatched").includes("flushUnified"), "filterUnmatched يستدعي flushUnified (بحث فوق الكل)");
 
@@ -66,12 +67,18 @@ check(fnSrc("unifiedBar").includes("pending") || uni.includes("pending.length"),
 // (2ج-ب) خطاف الرفع (missed_rounds): مُوصّل ومحكوم بعَلَم الرفع الفعلي (لا عدّ لتحميل القاعدة)
 check(fnSrc("autoAdopt").includes("processWaitingOnUpload()"), "autoAdopt يستدعي خطاف الرفع قبل المطابقة");
 const hook = fnSrc("processWaitingOnUpload");
-check(/const uploaded = whWasUploaded; whWasUploaded = false;/.test(hook) && /if \(!uploaded/.test(hook), "الخطاف محكوم بعَلَم الرفع (يُستهلَك) — لا عدّ لتحميل القاعدة");
+check(/const uploaded = whWasUploaded; whWasUploaded = false;/.test(hook) && /else if \(uploaded && meta\)/.test(hook), "missed++ محكوم بعَلَم الرفع (يُستهلَك) — لا عدّ لتحميل القاعدة");
 check(hook.includes("missed_rounds") && hook.includes("bumpMeta"), "الخطاف يكتب missed_rounds عبر db.waiting.bumpMeta");
 check(fnSrc("onMergeWh").includes("whWasUploaded = true") && fnSrc("onMergeBranch").includes("whWasUploaded = true"), "onMergeWh/onMergeBranch يرفعان عَلَم الرفع الفعلي");
 
+// (3ج) الدفعة ج البند ٣: العودة من الانتظار في خطاف الرفع (لا run) — «يحتاج قرار» بوسم «توفّر» بلا مطابقة تلقائية
+check(hook.includes("reappearedSet") && hook.includes("bulkRemove"), "الخطاف يكتشف العودة دائماً (reappearedSet + إزالة من القاعدة)");
+check(/if \(reappearedSet\.has\(skuN\) && !mapped && !ignoredSet\.has\(skuN\)\)/.test(runSrc) && /reappeared: true/.test(runSrc), "run يوجّه العائد غير المربوط/المتجاهَل إلى «يحتاج قرار» (reappeared) بلا مطابقة");
+check(!/waitingSet\.delete\(skuN\); waitChanged/.test(runSrc) && !runSrc.includes("reactivated.push"), "run لم يعد يحذف الانتظار/يعيد التفعيل تلقائياً (نُقل للخطاف)");
+check(fnSrc("analyzeBatch").includes("reappeared: !!z.reappeared"), "analyzeBatch يحمل وسم «توفّر» (reappeared)");
+check(script.includes("↩ توفّر"), "شارة «↩ توفّر» معرّفة في lostTag");
+
 // (5ج) الدفعة ج البند ٥: إخفاء الأب بالإجماع لا لمساً مباشراً
-const runSrc = fnSrc("run");
 check(runSrc.includes("hasVarYesSet.forEach(rk => parentRaws.add(rk))") && runSrc.includes("if (parentRaws.has(rawKey)) continue"), "الآباء مُستبعدون من حلقة الكميات (لا صفّ كمية للأب)");
 check(runSrc.includes("kids.find(c => childQ(c) > 0)") && runSrc.includes("if (live == null)"), "إخفاء الأب بالإجماع (كل الأبناء 0) وابن حيّ يحميه");
 check(!/finalQtyByRaw\[(P|parent|pSku)\b/.test(runSrc), "لا تصفير مباشر لكمية الأب (finalQtyByRaw[child] فقط)");

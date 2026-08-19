@@ -12,10 +12,12 @@
     "test:overflow:self": "node tests/perf/overflow-guard.mjs --broken",
     "test:progressive": "node tests/perf/progressive-search.mjs",
     "test:progressive:self": "node tests/perf/progressive-search.mjs --broken",
-    "test": "npm run test:invariants && npm run test:b2 && npm run test:b2counts && npm run test:missed && npm run test:overflow && npm run test:progressive",
+    "test": "npm run test:invariants && npm run test:b2 && npm run test:b2counts && npm run test:missed && npm run test:runreg && npm run test:overflow && npm run test:progressive",
     "test:b2counts": "node tests/b2-analyze-counts.mjs",
     "test:missed": "node tests/b2-missed-rounds.mjs",
-    "test:missed:self": "node tests/b2-missed-rounds.mjs --broken"
+    "test:missed:self": "node tests/b2-missed-rounds.mjs --broken",
+    "test:runreg": "node tests/b3-run-regression.mjs",
+    "test:runreg:self": "node tests/b3-run-regression.mjs --broken"
   },
   "keywords": [],
   "author": "",

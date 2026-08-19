@@ -27,7 +27,7 @@ function fnSrc(name) {
 }
 
 let hookSrc = fnSrc("processWaitingOnUpload");
-if (BROKEN) hookSrc = hookSrc.replace("if (!uploaded || !lastMerge || !waitingSet.size) return;", "if (!lastMerge || !waitingSet.size) return;");   // إسقاط بوابة الرفع
+if (BROKEN) hookSrc = hookSrc.replace("else if (uploaded && meta)", "else if (meta)");   // إسقاط بوابة الرفع ⇒ العدّ حتى بلا رفع (يجب أن يرسب)
 
 function arrowConstSrc(name) {   // const NAME = v => { ... };
   const re = new RegExp("const\\s+" + name + "\\s*=\\s*[^=]*?=>\\s*\\{");
@@ -40,9 +40,11 @@ const normCodeSrc = arrowConstSrc("normCode");
 
 // بيئة مُحاكاة: 111 عاد كوده (موجود في المخزن) · 222 ما زال غائباً (missed=2) · 333 غائب (missed=0)
 function makeCtx(uploaded) {
-  const bumped = [];
+  const bumped = [], removed = [];
   const ctx = {
     whWasUploaded: uploaded,
+    reappearedSet: new Set(),
+    lastReactivated: [],
     lastMerge: { unified: [{ code: "111" }], noPrice: [] },   // 111 فقط في المخزن
     waitingSet: new Set(["111", "222", "333"]),
     waitingMeta: new Map([
@@ -51,36 +53,41 @@ function makeCtx(uploaded) {
       ["333", { sku: "333", missed: 0 }],
     ]),
     dbOnline: true, sb: {},
-    db: { waiting: { bumpMeta: rows => { bumped.push(...rows); return Promise.resolve(); } } },
+    db: { waiting: { bumpMeta: rows => { bumped.push(...rows); return Promise.resolve(); }, bulkRemove: skus => { removed.push(...skus); return Promise.resolve(); } } },
     console,
   };
   const run = new Function("ctx", `with (ctx) {\n${normCodeSrc}\n${hookSrc}\nprocessWaitingOnUpload();\n}`);
   run(ctx);
-  return { ctx, bumped };
+  return { ctx, bumped, removed };
 }
 
 const fails = [];
 
-// السيناريو أ: رفع فعلي
+// السيناريو أ: رفع فعلي — العودة + العدّ
 {
-  const { ctx, bumped } = makeCtx(true);
-  const m222 = ctx.waitingMeta.get("222").missed, m333 = ctx.waitingMeta.get("333").missed, m111 = ctx.waitingMeta.get("111").missed;
-  if (m222 !== 3) fails.push(`222 (غائب) missed=${m222} ≠ 3 (لم يُزَد)`);
+  const { ctx, bumped, removed } = makeCtx(true);
+  const m222 = ctx.waitingMeta.get("222").missed, m333 = ctx.waitingMeta.get("333").missed;
+  if (m222 !== 3) fails.push(`222 (غائب) missed=${m222} ≠ 3`);
   if (m333 !== 1) fails.push(`333 (غائب) missed=${m333} ≠ 1`);
-  if (m111 !== 0) fails.push(`111 (عاد كوده) missed=${m111} ≠ 0 (زِيد خطأً)`);
+  if (!ctx.reappearedSet.has("111")) fails.push("111 (عاد) ليس في reappearedSet");
+  if (ctx.waitingSet.has("111")) fails.push("111 (عاد) لم يُزَل من waitingSet");
+  if (ctx.waitingMeta.has("111")) fails.push("111 (عاد) لم يُزَل من waitingMeta");
   const skusBumped = bumped.map(r => r.zid_sku).sort().join(",");
-  if (skusBumped !== "222,333") fails.push(`كتابة القاعدة لـ[${skusBumped}] ≠ [222,333]`);
-  if (ctx.whWasUploaded !== false) fails.push("العَلَم whWasUploaded لم يُستهلَك (بقي true)");
-  console.log(`  رفع فعلي: 222→${m222} · 333→${m333} · 111(عاد)→${m111} · كُتب=[${skusBumped}] · العَلَم=${ctx.whWasUploaded}`);
+  if (skusBumped !== "222,333") fails.push(`عدّ القاعدة [${skusBumped}] ≠ [222,333]`);
+  if (removed.join(",") !== "111") fails.push(`حذف القاعدة [${removed.join(",")}] ≠ [111]`);
+  if (ctx.whWasUploaded !== false) fails.push("العَلَم whWasUploaded لم يُستهلَك");
+  console.log(`  رفع فعلي: 222→${m222} · 333→${m333} · عاد=[${[...ctx.reappearedSet]}] · عُدّ=[${skusBumped}] · حُذف=[${removed}]`);
 }
 
-// السيناريو ب: تحميل من القاعدة (لا رفع) ⇒ لا عدّ
+// السيناريو ب: تحميل من القاعدة (لا رفع) ⇒ العودة تُكتشَف، لكن لا عدّ missed
 {
-  const { ctx, bumped } = makeCtx(false);
+  const { ctx, bumped, removed } = makeCtx(false);
   const m222 = ctx.waitingMeta.get("222").missed;
-  if (m222 !== 2) fails.push(`تحميل قاعدة: 222 missed=${m222} ≠ 2 (زِيد رغم عدم الرفع)`);
-  if (bumped.length !== 0) fails.push(`تحميل قاعدة: كُتب ${bumped.length} صفّاً (يجب 0)`);
-  console.log(`  تحميل قاعدة: 222→${m222} (بلا تغيير) · كُتب=${bumped.length}`);
+  if (m222 !== 2) fails.push(`تحميل قاعدة: 222 missed=${m222} ≠ 2 (عُدّ رغم عدم الرفع)`);
+  if (bumped.length !== 0) fails.push(`تحميل قاعدة: عُدّ ${bumped.length} صفّاً (يجب 0)`);
+  if (!ctx.reappearedSet.has("111")) fails.push("تحميل قاعدة: 111 (عاد) لم يُكتشَف رغم أن العودة حالة لا رفع");
+  if (removed.join(",") !== "111") fails.push(`تحميل قاعدة: حذف [${removed.join(",")}] ≠ [111]`);
+  console.log(`  تحميل قاعدة: 222→${m222} (بلا عدّ) · عاد=[${[...ctx.reappearedSet]}] · حُذف=[${removed}]`);
 }
 
 if (BROKEN) {

@@ -26,6 +26,10 @@ jobs:
         run: node tests/b2-missed-rounds.mjs --broken
       - name: Batch (ج) missed_rounds upload-hook (mechanical)
         run: node tests/b2-missed-rounds.mjs
+      - name: Self-check — run() regression guard يرسب بحذف ثابت
+        run: node tests/b3-run-regression.mjs --broken
+      - name: Batch (ج البند ٣) run() structural regression
+        run: node tests/b3-run-regression.mjs
 
   perf-list:
     runs-on: ubuntu-latest
