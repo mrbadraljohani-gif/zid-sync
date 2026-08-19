@@ -77,6 +77,9 @@ check(/if \(reappearedSet\.has\(skuN\) && !mapped && !ignoredSet\.has\(skuN\)\)/
 check(!/waitingSet\.delete\(skuN\); waitChanged/.test(runSrc) && !runSrc.includes("reactivated.push"), "run لم يعد يحذف الانتظار/يعيد التفعيل تلقائياً (نُقل للخطاف)");
 check(fnSrc("analyzeBatch").includes("reappeared: !!z.reappeared"), "analyzeBatch يحمل وسم «توفّر» (reappeared)");
 check(script.includes("↩ توفّر"), "شارة «↩ توفّر» معرّفة في lostTag");
+// (١ج) المربوط العائد يستأنف رابطه لكن بوسم «↩ توفّر» ظاهر في «تم تحديثه» للمراجعة
+check(runSrc.includes("reappeared: reappearedSet.has(skuN)"), "المربوط العائد يُوسَم reappeared في updatedList (يستأنف بوسم — البند ١)");
+check(/reapFlag = u\.reappeared/.test(script) && fnSrc("updatedTableHTML").includes("reapFlag"), "صفّ «تم تحديثه» يعرض شارة «↩ توفّر — راجع» للمربوط العائد");
 
 // (5ج) الدفعة ج البند ٥: إخفاء الأب بالإجماع لا لمساً مباشراً
 check(runSrc.includes("hasVarYesSet.forEach(rk => parentRaws.add(rk))") && runSrc.includes("if (parentRaws.has(rawKey)) continue"), "الآباء مُستبعدون من حلقة الكميات (لا صفّ كمية للأب)");

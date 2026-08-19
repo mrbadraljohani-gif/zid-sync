@@ -3995,7 +3995,7 @@ function run(reprocess) {
       }
       // جدول العرض للتحقق البصري (يشمل المستبعد بمظهر باهت — لا يتغيّر تصنيفه)
       if (qtyChanged || priceChanged || republish) {
-        updatedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "", whName: wh.name || "", whCode, whBarcode: wh.barcode || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), whBase, offset, oldQty, newQty, whQtyReal, zeroedLowValue: lowValZero, dist, oldPrice, newPrice, img: imgOf(orig), excluded: isExc, republish });
+        updatedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "", whName: wh.name || "", whCode, whBarcode: wh.barcode || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), whBase, offset, oldQty, newQty, whQtyReal, zeroedLowValue: lowValZero, dist, oldPrice, newPrice, img: imgOf(orig), excluded: isExc, republish, reappeared: reappearedSet.has(skuN) });
       }
     }
 
@@ -4471,6 +4471,7 @@ function updatedTableHTML(list) {
     const flag = warn ? `<span class="warn-flag" title="${esc("سبب المراجعة: " + reasons.join("  •  "))}">⚠ راجع</span>` : "";
     const excFlag = u.excluded ? `<span class="sess-tag" title="مستبعد مؤقتاً من ملفي التنزيل في هذه الجلسة فقط — لن يُنزَّل حتى تستعيده">⏸ مستبعد من هذه الجلسة</span>` : "";
     const pubFlag = u.republish ? `<span class="pub-tag" title="حالته published=No وكميته ستصبح > 0 — سيُغيَّر إلى Yes في ملف الأسعار">🔆 سيُعاد نشره</span>` : "";
+    const reapFlag = u.reappeared ? `<span class="lost-tag" title="عاد كوده للمخزن بعد «غير متوفر»؛ رابطه اليدوي استُؤنف تلقائياً. راجعه — قد يكون الكود أُعيد استعماله لصنف آخر؛ «شيلها» إن كان خطأً">↩ توفّر — راجع</span>` : "";
     const zeroFlag = u.zeroedLowValue ? `<span class="zero-tag" title="سعره أقل من ${opts.lowPrice || 400} ر.س وكميته ≤ ${opts.lowQty != null ? opts.lowQty : 3} — صُدِّر بكمية 0">📉 صُفّر (قيمة منخفضة)</span>` : "";
     const isVar = String(u.sku).includes(".");
     const offBtn = isVar ? `<button class="mini-btn" onclick="openOffset('${esc(u.skuN)}')" title="زيادة سعر لهذا المتغير عن سعر المستودع (إضافات مدفوعة)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v2M12 19.5v2M4.2 7l1.7 1M18.1 16l1.7 1M4.2 17l1.7-1M18.1 8l1.7-1"/></svg> زيادة</button>` : "";
@@ -4483,7 +4484,7 @@ function updatedTableHTML(list) {
     return `<tr class="${warn ? "row-warn " : ""}${u.excluded ? "row-excluded" : ""}" data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
       `<td class="chk-cell">${chkCell}</td>` +
       `<td class="mono">${esc(u.sku)}</td>` +
-      `<td><div class="prodcell">${thumb(u.img)}<span>${esc(u.name) || "—"}${flag}${excFlag}${pubFlag}${zeroFlag}</span></div></td>` +
+      `<td><div class="prodcell">${thumb(u.img)}<span>${esc(u.name) || "—"}${flag}${excFlag}${pubFlag}${zeroFlag}${reapFlag}</span></div></td>` +
       `<td class="wh-name">${esc(u.whName) || "—"}${(u.whBarcode || u.whCode) ? `<div class="wh-bar">باركود المستودع: <span dir="ltr">${esc(u.whBarcode || u.whCode)}</span></div>` : ""}</td>` +
       `<td class="mono">${zp != null ? fmtPrice(zp) : "—"}</td>` +
       `<td class="mono">${priceCell}</td>` +
