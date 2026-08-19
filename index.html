@@ -2655,9 +2655,8 @@ async function batchApply(pairs, tag) {
   lastBatchUndo = { entries: undo, count: pairs.length, tag };
   // تعلُّم aliases: القاعدة أولاً (bulk)، وعند النجاح فقط تُضاف للذاكرة (بأفضل جهد — لا يُفشل الاعتماد)
   if (newAliases.length) { try { await db.aliases.bulkUpsert(newAliases); newAliases.forEach(p => batchAliases.add(p)); } catch (e) { console.warn("aliases DB upsert:", e); } }
-  renderPills(); markDirty(); updateNewCount();
-  batchData = analyzeBatch();
-  if (currentFilter === "unmatched") renderDetail();   // القائمة الموحّدة تستعمل batchData المُحدَّث
+  renderPills();
+  run(true);   // المسار الموحّد: القرار يُعكَس فوراً في الملفّين (المربوط ينتقل لـ«تم تحديثه») وفي القائمة
   showToast(`✓ اعتُمد ${pairs.length} رابط في القاعدة (${tag === "auto-confirmed" ? "🟢 مؤكد" : tag === "auto-approved" ? "🟡 معتمد" : "يدوي"}).`);
 }
 async function undoLastBatch() {
@@ -2675,9 +2674,8 @@ async function undoLastBatch() {
   }
   updateDbBadge();
   const n = lastBatchUndo.count; lastBatchUndo = null;
-  renderPills(); markDirty(); updateNewCount();
-  batchData = analyzeBatch();
-  if (currentFilter === "unmatched") renderDetail();
+  renderPills();
+  run(true);   // المسار الموحّد
   showToast(`↩ تم التراجع عن آخر اعتماد (${n} رابط).`);
 }
 
@@ -2717,8 +2715,8 @@ function unifiedLightRow(u, status) {
     + `<div class="mc-sku">SKU: <span dir="ltr">${esc(String(u.sku))}</span></div>`
     + `</div></div></div><div class="mc-actions">${undo}</div></div>`;
 }
-async function undoWaitDecision(rawSku, skuN) { try { await unmarkWaiting(rawSku, skuN); } catch { return; } run(true); }   // يمسّ الإخراج ⇒ أعِد المعالجة
-async function undoIgnoreDecision(rawSku, skuN) { try { await dbDelIgnored(rawSku, skuN); } catch { return; } refreshUnmatchedUI(); renderFingerprint(); }
+async function undoWaitDecision(rawSku, skuN) { await applyDecision(() => unmarkWaiting(rawSku, skuN)); }
+async function undoIgnoreDecision(rawSku, skuN) { await applyDecision(() => dbDelIgnored(rawSku, skuN)); }
 
 // شريط الحالة (لاصق ومعتم): عدّادات الحالة + ثقة «يحتاج قرار» + فلتر «سبق ربطه» + اعتماد جماعي
 function unifiedBar(needN, g, y, r, absentN, p, m, ig) {
@@ -2901,16 +2899,20 @@ function comboPick(uid, code) {
 }
 
 // ==== الاستبعاد الفردي: ⏳ انتظار / ✕ تجاهل — يُحفظ فوراً ويُزال من العائلة بلا اعتماد ====
+// ==================== مسار القرارات الموحّد (الدفعة ج، البند ٤) ====================
+// كل إجراء يمرّ من هنا: القاعدة (عبر الغلاف؛ يرمي عند الفشل فلا تغيير) ← الذاكرة (يحدّثها الغلاف)
+// ← run(true) (يبني lastQtyRows/lastPriceRows ويعيد الرسم عبر refreshUnmatchedUI) ← activity_log (في الغلاف).
+// يوحّد كل الإجراءات ويصلح عطل batchExclude الذي كان لا يستدعي run(true).
+async function applyDecision(action) {
+  try { await action(); } catch { return false; }   // فشل القاعدة ⇒ رسالة من الغلاف + لا شيء يتغيّر
+  run(true);   // يعكس القرار فوراً في الملفّين وفي القائمة (refreshUnmatchedUI يعيد بناء batchData والرسم)
+  return true;
+}
 async function batchExclude(uid, action) {
   const r = batchRowByUid[uid]; if (!r) return;
   const skuN = normCode(r.z.skuN);
-  try { if (action === "wait") await markWaiting(r.z.sku, skuN, r.z.name); else await dbAddIgnored(r.z.sku, skuN, r.z.name); }
-  catch { return; }   // فشل القاعدة ⇒ لا تغيير في الذاكرة (رسالة الخطأ من requireOnline)
-  ["green", "yellow", "red"].forEach(k => { batchData[k] = batchData[k].filter(x => x !== r); });
-  batchData.lostCount = [...batchData.green, ...batchData.yellow, ...batchData.red].filter(x => x.wasLinked).length;
-  renderIgnored(lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN))));
-  updateNewCount(); renderFingerprint(); renderDetail();   // القائمة الموحّدة: الصنف ينتقل لصفّ خفيف
-  showToast(`${action === "wait" ? "⏳ نُقل للانتظار" : "🚫 تجاهل"}: ${r.z.sku} — حُفظ في القاعدة.`);
+  const ok = await applyDecision(() => action === "wait" ? markWaiting(r.z.sku, skuN, r.z.name) : dbAddIgnored(r.z.sku, skuN, r.z.name));
+  if (ok) showToast(`${action === "wait" ? "⏳ نُقل للانتظار" : "🚫 تجاهل"}: ${r.z.sku} — حُفظ في القاعدة.`);
 }
 
 // قراءة المحدد ⇒ أزواج (sku, code) من المرشّح المثبَّت لكل صف

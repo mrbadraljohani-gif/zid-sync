@@ -48,6 +48,14 @@ check(ab.includes("needCount") && ab.includes("absentCount"), "analyzeBatch يف
 check(bar.includes("غائب") && bar.includes("يحتاج قرار"), "unifiedBar يعرض «غائب» منفصلاً عن «يحتاج قرار»");
 check(uni.includes("isAbsent") && uni.includes("uni-sec"), "renderUnifiedList يرتّب: يحتاج قرار ثم غائب (قسم مستقلّ)");
 
+// (4ج) مسار القرارات الموحّد (الدفعة ج، البند ٤): كل إجراء ⇒ run(true)
+const ad = fnSrc("applyDecision");
+check(ad.includes("run(true)"), "applyDecision يستدعي run(true) (يعكس القرار في الملفّين فوراً)");
+check(/const ok = await applyDecision\(/.test(fnSrc("batchExclude")), "batchExclude يمرّ عبر applyDecision (إصلاح عطل run(true))");
+check(fnSrc("batchApply").includes("run(true)"), "batchApply يعكس الربط فوراً بـrun(true)");
+check(fnSrc("undoLastBatch").includes("run(true)"), "undoLastBatch يمرّ بـrun(true)");
+check(script.includes("undoWaitDecision(rawSku, skuN) { await applyDecision") && script.includes("undoIgnoreDecision(rawSku, skuN) { await applyDecision"), "تراجع الصفوف الخفيفة عبر applyDecision");
+
 // (5) حارس «لا أرقام قبل المطابقة»: العدّادات تبدأ 0 والكتلة مخفيّة حتى المطابقة
 check(/id="sUn">0</.test(html), "عدّاد «بدون ربط» يبدأ 0 في الترميز");
 check(/id="sUpd"[^>]*>0</.test(html) || /id="sUpd">0</.test(html), "عدّاد «تم تحديثه» يبدأ 0");
