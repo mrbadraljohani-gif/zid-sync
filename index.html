@@ -766,6 +766,11 @@
   .mc-btn.xs { padding: 2px 8px; font-size: 11px; }
   .lost-tag { display: inline-block; margin-inline-start: 6px; font-size: 10.5px; font-weight: 800; color: var(--amber); background: rgba(224,176,96,.14); border: 1px solid rgba(224,176,96,.45); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
   .lost-count { color: var(--amber); font-weight: 800; }
+  .pub-badge { display: inline-flex; align-items: center; gap: 3px; margin-inline-start: 6px; font-size: 10.5px; font-weight: 700; border: 1px solid; background: transparent; border-radius: 6px; padding: 1px 6px; white-space: nowrap; vertical-align: middle; }
+  .pub-badge .ico { width: 12px; height: 12px; }
+  .pub-badge.on { color: var(--green); border-color: var(--green); }
+  .pub-badge.off { color: var(--muted); border-color: var(--border); }
+  .pub-arrow { color: var(--muted); font-weight: 600; }
   .mc-btn.on-lost { background: rgba(224,176,96,.18); border-color: rgba(224,176,96,.55); color: var(--amber); font-weight: 800; }
   .off-title { font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--gold-2); margin-bottom: 8px; }
   .off-box .hint { margin: 0 0 12px; }
@@ -1552,7 +1557,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "b032e2b";
+const APP_VERSION = "7916bd1";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1576,6 +1581,7 @@ let baseHistSet = new Set(), baseWaitSet = new Set();
 let lastAbsent = [], lastReactivated = [];   // الغائبون عن الملف + من عاد للتوفر هذه المطابقة
 let lastParentOf = {};   // خريطة المتغيّر→أبيه (تُبنى في run)
 let lastSaleConflicts = [];   // أصناف تخفيضها المخزَّن ≥ سعرها الجديد ⇒ مُستبعَدة من ملف الأسعار (تُعالَج يدوياً في زد)
+let lastAutoUnpub = new Set();   // أكواد خام ستُصدَّر published=No (بسيط عبر كل الأبواب + آباء بالإجماع) — لشارة «سيُخفى» في القائمة (طلب ٣)
 let lastMatchedWhCodes = new Set();   // أكواد المستودع المطابَقة في آخر تشغيل (تُستبعد من مرشّحي الربط الدفعي)
 let batchAliases = new Set();          // (aliases) مجموعة «جذر زد|||جذر مستودع» — القاعدة مصدرها (الدفعة أ). +40 للأزواج المعروفة
 // linkTags أُسقط (الدفعة أ): الوسم يُشتقّ من mappings.source
@@ -2696,6 +2702,18 @@ async function undoLastBatch() {
 function toggleLostOnly() { batchLostOnly = !batchLostOnly; renderDetail(); }
 // تطبيق فلتر «سبق ربطه فقط» على قائمة تبويب
 function btFilter(list) { return batchLostOnly ? list.filter(r => r.wasLinked) : list; }
+// طلب ٣: شارة حالة النشر في زد (المصدر = عمود published نفسه الذي يقرأه run). منشور=--green · غير منشور=--muted (لا --danger). أيقونة SVG. تُظهر الحالة الحالية، و«← سيُخفى» إن كان سيُصدَّر published=No.
+const ICO_EYE = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const ICO_EYE_OFF = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4.2A9.7 9.7 0 0 1 12 4c6.5 0 10 7 10 7a15.4 15.4 0 0 1-2.3 3M6.2 6.2A15.3 15.3 0 0 0 2 11s3.5 7 10 7a9.6 9.6 0 0 0 4-.9"/><path d="M3 3l18 18"/></svg>`;
+function pubBadge(z) {
+  if (!z || z.published == null || z.published === "") return "";
+  const pub = String(z.published).trim().toLowerCase() === "yes";
+  const willHide = pub && lastAutoUnpub.has(String(z.sku));   // سيُصدَّر published=No (كميته ستصبح 0)
+  if (willHide) return `<span class="pub-badge on" title="منشور حالياً في زد — سيُخفى (published=No) بعد التصدير لأن كميته النهائية 0">${ICO_EYE} منشور <span class="pub-arrow">← سيُخفى</span></span>`;
+  return pub
+    ? `<span class="pub-badge on" title="منشور في متجر زد">${ICO_EYE} منشور</span>`
+    : `<span class="pub-badge off" title="غير منشور في متجر زد">${ICO_EYE_OFF} غير منشور</span>`;
+}
 // عائلات 🟡 وفق الفلتر الحالي — تُستخدم في العرض وpickAlt وacceptFamily معاً (تطابق الفهارس fi/ri)
 const lostTag = r => (r.reappeared ? `<span class="lost-tag" title="عاد كوده للمخزن بعد أن كان «غير متوفر» — أُزيل من الانتظار وينتظر قرارك (بلا مطابقة تلقائية)">↩ توفّر</span>` : "") + (r.isAbsent ? `<span class="cat-badge cat-abs" title="غائب عن ملف المستودع الحالي — قد يكون في فرع آخر (المرحلة 1)">📭 غائب</span>` : "") + (r.wasLinked ? `<span class="lost-tag" title="غائب رغم كود سابق محفوظ يدوياً — رابط يدوي ضائع، أولوية إعادة ربط">🔗 سبق ربطه</span>` : "");
 const priceCell = (z, w) => `<span dir="ltr">${priceInt(z) ?? "—"} / ${priceInt(w) ?? "—"}</span>${priceBadge(z, w)}`;
@@ -2720,7 +2738,7 @@ function unifiedLightRow(u, status) {
   const search = esc(normText(String(u.sku) + " " + (u.name || "")));
   return `<div class="mcard uni-light" data-status="${status}" data-search="${search}">`
     + `<div class="mc-zid"><div class="mc-row"><div class="mc-txt">`
-    + `<div class="mc-name">${esc(u.name) || "—"} ${badge}</div>`
+    + `<div class="mc-name">${esc(u.name) || "—"} ${badge} ${pubBadge(u)}</div>`
     + `<div class="mc-sku">SKU: <span dir="ltr">${esc(String(u.sku))}</span></div>`
     + `</div></div></div><div class="mc-actions">${undo}</div></div>`;
 }
@@ -2821,7 +2839,7 @@ function batchCardHTML(r, chkCls, famAttr) {
       <div class="mc-row">${thumb(r.z.img)}<div class="mc-txt">
         <div class="mc-name">${esc(r.z.name) || "—"}</div>
         <div class="mc-sku">SKU: <span dir="ltr">${esc(String(r.z.sku))}</span>${lostTag(r)}${(famIndex && famIndex.parentOfSku(r.z.sku)) ? `<span class="col-tag" title="متغيّر — أبوه (من ترتيب تصدير زد)">متغيّر · أبوه <span dir="ltr">${esc(String(famIndex.parentOfSku(r.z.sku)))}</span></span>` : ""}</div>
-        <div class="mc-sub">سعر زد: ${zp ?? "—"} ر.س · الكمية: <b>${esc(String(r.z.qty ?? "—"))}</b></div>
+        <div class="mc-sub">سعر زد: ${zp ?? "—"} ر.س · الكمية: <b>${esc(String(r.z.qty ?? "—"))}</b> ${pubBadge(r.z)}</div>
       </div></div></div>`;
   const wh = `<div class="mc-wh"><span class="mc-tag whs">WAREHOUSE</span>
       <div id="whd-${uid}">${batchWhInner(r)}</div>
@@ -3886,7 +3904,7 @@ function run(reprocess) {
       const mapped = manualMap[rawKey];
       // البند ٣: عاد كوده للمخزن هذا الدور (خطاف الرفع) وبلا ربط يدوي سابق ولا تجاهُل ⇒ «يحتاج قرار» بوسم «توفّر» بلا مطابقة تلقائية. المربوط يدوياً يستأنف رابطه المقدّس، والمتجاهَل يبقى متجاهَلاً.
       if (reappearedSet.has(skuN) && !mapped && !ignoredSet.has(skuN)) {
-        unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, reappeared: true, noWhCode: false });
+        unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, reappeared: true, noWhCode: false, published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
         finalQtyByRaw[rawKey] = curQtyNum(orig[iQty]);   // لا يتغيّر حتى يُقرِّر المستخدم
         continue;
       }
@@ -3899,12 +3917,12 @@ function run(reprocess) {
         const noWhCode = !whIndex[skuN] && !whIndex[baseOf(rawSku)];   // كوده غير موجود في ملف المستودع أصلاً
         if (waiting) {
           // بانتظار التوفر: يُستثنى من تنبيه الجديد، ويبقى ظاهراً في «بدون ربط» بشارته
-          unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, waiting: true, noWhCode });
+          unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, waiting: true, noWhCode, published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
           finalQtyByRaw[rawKey] = 0; zeroDoor[rawKey] = "waiting";   // ⏳ تصفير مُدار ⇒ يدخل الإخفاء الموحّد
           qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", 0]); qtyCount++;   // ⏳ يدخل ملف الكميات الرئيسي بـ0 (كالغائب-صفر) — stripNoChangeQty يُسقط المصفَّر أصلاً في زد فلا استيراد عبثي
         } else if (hasHistory) {
           // غائب عن ملف المستودع (قد يكون متوفراً في فرع آخر — المرحلة 1)
-          absentList.push({ sku: rawKey, skuN, name: orig[iName] || "", mappedCode: manualMap[rawKey] || null, price: orig[iPrice], qty: orig[iQty], img: imgOf(orig) });
+          absentList.push({ sku: rawKey, skuN, name: orig[iName] || "", mappedCode: manualMap[rawKey] || null, price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
           if (opts.absent === "zero") {   // صفّر كميته فقط (خيار «كامل المخزون»)
             qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", 0]);
             qtyCount++;
@@ -3913,7 +3931,7 @@ function run(reprocess) {
           if (opts.absent === "zero") zeroDoor[rawKey] = "absent";   // غائب-صفر ⇒ يدخل الإخفاء الموحّد
         } else {
           // يشمل الآن «غير محدود بلا مطابقة» (دُمج في «بدون ربط») — curQtyNum(infinite)=Infinity فيبقى حيّاً، بلا أي دفع إلى qtyRows/priceRows
-          unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, noWhCode });
+          unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, noWhCode, published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
           finalQtyByRaw[rawKey] = curQtyNum(orig[iQty]);   // لا يتغيّر ⇒ كمية زد الحالية (∞ للّانهائي)
         }
         continue;
@@ -4141,6 +4159,7 @@ function run(reprocess) {
     lastAbsent = absentList;
     // lastReactivated يُضبط في خطاف الرفع (processWaitingOnUpload) قبل المطابقة — لا يُلمس هنا (البند ٣)
     lastSaleConflicts = saleConflicts;
+    lastAutoUnpub = autoUnpub;   // طلب ٣: لشارة «منشور ← سيُخفى» في القائمة الموحّدة
     lastMatchedWhCodes = matchedWhCodes;
     if (!reprocess) { boundSet = new Set(); currentFilter = "unmatched"; }
     refreshUnmatchedUI();

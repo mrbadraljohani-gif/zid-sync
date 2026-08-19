@@ -194,6 +194,17 @@ try {
     notes.push(`أسنان ٤ (بلا run(true)): NEW1 كمية=${T.qtyOf.NEW1 === undefined ? "غائب عن الملف (صحيح)" : T.qtyOf.NEW1}`);
   }
 
+  // ===== تشخيص عطل ١: صنف كميته 0 أصلاً في زد ⇒ wait ⇒ لا صفّ كميات (stripNoChangeQty) لكنه يُخفى إن كان منشوراً بسيطاً =====
+  const Z0 = await bootRead(browser, curHtml, {
+    stData: { sheetName: "P", header: HEADER, rows: [HEADER, Z("ZP", "0", "300", { pub: "Yes" })] },
+    whRows: [], lastMerge: merge([]), manualMap: {}, waiting: [], ignored: [], history: [],
+    opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: false, callHook: false,
+    decision: { type: "wait", raw: "ZP", skuN: "ZP" },
+  });
+  if (Z0.qtySkus.includes("ZP")) fails.push("عطل١-تشخيص: ZP (زد=0) دخل ملف الكميات — كان يجب أن يُسقطه stripNoChangeQty");
+  if (!Z0.priceSkus.includes("ZP")) fails.push("عطل١-تشخيص: ZP المنشور البسيط لم يُخفَ (published=No) — مسار الإخفاء معطّل");
+  notes.push(`عطل١ تشخيص: ZP(زد qty 0، منشور بسيط) بعد wait ⇒ كميات=${Z0.qtySkus.includes("ZP") ? "موجود(خطأ)" : "غائب(صحيح — 0==0)"} · أسعار=${Z0.priceSkus.includes("ZP") ? "published=No (يُخفى)" : "لا صفّ"}`);
+
   // ===== ج-١ حياد: before(1a036f4، فيه isInf) == after(8bb0486) =====
   const before = await bootRead(browser, showAt("8bb0486^"), infCfg());
   const after = await bootRead(browser, showAt("8bb0486"), infCfg());

@@ -41,7 +41,7 @@ const fullCard = (i, extra = "") => `<div class="mcard batch-card${i % 7 === 0 ?
     <div class="mc-row"><span class="thumb thumb-ph">📦</span><div class="mc-txt">
       <div class="mc-name">${NAME} ${i}</div>
       <div class="mc-sku">SKU: <span dir="ltr">451070${i}.${i % 4}</span>${i % 7 === 0 ? '<span class="lost-tag">🔗 سبق ربطه</span>' : ""}</div>
-      <div class="mc-sub">سعر زد: 125 ر.س · الكمية: <b>${i % 9}</b></div>
+      <div class="mc-sub">سعر زد: 125 ر.س · الكمية: <b>${i % 9}</b> <span class="pub-badge on"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"></svg> منشور <span class="pub-arrow">← سيُخفى</span></span></div>
     </div></div></div>
   <div class="mc-wh"><span class="mc-tag whs">WAREHOUSE</span>
     <div><div class="mc-name">مباخر مكس ${i}</div><div class="mc-sku">باركود المستودع: <span dir="ltr">4512${100 + i}</span></div><div class="mc-sub">سعر المستودع: 30 ر.س · الكمية: <b>${i % 20}</b></div></div>
@@ -55,7 +55,7 @@ const fullCard = (i, extra = "") => `<div class="mcard batch-card${i % 7 === 0 ?
 // صفّ خفيف مطابِق لـunifiedLightRow في ب-٢ (نفس الأصناف: mcard uni-light)
 const lightRow = i => `<div class="mcard uni-light" data-status="managed">
   <div class="mc-zid"><div class="mc-row"><div class="mc-txt">
-    <div class="mc-name">صنف مُدار ${i} <span class="cat-badge cat-mng">✓ مُدار</span></div>
+    <div class="mc-name">صنف مُدار ${i} <span class="cat-badge cat-mng">✓ مُدار</span> <span class="pub-badge off"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"></svg> غير منشور</span></div>
     <div class="mc-sku">SKU: <span dir="ltr">451070${i}</span></div></div></div></div>
   <div class="mc-actions"><button class="mc-btn">↩ تراجع</button></div></div>`;
 // شريط الحالة اللاصق (uni-bar) كما في ب-٢ — لاختبار «لاصق معتم» + عدم التجاوز

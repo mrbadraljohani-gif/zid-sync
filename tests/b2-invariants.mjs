@@ -86,6 +86,17 @@ check(runSrc.includes("hasVarYesSet.forEach(rk => parentRaws.add(rk))") && runSr
 check(runSrc.includes("kids.find(c => childQ(c) > 0)") && runSrc.includes("if (live == null)"), "إخفاء الأب بالإجماع (كل الأبناء 0) وابن حيّ يحميه");
 check(!/finalQtyByRaw\[(P|parent|pSku)\b/.test(runSrc), "لا تصفير مباشر لكمية الأب (finalQtyByRaw[child] فقط)");
 
+// (طلب ٣) شارة حالة النشر في القائمة الموحّدة (منشور/غير منشور + «← سيُخفى»)
+const pb = fnSrc("pubBadge");
+check(/function pubBadge\(/.test(script), "pubBadge معرّفة");
+check(fnSrc("batchCardHTML").includes("pubBadge(r.z)") && fnSrc("unifiedLightRow").includes("pubBadge(u)"), "الشارة في البطاقة الكاملة والصفّ الخفيف معاً");
+check(pb.includes("منشور") && pb.includes("غير منشور") && pb.includes("سيُخفى"), "حالات الشارة: منشور/غير منشور/← سيُخفى");
+check(pb.includes("z.published"), "المصدر = عمود published (نفس مصدر run)");
+check(pb.includes("ICO_EYE") && /const ICO_EYE =[^\n]*<svg class="ico"/.test(script) && !/[\u{1F440}\u{1F6AB}✅❌]/u.test(pb), "أيقونة SVG (ICO_EYE) لا إيموجي");
+check(runSrc.includes("lastAutoUnpub = autoUnpub"), "lastAutoUnpub مُصدَّر لشارة «سيُخفى»");
+check(/\.pub-badge\.on\s*\{[^}]*var\(--green\)/.test(html) && /\.pub-badge\.off\s*\{[^}]*var\(--muted\)/.test(html), "توكنات --green/--muted");
+check(!/\.pub-badge[^{]*\{[^}]*var\(--danger\)/.test(html), "الشارة لا تستعمل --danger (عدم النشر ليس خطأً)");
+
 // (5) حارس «لا أرقام قبل المطابقة»: العدّادات تبدأ 0 والكتلة مخفيّة حتى المطابقة
 check(/id="sUn">0</.test(html), "عدّاد «بدون ربط» يبدأ 0 في الترميز");
 check(/id="sUpd"[^>]*>0</.test(html) || /id="sUpd">0</.test(html), "عدّاد «تم تحديثه» يبدأ 0");
