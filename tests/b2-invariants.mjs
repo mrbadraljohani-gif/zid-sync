@@ -59,6 +59,11 @@ check(script.includes("undoWaitDecision(rawSku, skuN) { await applyDecision") &&
 // (1ج) الدفعة ج البند ١: unpublishSet/toggleUnpublish أُزيلا (دُمجا في «غير متوفر» = qty0+published No)
 check(!script.includes("unpublishSet") && !/function\s+toggleUnpublish/.test(script), "unpublishSet/toggleUnpublish محذوفان");
 
+// (2ج) الدفعة ج البند ٢: «غير متوفر» يخرج من القائمة ما دام غائباً (الصفوف الخفيفة = المتجاهَل فقط)
+check(/const light = \[\.\.\.ignored\.map\(u => unifiedLightRow\(u, "ignored"\)\)\];/.test(uni), "الصفوف الخفيفة = المتجاهَل فقط (waiting يخرج من القائمة)");
+check(!/pending\.map\(u => unifiedLightRow/.test(uni) && !/managed\.map\(u => unifiedLightRow/.test(uni), "waiting (pending/managed) لا يُرسَم صفوفاً");
+check(fnSrc("unifiedBar").includes("pending") || uni.includes("pending.length"), "عدّاد «سيُصفَّر/مُدار» يبقى في الشريط (مُحتسَب لا مُخفى)");
+
 // (5ج) الدفعة ج البند ٥: إخفاء الأب بالإجماع لا لمساً مباشراً
 const runSrc = fnSrc("run");
 check(runSrc.includes("hasVarYesSet.forEach(rk => parentRaws.add(rk))") && runSrc.includes("if (parentRaws.has(rawKey)) continue"), "الآباء مُستبعدون من حلقة الكميات (لا صفّ كمية للأب)");

@@ -2756,10 +2756,11 @@ function renderUnifiedList(title, wrap) {
   const needCards = [...mk(g, "bt-g", false), ...mk(y, "bt-y", false), ...mk(r, "bt-rd", false)];
   const absCards = [...mk(g, "bt-g", true), ...mk(y, "bt-y", true), ...mk(r, "bt-rd", true)];
   const gN = g.filter(x => !x.isAbsent).length, yN = y.filter(x => !x.isAbsent).length, rN = r.filter(x => !x.isAbsent).length;
-  const light = [...pending.map(u => unifiedLightRow(u, "pending")), ...managed.map(u => unifiedLightRow(u, "managed")), ...ignored.map(u => unifiedLightRow(u, "ignored"))];
+  // البند ٢: «غير متوفر» (pending/managed) يخرج من القائمة ما دام غائباً عن المستودع — يبقى مُحتسَباً في الشريط ومُعالَجاً في الملفّين (تصفير+إخفاء)، ويعود للقائمة فقط عند ظهور كوده (البند ٣). المتجاهَل يبقى صفّاً خفيفاً (قرار دائم مرئي للتراجع).
+  const light = [...ignored.map(u => unifiedLightRow(u, "ignored"))];
   const rows = [...needCards];
   if (absCards.length) { rows.push(`<div class="uni-sec">📭 غائب عن ملف المستودع (${absCards.length}) — لها كود سابق وغائبة عن الملف الحالي (قد تكون في فرع آخر)</div>`, ...absCards); }
-  if (light.length) { rows.push(`<div class="uni-sec">قرارات سابقة (سيُصفَّر · مُدار · متجاهَل)</div>`, ...light); }
+  if (light.length) { rows.push(`<div class="uni-sec">✕ متجاهَل (${light.length})</div>`, ...light); }
   const allRows = rows;
   const sa = document.getElementById("sAbsent"); if (sa) sa.textContent = batchData.absentCount || 0;   // البطاقة العلوية = نفس مصدر الشريط
   wrap.innerHTML = unifiedBar(needCards.length, gN, yN, rN, absCards.length, pending.length, managed.length, ignored.length)
