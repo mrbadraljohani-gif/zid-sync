@@ -22,7 +22,7 @@ function fnSrc(name) {
 }
 
 // (1) التوصيل: القائمة الموحّدة هي مسار «بدون ربط»
-check(/renderUnifiedList\(bindBtn, title, wrap\)/.test(script), "renderDetailBody يستدعي renderUnifiedList لفلتر «بدون ربط»");
+check(/renderUnifiedList\(title, wrap\)/.test(script), "renderDetailBody يستدعي renderUnifiedList لفلتر «بدون ربط»");
 check(/function renderUnifiedList\b/.test(script), "renderUnifiedList معرّفة");
 check(/batchData = null;\s*\/\/ بيانات «بدون ربط»/.test(script), "refreshUnmatchedUI يبطل batchData (إعادة تحليل الثقة)");
 

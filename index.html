@@ -1248,8 +1248,6 @@
       <div class="clabel" style="margin-top:18px" id="unTitle"></div>
       <div class="unbar">
         <input type="text" id="unSearch" aria-label="ابحث في منتجات زد بالكود أو الاسم" placeholder="ابحث في منتجات زد (بالكود أو الاسم)…" oninput="filterUnmatched()">
-        <button class="btn-run sm batch" id="batchBtn" onclick="openBatchAnalysis()" style="display:none"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M12 8V4.5"/><circle cx="12" cy="3.4" r="1.2"/><circle cx="9" cy="13" r="1.1"/><circle cx="15" cy="13" r="1.1"/><path d="M9.5 16.3h5"/></svg> تحليل الكل</button>
-        <button class="btn-run sm bindall" id="bindAllBtn" onclick="bindAll90()">اربط الاقتراحات المؤكدة</button>
       </div>
       <div class="twrap" id="detailTable"></div>
     </div>
@@ -1557,7 +1555,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "c4f3c32";
+const APP_VERSION = "5e35c8c";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1584,10 +1582,8 @@ let batchAliases = new Set();          // (aliases) مجموعة «جذر زد||
 // linkTags أُسقط (الدفعة أ): الوسم يُشتقّ من mappings.source
 let lastBatchUndo = null;              // {entries:[{sku,prev}], count, tag} — للتراجع عن آخر اعتماد دفعي
 let batchData = null;                  // نتائج آخر تحليل دفعي {green,yellow,red}
-let batchTab = "green";                // التبويب النشط في لوحة الربط الدفعي
 let batchLostOnly = false;             // فلتر «سبق ربطه فقط» (الروابط اليدوية الضائعة)
 let batchRowByUid = {}, btUidSeq = 0;  // سجل uid⇒صف (يفصل عمليات الصف عن فهارس fi/ri — يصمد أمام الفلترة)
-let batchMode = false;                 // التحليل الذكي معروض داخل الجدول الأساسي
 let lastParentPublish = [], lastParentCol = "";   // آباء نُقل إليهم النشر من متغيّراتهم + اسم عمود مرجع الأب (تشخيص)
 let priceOffsets = {};                  // زيادة سعر المتغيرات: skuN ⇒ قيمة الزيادة (ر.س)
 let ignoredSet = new Set();
@@ -1596,7 +1592,6 @@ let boundSet = new Set();
 let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [], lastIgnored = [];
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
 let lastUpdated = [], lastInfinite = [], currentFilter = "unmatched";
-let unmatchedSub = "new";   // التبويب الداخلي لبطاقة «بدون ربط»: new / pending / managed / ignored / all
 let expFilters = { link: new Set(), pub: new Set(), type: new Set(), qty: new Set(), admin: new Set() };   // فلاتر المستكشف (تقاطع AND، تعدد داخل البُعد OR)
 let expSearch = "", expSearchRaw = "", lastExplorerShown = [];
 let lastCollisions = [];   // مجموعات أكواد زد الخام المتصادمة بعد التطبيع (الصعبة فقط — تحذير أحمر)
@@ -2122,8 +2117,7 @@ function invGoto(id) {
 }
 function invStartBatch() {
   goPage("home");
-  currentFilter = "unmatched"; setUnmatchedSub("new"); renderDetail();
-  setTimeout(() => { if (typeof openBatchAnalysis === "function") openBatchAnalysis(); }, 60);
+  currentFilter = "unmatched"; renderDetail();   // القائمة الموحّدة هي التحليل دائماً — بلا تبويبات ولا زر «تحليل الكل»
 }
 
 function renderInventoryPage() {
@@ -2477,48 +2471,10 @@ function nameSimTokens(A, B) {
 }
 
 // تقارب الكود: فرق رقم/رقمين أو نفس الأرقام بترتيب قريب
-function codeProximity(a, b) {
-  a = String(a); b = String(b);
-  if (!a || !b || a === b) return a === b ? 1 : 0;
-  let best = 0;
-  const na = Number(a), nb = Number(b);
-  if (Number.isFinite(na) && Number.isFinite(nb) && Math.abs(na - nb) <= 2) best = Math.max(best, 0.95);
-  if (a.length === b.length) {
-    let h = 0; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) h++;
-    if (h === 1) best = Math.max(best, 0.92);
-    else if (h === 2) best = Math.max(best, 0.85);
-    const sa = a.split("").sort().join(""), sb = b.split("").sort().join("");
-    if (sa === sb) best = Math.max(best, 0.85); // نفس الأرقام بترتيب مختلف
-  }
-  return best;
-}
 
 // استخراج المقاسات المركبة (10*120، 10×150، 10x150) مع توحيد الرموز * × x
-function extractSizes(s) {
-  s = String(s || "").replace(/[×xX]/g, "*");
-  const out = new Set();
-  const re = /(\d+(?:\.\d+)?)\s*\*\s*(\d+(?:\.\d+)?)/g;
-  let m;
-  while ((m = re.exec(s))) {
-    const pair = [parseFloat(m[1]), parseFloat(m[2])].sort((a, b) => a - b);
-    out.add(pair[0] + "*" + pair[1]);
-  }
-  return out;
-}
 // تعارض المقاسات: كلاهما يحمل مقاساً مركّباً ولا يشتركان في أي مقاس
-function sizesConflict(n1, n2) {
-  const s1 = extractSizes(n1), s2 = extractSizes(n2);
-  if (!s1.size || !s2.size) return false;
-  for (const x of s1) if (s2.has(x)) return false;
-  return true;
-}
 // تطابق المقاسات: كلاهما يحمل مقاساً مركّباً ويشتركان في مقاس واحد على الأقل
-function sizesMatch(n1, n2) {
-  const s1 = extractSizes(n1), s2 = extractSizes(n2);
-  if (!s1.size || !s2.size) return false;
-  for (const x of s1) if (s2.has(x)) return true;
-  return false;
-}
 
 // كشف عمود صور المنتجات في تصدير زد (بالاسم أولاً ثم بفحص القيم) + استخراج أول رابط
 // استخراج أول رابط صورة — يدعم صيغة زد "[رابط1], [رابط2]": يزيل الأقواس، يقسّم على الفاصلة، يأخذ الأول
@@ -2569,42 +2525,6 @@ function buildWhTokenIndex(whList) {
 
 // المطابقة بالاسم فقط: بما أن المطابقة التامة للكود تمّت مسبقاً، فأي صنف هنا كوده غير مطابق
 // تماماً ⇒ نبحث عن أقرب اسم في المستودع ونطابق به (لا نعتمد على قرب الكود إطلاقاً)
-function suggestFor(skuN, nm, whList, zidPrice) {
-  const nt = nameTokens(nm);
-  const ntCore = coreTokens(nt);
-  const zp = priceInt(zidPrice);
-  // مرشحون فقط ممن يشاركون كلمة واحدة على الأقل (أي تطابق حقيقي يشارك كلمة) — تسريع كبير
-  let candidates = whList;
-  if (lastWhTokenIndex) {
-    const set = new Set();
-    for (const t of nt) { const arr = lastWhTokenIndex.get(t); if (arr) for (const w of arr) set.add(w); }
-    candidates = set;
-  }
-  let best = null;
-  for (const w of candidates) {
-    const ns = nameSimTokens(nt, w.tokens);
-    if (ns <= 0) continue;
-    // تشابه الكلمات الحقيقي (بلا أرقام) — حتى لا يرفع المقاس المشترك وحده درجة التطابق
-    const nsCore = (ntCore.length && w.tokensCore.length) ? nameSimTokens(ntCore, w.tokensCore) : 0;
-    const match = sizesMatch(nm, w.name);       // نفس المقاس
-    const conflict = sizesConflict(nm, w.name); // مقاس مختلف ⇒ خصم
-    const wp = priceInt(w.price);
-    const pd = (zp != null && wp != null) ? Math.abs(zp - wp) / Math.max(zp, wp) : null;
-    const priceEq = pd != null && pd <= 0.05;   // نفس السعر تقريباً ⇒ ترجيح
-    const priceFar = pd != null && pd >= 0.55;  // فرق سعري كبير جداً (≈الضعف فأكثر) ⇒ غالباً منتج مختلف
-    // ترجيح المقاس يُعتمد فقط مع تقارب فعلي في الكلمات وعدم تباعد السعر بشكل كبير
-    const sizeTrust = match && nsCore >= 0.35 && !priceFar;
-    const score = ns + (sizeTrust ? 1.0 : (match ? 0.15 : 0)) - (conflict ? 0.5 : 0) + (priceEq ? 0.3 : 0) - (priceFar ? 0.3 : 0);
-    if (!best || score > best.score) best = { w, ns, nsCore, match, conflict, priceEq, priceFar, sizeTrust, score };
-  }
-  // يُقبل التطابق إذا كان تشابه الاسم ≥60%، أو ≥45% مع تطابق مقاس موثوق (كلمات متقاربة + سعر غير متباعد)
-  if (!best || !(best.ns >= 0.60 || (best.sizeTrust && best.ns >= 0.45))) return null;
-  let sim = best.ns, sizeMismatch = false, sizeMatch = false;
-  if (best.sizeTrust) { sim = Math.min(0.99, best.ns + 0.25); sizeMatch = true; }  // مكافأة تطابق المقاس الموثوق
-  else if (best.conflict) { sim = Math.min(sim, 0.40); sizeMismatch = true; }       // عقوبة اختلاف المقاس
-  if (best.priceEq && !sizeMismatch) sim = Math.min(0.99, sim + 0.10);              // تطابق السعر يرفع الثقة
-  return { code: best.w.code, name: best.w.name, price: best.w.price, qty: best.w.qty, sim, ns: best.ns, by: "name", sizeMatch, sizeMismatch };
-}
 
 /* ================= الربط الدفعي الذكي (Smart Batch Linking) ================= */
 // محرك الاستخراج والتطبيع — دوال نقية قابلة للاختبار
@@ -2711,13 +2631,6 @@ function analyzeBatch() {
   const lostCount = results.filter(r => r.wasLinked).length;
   return { green, yellow, red, total: results.length, lostCount };
 }
-function batchFamilies(list) {
-  const fam = new Map();
-  for (const r of list) { const root = nameRoot(r.z.name) || "—"; let a = fam.get(root); if (!a) fam.set(root, a = []); a.push(r); }
-  // العائلات التي فيها «سبق ربطه» أولاً، ثم الأكبر؛ وداخل كل عائلة «سبق ربطه» أولاً
-  return [...fam.entries()].map(([root, rows]) => ({ root, rows: rows.slice().sort((a, b) => (b.wasLinked ? 1 : 0) - (a.wasLinked ? 1 : 0)), lost: rows.some(r => r.wasLinked) }))
-    .sort((a, b) => (b.lost ? 1 : 0) - (a.lost ? 1 : 0) || b.rows.length - a.rows.length);
-}
 
 // اعتماد دفعة روابط: يكتب mapping.json، يسجّل التراجع، يتعلّم alias، يضع الوسم
 // اعتماد دفعة: القاعدة أولاً (bulkUpsert واحد)، وعند النجاح فقط تحديث المحلي والوسوم والتعلّم
@@ -2766,82 +2679,19 @@ async function undoLastBatch() {
 }
 
 // التحليل الذكي داخل الجدول الأساسي نفسه (لا لوحة منفصلة)
-function openBatchAnalysis() {
-  if (!lastWhList.length) { showToast("شغّل «طابق وأنشئ» أولاً."); return; }
-  batchData = analyzeBatch();
-  batchLostOnly = false; batchMode = true;
-  batchTab = batchData.green.length ? "green" : (batchData.yellow.length ? "yellow" : "red");
-  const bar = document.querySelector("#unBlock .unbar"); if (bar) bar.style.display = "none";   // إخفاء شريط البحث/الربط العادي أثناء التحليل
-  const t = document.getElementById("unTitle"); if (t) t.style.display = "none";
-  renderBatchTab();
-}
-function closeBatchAnalysis() {   // عودة للعرض العادي (نفس الجدول)
-  batchMode = false;
-  const bar = document.querySelector("#unBlock .unbar"); if (bar) bar.style.display = "";
-  const t = document.getElementById("unTitle"); if (t) t.style.display = "";
-  renderDetail();
-}
-function switchBatchTab(t) { batchTab = t; renderBatchTab(); const b = document.getElementById("bttab-" + t); if (b) b.focus(); }
 
 // تنقّل التبويبات بلوحة المفاتيح (نمط tablist): ← → للانتقال، Home/End للطرفين.
 // في RTL يُقلب اتجاه السهمين ليطابق الترتيب البصري.
-function tabKey(e) {
-  const keys = ["ArrowRight", "ArrowLeft", "Home", "End"];
-  if (!keys.includes(e.key)) return;
-  const list = e.target.closest('[role="tablist"]'); if (!list) return;
-  const tabs = [...list.querySelectorAll('[role="tab"]')].filter(t => t.offsetWidth > 0);
-  const i = tabs.indexOf(e.target); if (i < 0) return;
-  e.preventDefault();
-  const rtl = getComputedStyle(list).direction === "rtl";
-  let n = i;
-  if (e.key === "Home") n = 0;
-  else if (e.key === "End") n = tabs.length - 1;
-  else {
-    const fwd = rtl ? e.key === "ArrowLeft" : e.key === "ArrowRight";
-    n = (i + (fwd ? 1 : -1) + tabs.length) % tabs.length;
-  }
-  tabs[n].click();   // يعيد الرسم ويضبط التركيز على التبويب الجديد
-}
 
-function batchTabBtns() {
-  const g = batchData.green.length, y = batchData.yellow.length, r = batchData.red.length;
-  const mk = (id, label, n) => `<button role="tab" id="bttab-${id}" aria-selected="${batchTab === id}" aria-controls="batchBody" tabindex="${batchTab === id ? 0 : -1}" class="bt-tab ${batchTab === id ? "on" : ""}" onkeydown="tabKey(event)" onclick="switchBatchTab('${id}')">${label} <b>${n}</b></button>`;
-  return mk("green", `${DOT_OK} مؤكد`, g) + mk("yellow", `${DOT_MID} محتمل`, y) + mk("red", `${DOT_BAD} بلا مرشح`, r);
-}
-function batchBar() {
-  const g = batchData.green.length, y = batchData.yellow.length, r = batchData.red.length;
-  const remaining = g + y + r, lost = batchData.lostCount || 0;
-  return `<div class="bt-bar">
-    <span>المتبقّي: <b>${remaining}</b> · 🟢 ${g} · 🟡 ${y} · 🔴 ${r}${lost ? ` · <span class="lost-count">🔗 سبق ربطه: ${lost}</span>` : ""}</span>
-    <span class="bt-bar-actions">
-      ${lost ? `<button class="mc-btn ${batchLostOnly ? "on-lost" : ""}" onclick="toggleLostOnly()" title="أصناف كوّدها في تاريخ المطابقة ولا تُطابَق بالكود الآن — روابط يدوية ضائعة، أولى بإعادة الربط">${batchLostOnly ? "✓ سبق ربطه فقط" : "🔗 المفقودة فقط"}</button>` : ""}
-      <button class="mc-btn" onclick="undoLastBatch()" ${lastBatchUndo ? "" : "disabled"}>↩ تراجع عن آخر اعتماد${lastBatchUndo ? " (" + lastBatchUndo.count + ")" : ""}</button>
-      <button class="btn-run sm export-btn" onclick="saveToRepo('اعتماد ربط دفعي')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18h10a3.5 3.5 0 0 0 .3-7A5 5 0 0 0 7.6 10 3.9 3.9 0 0 0 7 18z"/></svg> احفظ في الريبو</button>
-    </span></div>`;
-}
 function toggleLostOnly() { batchLostOnly = !batchLostOnly; renderDetail(); }
 // تطبيق فلتر «سبق ربطه فقط» على قائمة تبويب
 function btFilter(list) { return batchLostOnly ? list.filter(r => r.wasLinked) : list; }
 // عائلات 🟡 وفق الفلتر الحالي — تُستخدم في العرض وpickAlt وacceptFamily معاً (تطابق الفهارس fi/ri)
-function curYellowFams() { return batchFamilies(btFilter(batchData.yellow)); }
 const lostTag = r => r.wasLinked ? `<span class="lost-tag" title="سبق ربطه يدوياً (في تاريخ المطابقة) ولا يُطابَق بالكود الآن — أولوية إعادة ربط">🔗 سبق ربطه</span>` : "";
 const priceCell = (z, w) => `<span dir="ltr">${priceInt(z) ?? "—"} / ${priceInt(w) ?? "—"}</span>${priceBadge(z, w)}`;
 const reasonText = b => [b.sizeM ? "مقاس✓" : "", b.priceM ? "سعر✓" : "", b.sim >= 0.5 ? "اسم " + Math.round(b.sim * 100) + "٪" : "", b.aliasHit ? "زوج معروف" : ""].filter(Boolean).join(" · ");
 
 // غلاف حافظ للموضع — بطاقات التحليل تُبنى داخل #detailTable نفسه (القاعدة الوقائية العامة)
-function renderBatchTab() { keepScroll(renderBatchTabBody); }
-function renderBatchTabBody() {
-  batchRowByUid = {}; btUidSeq = 0;   // إعادة بناء سجل الصفوف مع كل عرض
-  const target = document.getElementById("detailTable"); if (!target) return;
-  const body = batchTab === "green" ? renderGreen() : (batchTab === "yellow" ? renderYellow() : renderRed());
-  target.innerHTML = `<div class="batch-inline">
-    <div class="batch-inline-head"><span class="batch-title"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M12 8V4.5"/><circle cx="12" cy="3.4" r="1.2"/><circle cx="9" cy="13" r="1.1"/><circle cx="15" cy="13" r="1.1"/><path d="M9.5 16.3h5"/></svg> التحليل الذكي</span> <span class="batch-sub">مطابقة بالمقاس والسعر والاسم — على الجدول نفسه</span>
-      <button class="batch-close" onclick="closeBatchAnalysis()">✕ عودة للعرض العادي</button></div>
-    <div id="batchBar">${batchBar()}</div>
-    <div id="batchTabs" class="batch-tabs" role="tablist" aria-label="تصنيف نتائج التحليل الذكي">${batchTabBtns()}</div>
-    <div id="batchBody" class="batch-content-inline" role="tabpanel" aria-labelledby="bttab-${batchTab}" tabindex="0">${body}</div>
-  </div>`;
-}
 
 // ==================== القائمة الموحّدة «بدون ربط» (الدفعة ب-٢) — قائمة واحدة، لا تبويبات ====================
 // الأساس = بطاقة التحليل (batchCardHTML). كل الأصناف في قائمة متصلة: «يحتاج قرار» (بطاقات كاملة،
@@ -2894,15 +2744,13 @@ function acceptUnified(scope) {
   batchApply(pairs, scope === "green" ? "auto-confirmed" : "auto-approved");
 }
 
-function renderUnifiedList(bindBtn, title, wrap) {
+function renderUnifiedList(title, wrap) {
   if (!batchData) batchData = analyzeBatch();
   const raw0 = lastUnmatchedRaw || [];
   const isW = u => waitingSet.has(normCode(u.skuN));
   const pending = raw0.filter(u => isW(u) && curQtyNum(u.qty) !== 0);
   const managed = raw0.filter(u => isW(u) && curQtyNum(u.qty) === 0);
   const ignored = raw0.filter(u => ignoredSet.has(normCode(u.skuN)));
-  bindBtn.style.display = "none";
-  { const bb = document.getElementById("batchBtn"); if (bb) bb.style.display = "none"; }
   title.style.display = "none";   // العنوان القديم يُستبدل بشريط الحالة اللاصق
   // بطاقات «يحتاج قرار» بترتيب الثقة (green→yellow→red؛ «سبق ربطه» أولاً داخل كلٍّ من analyzeBatch)
   batchRowByUid = {}; btUidSeq = 0;
@@ -2939,11 +2787,6 @@ function flushUnified() {
 }
 
 // بطاقة الربط الدفعي — بنفس شكل بطاقات «جديد يحتاج قراراً» (صورة ＋ 3 أعمدة منظّمة) ＋ تحديد ＋ بحث هجين ＋ ⏳/✕
-function batchMidInner(r) {
-  const c = r.chosen; if (!c) return `<span class="mc-none">لا مرشّح</span>`;
-  const pct = Math.round((c.sim || 0) * 100), simCls = pct >= 85 ? "sim-hi" : (pct >= 65 ? "sim-mid" : "sim-low");
-  return `<span class="simbadge ${simCls}">${pct}%</span>${priceBadge(r.z.price, c.price)}${c.sizeM ? `<span class="mc-arrow" title="المقاس متطابق">📐</span>` : ""}`;
-}
 function batchWhInner(r) {
   const c = r.chosen;
   if (!c) return `<div class="mc-none">لا مرشّح — ابحث بالأسفل لاختيار صنف من المستودع</div>`;
@@ -2975,46 +2818,8 @@ function batchCardHTML(r, chkCls, famAttr) {
   return `<div class="mcard batch-card${r.wasLinked ? " lost" : ""}" data-status="need" data-search="${search}" title="${tip}">${zid}${wh}${actions}</div>`;
 }
 // 🟢 المؤكد — الكل محدد افتراضياً؛ الاعتماد للمحدد فقط
-function renderGreen() {
-  const list = btFilter(batchData.green);
-  if (!list.length) return `<div class="bt-empty">${batchLostOnly ? "لا «سبق ربطه» في المؤكد." : "لا توجد مطابقات مؤكدة. جرّب تبويب 🟡."}</div>`;
-  const cards = list.map(r => batchCardHTML(r, "bt-g", "")).join("");
-  return `<div class="bt-actionrow"><button class="btn-run sm bt-accept" onclick="acceptGreen()">✓ اعتماد المحدد <bdi class="bt-count">(<span id="btGN">${list.length}</span> من ${list.length})</bdi></button>
-    <button class="mc-btn" onclick="btToggleAll('bt-g',true,null,'btGN')">تحديد الكل</button><button class="mc-btn" onclick="btToggleAll('bt-g',false,null,'btGN')">إلغاء الكل</button></div>
-    <div class="mcards" onchange="btCount('bt-g','btGN')">${cards}</div>`;
-}
 // 🟡 مجمّع بالعائلة — الاعتماد للبطاقات المحددة داخل العائلة فقط
-function renderYellow() {
-  const fams = curYellowFams();
-  if (!fams.length) return `<div class="bt-empty">${batchLostOnly ? "لا «سبق ربطه» في المحتمل." : "لا مطابقات محتملة."}</div>`;
-  return fams.map((f, fi) => {
-    const m = f.rows.length;
-    const cards = f.rows.map(r => batchCardHTML(r, "bt-y", `data-fam="${fi}"`)).join("");
-    return `<div class="bt-fam"><div class="bt-fam-head"><b>${esc(f.root)}</b> <span class="bt-fam-n">${m} صنف</span>
-      <button class="mc-btn xs" onclick="btToggleAll('bt-y',true,${fi},'famN-${fi}')">الكل</button><button class="mc-btn xs" onclick="btToggleAll('bt-y',false,${fi},'famN-${fi}')">لا شيء</button>
-      <button class="btn-run sm bt-accept" onclick="acceptFamily(${fi})">✓ اعتماد المحدد <bdi class="bt-count">(<span id="famN-${fi}">${m}</span> من ${m})</bdi></button></div>
-      <div class="mcards" onchange="btCount('bt-y','famN-${fi}',${fi})">${cards}</div></div>`;
-  }).join("");
-}
 // 🔴 بلا مرشح — بطاقات (ابحث لإيجاد مرشّح ثم اعتمد؛ أو ⏳/✕ لكل صنف)
-function renderRed() {
-  const list = btFilter(batchData.red);
-  if (!list.length) return `<div class="bt-empty">${batchLostOnly ? "لا «سبق ربطه» بلا مرشّح." : "لا شيء بلا مرشّح 🎉"}</div>`;
-  const cards = list.map(r => batchCardHTML(r, "bt-rd", "")).join("");
-  return `<div class="bt-actionrow"><button class="btn-run sm" onclick="acceptRed()">✓ اعتماد المحدد</button>
-    <span class="bt-hint">ابحث في كل بطاقة لإيجاد مرشّح من المستودع ثم اعتمد؛ أو ⏳/✕ لكل صنف.</span></div>
-    <div class="mcards">${cards}</div>`;
-}
-function btToggleAll(cls, on, fam, spanId) {
-  const sel = fam != null ? `#batchBody .${cls}[data-fam="${fam}"]` : `#batchBody .${cls}`;
-  document.querySelectorAll(sel).forEach(c => { if (!c.disabled) c.checked = on; });
-  if (spanId) btCount(cls, spanId, fam);
-}
-function btCount(cls, spanId, fam) {
-  const sel = fam != null ? `#batchBody .${cls}[data-fam="${fam}"]` : `#batchBody .${cls}`;
-  const n = [...document.querySelectorAll(sel)].filter(c => c.checked).length;
-  const el = document.getElementById(spanId); if (el) el.textContent = n;
-}
 
 // ==== البحث الحيّ — قائمة عائمة على مستوى body (تطفو فوق كل شيء، لا تُقص ولا تتداخل) ====
 let btDrop = null, btDropUid = null, btDropActive = 0;
@@ -3099,29 +2904,7 @@ async function batchExclude(uid, action) {
 }
 
 // قراءة المحدد ⇒ أزواج (sku, code) من المرشّح المثبَّت لكل صف
-function btReadChecked(cls, fam) {
-  const sel = fam != null ? `#batchBody .${cls}[data-fam="${fam}"]` : `#batchBody .${cls}`;
-  return [...document.querySelectorAll(sel)].filter(c => c.checked && !c.disabled).map(c => {
-    const r = batchRowByUid[c.dataset.uid], cc = r && (r.chosen || r.best);
-    return cc ? { sku: r.z.sku, code: cc.code } : null;
-  }).filter(Boolean);
-}
-function acceptGreen() {
-  const pairs = btReadChecked("bt-g");
-  if (!pairs.length) { showToast("لم تحدد شيئاً."); return; }
-  batchApply(pairs, "auto-confirmed");
-}
-function acceptFamily(fi) {
-  const pairs = btReadChecked("bt-y", fi);
-  if (!pairs.length) { showToast("لا صفوف محددة في هذه العائلة."); return; }
-  batchApply(pairs, "auto-approved");
-}
 // 🔴: اعتماد البطاقات التي عيّن لها المستخدم مرشّحاً بالبحث (التجاهل/الانتظار عبر ⏳/✕ لكل بطاقة)
-function acceptRed() {
-  const pairs = btReadChecked("bt-rd");
-  if (!pairs.length) { showToast("لم تختر مرشّحاً لأي بطاقة بعد — ابحث ثم حدّد."); return; }
-  batchApply(pairs, "auto-approved");
-}
 
 // تحليل الأسعار ومؤشر التطابق السعري
 function priceNum(v) { const n = Number(String(v == null ? "" : v).replace(/[^\d.\-]/g, "")); return Number.isFinite(n) && n > 0 ? n : null; }
@@ -4320,7 +4103,7 @@ function run(reprocess) {
     lastReactivated = reactivated;
     lastSaleConflicts = saleConflicts;
     lastMatchedWhCodes = matchedWhCodes;
-    if (!reprocess) { boundSet = new Set(); currentFilter = "unmatched"; unmatchedSub = "new"; }
+    if (!reprocess) { boundSet = new Set(); currentFilter = "unmatched"; }
     refreshUnmatchedUI();
     renderCollisionWarn();
     renderVariantInfo();
@@ -4449,33 +4232,7 @@ function selectCard(f) {
 }
 
 // رتبة الترتيب: مؤكد (0) ← له اقتراح (1) ← لا يوجد اقتراح (2) ← أكواد Z. الآلية (3، بالقاع)
-function sortRank(it) {
-  if (it.isZ) return 3;
-  if (!it.suggestion) return 2;
-  return isConfirmed(it) ? 0 : 1;
-}
 // بناء عناصر الاقتراح الذكي (كامل) مرتّبة بالنسبة تنازلياً
-function buildItems(raw) {
-  const items = raw.map(u => {
-    const isZ = /^z\./i.test(String(u.sku).trim());
-    // نطابق بالاسم حتى لأكواد زد الآلية (لا نكتفي بتقارب الكود)، ونمرّر سعر زد للترجيح
-    // نخزّن الاقتراح في الذاكرة لتفادي إعادة الحساب عند تبديل الفلاتر
-    let suggestion;
-    if (suggCache.has(u.skuN)) suggestion = suggCache.get(u.skuN);
-    else { suggestion = suggestFor(u.skuN, u.name, lastWhList, u.price); suggCache.set(u.skuN, suggestion); }
-    return { sku: String(u.sku), skuN: u.skuN, name: u.name || "", price: u.price, qty: u.qty, img: u.img || "", collided: u.collided || null, isZ, suggestion, bound: boundSet.has(String(u.sku)), ignored: ignoredSet.has(normCode(u.skuN)), waiting: waitingSet.has(normCode(u.skuN)), orphanParent: !!u.orphanParent };
-  });
-  // متغيّرات متعددة مرتبطة بنفس كود المستودع (نفس الاقتراح لأكثر من صنف) ⇒ 🔀
-  const codeCount = {};
-  items.forEach(it => { if (it.suggestion) codeCount[it.suggestion.code] = (codeCount[it.suggestion.code] || 0) + 1; });
-  items.forEach(it => { it.variant = !!(it.suggestion && codeCount[it.suggestion.code] > 1); });
-  items.sort((a, b) => {
-    const ra = sortRank(a), rb = sortRank(b);
-    if (ra !== rb) return ra - rb;
-    return (b.suggestion ? b.suggestion.sim : -1) - (a.suggestion ? a.suggestion.sim : -1);
-  });
-  return items;
-}
 
 // غلاف حافظ للموضع — كل نداءات renderDetail() الخارجية تمرّ من هنا (القاعدة الوقائية العامة)
 function renderDetail() { keepScroll(renderDetailBody); }
@@ -4486,27 +4243,24 @@ function renderDetailBody() {
     s.classList.toggle("active", on);
     s.setAttribute("aria-pressed", on ? "true" : "false");   // بطاقات الإحصاء أزرار فلترة — حالتها تُعلَن
   });
-  const bindBtn = document.getElementById("bindAllBtn");
   const title = document.getElementById("unTitle"); title.style.display = "";
   const wrap = document.getElementById("detailTable");
   const unbar = document.querySelector("#unBlock .unbar");
   document.getElementById("unBlock").style.display = "block";
-  const hideBatch = () => { const bb = document.getElementById("batchBtn"); if (bb) bb.style.display = "none"; };
 
   if (f === "unmatched") {
     if (unbar) unbar.style.display = "";
-    renderUnifiedList(bindBtn, title, wrap);
+    renderUnifiedList(title, wrap);
   } else if (f === "updated") {
-    if (unbar) unbar.style.display = ""; bindBtn.style.display = "none"; hideBatch();
+    if (unbar) unbar.style.display = "";
     const susp = lastUpdated.filter(isSuspicious).length;
     title.textContent = `الأصناف المحدَّثة (${lastUpdated.length}) — كاملة` + (susp ? ` · ⚠ ${susp} تحتاج مراجعة` : "");
     wrap.innerHTML = updatedTableHTML(lastUpdated);
   } else if (f === "infinite") {
-    if (unbar) unbar.style.display = ""; bindBtn.style.display = "none"; hideBatch();
+    if (unbar) unbar.style.display = "";
     title.textContent = `كمية غير محدودة — تُركت كما هي (${lastInfinite.length})`;
     wrap.innerHTML = listTableHTML(lastInfinite);
   } else { // explorer — مستكشف منتجات زد الشامل (له شريط بحث/فلاتر خاص)
-    bindBtn.style.display = "none"; hideBatch();
     if (unbar) unbar.style.display = "none";
     title.textContent = "📚 مستكشف منتجات زد — كل الأصناف بفلاتر متقاطعة";
     renderExplorer(wrap);
@@ -4516,49 +4270,8 @@ function renderDetailBody() {
 }
 
 // بطاقة «بدون ربط» الموحّدة: تبويبات داخلية (يحتاج قرار / سيُصفَّر / مُدار / متجاهَل / الكل) + زر ملف التصفير
-function renderUnmatchedCard(bindBtn, title, wrap) {
-  const raw0 = lastUnmatchedRaw || [];
-  const isIgn = u => ignoredSet.has(normCode(u.skuN));
-  const isWait = u => waitingSet.has(normCode(u.skuN));
-  const isBound = u => boundSet.has(String(u.sku));
-  const cnt = {
-    new: raw0.filter(u => !isIgn(u) && !isWait(u) && !isBound(u)).length,
-    ignored: raw0.filter(isIgn).length,
-    pending: raw0.filter(u => isWait(u) && curQtyNum(u.qty) !== 0).length,   // ⏳ لم يُصفَّر بعد / انحرف
-    managed: raw0.filter(u => isWait(u) && curQtyNum(u.qty) === 0).length,   // ✓ مصفّر مُدار (زد=0)
-    all: raw0.filter(u => !isBound(u)).length,
-  };
-  let sub = unmatchedSub;
-  if (!cnt[sub]) sub = "new";   // التبويب الحالي فارغ ⇒ ارجع لـ«يحتاج قرار»
-  unmatchedSub = sub;
-  let raw;
-  if (sub === "new") raw = raw0.filter(u => !isIgn(u) && !isWait(u) && !isBound(u));
-  else if (sub === "ignored") raw = raw0.filter(isIgn);
-  else if (sub === "pending") raw = raw0.filter(u => isWait(u) && curQtyNum(u.qty) !== 0);
-  else if (sub === "managed") raw = raw0.filter(u => isWait(u) && curQtyNum(u.qty) === 0);
-  else raw = raw0.filter(u => !isBound(u));
-  const items = buildItems(raw);
-  lastUnmatched = items;
-  const showBind = sub === "new";
-  bindBtn.style.display = showBind ? "" : "none";
-  { const bb = document.getElementById("batchBtn"); if (bb) bb.style.display = showBind ? "" : "none"; }
-  title.textContent = `🔶 بدون ربط (${cnt.all}) — أصناف زد بلا ربط بالمخزن`;
-  // نمط التبويبات: tablist/tab ＋ تنقّل بالأسهم (roving tabindex) — اللوحة نفسها هي tabpanel
-  const chip = (key, label, n) => `<button role="tab" id="untab-${key}" aria-selected="${sub === key}" aria-controls="unBody" tabindex="${sub === key ? 0 : -1}" class="exp-chip${sub === key ? " on" : ""}" onkeydown="tabKey(event)" onclick="setUnmatchedSub('${key}')">${label} (${n})</button>`;
-  const chips = `<div class="un-chips" role="tablist" aria-label="تصنيفات الأصناف بدون ربط">`
-    + chip("new", "🆕 يحتاج قرار", cnt.new)
-    + chip("pending", ICO.warn + " سيُصفَّر", cnt.pending)
-    + chip("managed", "✓ مُدار", cnt.managed)
-    + chip("ignored", "✕ متجاهَل", cnt.ignored)
-    + chip("all", ICO.list + " الكل", cnt.all)
-    + `<span class="un-note" title="أصناف ⏳ تدخل «ملف الكميات» الرئيسي بكمية 0 وتُخفى في «ملف الأسعار» (published=No) تلقائياً — المصفّر/المخفي أصلاً في زد يُستبعَد بلا استيراد عبثي">ℹ ⏳ يُصفَّر ويُخفى ضمن الملفين الرئيسيين</span>`
-    + `</div>`;
-  wrap.innerHTML = chips + suggestionsCardsHTML(items);
-  updateBindAllCount();
-}
 // التركيز يتبع التبويب المُعتمَد فعلاً لا المطلوب: التبويب الفارغ يُرجع إلى «يحتاج قرار» (سطر cnt[sub])
 // فلو ركّزنا على المطلوب لبقي التركيز على تبويب aria-selected=false — تناقض بين التركيز والاختيار.
-function setUnmatchedSub(k) { unmatchedSub = k; renderDetail(); const b = document.getElementById("untab-" + unmatchedSub); if (b) b.focus(); }
 
 // ==================== 📚 مستكشف منتجات زد الشامل (بطاقة «إجمالي الأسطر») ====================
 // يبني صفاً لكل منتج زد من stData مع: النوع/النشر (بنشر الأب للمتغيّر) /الكمية/الربط/الحالة الإدارية — عرض فقط، بلا مساس بالمنطق.
@@ -4693,10 +4406,6 @@ function chgCell(oldV, newV) {
   return `<span class="chg"><span class="old">${o}</span> → <span class="new">${n}</span></span>`;
 }
 // خلية سعر: تعرض الأعداد صحيحة (مقرّبة)
-function chgCellPrice(oldV, newV) {
-  const o = priceInt(oldV), n = priceInt(newV);
-  return chgCell(o == null ? oldV : o, n == null ? newV : n);
-}
 // تشابه اسم المنتج بين زد والمستودع (بلا أرقام) — للكشف عن مطابقة كود خاطئة (اسمان مختلفان لنفس الكود)
 function updatedNameSim(u) {
   const zc = coreTokens(nameTokens(u.name || "")), wc = coreTokens(nameTokens(u.whName || ""));
@@ -4950,19 +4659,6 @@ function listTableHTML(list) {
   </table>`;
 }
 
-function catBadge(cat) {
-  const map = { updated: ["محدّث", "cat-upd"], new: ["جديد", "cat-new"], ignored: ["متجاهل", "cat-ign"], infinite: ["غير محدود", "cat-inf"], absent: ["غائب 📭", "cat-abs"], waiting: ["بانتظار ⏳", "cat-wait"] };
-  const [t, c] = map[cat] || ["—", ""];
-  return `<span class="cat-badge ${c}">${t}</span>`;
-}
-function allTableHTML(list) {
-  const rows = list.map(u => `<tr data-search="${esc(normText(u.sku + " " + (u.name || "")))}"><td class="mono">${esc(u.sku)}</td><td>${esc(u.name) || "—"}</td><td>${catBadge(u._cat)}</td></tr>`).join("");
-  return `<table aria-label="كل الأصناف بدون ربط مع حالتها">
-    <colgroup><col class="c-sku"><col><col style="width:130px"></colgroup>
-    <thead><tr><th scope="col">SKU زد</th><th scope="col">اسم المنتج</th><th scope="col">الحالة</th></tr></thead>
-    <tbody id="unBody">${rows}</tbody>
-  </table>`;
-}
 
 // شريط التنبيه البرتقالي + البطاقة الخامسة (يستبعد ما رُبط في هذه الجلسة)
 function updateNewCount() {
@@ -5009,92 +4705,9 @@ async function unignore(i) {
 
 
 // بطاقة مطابقة: كتلة زد (يمين) · مؤشر (وسط) · مستودع (يسار الوسط) · أزرار (أقصى اليسار)
-function cardHtml(it, i) {
-  const zidPrice = priceInt(it.price);
-  const s = it.suggestion;
-  const pct = s ? Math.round(s.sim * 100) : 0;
-  const reliable = !!s && pct >= 55;                 // أقل من 55% ⇒ لا يوجد اقتراح موثوق
-  const autoTag = it.isZ ? `<span class="mc-auto" title="كود مُولّد آلياً من زد">كود آلي من زد</span>` : "";
-  const colTag = (it.collided && it.collided.length > 1) ? `<span class="col-tag" title="أكواد زد تتطابق بعد إزالة الأصفار — المطابقة التلقائية معطّلة، اربطه يدوياً">⚠ كود متصادم (${it.collided.map(esc).join(" / ")})</span>` : "";
-  // دورة حياة المُصفَّر المُدار: ⏳ + كمية زد 0 ⇒ «مُدار» (مصفّر ومخفي، مراقَب فقط) · ⏳ + كمية زد ≠ 0 ⇒ «انحرف» (سيُصفَّر في ملف التصفير القادم)
-  const zq = it.waiting ? curQtyNum(it.qty) : null;
-  const waitTag = !it.waiting ? ""
-    : (zq === 0
-      ? `<span class="managed-tag" title="مصفّر ومخفي في زد — مراقَب فقط، لا يُعاد تصديره (كميته 0 أصلاً)">✓ مُدار: مصفّر ＋ مخفي</span>`
-      : `<span class="drift-tag" title="كميته في زد ${esc(String(it.qty == null ? "—" : it.qty))} رغم أنه مسجّل «غير متوفر» — سيُصفَّر في ملف التصفير القادم">⚠ انحرف — سيُصفَّر</span>`);
-  const orphanTag = it.orphanParent ? `<span class="col-tag" title="منتج أب (has_variants=Yes) لا خيارات مكوّدة تحته تتلقّى كميته — لا يدخل ملف الكميات؛ عالج كمياته من خياراته داخل زد">🚫 أب بلا خيارات مكوّدة — عالجه في زد</span>` : "";
-  const zid = `<div class="mc-zid">
-      <span class="mc-tag zid">ZID PRODUCT</span>
-      <div class="mc-row">${thumb(it.img)}<div class="mc-txt">
-        <div class="mc-name">${esc(it.name) || "—"}</div>
-        <div class="mc-sku">SKU: <span dir="ltr">${esc(it.sku)}</span>${autoTag}${colTag}${waitTag}${orphanTag}</div>
-        ${zidPrice != null ? `<div class="mc-sub">سعر زد: ${zidPrice} ر.س</div>` : ""}
-      </div></div>
-    </div>`;
-  let mid, wh;
-  if (reliable) {
-    const simCls = pct >= 85 ? "sim-hi" : (pct >= 65 ? "sim-mid" : "sim-low");
-    const numTag = s.sizeMismatch ? `<span class="ntag bad" title="المقاسات مختلفة بين المنتجين">مقاس مختلف</span>`
-      : (s.sizeMatch ? `<span class="ntag ok" title="المقاس/الأرقام متطابقة بين المنتجين">الأرقام متطابقة</span>` : "");
-    const byTag = s.by === "code" ? `<span class="ntag bad" title="تشابه الاسم منخفض — التطابق بقرب الكود فقط">بالكود فقط</span>` : "";
-    const arrow = it.variant ? `<span class="mc-arrow variant" title="عدة متغيّرات مرتبطة بنفس كود المستودع">🔀</span>` : `<span class="mc-arrow">⇄</span>`;
-    mid = `<div class="mc-mid"><span class="simbadge ${simCls}">${pct}%</span>${priceBadge(it.price, s.price)}${numTag}${byTag}${arrow}</div>`;
-    const whPrice = priceInt(s.price);
-    wh = `<div class="mc-wh">
-        <span class="mc-tag whs">WAREHOUSE</span>
-        <div class="mc-name">${esc(s.name) || "—"}</div>
-        <div class="mc-sku">باركود المستودع: <span dir="ltr">${esc(s.code)}</span></div>
-        ${whPrice != null ? `<div class="mc-sub">سعر المستودع: ${whPrice} ر.س</div>` : ""}
-        ${s.qty != null ? `<div class="mc-sub">الكمية: ${esc(String(s.qty))}</div>` : ""}
-      </div>`;
-  } else {
-    mid = `<div class="mc-mid"><span class="mc-none">لا يوجد اقتراح موثوق</span></div>`;
-    wh = `<div class="mc-wh mc-wh-empty"></div>`;
-  }
-  let bindBtn;
-  if (it.bound) bindBtn = `<button class="mc-btn bind" disabled>مربوط ✓</button>`;
-  else if (reliable && pct >= 85) bindBtn = `<button class="mc-btn bind gold" onclick="bindRow(${i})">ربط المنتج</button>`;
-  else bindBtn = `<button class="mc-btn bind outline" onclick="startManualLink('${esc(it.skuN)}')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8 20 20"/></svg> ربط يدوي</button>`;
-  const ignoreBtn = it.ignored ? `<button class="mc-btn ignore" disabled>متجاهَل</button>`
-    : `<button class="mc-btn ignore" onclick="ignoreRow(${i})">تجاهل</button>`;
-  const waitBtn = it.waiting
-    ? `<button class="mc-btn wait on" onclick="unwaitRow(${i})" title="أزِله من قائمة الانتظار">⏳ بانتظار التوفر — إلغاء</button>`
-    : `<button class="mc-btn wait" onclick="waitRow(${i})" title="سجّله «غير متوفر حالياً»: يُستثنى من تنبيه الجديد، ويُفعَّل تلقائياً فور ظهور كوده في ملف المستودع">⏳ غير متوفر حالياً</button>`;
-  // 🚫 إلغاء النشر — للمنتجات الرئيسية فقط (النشر يُدار من الأب في زد)، وهو الزناد الوحيد لـunpublishSet
-  const isMain = !lastParentOf[String(it.sku)] && !lastHasVarYes.has(String(it.sku));
-  const on = unpublishSet.has(String(it.sku));
-  const unpubBtn = isMain
-    ? `<button class="mc-btn unpub${on ? " on" : ""}" aria-pressed="${on}" onclick="toggleUnpublish('${esc(it.sku)}', ${!on})" title="${on ? "تراجع عن إلغاء النشر" : "أضِف صفّ published=No لهذا المنتج في ملف الأسعار"}">${ICO.ban} ${on ? "سيُلغى نشره — تراجع" : "إلغاء النشر"}</button>`
-    : "";
-  const actions = `<div class="mc-actions">${bindBtn}${ignoreBtn}${waitBtn}${unpubBtn}</div>`;
-  const search = esc(normText(it.sku + " " + it.name + " " + (s ? s.code + " " + s.name : "")));
-  const cls = "mcard" + (it.isZ ? " zrow" : "") + (it.bound ? " bound" : "") + (it.ignored ? " ignored" : "") + (it.variant ? " variant" : "") + (it.waiting ? " waiting" : "");
-  return `<div id="un-${i}" class="${cls}" data-search="${search}">${zid}${mid}${wh}${actions}</div>`;
-}
-function suggestionsCardsHTML(items) {
-  return `<div class="mcards-head">
-      <span class="mh-zid">منتج زد</span>
-      <span class="mh-mid">المطابقة</span>
-      <span class="mh-wh">صنف المستودع</span>
-      <span class="mh-act">الإجراء</span>
-    </div>
-    <div class="mcards" id="unBody">${items.map(cardHtml).join("")}</div>`;
-}
 // الربط اليدوي صار داخل لوحة التحليل الذكي (البحث الهجين في البطاقات) — نفتحها ونركّز على صف هذا الصنف
-function startManualLink(skuN) {
-  openBatchAnalysis();
-  document.getElementById("unBlock").scrollIntoView({ behavior: "smooth", block: "start" });
-  const uid = Object.keys(batchRowByUid).find(u => batchRowByUid[u].z && normCode(batchRowByUid[u].z.skuN) === normCode(skuN));
-  if (uid) { const inp = document.getElementById("s-" + uid); if (inp) { inp.scrollIntoView({ behavior: "smooth", block: "center" }); inp.focus(); } }
-}
 
 // صنف "مؤكد": تشابه اسم 90%+ وفرق سعري ≤5%
-function isConfirmed(it) {
-  if (!it.suggestion || it.isZ || it.bound || it.ignored || it.waiting) return false;
-  if (it.suggestion.ns < 0.90) return false;
-  const d = priceDiffPct(it.price, it.suggestion.price);
-  return d != null && d <= 5;
-}
 
 function filterUnmatched() {
   if (currentFilter === "unmatched") flushUnified();   // ابحث فوق الـ300 كاملة لا المرسوم تدريجياً فقط
@@ -5106,11 +4719,6 @@ function filterUnmatched() {
 }
 
 // تحديث حالة الواجهة بعد نجاح كتابة القاعدة (manualMap/localStorage تُحدَّث داخل dbSet*)
-function applyBindLocal(it) {
-  boundSet.add(String(it.sku));
-  it.bound = true;
-  markDirty();
-}
 // تنبيه: تغيّرت الروابط بعد آخر مطابقة ⇒ الملف الحالي لا يعكسها حتى يُعاد التشغيل
 function markDirty() {
   if (document.getElementById("result").style.display !== "block") return; // لا معنى له قبل أول مطابقة
@@ -5118,67 +4726,12 @@ function markDirty() {
   if (h) h.style.display = "block";
 }
 // إزالة صف بسلاسة دون إعادة ترتيب البقية (لا قفز للأعلى)
-function fadeRemoveRow(i) {
-  const tr = document.getElementById("un-" + i);
-  if (!tr) return;
-  tr.classList.add("removing");
-  setTimeout(() => tr.remove(), 260);
-}
 
-async function bindRow(i) {
-  const it = lastUnmatched[i];
-  if (!it || !it.suggestion || it.bound) return;
-  try { await dbSetMapping(it.sku, it.suggestion.code, "auto-approved"); } catch { return; }
-  applyBindLocal(it);
-  renderPills();
-  fadeRemoveRow(i);
-  updateBindAllCount();
-  updateNewCount();
-}
 
-async function ignoreRow(i) {
-  const it = lastUnmatched[i];
-  if (!it || it.ignored) return;
-  try { await dbAddIgnored(it.sku, it.skuN, it.name); } catch { return; }   // قاعدة أولاً؛ فشل ⇒ لا تغيير
-  it.ignored = true;
-  fadeRemoveRow(i);
-  renderIgnored(lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN))));
-  updateBindAllCount();
-  updateNewCount();
-  renderFingerprint();
-}
 
 // «غير متوفر حالياً»: يسجّله في قائمة الانتظار (القاعدة أولاً؛ فشل ⇒ لا تغيير)
-async function waitRow(i) {
-  const it = lastUnmatched[i];
-  if (!it || it.waiting) return;
-  try { await markWaiting(it.sku, it.skuN, it.name); } catch { return; }
-  run(true);   // أعِد المعالجة فوراً: يُصفَّر ويُخفى (published=No) في نفس اللحظة — لا انتظار «طابق وأنشئ»
-}
-async function unwaitRow(i) {
-  const it = lastUnmatched[i];
-  if (!it) return;
-  try { await unmarkWaiting(it.sku, it.skuN); } catch { return; }
-  run(true);   // أعِد المعالجة: يخرج من التصفير/الإخفاء
-}
 
-function updateBindAllCount() {
-  const c = lastUnmatched.filter(isConfirmed).length;
-  const b = document.getElementById("bindAllBtn");
-  b.textContent = `اربط الاقتراحات المؤكدة (${c})`;
-  b.disabled = c === 0;
-}
 
-async function bindAll90() {
-  const targets = lastUnmatched.map((it, i) => ({ it, i })).filter(({ it }) => isConfirmed(it));
-  if (!targets.length) return;
-  if (!confirm(`سيتم ربط ${targets.length} صنف مؤكد تلقائياً (تشابه اسم ٩٠٪ فأكثر وفرق سعري ٥٪ أو أقل).\nتُكتب الروابط في القاعدة السحابية دفعةً واحدة.\nهل تريد المتابعة؟`)) return;
-  try { await dbSetMappings(targets.map(({ it }) => ({ sku: it.sku, code: it.suggestion.code })), "auto-confirmed"); } catch { return; }
-  for (const { it, i } of targets) { applyBindLocal(it); fadeRemoveRow(i); }
-  renderPills();
-  updateBindAllCount();
-  updateNewCount();
-}
 
 // ==================== 🔍 استعلام عن منتج — بحثان مستقلان ====================
 let qTimers = {};   // عرض جميع النتائج بلا حدّ — التمرير الداخلي في .q-results يستوعبها
