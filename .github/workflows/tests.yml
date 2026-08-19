@@ -20,6 +20,8 @@ jobs:
         run: node tests/batch-a-invariants.mjs
       - name: Batch (ب-٢) unified-list static guards
         run: node tests/b2-invariants.mjs
+      - name: Batch (ب-٢) analyzeBatch count separation (mechanical)
+        run: node tests/b2-analyze-counts.mjs
 
   perf-list:
     runs-on: ubuntu-latest

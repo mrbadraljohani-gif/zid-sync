@@ -996,6 +996,7 @@
   .uni-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .mcard.uni-light { opacity: .9; }
   .mcard.uni-light .mc-actions { align-self: center; }
+  .uni-sec { grid-column: 1 / -1; margin: 14px 2px 4px; padding: 7px 12px; border-radius: 9px; font-size: 12.5px; font-weight: 800; color: var(--muted); background: var(--panel); border: 1px dashed var(--border-strong); }
   .exp-chip { font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid var(--border-strong); background: rgba(255,255,255,.03); color: var(--muted); border-radius: 999px; padding: 5px 11px; transition: all .12s; white-space: nowrap; }
   .exp-chip:hover { color: var(--text); border-color: var(--gold-2); }
   .exp-chip.on { background: var(--gold); color: #2a2100; border-color: var(--gold); }
@@ -1555,7 +1556,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "5e35c8c";
+const APP_VERSION = "76bc10b";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2588,6 +2589,7 @@ function analyzeBatch() {
   const seen = new Set(unm.map(u => String(u.sku)));
   const abs = (lastAbsent || []).filter(u => okItem(u) && !seen.has(String(u.sku)));
   const items = [...unm, ...abs];
+  const absSet = new Set(abs.map(u => String(u.sku)));   // للتمييز: «غائب» عن «يحتاج قرار» في العدّاد والترتيب (لا في الوصول)
   const taken = new Set([...lastMatchedWhCodes, ...Object.values(manualMap).map(normCode)]);   // أكواد مربوطة/مطابَقة ⇒ خارج الترشيح
   const avail = lastWhList.filter(w => !taken.has(normCode(w.code)));
   const bySize = new Map(), byTok = new Map();
@@ -2600,9 +2602,10 @@ function analyzeBatch() {
     if (zSize && bySize.has(zSize)) for (const w of bySize.get(zSize)) cand.add(w);
     for (const t of coreTokens(nameTokens(z.name))) { const a = byTok.get(t); if (a) for (const w of a) cand.add(w); }
     const scored = [...cand].map(w => scoreCandidate(z, w)).filter(s => s.score > 0).sort((a, b) => b.score - a.score);
-    // «سبق ربطه» = كوده في تاريخ المطابقة ولا يُطابَق بالكود الآن (رابط يدوي ضائع) ⇒ أولوية إعادة الربط
-    const wasLinked = matchedHistory.has(normCode(z.skuN));
-    return { z, scored: scored.slice(0, 5), best: scored[0] || null, second: scored[1] || null, demoted: false, wasLinked };
+    // «سبق ربطه» (رابط يدوي ضائع) = غائب عن الملف الحالي **رغم وجود كود سابق محفوظ يدوياً** (لا matchedHistory المتشبّع).
+    const isAbsent = absSet.has(String(z.sku));
+    const wasLinked = isAbsent && !!manualMap[String(z.sku)];
+    return { z, scored: scored.slice(0, 5), best: scored[0] || null, second: scored[1] || null, demoted: false, wasLinked, isAbsent };
   });
   // قاعدة السلامة: كود مستودع واحد لا يُعتمد تلقائياً لأكثر من صنف زد (إلا متغيّرات نفس الأساس) — الأعلى درجة يفوز والباقي يهبط
   const byCode = new Map();
@@ -2629,7 +2632,9 @@ function analyzeBatch() {
   const byLost = (a, b) => (b.wasLinked ? 1 : 0) - (a.wasLinked ? 1 : 0);   // «سبق ربطه» أولاً
   green.sort(byLost); yellow.sort(byLost); red.sort(byLost);
   const lostCount = results.filter(r => r.wasLinked).length;
-  return { green, yellow, red, total: results.length, lostCount };
+  const needCount = results.filter(r => !r.isAbsent).length;      // «يحتاج قرار» = الجديدة فقط (unm)
+  const absentCount = results.filter(r => r.isAbsent).length;     // «غائب» = lastAbsent (فروع المرحلة 1)
+  return { green, yellow, red, total: results.length, lostCount, needCount, absentCount };
 }
 
 // اعتماد دفعة روابط: يكتب mapping.json، يسجّل التراجع، يتعلّم alias، يضع الوسم
@@ -2687,7 +2692,7 @@ function toggleLostOnly() { batchLostOnly = !batchLostOnly; renderDetail(); }
 // تطبيق فلتر «سبق ربطه فقط» على قائمة تبويب
 function btFilter(list) { return batchLostOnly ? list.filter(r => r.wasLinked) : list; }
 // عائلات 🟡 وفق الفلتر الحالي — تُستخدم في العرض وpickAlt وacceptFamily معاً (تطابق الفهارس fi/ri)
-const lostTag = r => r.wasLinked ? `<span class="lost-tag" title="سبق ربطه يدوياً (في تاريخ المطابقة) ولا يُطابَق بالكود الآن — أولوية إعادة ربط">🔗 سبق ربطه</span>` : "";
+const lostTag = r => (r.isAbsent ? `<span class="cat-badge cat-abs" title="غائب عن ملف المستودع الحالي — قد يكون في فرع آخر (المرحلة 1)">📭 غائب</span>` : "") + (r.wasLinked ? `<span class="lost-tag" title="غائب رغم كود سابق محفوظ يدوياً — رابط يدوي ضائع، أولوية إعادة ربط">🔗 سبق ربطه</span>` : "");
 const priceCell = (z, w) => `<span dir="ltr">${priceInt(z) ?? "—"} / ${priceInt(w) ?? "—"}</span>${priceBadge(z, w)}`;
 const reasonText = b => [b.sizeM ? "مقاس✓" : "", b.priceM ? "سعر✓" : "", b.sim >= 0.5 ? "اسم " + Math.round(b.sim * 100) + "٪" : "", b.aliasHit ? "زوج معروف" : ""].filter(Boolean).join(" · ");
 
@@ -2718,15 +2723,15 @@ async function undoWaitDecision(rawSku, skuN) { try { await unmarkWaiting(rawSku
 async function undoIgnoreDecision(rawSku, skuN) { try { await dbDelIgnored(rawSku, skuN); } catch { return; } refreshUnmatchedUI(); renderFingerprint(); }
 
 // شريط الحالة (لاصق ومعتم): عدّادات الحالة + ثقة «يحتاج قرار» + فلتر «سبق ربطه» + اعتماد جماعي
-function unifiedBar(g, y, r, p, m, ig) {
-  const need = g + y + r, lost = batchData.lostCount || 0;
+function unifiedBar(needN, g, y, r, absentN, p, m, ig) {
+  const lost = batchData.lostCount || 0;   // «سبق ربطه» = روابط يدوية ضائعة (غائب + كود يدوي محفوظ) — صار مقيّداً ومعقولاً
   return `<div class="uni-bar">
     <div class="uni-counts">
-      <b class="uni-need">🆕 يحتاج قرار ${need}</b> <span class="uni-conf">${DOT_OK} ${g} · ${DOT_MID} ${y} · ${DOT_BAD} ${r}</span>
-      <span class="uni-sep">·</span> <span class="uni-st">⚠ سيُصفَّر ${p}</span> · <span class="uni-st">✓ مُدار ${m}</span> · <span class="uni-st">✕ متجاهَل ${ig}</span>${lost ? ` · <span class="lost-count">🔗 سبق ربطه ${lost}</span>` : ""}
+      <b class="uni-need">🆕 يحتاج قرار ${needN}</b> <span class="uni-conf">${DOT_OK} ${g} · ${DOT_MID} ${y} · ${DOT_BAD} ${r}</span>
+      <span class="uni-sep">·</span> <span class="uni-st">📭 غائب ${absentN}</span> · <span class="uni-st">⚠ سيُصفَّر ${p}</span> · <span class="uni-st">✓ مُدار ${m}</span> · <span class="uni-st">✕ متجاهَل ${ig}</span>${lost ? ` · <span class="lost-count">🔗 سبق ربطه ${lost}</span>` : ""}
     </div>
     <div class="uni-actions">
-      ${lost ? `<button class="mc-btn ${batchLostOnly ? "on-lost" : ""}" onclick="toggleLostOnly()" title="روابط يدوية ضائعة — أولى بإعادة الربط">${batchLostOnly ? "✓ سبق ربطه فقط" : "🔗 المفقودة فقط"}</button>` : ""}
+      ${lost ? `<button class="mc-btn ${batchLostOnly ? "on-lost" : ""}" onclick="toggleLostOnly()" title="روابط يدوية ضائعة (غائبة رغم كود يدوي محفوظ) — أولى بإعادة الربط">${batchLostOnly ? "✓ سبق ربطه فقط" : "🔗 المفقودة فقط"}</button>` : ""}
       <button class="btn-run sm" onclick="acceptUnified('green')">✓ اعتماد المؤكد</button>
       <button class="mc-btn" onclick="acceptUnified('all')">✓ اعتماد كل المحدد</button>
       <button class="mc-btn" onclick="undoLastBatch()" ${lastBatchUndo ? "" : "disabled"}>↩ تراجع${lastBatchUndo ? ` (${lastBatchUndo.count})` : ""}</button>
@@ -2752,13 +2757,19 @@ function renderUnifiedList(title, wrap) {
   const managed = raw0.filter(u => isW(u) && curQtyNum(u.qty) === 0);
   const ignored = raw0.filter(u => ignoredSet.has(normCode(u.skuN)));
   title.style.display = "none";   // العنوان القديم يُستبدل بشريط الحالة اللاصق
-  // بطاقات «يحتاج قرار» بترتيب الثقة (green→yellow→red؛ «سبق ربطه» أولاً داخل كلٍّ من analyzeBatch)
+  // ترتيب: «يحتاج قرار» (غير الغائب، بترتيب الثقة green→yellow→red) ثم «غائب» ثم المُقرَّرة
   batchRowByUid = {}; btUidSeq = 0;
   const g = btFilter(batchData.green), y = btFilter(batchData.yellow), r = btFilter(batchData.red);
-  const full = [...g.map(x => batchCardHTML(x, "bt-g", "")), ...y.map(x => batchCardHTML(x, "bt-y", "")), ...r.map(x => batchCardHTML(x, "bt-rd", ""))];
+  const mk = (arr, cls, absent) => arr.filter(x => !!x.isAbsent === absent).map(x => batchCardHTML(x, cls, ""));
+  const needCards = [...mk(g, "bt-g", false), ...mk(y, "bt-y", false), ...mk(r, "bt-rd", false)];
+  const absCards = [...mk(g, "bt-g", true), ...mk(y, "bt-y", true), ...mk(r, "bt-rd", true)];
+  const gN = g.filter(x => !x.isAbsent).length, yN = y.filter(x => !x.isAbsent).length, rN = r.filter(x => !x.isAbsent).length;
   const light = [...pending.map(u => unifiedLightRow(u, "pending")), ...managed.map(u => unifiedLightRow(u, "managed")), ...ignored.map(u => unifiedLightRow(u, "ignored"))];
-  const allRows = [...full, ...light];
-  wrap.innerHTML = unifiedBar(g.length, y.length, r.length, pending.length, managed.length, ignored.length)
+  const rows = [...needCards];
+  if (absCards.length) { rows.push(`<div class="uni-sec">📭 غائب عن ملف المستودع (${absCards.length}) — لها كود سابق وغائبة عن الملف الحالي (قد تكون في فرع آخر)</div>`, ...absCards); }
+  if (light.length) { rows.push(`<div class="uni-sec">قرارات سابقة (سيُصفَّر · مُدار · متجاهَل)</div>`, ...light); }
+  const allRows = rows;
+  wrap.innerHTML = unifiedBar(needCards.length, gN, yN, rN, absCards.length, pending.length, managed.length, ignored.length)
     + `<div class="mcards uni-list" id="unBody"></div>`;
   const host = document.getElementById("unBody");
   cancelAnimationFrame(unifiedRAF); unifiedPending = null;
