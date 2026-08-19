@@ -1219,10 +1219,12 @@
     <div class="stats">
       <button type="button" class="stat" data-filter="updated" aria-pressed="false" onclick="selectCard('updated')"><span class="stat-ic">✅</span><b class="ok-txt" id="sUpd">0</b><span class="stat-lbl">تم تحديثه</span></button>
       <button type="button" class="stat stat-wide" data-filter="unmatched" aria-pressed="true" onclick="selectCard('unmatched')"><span class="stat-ic">🔶</span><b class="amber-txt" id="sUn">0</b><span class="stat-lbl">بدون ربط</span><span class="stat-sub" id="sUnSub"></span></button>
+      <!-- عدّاد عرض (لا فلتر): «غائب» فئة مستقلّة تُرى ضمن القائمة الموحّدة — النقر يفتحها. بلا data-filter كي لا يتزامن توهّجه مع «بدون ربط» -->
+      <button type="button" class="stat" aria-pressed="false" onclick="selectCard('unmatched')" title="أصناف لها كود سابق وغائبة عن ملف المستودع الحالي (فروع المرحلة 1) — اضغط لعرضها في القائمة"><span class="stat-ic">📭</span><b class="amber-txt" id="sAbsent">0</b><span class="stat-lbl">غائب عن الملف</span></button>
       <button type="button" class="stat" data-filter="infinite" aria-pressed="false" onclick="selectCard('infinite')"><span class="stat-ic">∞</span><b class="info-txt" id="sInf">0</b><span class="stat-lbl">غير محدود بلا مطابقة</span></button>
       <button type="button" class="stat" data-filter="explorer" aria-pressed="false" onclick="selectCard('explorer')"><span class="stat-ic">📚</span><b class="text-txt" id="sTot">0</b><span class="stat-lbl">إجمالي الأسطر — مستكشف</span></button>
-      <!-- مقصودة: بطاقتا «جديد» و«غائب» دُمجتا في «بدون ربط» والمستكشف، وهذه العناصر تبقى مخفية ليكتب فيها updateNewCount/renderDetail بلا فحص وجود — لا تحذفها -->
-      <b id="sNew" hidden>0</b><span id="sAbsentLbl" hidden></span><b id="sAbsent" hidden>0</b>
+      <!-- مقصودة: «جديد» مدمج في «بدون ربط»، وهذه تبقى مخفية ليكتب فيها updateNewCount بلا فحص وجود — لا تحذفها -->
+      <b id="sNew" hidden>0</b><span id="sAbsentLbl" hidden></span>
     </div>
     <p class="stats-hint">اضغط أي بطاقة لعرض تفاصيلها في الجدول بالأسفل</p>
     <!-- ③  مركز التنبيهات — مرتّب بالأهمية -->
@@ -1556,7 +1558,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "76bc10b";
+const APP_VERSION = "dfcaedc";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2769,6 +2771,7 @@ function renderUnifiedList(title, wrap) {
   if (absCards.length) { rows.push(`<div class="uni-sec">📭 غائب عن ملف المستودع (${absCards.length}) — لها كود سابق وغائبة عن الملف الحالي (قد تكون في فرع آخر)</div>`, ...absCards); }
   if (light.length) { rows.push(`<div class="uni-sec">قرارات سابقة (سيُصفَّر · مُدار · متجاهَل)</div>`, ...light); }
   const allRows = rows;
+  const sa = document.getElementById("sAbsent"); if (sa) sa.textContent = batchData.absentCount || 0;   // البطاقة العلوية = نفس مصدر الشريط
   wrap.innerHTML = unifiedBar(needCards.length, gN, yN, rN, absCards.length, pending.length, managed.length, ignored.length)
     + `<div class="mcards uni-list" id="unBody"></div>`;
   const host = document.getElementById("unBody");
