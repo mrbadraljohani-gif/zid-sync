@@ -271,6 +271,9 @@
   .stc-fig b { font-size: 20px; font-weight: 800; font-family: var(--serif); line-height: 1.1; color: var(--green-2); }
   .stc-fig span { font-size: 11px; color: var(--muted); font-weight: 600; white-space: nowrap; }
   .stc-empty { font-size: 12.5px; color: var(--muted-2); }
+  .stc-stale { margin-top: 10px; font-size: 11.5px; font-weight: 700; line-height: 1.6; color: var(--amber);
+    padding: 7px 10px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--amber-tint) 55%, transparent);
+    background: color-mix(in srgb, var(--amber) 10%, transparent); }
   /* KPI: أربعة على سطح المكتب · عمودان على الجوال */
   .kpi-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
   @media (max-width: 860px) { .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -949,7 +952,6 @@
   .action-center .col-warn { border-inline-start: 4px solid var(--danger); }
   .action-center .alert-new { border-inline-start: 4px solid var(--gold); margin-bottom: 0; }
   .action-center .sc-info { border-inline-start: 4px solid var(--amber); }
-  .action-center .zid-stale-warn { border-inline-start: 4px solid var(--gold-2); margin-bottom: 0; }
   .action-center .vg-info { border-inline-start: 4px solid var(--info); }
   .action-center .pp-info { border-inline-start: 4px solid var(--green); }
   .action-center .reactivated-msg { border-inline-start: 4px solid var(--green); }
@@ -1187,8 +1189,6 @@
     <!-- تصادم الأكواد · بدون ربط · أب/خيار: انتقلت إلى «المخزون ← ١ يحتاج انتباهك» (نقل لا نسخ) -->
     <div class="action-center">
       <div id="saleConflictMsg" style="display:none"></div>
-      <div id="zidStaleWarn" class="zid-stale-warn" style="display:none"></div>
-      <div id="parentPublishMsg" style="display:none"></div>
       <div id="reactivatedMsg" class="reactivated-msg" style="display:none"></div>
     </div>
     <!-- ④  الملفات (الفعل الختامي) -->
@@ -1253,6 +1253,7 @@
       <div id="collisionWarn" style="display:none"></div>
       <div id="newAlert" class="alert-new" style="display:none" onclick="invStartBatch()"></div>
       <div id="variantInfo" style="display:none"></div>
+      <div id="parentPublishMsg" style="display:none"></div>   <!-- نُقل من الرئيسية (٢-أ): لوحة «نشر مُنقَل إلى الأب» — renderParentPublish يجدها بالمعرّف أينما كانت -->
     </div>
 
     <div class="section-head"><span class="n">٢</span><h2>المخزن الموحّد</h2><span class="line"></span></div>
@@ -1513,7 +1514,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "f02633d";
+const APP_VERSION = "324f0ef";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2061,17 +2062,24 @@ function renderInventoryAttention() {
   }));
 
   // ④ ملخّص الملفّين — lastRunSummary (يُملأ في نهاية run فقط)
+  // (٢-ب) وُسِّعت لتكون الملخّص الكامل في المخزون (السطر الأخضر يبقى في الرئيسية ملاصقاً للأزرار — لا سطر مكرّر منقول)
   const s = lastRunSummary;
   const figs = [];
   if (s) {
     figs.push(["ملف الكميات", s.qtyCount], ["ملف الأسعار", s.priceCount]);
+    if (s.republishCount) figs.push(["إعادة نشر", s.republishCount]);
+    if (s.zeroLowCount) figs.push(["صُفّر (قيمة)", s.zeroLowCount]);
+    if (s.autoUnpubCount) figs.push(["إخفاء تلقائي", s.autoUnpubCount]);
     if (s.distItemCount) figs.push(["موزّع الكمية", s.distItemCount], ["في كود", s.distGroupCount]);
     if (s.noChangeDropped) figs.push(["بلا تغيير", s.noChangeDropped]);
   }
+  // ⚠ بيانات زد قديمة — تُقرأ حيّةً (zidIsStale) لا مُلتقَطة، فتعكس المرور الفعلي للوقت
+  const staleNote = (s && typeof zidIsStale === "function" && zidIsStale() && zidSyncedAt != null)
+    ? `<div class="stc-stale">⚠ بيانات زد قديمة (${esc(ageText(zidSyncedAt))}) — يُنصح بتصدير جديد قبل اعتماد الرفع</div>` : "";
   cards.push(statusCard({
     status: "success", icon: ICO.files, title: "ملخّص الملفّين",
     body: s
-      ? `<div class="stc-figs">${figs.map(([l, v]) => `<span class="stc-fig"><b><bdi>${esc(String(v))}</bdi></b><span>${esc(l)}</span></span>`).join("")}</div>`
+      ? `<div class="stc-figs">${figs.map(([l, v]) => `<span class="stc-fig"><b><bdi>${esc(String(v))}</bdi></b><span>${esc(l)}</span></span>`).join("")}</div>${staleNote}`
       : `<div class="stc-empty">شغّل «طابق وأنشئ» لعرض ملخّص الملفّين.</div>`,
   }));
 
@@ -4076,7 +4084,7 @@ function run(reprocess) {
     document.getElementById("qtyN").textContent = qtyCount;
     document.getElementById("priceN").textContent = priceCount;
     // التقاط الأرقام نفسها المعروضة أعلاه (بلا إعادة حساب) لتقرأها صفحة المخزون
-    lastRunSummary = { qtyCount, priceCount, distItemCount, distGroupCount, noChangeDropped };
+    lastRunSummary = { qtyCount, priceCount, distItemCount, distGroupCount, noChangeDropped, republishCount, zeroLowCount, autoUnpubCount: lastAutoUnpubSimple.length + lastAutoUnpubParents.length };   // (٢-ب) وُسِّع لتحمل بطاقة المخزون كامل الملخّص — التقاط حالة بحت (نفس الأرقام المكتوبة في السطر الأخضر، بلا إعادة حساب)
 
     if (vq.ok && vp.ok) {
       vm.className = "verify-ok"; vm.style.display = "block";
@@ -4156,11 +4164,7 @@ function renderZidFreshness() {
     if (invMeta) { const a = invMeta.wh_synced_at ? Date.parse(invMeta.wh_synced_at) : 0, b = invMeta.branch_synced_at ? Date.parse(invMeta.branch_synced_at) : 0, mx = Math.max(a, b); if (mx > 0) ms = mx; }
     rsInv.innerHTML = ms != null ? `· المخزن: <b>${ageText(ms)}</b>` : (mergeWh ? `· المخزن: <b>الآن</b>` : "");
   }
-  const bar = document.getElementById("zidStaleWarn");
-  if (bar) {
-    if (zidIsStale()) { bar.style.display = "block"; bar.innerHTML = `⚠ بيانات زد قديمة (${ageText(zidSyncedAt)}) — الكميات قد تكون تغيّرت بالمبيعات في زد. يُنصح بتصدير جديد من زد ورفعه («🔄 تحديث من ملف تصدير جديد») قبل اعتماد ملفات الرفع.`; }
-    else { bar.style.display = "none"; bar.innerHTML = ""; }
-  }
+  // (١-ب) أُزيل بانر «⚠ بيانات زد قديمة» المستقلّ من الرئيسية — التحذير يبقى مدمجاً في سطر الملخّص (.vm-stale أدناه)
   // كرِّر التحذير في سطر التأكيد الأخضر (شريط التنزيل النهائي)
   const vm = document.getElementById("verifyMsg");
   if (vm && /verify-ok/.test(vm.className) && zidIsStale()) vm.innerHTML = esc(vm.textContent) + ` <span class="vm-stale">· ⚠ بيانات زد قديمة (${ageText(zidSyncedAt)})</span>`;
