@@ -30,6 +30,10 @@ jobs:
         run: node tests/b3-run-regression.mjs --broken
       - name: Batch (ج البند ٣) run() structural regression
         run: node tests/b3-run-regression.mjs
+      - name: Self-check — حارس التوكنات يرسب على var(--X) لتوكن غير معرّف
+        run: node tests/token-defs.mjs --broken
+      - name: توكنات — لا var(--X) بلا fallback لتوكن غير معرّف (سقوط صامت)
+        run: node tests/token-defs.mjs
       - name: Self-check — حارس الزجاج يرسب على backdrop-filter مصطنع في صفّ قائمة
         run: node tests/glass-rows.mjs --broken
       - name: §٢ الزجاج — لا تسرّب backdrop-filter إلى صفوف القائمة الموحّدة
