@@ -57,8 +57,8 @@
     margin: 0;
     padding: 0;
     background:
-      radial-gradient(1100px 560px at 85% -8%, rgba(230,197,111,.14), transparent 58%),
-      radial-gradient(900px 520px at -5% 5%, rgba(201,154,60,.10), transparent 55%),
+      radial-gradient(1100px 560px at 85% -8%, color-mix(in srgb, var(--gold) 9%, transparent), transparent 58%),
+      radial-gradient(900px 520px at -5% 5%, color-mix(in srgb, var(--info) 8%, transparent), transparent 55%),
       var(--bg);
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
@@ -79,7 +79,7 @@
     background: linear-gradient(180deg, rgba(230,197,111,.06), transparent 60%), linear-gradient(var(--panel-2), var(--panel-2)), var(--bg);
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border); box-shadow: 0 10px 34px rgba(0,0,0,.34); }
-  .side-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; text-decoration: none; border-radius: 10px; }
+  .side-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; text-decoration: none; border-radius: 10px; color: var(--text); }
   .side-brand:hover .side-brand-txt span { color: var(--gold-2); }
   .side-brand-txt { display: flex; flex-direction: column; line-height: 1; transition: color .15s; }
   .side-brand-txt b { font-family: var(--serif); font-size: 19px; letter-spacing: .16em; background: linear-gradient(120deg, var(--gold-2), var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -176,7 +176,7 @@
   .notif-btn { font-size: 15px; line-height: 1; background: transparent; border: 1px solid var(--border-strong); color: var(--gold-2); border-radius: 10px; padding: 6px 10px; cursor: pointer; transition: all .15s; }
   .notif-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--panel); }
   .notif-panel { position: absolute; top: calc(100% + 8px); left: 0; right: auto; z-index: 60; width: 340px; max-width: 92vw; text-align: start;
-    background: #1c1810; border: 1px solid var(--border-strong); border-radius: 14px; padding: 10px; box-shadow: 0 18px 46px rgba(0,0,0,.5); }
+    background: var(--steel); border: 1px solid var(--border-strong); border-radius: 14px; padding: 10px; box-shadow: 0 18px 46px rgba(0,0,0,.5); }
   .notif-head { font-weight: 800; font-size: 13px; color: var(--gold-2); padding: 4px 6px 8px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
   /* سجل النشاط: شريط تمرير رفيع بألوان الثيم ＋ تلاشٍ سفلي يدلّ على محتوى إضافي.
      الحاوية .act-scroll تحمل التلاشي (::after ثابت) والقائمة بداخلها هي التي تمرّر. */
@@ -314,7 +314,7 @@
     box-shadow: inset 0 1px 0 rgba(255,255,255,.05); transition: border-color .25s ease, box-shadow .25s ease; }
   .brand:hover { border-color: var(--border-strong); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 8px 26px rgba(0,0,0,.3); }
   .brand .mark { width: 50px; height: 50px; border-radius: 50%; padding: 0; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
-    background: radial-gradient(circle at 34% 26%, #1e1a12, #14110c);
+    background: radial-gradient(circle at 34% 26%, var(--steel), var(--bg));
     box-shadow: 0 4px 16px rgba(0,0,0,.45), 0 0 0 1.5px rgba(230,197,111,.7), 0 0 0 4px rgba(230,197,111,.09);
     transition: box-shadow .25s ease, transform .25s ease; }
   .brand .mark:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.5), 0 0 0 1.5px rgba(230,197,111,.95), 0 0 0 5px rgba(230,197,111,.15); }
@@ -341,7 +341,7 @@
   .gh-dot.warn { background: var(--gold-2); }
   .gh-dot.fail { background: var(--danger); box-shadow: 0 0 0 3px rgba(229,144,135,.18); }
   .gh-panel { position: absolute; top: calc(100% + 8px); inset-inline-end: 0; z-index: 60; width: 330px; max-width: 88vw; text-align: start;
-    background: #1c1810; border: 1px solid var(--border-strong); border-radius: 14px; padding: 14px; box-shadow: 0 18px 46px rgba(0,0,0,.5); }
+    background: var(--steel); border: 1px solid var(--border-strong); border-radius: 14px; padding: 14px; box-shadow: 0 18px 46px rgba(0,0,0,.5); }
   .gh-panel .clabel { margin-bottom: 8px; }
   .gh-panel .hint { margin: 0 0 10px; }
   .gh-panel input { width: 100%; margin-bottom: 9px; }
@@ -357,16 +357,16 @@
   /* Hero banner */
   .hero { position: relative; border-radius: 24px; overflow: hidden; margin-bottom: 8px; border: 1px solid var(--border);
     background:
-      radial-gradient(680px 320px at 14% 22%, rgba(230,197,111,.16), transparent 62%),
-      linear-gradient(135deg, #1e1911, #14110c 55%, #100d09);
-    box-shadow: 0 22px 55px rgba(0,0,0,.4); }
+      radial-gradient(680px 320px at 14% 22%, color-mix(in srgb, var(--gold) 14%, transparent), transparent 62%),
+      linear-gradient(135deg, color-mix(in srgb, var(--gold) 7%, var(--steel)), var(--steel) 55%, var(--bg));
+    box-shadow: 0 22px 55px rgba(0,0,0,.5); }
   /* أُزيلت العلامة المائية العملاقة (مستودع ⇄ متجر) — كانت بشفافية .07/.10 وعرض 46%
      فتُقرأ كعنصر لم يُحمَّل بدل أن تُزيّن. */
   .hero-inner { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 30px; padding: 26px 32px; }
   .hero-content { min-width: 0; }
   .hero-logo { flex-shrink: 0; }
   .medallion { width: 154px; height: 154px; border-radius: 50%; padding: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
-    background: radial-gradient(circle at 34% 26%, #1e1a12, #14110c);
+    background: radial-gradient(circle at 34% 26%, var(--steel), var(--bg));
     box-shadow: 0 14px 42px rgba(0,0,0,.5), 0 0 0 2px rgba(230,197,111,.6), 0 0 46px rgba(230,197,111,.2); }
   .medallion img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.24) translateY(1.5%); filter: invert(1) hue-rotate(180deg); }
   .medallion svg { width: 100%; height: 100%; object-fit: contain; color: var(--gold-2); }
@@ -393,7 +393,7 @@
   /* شارة ترقيم واحدة لكل الصفحات: أقسام الرئيسية (.n) ومراحل صفحة التحديث (.stage-n).
      التدرّج الذهبي محفوظ على الاثنتين؛ النص يفتح في الوضع الفاتح لأن الذهبي يغمق فيه. */
   .section-head .n,
-  .stage-n { width: 28px; height: 28px; border-radius: 9px; background: linear-gradient(120deg, var(--gold-2), var(--gold)); border: 1px solid var(--border-strong); color: #1a160f; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .stage-n { width: 28px; height: 28px; border-radius: 9px; background: linear-gradient(120deg, var(--gold-2), var(--gold)); border: 1px solid var(--border-strong); color: #0a1622; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .section-head h2 { font-family: var(--serif); font-size: 19px; margin: 0; font-weight: 700; }
   .section-head .line { flex: 1; height: 1px; background: linear-gradient(to left, var(--border-strong), transparent); }
   .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin-bottom: 14px; }
@@ -466,9 +466,9 @@
   .mr-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 7px 13px; border-radius: 11px; border: 1px solid var(--border); background: var(--panel-2); min-width: 66px; flex: 1 1 auto; }
   .mr-num { font-size: 18px; font-weight: 800; color: var(--text); line-height: 1.1; }   /* كان var(--fg) وهو توكن غير معرّف */
   .mr-lbl { font-size: 10.5px; color: var(--muted); font-weight: 600; white-space: nowrap; }
-  .mr-cell.total { background: rgba(90,160,110,.15); border-color: rgba(90,160,110,.5); }
+  .mr-cell.total { background: color-mix(in srgb, var(--green) 15%, transparent); border-color: color-mix(in srgb, var(--green) 50%, transparent); }
   .mr-cell.total .mr-num, .mr-cell.shared .mr-num { color: var(--green-2); }   /* كان #8fce9f ثابتاً = 1.23:1 في الفاتح */
-  .mr-cell.shared { border-color: rgba(90,160,110,.35); }
+  .mr-cell.shared { border-color: color-mix(in srgb, var(--green) 35%, transparent); }
   .mr-cell.whonly { border-color: rgba(201,165,74,.42); } .mr-cell.whonly .mr-num { color: var(--gold-2); }
   .mr-cell.bronly { border-color: rgba(120,150,180,.42); } .mr-cell.bronly .mr-num { color: var(--info); }   /* كان #9db3cc ثابتاً = 1.44:1 في الفاتح */
   .mr-cell.src .mr-num { font-size: 13px; }
@@ -572,7 +572,7 @@
   .off-line { font-size: 11.5px; margin-top: 3px; color: var(--muted); }
   .off-badge { display: inline-block; padding: 1px 7px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--info); border: 1px solid color-mix(in srgb, var(--info) 26%, transparent); }
   .off-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 20px; }
-  .off-box { width: 420px; max-width: 92vw; background: #1c1810; border: 1px solid var(--border-strong); border-radius: 16px; padding: 18px; box-shadow: 0 24px 60px rgba(0,0,0,.55); text-align: start; }
+  .off-box { width: 420px; max-width: 92vw; background: var(--steel); border: 1px solid var(--border-strong); border-radius: 16px; padding: 18px; box-shadow: 0 24px 60px rgba(0,0,0,.55); text-align: start; }
   /* زرّ التحليل الذكي: يتميّز عن الأزرار الذهبية بلون --info من اللوحة لا بأزرق خارجها.
      النصّ داكن في الوضع الداكن (‏--info فاتح فيه) ويفتح في الفاتح عبر قاعدة .btn-run العامة. */
   .btn-run.sm.batch { background: var(--info); color: #0a1622; }
@@ -582,7 +582,7 @@
   .db-badge.ok { color: var(--green-2); border-color: rgba(90,160,110,.45); background: linear-gradient(180deg, rgba(90,160,110,.16), rgba(90,160,110,.05)); }
   .db-badge.off { color: var(--danger); border-color: rgba(200,90,90,.45); background: linear-gradient(180deg, rgba(200,90,90,.16), rgba(200,90,90,.05)); }
   .login-overlay { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(3px); }
-  .login-box { width: 380px; max-width: 94vw; background: #1c1810; border: 1px solid var(--border-strong); border-radius: 18px; padding: 26px 24px; box-shadow: 0 24px 60px rgba(0,0,0,.6); text-align: center; }
+  .login-box { width: 380px; max-width: 94vw; background: var(--steel); border: 1px solid var(--border-strong); border-radius: 18px; padding: 26px 24px; box-shadow: 0 24px 60px rgba(0,0,0,.6); text-align: center; }
   .login-mark { font-size: 40px; margin-bottom: 6px; }
   .login-title { font-family: var(--serif); font-size: 21px; font-weight: 700; color: var(--gold-2); }   /* 700 = أثقل وزن حقيقي في Amiri */
   .login-sub { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin: 8px 0 18px; }
@@ -609,7 +609,7 @@
   /* إلغاء تبييض التعبئة التلقائية (Chrome) لإبقاء هوية الثيم الداكن/الكريمي */
   .login-box input:-webkit-autofill, .login-box input:-webkit-autofill:hover, .login-box input:-webkit-autofill:focus,
   .signup-card input:-webkit-autofill, .signup-card input:-webkit-autofill:hover, .signup-card input:-webkit-autofill:focus {
-    -webkit-text-fill-color: var(--text); -webkit-box-shadow: 0 0 0 1000px #221d13 inset; caret-color: var(--text); transition: background-color 9999s ease; }
+    -webkit-text-fill-color: var(--text); -webkit-box-shadow: 0 0 0 1000px var(--steel) inset; caret-color: var(--text); transition: background-color 9999s ease; }
   /* شارة الدور ＋ segmented اختيار الصلاحية في «مستخدم جديد» */
   .role-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--gold-2); background: linear-gradient(180deg, rgba(230,197,111,.14), rgba(230,197,111,.05)); }
   .su-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden; }
@@ -806,7 +806,7 @@
   .exc-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px; font-size: 12.5px; color: var(--text); }
   .exc-undo { border: none; background: none; cursor: pointer; color: var(--gold-2); font-size: 15px; line-height: 1; padding: 0; }
   table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: fixed; }
-  th { text-align: right; padding: 12px; background: #1b1710; position: sticky; top: 0; z-index: 3; color: var(--gold-2); font-weight: 800; white-space: nowrap; box-shadow: inset 0 -1px 0 var(--border-strong); }
+  th { text-align: right; padding: 12px; background: var(--steel); position: sticky; top: 0; z-index: 3; color: var(--gold-2); font-weight: 800; white-space: nowrap; box-shadow: inset 0 -1px 0 var(--border-strong); }
   td { padding: 8px 12px; border-top: 1px solid var(--border); color: var(--text); vertical-align: top; word-wrap: break-word; overflow-wrap: anywhere; }
   .mono { font-family: ui-monospace, Consolas, monospace; direction: ltr; unicode-bidi: embed; }
   /* Smart suggestions */
@@ -866,7 +866,7 @@
   .opt-num { min-width: 0; width: 68px; padding: 6px 8px; font-size: 13px; text-align: center; }
   .dist-tag { cursor: help; font-size: 14px; }
   .from-merge { color: var(--green-2); font-weight: 800; }
-  .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px); z-index: 200; max-width: 90vw; padding: 12px 20px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: var(--text); background: #1c1810; border: 1px solid var(--border-strong); box-shadow: 0 14px 40px rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+  .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px); z-index: 200; max-width: 90vw; padding: 12px 20px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: var(--text); background: var(--steel); border: 1px solid var(--border-strong); box-shadow: 0 14px 40px rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .mc-btn.wait { border: 1px solid var(--border-strong); background: transparent; color: var(--gold-2); }
   .mc-btn.wait.on { background: color-mix(in srgb, var(--gold) 16%, transparent); }
@@ -880,7 +880,7 @@
   .alert-new { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 800; font-size: 14.5px; border-radius: 14px; padding: 14px 16px; margin-bottom: 16px;
     color: var(--amber); background: linear-gradient(135deg, color-mix(in srgb, var(--amber) 10%, transparent), color-mix(in srgb, var(--amber) 5%, transparent)); border: 1px solid color-mix(in srgb, var(--amber-tint) 62%, transparent); transition: all .15s; }
   .alert-new:hover { border-color: var(--amber-tint); transform: translateY(-1px); box-shadow: 0 8px 22px color-mix(in srgb, var(--amber-tint) 20%, transparent); }
-  .verify-ok { margin-top: 10px; color: var(--green-2); background: rgba(123,168,132,.12); border: 1px solid rgba(123,168,132,.35); border-radius: 10px; padding: 11px 14px; font-size: 13.5px; font-weight: 700; }
+  .verify-ok { margin-top: 10px; color: var(--green); background: color-mix(in srgb, var(--green) 12%, transparent); border: 1px solid color-mix(in srgb, var(--green) 35%, transparent); border-radius: 10px; padding: 11px 14px; font-size: 13.5px; font-weight: 700; }
   .verify-fail { margin-top: 10px; color: var(--danger); background: rgba(229,144,135,.12); border: 1px solid rgba(229,144,135,.45); border-radius: 10px; padding: 11px 14px; font-size: 13.5px; font-weight: 700; }
 
   /* ===== داشبورد النتيجة — أربع طبقات بهرمية بصرية ===== */
@@ -920,7 +920,7 @@
   .uni-sec { grid-column: 1 / -1; margin: 14px 2px 4px; padding: 7px 12px; border-radius: 9px; font-size: 12.5px; font-weight: 800; color: var(--muted); background: var(--panel); border: 1px dashed var(--border-strong); }
   .exp-chip { font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid var(--border-strong); background: rgba(255,255,255,.03); color: var(--muted); border-radius: 999px; padding: 5px 11px; transition: all .12s; white-space: nowrap; }
   .exp-chip:hover { color: var(--text); border-color: var(--gold-2); }
-  .exp-chip.on { background: var(--gold); color: #2a2100; border-color: var(--gold); }
+  .exp-chip.on { background: var(--gold); color: #0a1622; border-color: var(--gold); }
   .exp-chip.zero-btn { margin-inline-start: auto; border-color: rgba(107,147,192,.6); color: var(--info); background: rgba(107,147,192,.08); }
   .exp-chip.zero-btn:hover { border-color: var(--info); }
   .un-note { margin-inline-start: auto; font-size: 11px; font-weight: 700; color: var(--muted-2); cursor: help; }
@@ -951,8 +951,8 @@
   #verifyMsg.verify-ok, #verifyMsg.verify-fail { margin-top: 0; margin-bottom: 12px; }
   .dl-row { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 2px; }
   .dl-card { flex: 1 1 320px; display: flex; align-items: center; gap: 13px; text-decoration: none; padding: 14px 16px; border-radius: 14px; min-width: 0;
-    background: linear-gradient(180deg, rgba(123,168,132,.16), rgba(123,168,132,.06)); border: 1px solid rgba(123,168,132,.4); color: var(--text); cursor: pointer; transition: transform .15s, box-shadow .15s; }
-  .dl-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(123,168,132,.3); }
+    background: linear-gradient(180deg, color-mix(in srgb, var(--green) 16%, transparent), color-mix(in srgb, var(--green) 6%, transparent)); border: 1px solid color-mix(in srgb, var(--green) 40%, transparent); color: var(--text); cursor: pointer; transition: transform .15s, box-shadow .15s; }
+  .dl-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px color-mix(in srgb, var(--green) 30%, transparent); }
   .dl-card.disabled { opacity: .45; pointer-events: none; filter: grayscale(.45); }
   .dl-ic { font-size: 22px; color: var(--green-2); flex-shrink: 0; }
   .dl-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; text-align: start; }
@@ -1020,7 +1020,7 @@
   .q-chip.src-wh { color: var(--gold-2); border-color: rgba(230,197,111,.45); background: rgba(230,197,111,.10); }
   .q-chip.src-br { color: var(--info); border-color: rgba(140,170,200,.45); background: rgba(140,170,200,.10); }
   .q-chip.src-both { color: var(--green-2); border-color: rgba(143,191,152,.45); background: rgba(143,191,152,.10); }
-  .q-chip.pub-yes { color: var(--green-2); border-color: rgba(143,191,152,.45); background: rgba(143,191,152,.10); }
+  .q-chip.pub-yes { color: var(--green); border-color: color-mix(in srgb, var(--green) 45%, transparent); background: color-mix(in srgb, var(--green) 10%, transparent); }
   .q-chip.pub-no { color: var(--danger); border-color: rgba(200,120,120,.45); background: rgba(200,120,120,.10); }
   .q-chip.parent { color: var(--info); border-color: rgba(180,140,220,.45); background: rgba(180,140,220,.10); }
   @media (max-width: 900px) { .query-row { grid-template-columns: 1fr; } }
@@ -1043,7 +1043,7 @@
   .fingerprint b { color: var(--gold-2); }
   .fingerprint .mono { font-family: ui-monospace, Consolas, monospace; color: var(--gold-2); }
   .fp-warn { font-size: 13px; font-weight: 700; color: var(--gold-2); background: rgba(230,197,111,.12); border: 1px solid var(--border-strong); border-radius: 10px; padding: 11px 14px; margin-top: 18px; line-height: 1.7; }
-  .merge-summary { margin-top: 12px; font-size: 13.5px; font-weight: 700; color: var(--green-2); background: rgba(123,168,132,.12); border: 1px solid rgba(123,168,132,.35); border-radius: 10px; padding: 10px 14px; }
+  .merge-summary { margin-top: 12px; font-size: 13.5px; font-weight: 700; color: var(--green); background: color-mix(in srgb, var(--green) 12%, transparent); border: 1px solid color-mix(in srgb, var(--green) 35%, transparent); border-radius: 10px; padding: 10px 14px; }
   /* قسم النتائج يملأ عرض الحاوية الكامل (حتى 1320px) ويبقى متمركزاً */
   #result { display: none; }
 </style>
@@ -1475,7 +1475,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "831c299";
+const APP_VERSION = "cfcc5ba";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
