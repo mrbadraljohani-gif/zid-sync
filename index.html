@@ -162,9 +162,10 @@
   /* المرحلة 4: شريط الجاهزية في الرئيسية (3 بطاقات) ＋ سطر ميتا تحت بطاقات الرفع */
   .ready-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 8px; }
   @media (max-width: 760px) { .ready-bar { grid-template-columns: 1fr; } }
-  .ready-card { display: flex; flex-direction: column; gap: 5px; padding: 13px 15px; border-radius: 13px; border: 1px solid color-mix(in srgb, var(--frost) 30%, transparent);
+  /* --frost غير معرّف (كان يسقط إلى currentColor = أبيض صارخ) — لون frost هو --muted (#8C9CBE) */
+  .ready-card { display: flex; flex-direction: column; gap: 5px; padding: 13px 15px; border-radius: 13px; border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent);
     background: linear-gradient(180deg, var(--panel-2), var(--panel)); }
-  .ready-card.off { border-style: dashed; border-color: color-mix(in srgb, var(--frost) 24%, transparent); opacity: .82; }   /* «غير مستخدم» — مرئي لكن أخفت من النشط (30%) */
+  .ready-card.off { border-style: dashed; border-color: color-mix(in srgb, var(--muted) 50%, transparent); opacity: .82; }   /* «غير مستخدم» — حدّ إفلات ملف: frost متقطّع مرئي، لا أبيض */
   .ready-card.stale { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, transparent); }
   .rc-head { font-size: 13.5px; font-weight: 800; color: var(--gold-2); }
   .rc-info { font-size: 12.5px; color: var(--muted); font-weight: 600; }
@@ -716,7 +717,7 @@
   .mcards-head .mh-act { flex: 0 0 auto; min-width: 118px; text-align: center; }
   @media (max-width: 720px) { .mcards-head { display: none; } }
   .mcards { display: flex; flex-direction: column; gap: 12px; padding: 2px; }
-  .mcard { display: flex; align-items: stretch; gap: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; transition: opacity .25s ease, transform .25s ease, border-color .15s; }
+  .mcard { display: flex; align-items: stretch; gap: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; min-width: 0; transition: opacity .25s ease, transform .25s ease, border-color .15s; }   /* min-width:0: عنصر flex في .mcards — بدونه ينتفخ بأعرض محتوى (صفّ الأزرار nowrap) فيتجاوز الحاوية */
   .mcard.zrow { background: color-mix(in srgb, var(--info) 5%, transparent); }
   .mcard.variant { border-inline-start: 3px solid var(--gold); background: color-mix(in srgb, var(--gold) 6%, transparent); }
   .mcard.bound { opacity: .55; }
@@ -761,8 +762,8 @@
     .mcard { flex-wrap: wrap; }
     .mc-mid { border-inline: none; border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border); width: 100%; flex-direction: row; padding: 8px 0; }
     .mc-zid, .mc-wh { flex-basis: 100%; }
-    .mc-actions { flex-direction: row; flex-basis: 100%; }
-    .mc-btn { flex: 1; }
+    .mc-actions { flex-direction: row; flex-wrap: wrap; flex-basis: 100%; }   /* wrap: عند ضيق الشاشة تلتفّ الأزرار سطراً ثانياً بدل تجاوز حافّة البطاقة */
+    .mc-btn { flex: 1 1 auto; min-width: 0; }
     .mc-wh-empty { display: none; }
   }
   .row-warn td { background: color-mix(in srgb, var(--danger) 10%, transparent); }
@@ -1540,7 +1541,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "0082633";
+const APP_VERSION = "1c1e73d";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
