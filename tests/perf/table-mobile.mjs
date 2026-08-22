@@ -17,7 +17,8 @@ const html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "ut
 function findChrome() { const c = ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", process.env.CHROME_PATH || "", "/usr/bin/google-chrome-stable", "/usr/bin/google-chrome"]; for (const x of c) if (x && existsSync(x)) return x; for (const n of ["google-chrome-stable", "google-chrome", "chromium"]) try { return execFileSync("bash", ["-lc", "command -v " + n]).toString().trim(); } catch {} return ""; }
 const browser = await puppeteer.launch({ executablePath: findChrome(), headless: "new", args: ["--no-sandbox"] });
 const fails = [];
-for (const w of [360, 390]) {
+// عروض متعدّدة — العطل يظهر عند كل عرض لا يتّسع للأعمدة، لا الجوال وحده (اللقطة كانت ~840px)
+for (const w of [360, 390, 768, 900]) {
   const page = await browser.newPage();
   await page.setViewport({ width: w, height: 900, deviceScaleFactor: 1 });
   await page.setRequestInterception(true);
@@ -41,7 +42,8 @@ for (const w of [360, 390]) {
   });
   if (res.noTable) { fails.push(`@${w}px: تعذّر رسم جدول «تم تحديثه»`); }
   else {
-    const bad = res.maxRowH > 120 || res.minCellW < 40;
+    // العتبة: الانكسار الحرفي يعطي خلية ~36px وصفّاً 478px+؛ الالتفاف الكلمي المشروع (اسم طويل في عمود محدود) ≤~180px
+    const bad = res.maxRowH > 260 || res.minCellW < 40;
     if (bad) fails.push(`@${w}px: أقصى ارتفاع صفّ=${res.maxRowH}px · أضيق خلية=${res.minCellW}px (انكسار حرفي)`);
     else console.log(`✓ @${w}px «تم تحديثه»: أقصى صفّ ${res.maxRowH}px · أضيق خلية ${res.minCellW}px`);
   }
@@ -49,4 +51,4 @@ for (const w of [360, 390]) {
 }
 await browser.close();
 if (fails.length) { console.error("✗ انكسار جدول على الجوال:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ جداول الجوال — لا انكسار حرفي (صفوف ≤120px، خلايا ≥40px) @360/390.");
+console.log("✅ «تم تحديثه» — لا انكسار حرفي (صفوف ≤260px، خلايا ≥40px) عبر 360/390/768/900.");
