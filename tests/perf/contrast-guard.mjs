@@ -123,12 +123,17 @@ const port = server.address().port;
 const browser = await puppeteer.launch({ executablePath: exe, headless: "new", args: ["--no-sandbox", "--disable-gpu"] });
 const fails = [];
 try {
-  // مشاهد: (home=نتيجة) · (inventory) · (options) · (login overlay)
+  // مشاهد موسّعة — تغطّي المناطق التي تعيش فيها القيم المثبّتة الـ257 فعلاً
   const SCENES = [
-    { id: "home", go: "home" },
-    { id: "inventory", go: "inventory" },
-    { id: "options", go: "options" },
-    { id: "login", login: true },
+    { id: "home", prep: "goPage('home')" },                                                    // نتيجة: KPI · شريط موحّد · بطاقات كاملة · صفوف خفيفة · تنبيهات
+    { id: "updated", prep: "goPage('home'); currentFilter='updated'; renderDetail();" },          // جدول «تم تحديثه» + شاراته (pub/reap/zero)
+    { id: "explorer", prep: "goPage('home'); currentFilter='explorer'; renderDetail();" },        // المستكشف الشامل + شاراته + فلاتره
+    { id: "inventory", prep: "goPage('inventory')" },                                            // المخزون: بطاقات الحالة · الدمج · KPI · بصمة · سجل
+    { id: "options", prep: "goPage('options')" },
+    { id: "toast", prep: "goPage('home'); showToast('توست اختبار — رسالة تأكيد نسبياً طويلة لقياس التباين على خلفية التوست');" },
+    { id: "notif", prep: "goPage('home'); try{ toggleActivityPanel(); }catch(e){}" },             // لوحة الإشعارات المنبثقة
+    { id: "ghmenu", prep: "goPage('inventory'); try{ openGhMenu(); }catch(e){}" },                 // قائمة الحفظ في الريبو المنبثقة (في صفحة المخزون)
+    { id: "login", prep: "try{ showLogin&&showLogin(); }catch(e){}" },
   ];
   for (const w of WIDTHS) {
     for (const sc of SCENES) {
@@ -138,10 +143,9 @@ try {
       page.on("request", req => { const u = req.url(); if (u.startsWith("http://127.0.0.1:" + port)) return req.continue(); if (/^https?:/.test(u)) return req.abort(); req.continue(); });
       await page.goto("http://127.0.0.1:" + port + "/", { waitUntil: "load" });
       await page.evaluate(SETUP, CFG);
-      if (sc.login) { await page.evaluate(() => { try { showLogin && showLogin(); } catch (e) {} }); }
-      else { await page.evaluate(g => { try { goPage(g); } catch (e) {} }, sc.go); }
+      await page.evaluate(p => { try { (0, eval)(p); } catch (e) {} }, sc.prep);
       if (BROKEN && sc.id === "home") await page.evaluate(() => { const s = document.createElement("style"); s.textContent = ".mc-sub, .mc-sub b { color: #4b4b52 !important; }"; document.head.appendChild(s); });
-      await new Promise(r => setTimeout(r, 60));
+      await new Promise(r => setTimeout(r, 70));
       const bad = await page.evaluate(MEASURE);
       if (bad.length) { for (const b of bad) fails.push(`@${w}px [${sc.id}] «${b.t}» نسبة ${b.ratio}/${b.thr} · ${b.color} · ${b.cls}`); }
       console.log(`  @${w}px · ${sc.id} · مخالفات=${bad.length}`);
