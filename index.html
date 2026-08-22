@@ -558,7 +558,6 @@
   .dl-group { flex: 1 1 320px; }
   .dl-sub { font-size: 12px; color: var(--muted); margin: 7px 4px 0; text-align: center; line-height: 1.5; }
   .error { background: rgba(229,144,135,.12); color: var(--danger); border: 1px solid rgba(229,144,135,.28); padding: 11px 15px; border-radius: 10px; font-size: 13.5px; margin: 10px 0; display: none; }
-  .rebind-hint { background: rgba(230,197,111,.10); color: var(--gold-2); border: 1px solid var(--border-strong); border-radius: 10px; padding: 11px 15px; font-size: 13.5px; font-weight: 700; margin: 10px 0; }
   .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
   /* بطاقات الإحصاء أزرار حقيقية (قابلة للتركيز والتشغيل بلوحة المفاتيح) — إعادة ضبط مظهر الزرّ لتبقى كما كانت */
   .stat { text-align: center; flex: 1; min-width: 90px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 8px;
@@ -1125,7 +1124,6 @@
 
   <div class="section-head"><span class="n">٢</span><h2>طابق وأنشئ الملف المحدث</h2><span class="line"></span></div>
   <button class="btn-run" id="runBtn" disabled onclick="runFromDB()"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14-4.5L4 9"/><path d="M4 5v4h4"/><path d="M4 13a8 8 0 0 0 14 4.5L20 15"/><path d="M20 19v-4h-4"/></svg> طابق وأنشئ الملف المحدث</button>
-  <div class="rebind-hint" id="rebindHint" style="display:none">⟳ عدّلت الروابط بعد آخر مطابقة — اضغط «طابق وأنشئ الملف المحدث» ليشمل الملفُ التغييرات قبل التحميل.</div>
   <div class="error" id="err"></div>
 
   <div class="card" id="result">
@@ -1477,7 +1475,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "745c4df";
+const APP_VERSION = "831c299";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2218,7 +2216,6 @@ async function loadMappingsFromDB() {
     await loadMyRole();          // دور المستخدم الحالي (owner/admin/viewer) لتجميل الواجهة
     await loadInventoryMeta();    // المرحلة 4: ميتا المخزن (مستودع/فرع) لشريط الجاهزية وبطاقات التحديث
     routeFromHash();             // بعد معرفة الدور: افتح صفحة الـhash المطلوبة (يصحّح «مستخدم جديد» للمالك)
-    if (document.getElementById("result").style.display === "block") markDirty();
   } catch (e) { dbOnline = false; setDbBadge(false, e.message); setOfflineGate(); console.warn("DB load failed:", e); }
 }
 function setDbBadge(ok, extra) {
@@ -3680,7 +3677,6 @@ function run(reprocess) {
     if (zidDbAvailable()) { useZidFromDB(); return; }
     showErr("لا توجد بيانات زد للمطابقة — حدّث القاعدة من صفحة «🔄 تحديث قاعدة البيانات» (أو ارفع تصدير زد)."); return;
   }
-  document.getElementById("rebindHint").style.display = "none";   // أُعيدت المطابقة ⇒ الملف محدّث
   try {
     const whIndex = {};
     for (const r of whRows) {
@@ -4671,7 +4667,7 @@ async function unignore(i) {
   const u = lastIgnored[i];
   if (!u) return;
   try { await dbDelIgnored(u.sku, u.skuN); } catch { return; }   // قاعدة أولاً؛ فشل ⇒ لا تغيير
-  refreshUnmatchedUI();
+  run(true);   // يعكس إلغاء التجاهل في الملفّين فوراً (كان refreshUnmatchedUI يعيد الرسم فقط بلا إعادة بناء)
   renderFingerprint();
 }
 
@@ -4690,13 +4686,7 @@ function filterUnmatched() {
   });
 }
 
-// تحديث حالة الواجهة بعد نجاح كتابة القاعدة (manualMap/localStorage تُحدَّث داخل dbSet*)
-// تنبيه: تغيّرت الروابط بعد آخر مطابقة ⇒ الملف الحالي لا يعكسها حتى يُعاد التشغيل
-function markDirty() {
-  if (document.getElementById("result").style.display !== "block") return; // لا معنى له قبل أول مطابقة
-  const h = document.getElementById("rebindHint");
-  if (h) h.style.display = "block";
-}
+// (أُزيل بانر «عدّلت الروابط» ودالّة markDirty — كل مسارات القرار تستدعي run(true) فتُعيد بناء الملفّين فوراً؛ لا حاجة لتنبيه «قديم».)
 // إزالة صف بسلاسة دون إعادة ترتيب البقية (لا قفز للأعلى)
 
 
@@ -4824,7 +4814,7 @@ function renderPills() {
     .map(([s, c]) => `<span class="pill"><span class="mono">${s} → ${c}</span><button onclick="delMap('${s}')">×</button></span>`).join("");
   renderFingerprint();
 }
-async function delMap(s) { try { await dbDelMapping(s); } catch { return; } renderPills(); markDirty(); }
+async function delMap(s) { try { await dbDelMapping(s); } catch { return; } renderPills(); run(true); }   // run(true): يعكس حذف الرابط في الملفّين فوراً (كبقية القرارات — أزال آخر مسار لا يُعيد البناء)
 
 // بصمة الجلسة: تشخيص اختلاف النتائج بين الأجهزة (ملف مقابل محلي غير مصدَّر)
 function renderFingerprint() {

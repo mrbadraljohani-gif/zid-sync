@@ -88,11 +88,20 @@ function countsCfg() {
   };
 }
 
+// إصلاح البانر: صنف مربوط يدوياً (كوده الخاص ليس في المخزن) — حذف الرابط يجب أن يُخرجه من الملفّين فوراً
+function delmapCfg() {
+  return {
+    stData: { sheetName: "P", header: HEADER, rows: [HEADER, Z("MAP1", "3", "100")] },
+    whRows: [WH("WMAP", 9, 100)], lastMerge: merge(["WMAP"]), manualMap: { MAP1: "WMAP" },
+    waiting: [], ignored: [], history: [], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: false,
+  };
+}
+
 // دالّة داخل الصفحة: تهيّئ الحالة، تستدعي الخطاف+run (＋قرار اختياري)، وتُعيد القراءات (دفاعية للنسخ القديمة)
 async function inpage(cfg) {
   const mk = () => { const c = { select() { return c; }, upsert: async () => ({ error: null }), delete() { return c; }, insert: async () => ({ error: null }), eq: async () => ({ error: null }), in: async () => ({ error: null }), order() { return c; }, range: async () => ({ data: [], error: null }) }; return c; };
   try { sb = { from: mk, auth: { getSession: async () => ({ data: { session: null } }) } }; } catch (e) {}
-  try { dbOnline = true; } catch (e) {}
+  try { dbOnline = true; myRole = "owner"; } catch (e) {}
   // SheetJS محجوب (CDN) — بديل وهمي فقط لتوليد Blob في wireDl (نقارن الصفوف لا البايتات؛ بدونه يرمي wireDl فيُجهِض run قبل ضبط lastUpdated/lastUnmatchedRaw)
   window.XLSX = { utils: { aoa_to_sheet: () => ({}), book_new: () => ({}), book_append_sheet: () => {}, sheet_to_json: () => [] }, write: () => new Uint8Array(0), read: () => ({}) };
   stData = cfg.stData; whRows = cfg.whRows; lastMerge = cfg.lastMerge;
@@ -110,6 +119,9 @@ async function inpage(cfg) {
   try { run(false); snap = { upd: (lastUpdated || []).length, unm: (lastUnmatchedRaw || []).length, reap: (typeof reappearedSet !== "undefined" && reappearedSet ? reappearedSet.size : -1) }; } catch (e) { err = (err ? err + " | " : "") + "run:" + e; }
   if (cfg.decision && cfg.decision.type === "wait") {
     try { await applyDecision(() => markWaiting(cfg.decision.raw, cfg.decision.skuN, "")); } catch (e) { err = (err ? err + " | " : "") + "dec:" + e; }
+  }
+  if (cfg.decision && cfg.decision.type === "delmap") {
+    try { await delMap(cfg.decision.sku); } catch (e) { err = (err ? err + " | " : "") + "delmap:" + e; }
   }
   let countsProbe = null;
   if (cfg.countsProbe) {
@@ -235,6 +247,16 @@ try {
   const cpo = CCold.countsProbe || {};
   if (cpo.offN === cpo.onN && cpo.offA === cpo.onA) fails.push(`أسنان عطل٢: على 4f66288 لم يتغيّر العدّاد بالفلتر (${cpo.offN}/${cpo.onN}) — بلا أسنان`);
   notes.push(`أسنان عطل٢ (4f66288 قبل الإصلاح): يحتاج قرار ${cpo.offN}→${cpo.onN} · غائب ${cpo.offA}→${cpo.onA} (يتغيّر = العطل)`);
+
+  // ===== إصلاح البانر: حذف رابط ⇒ الملفّان يعكسانه فوراً (delMap → run(true)) =====
+  const DMb = await bootRead(browser, curHtml, delmapCfg());
+  const DMd = await bootRead(browser, curHtml, { ...delmapCfg(), decision: { type: "delmap", sku: "MAP1" } });
+  if (!(DMb.qtyOf.MAP1 === 9 || DMb.qtyOf.MAP1 === "9")) fails.push(`delMap خطّ أساس: MAP1 المربوط ليس في الكميات (=${DMb.qtyOf.MAP1})`);
+  if ("MAP1" in DMd.qtyOf) fails.push(`إصلاح البانر: بعد delMap بقي MAP1 في الكميات (=${DMd.qtyOf.MAP1}) — run(true) لم يعكس الحذف`);
+  notes.push(`delMap: قبل=${DMb.qtyOf.MAP1} · بعد=${"MAP1" in DMd.qtyOf ? DMd.qtyOf.MAP1 : "غائب(صحيح)"}`);
+  const DMo = await bootRead(browser, showAt("831c299"), { ...delmapCfg(), decision: { type: "delmap", sku: "MAP1" } });
+  if (!("MAP1" in DMo.qtyOf)) fails.push("أسنان delMap: على 831c299 اختفى MAP1 رغم markDirty (بلا run(true)) — بلا أسنان");
+  notes.push(`أسنان delMap (831c299): بعد delMap MAP1=${"MAP1" in DMo.qtyOf ? DMo.qtyOf.MAP1 : "غائب"} (يبقى = العطل القديم)`);
 
   // ===== ج-١ حياد: before(1a036f4، فيه isInf) == after(8bb0486) =====
   const before = await bootRead(browser, showAt("8bb0486^"), infCfg());
