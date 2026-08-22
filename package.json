@@ -18,7 +18,9 @@
     "test:missed:self": "node tests/b2-missed-rounds.mjs --broken",
     "test:runreg": "node tests/b3-run-regression.mjs",
     "test:runreg:self": "node tests/b3-run-regression.mjs --broken",
-    "test:behavior": "node tests/behavioral/run-behavior.mjs"
+    "test:behavior": "node tests/behavioral/run-behavior.mjs",
+    "test:contrast": "node tests/perf/contrast-guard.mjs",
+    "test:contrast:self": "node tests/perf/contrast-guard.mjs --broken"
   },
   "keywords": [],
   "author": "",

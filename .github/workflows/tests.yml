@@ -70,3 +70,7 @@ jobs:
         run: node tests/perf/progressive-search.mjs
       - name: Behavioral run() harness (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام · ٣+١ عودة + أسنان)
         run: node tests/behavioral/run-behavior.mjs
+      - name: Self-check — حارس التباين يرسب على نصّ منخفض التباين
+        run: node tests/perf/contrast-guard.mjs --broken
+      - name: Contrast guard WCAG 4.5:1 (مشاهد × 360/1200)
+        run: node tests/perf/contrast-guard.mjs
