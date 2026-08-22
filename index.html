@@ -26,6 +26,7 @@
     --panel-2: rgba(20,28,46,.75);
     --border: rgba(255,255,255,.07);        /* hair — كل الحدود */
     --border-strong: rgba(255,255,255,.14);
+    --hair: rgba(255,255,255,.12);          /* حافّة زجاجية تلتقط الضوء — §٢ الزجاج */
     --gold: #E0A458;        /* brass — الأساسي */
     --gold-2: #E0A458;      /* brass */
     --green: #4FD1B8;       /* verdigris — النجاح والتأكيد */
@@ -1051,6 +1052,38 @@
   .merge-summary { margin-top: 12px; font-size: 13.5px; font-weight: 700; color: var(--green); background: color-mix(in srgb, var(--green) 12%, transparent); border: 1px solid color-mix(in srgb, var(--green) 35%, transparent); border-radius: 10px; padding: 10px 14px; }
   /* قسم النتائج يملأ عرض الحاوية الكامل (حتى 1320px) ويبقى متمركزاً */
   #result { display: none; }
+
+  /* ═══ §٢ الزجاج — وصفة موحّدة (مصدر واحد) للحاويات الثابتة فقط ═══
+     تُطبَّق على: بطاقات الأقسام/النتيجة · القوائم المنسدلة · الحاويات الكبيرة.
+     ممنوعة صراحةً على: صفوف القائمة الموحّدة (.batch-card/.mcard — 300 صفّ × backdrop-filter تدهور مؤكّد)
+     والأشرطة اللاصقة (.uni-bar/.un-chips/.exp-bar/th — تبقى مصمتة؛ الزجاج طبقة فوق الخلفية المعتمة لا بديلها).
+     مُتأخّرة في المصدر لتغلب على الأساس؛ وحالات :hover/.active أعلى تخصّصاً فتبقى فوقها. */
+  .card, .notif-panel, .bt-results-float, .stat, .toast,
+  .login-box, .signup-card, .off-box {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    backdrop-filter: blur(24px) saturate(150%);
+    border: 1px solid var(--hair);
+    border-radius: 20px;
+    box-shadow: 0 24px 64px -18px rgba(0,0,0,.7);
+  }
+  /* الشريط العلوي: زجاج فوق topnav المعتم، مع الإبقاء على قبلة النحاس العلوية */
+  .tn-bar {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 6%, transparent), transparent 60%), var(--glass);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    backdrop-filter: blur(24px) saturate(150%);
+    border: 1px solid var(--hair);
+    box-shadow: 0 24px 64px -18px rgba(0,0,0,.7);
+  }
+  /* لمعة زجاجية علوية — على الأسطح الكبيرة المسطّحة فقط (لا القوائم المنسدلة الصغيرة/القابلة للتمرير،
+     ولا .stat لأن ::before فيها = شريط اللون العلوي). radius: inherit فتتبع الحافّة، pointer-events: none فلا تعترض. */
+  .card, .tn-bar, .login-box, .signup-card, .off-box { position: relative; }
+  .card::before, .tn-bar::before, .login-box::before, .signup-card::before, .off-box::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 0;
+    background: linear-gradient(160deg, rgba(255,255,255,.09), transparent 42%);
+  }
+  /* محتوى هذه الحاويات يعلو اللمعة */
+  .card > *, .tn-bar > *, .login-box > *, .signup-card > *, .off-box > * { position: relative; z-index: 1; }
 </style>
 </head>
 <body>
@@ -1480,7 +1513,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "e46ab23";
+const APP_VERSION = "f02633d";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
