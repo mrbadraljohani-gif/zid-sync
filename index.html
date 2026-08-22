@@ -1115,16 +1115,17 @@
   /* ═══ §٦ الشريط المتحرّك — أصناف «بدون ربط» (اسم · باركود · حالة) ═══
      transform فقط (لا left/margin) · نسختان + translateX(-50%) = التفاف سلس · mask تلاشٍ طرفي.
      يتوقّف: تحويم (سطح المكتب) · نقرة (mq-paused) · خارج الشاشة/تبويب مخفيّ (mq-suspend). */
-  .marquee { position: relative; overflow: hidden; margin: 4px 0 14px; border: 1px solid var(--hair); border-radius: 14px;
-    background: var(--panel-2);
-    -webkit-mask: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
-    mask: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); }
+  .marquee { margin: 12px 0 16px; padding: 9px 0 3px; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+  .mq-label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .02em; padding: 0 4px 8px; }
+  .mq-viewport { position: relative; overflow: hidden;
+    -webkit-mask: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+    mask: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
   .mq-track { display: flex; width: max-content; will-change: transform; animation: mq-slide 46s linear infinite; }
   @keyframes mq-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   .marquee:hover .mq-track, .marquee.mq-paused .mq-track, .marquee.mq-off .mq-track, .marquee.mq-hidden .mq-track { animation-play-state: paused; }
   .mq-set { display: flex; flex-shrink: 0; }
-  .mq-item { display: inline-flex; align-items: center; gap: 9px; padding: 9px 15px; background: transparent; border: none; border-inline-end: 1px solid var(--border); cursor: pointer; font-family: inherit; white-space: nowrap; color: var(--text); transition: background .15s; }
-  .mq-item:hover { background: rgba(255,255,255,.04); }
+  .mq-item { display: inline-flex; align-items: center; gap: 14px; padding: 8px 20px; background: transparent; border: none; border-inline-end: 1px solid var(--border); cursor: pointer; font-family: inherit; white-space: nowrap; color: var(--text); transition: background .15s; border-radius: 8px; }
+  .mq-item:hover { background: rgba(255,255,255,.05); }
   .mq-nm { font-size: 12.5px; font-weight: 700; max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .mq-bar { font-family: var(--mono); font-size: 11px; letter-spacing: .02em; color: var(--muted); direction: ltr; }
   @media (prefers-reduced-motion: reduce) { .mq-track { animation: none; transform: none; } }
@@ -1240,7 +1241,10 @@
       <span class="rs-inv" id="rsInvAge"></span>
     </div>
     <!-- §٦ الشريط المتحرّك: أصناف «بدون ربط» فقط (اسم · باركود · شارة حالة). مخفيّ إن 0. القارئ لا يُعلن (aria-live=off) -->
-    <div class="marquee" id="marquee" style="display:none" aria-label="أصناف بدون ربط" aria-live="off" onclick="mqTapToggle(event)"><div class="mq-track" id="mqTrack"></div></div>
+    <div class="marquee" id="marquee" style="display:none" aria-label="أصناف بدون ربط — انقر للانتقال" aria-live="off">
+      <div class="mq-label">أصناف بلا ربط — انقر للانتقال</div>
+      <div class="mq-viewport" onclick="mqTapToggle(event)"><div class="mq-track" id="mqTrack"></div></div>
+    </div>
     <!-- ②  بطاقات الأرقام (KPI) -->
     <div class="stats">
       <button type="button" class="stat" data-filter="updated" aria-pressed="false" onclick="selectCard('updated')"><span class="stat-ic">✅</span><b class="ok-txt" id="sUpd">0</b><span class="stat-lbl">تم تحديثه</span></button>
@@ -1581,7 +1585,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "7cf25e7";
+const APP_VERSION = "81db0bf";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -4346,7 +4350,16 @@ function renderMarquee() {
     mqDisconnect(); return;
   }
   const set = items.map(mqItemHTML).join("");
-  track.innerHTML = `<div class="mq-set">${set}</div><div class="mq-set" aria-hidden="true">${set}</div>`;   // نسختان لالتفاف سلس
+  // تكرار ديناميكي: النسختان لا تكفيان إن كان عرض النسخة < عرض الحاوية (فجوة).
+  // نقيس عرض نسخة واحدة، ونبني «نصفاً» = نسخ تكفي لملء الحاوية، ثم نصفين متطابقين ⇒ translateX(-50%) سلس مهما كان العدد.
+  const vp = el.querySelector(".mq-viewport");
+  track.innerHTML = `<div class="mq-set">${set}</div>`;
+  const wSet = track.querySelector(".mq-set").getBoundingClientRect().width || 1;
+  const wCont = (vp ? vp.getBoundingClientRect().width : el.getBoundingClientRect().width) || 1;
+  const half = Math.max(1, Math.ceil((wCont + 40) / wSet));   // +40 هامش أمان فلا فجوة عند الحدّ
+  let html = "";
+  for (let i = 0; i < 2 * half; i++) html += `<div class="mq-set"${i === 0 ? "" : ' aria-hidden="true"'}>${set}</div>`;   // النصفان متطابقان؛ أول نسخة فقط تُقرأ
+  track.innerHTML = html;
   el.classList.remove("mq-paused");
   mqObserve(el);
 }
