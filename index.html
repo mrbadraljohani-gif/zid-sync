@@ -13,7 +13,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>try{var _t=localStorage.getItem("zid-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
 <style>
   :root {
     --bg: #14110c;
@@ -43,76 +42,7 @@
     --serif: 'Amiri', Georgia, 'Times New Roman', serif;                       /* الشعار والعناوين */
     --sans: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, system-ui, sans-serif;  /* كل نص الواجهة */
     --mono: ui-monospace, Consolas, monospace;                                  /* الأكواد والـSKU */
-  }
-  /* ===== الوضع الفاتح ===== */
-  :root[data-theme="light"] {
-    --bg: #f4eee2;
-    --text: #2a2216;
-    /* القيم أدناه محلولة بالقياس على أغمق خلفيات الوضع الفاتح فعلياً (بطاقات ＋ تدرّجات الصفحة):
-       نفس الدرجة والتشبّع، تعديل الإضاءة فقط — الهوية كما هي والتباين ≥4.5:1 */
-    --muted: #4a4335;       /* كان #6b6150 = 4.00:1 */
-    --muted-2: #5c5344;     /* كان #9a8d76 = 2.14:1 */
-    --panel: rgba(42,34,22,.05);
-    --panel-2: rgba(42,34,22,.085);
-    --border: rgba(150,108,24,.28);
-    --border-strong: rgba(150,108,24,.5);
-    --gold: #66470e;        /* كان #8a5e12 = 4.10:1 (الطرف الغامق للتدرّج ＋ نص) */
-    --gold-2: #734f0f;      /* كان #a97e22 = 2.47:1 — الذهبي النصّي الموحّد */
-    --green: #47845a;
-    --green-2: #2f5d38;     /* كان #356b40 = 4.23:1 */
-    --danger: #9a3228;      /* كان #b23a2e = 4.31:1 */
-    --info: #3d5775;        /* مقابل #9db3cc الداكن */
-    --amber: #7e4a0a;       /* مقابل #f4bd7a الداكن */
-    /* الفاتح: القيم السابقة كانت ترسب على #fffdf7 (خطأ 2.53:1 · نجاح 2.05:1) */
-    --login-err: #b3261e;   /* 6.43:1 على #fffdf7 */
-    --login-ok: #15803d;    /* 4.93:1 على #fffdf7 */
-    --login-link: #8a5e12;  /* 5.59:1 على #fffdf7 (كان a97e22 = 3.63:1) */
-  }
-  :root[data-theme="light"] body {
-    background:
-      radial-gradient(1100px 560px at 85% -8%, rgba(201,154,60,.12), transparent 58%),
-      radial-gradient(900px 520px at -5% 5%, rgba(201,154,60,.08), transparent 55%),
-      var(--bg);
-  }
-  :root[data-theme="light"] .brand .mark {
-    background: radial-gradient(circle at 34% 26%, #fffdf9, #efe7d6);
-    box-shadow: 0 4px 14px rgba(120,90,20,.18), 0 0 0 1.5px rgba(150,108,24,.55), 0 0 0 4px rgba(150,108,24,.10);
-  }
-  :root[data-theme="light"] .brand .mark img { filter: none; }   /* الشعار الأصلي بخلفيته الفاتحة يناسب الوضع الفاتح */
-  :root[data-theme="light"] .hero {
-    background: radial-gradient(680px 320px at 14% 22%, rgba(201,154,60,.14), transparent 62%), linear-gradient(135deg, #fffdf7, #f3ebdb 55%, #ede4d1);
-    box-shadow: 0 22px 50px rgba(120,90,20,.13);
-  }
-  :root[data-theme="light"] th { background: #ece2ce; color: var(--gold); }
-  :root[data-theme="light"] #unBody tr:nth-child(odd) td { background: rgba(42,34,22,.03); }
-  :root[data-theme="light"] .badge,
-  :root[data-theme="light"] .cat-ign,
-  :root[data-theme="light"] .btn-run:disabled { background: rgba(42,34,22,.06); }
-  :root[data-theme="light"] input[type=text],
-  :root[data-theme="light"] input[type=password],
-  :root[data-theme="light"] input[type=number],
-  :root[data-theme="light"] input[type=search],
-  :root[data-theme="light"] input[type=email],
-  :root[data-theme="light"] input[type=url],
-  :root[data-theme="light"] input[type=tel],
-  :root[data-theme="light"] textarea { background: rgba(42,34,22,.04); }
-  :root[data-theme="light"] input[type=text]:focus,
-  :root[data-theme="light"] input[type=password]:focus,
-  :root[data-theme="light"] input[type=number]:focus,
-  :root[data-theme="light"] input[type=search]:focus,
-  :root[data-theme="light"] input[type=email]:focus,
-  :root[data-theme="light"] input[type=url]:focus,
-  :root[data-theme="light"] input[type=tel]:focus,
-  :root[data-theme="light"] textarea:focus { background: rgba(42,34,22,.07); }
-  /* نصوص أزرار التعبئة الذهبية/الخضراء تصبح فاتحة لتباين أعلى فوق التدرّج الأغمق في الوضع الفاتح */
-  :root[data-theme="light"] .btn-run:not(:disabled),
-  :root[data-theme="light"] .step,
-  :root[data-theme="light"] .chip.on,
-  :root[data-theme="light"] .section-head .n,
-  :root[data-theme="light"] .stage-n,
-  :root[data-theme="light"] .exp-chip.on,
-  :root[data-theme="light"] .mc-btn.bind.gold,
-  :root[data-theme="light"] .mini.bind { color: #fff8ec; }   /* الذهبي في الفاتح غامق ⇒ النص فاتح فوقه */
+  }   /* الذهبي في الفاتح غامق ⇒ النص فاتح فوقه */
   * { box-sizing: border-box; }
   body {
     font-family: var(--sans);
@@ -146,8 +76,6 @@
     background: linear-gradient(180deg, rgba(230,197,111,.06), transparent 60%), linear-gradient(var(--panel-2), var(--panel-2)), var(--bg);
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border); box-shadow: 0 10px 34px rgba(0,0,0,.34); }
-  :root[data-theme="light"] .tn-bar { background: linear-gradient(180deg, rgba(150,108,24,.05), transparent 60%), linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,.75)), var(--bg);
-    box-shadow: 0 10px 30px rgba(120,90,20,.13); }
   .side-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; text-decoration: none; border-radius: 10px; }
   .side-brand:hover .side-brand-txt span { color: var(--gold-2); }
   .side-brand-txt { display: flex; flex-direction: column; line-height: 1; transition: color .15s; }
@@ -186,7 +114,6 @@
     width: 258px; max-width: min(258px, calc(100vw - 24px)); text-align: start; padding: 10px;
     background: linear-gradient(var(--panel), var(--panel)), var(--bg);
     border: 1px solid var(--border-strong); border-radius: 14px; box-shadow: 0 18px 46px rgba(0,0,0,.5); }
-  :root[data-theme="light"] .user-panel { box-shadow: 0 18px 46px rgba(120,90,20,.18); }
   .up-head { display: flex; align-items: center; gap: 8px; padding: 4px 6px 9px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
   .up-head .up-ico { flex-shrink: 0; display: inline-flex; color: var(--muted); }
   .up-email { min-width: 0; font-size: 12px; font-weight: 700; color: var(--text); direction: ltr; text-align: start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -202,7 +129,6 @@
   .hamburger { font-size: 18px; line-height: 1; background: transparent; border: 1px solid var(--border-strong); color: var(--gold-2); border-radius: 10px; padding: 6px 11px; cursor: pointer; transition: all .15s; }
   .hamburger { display: none; }   /* الجوال فقط */
   .hamburger:hover { border-color: var(--gold); color: var(--gold); background: var(--panel); }
-  .thin-theme { font-size: 15px !important; padding: 6px 11px !important; line-height: 1; }
   .db-badge.mini { font-size: 11.5px; padding: 6px 12px; }
   .page-wrap { width: 100%; max-width: var(--shell-max); margin: 0 auto; padding: 22px var(--shell-pad) 40px; box-sizing: border-box; }
   .page { display: none; }
@@ -248,7 +174,6 @@
   .notif-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--panel); }
   .notif-panel { position: absolute; top: calc(100% + 8px); left: 0; right: auto; z-index: 60; width: 340px; max-width: 92vw; text-align: start;
     background: #1c1810; border: 1px solid var(--border-strong); border-radius: 14px; padding: 10px; box-shadow: 0 18px 46px rgba(0,0,0,.5); }
-  :root[data-theme="light"] .notif-panel { background: #fffdf7; border-color: rgba(150,108,24,.45); box-shadow: 0 18px 46px rgba(120,90,20,.18); }
   .notif-head { font-weight: 800; font-size: 13px; color: var(--gold-2); padding: 4px 6px 8px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
   /* سجل النشاط: شريط تمرير رفيع بألوان الثيم ＋ تلاشٍ سفلي يدلّ على محتوى إضافي.
      الحاوية .act-scroll تحمل التلاشي (::after ثابت) والقائمة بداخلها هي التي تمرّر. */
@@ -293,7 +218,6 @@
       border-radius: 16px; border: 1px solid var(--border-strong);
       background: linear-gradient(var(--panel), var(--panel)), var(--bg); box-shadow: 0 18px 40px rgba(0,0,0,.45);
       display: none; }
-    :root[data-theme="light"] .side-nav { box-shadow: 0 18px 40px rgba(120,90,20,.18); }
     .side-nav.open { display: flex; }
     .side-link { width: 100%; }
     .side-link .sl { display: inline; }
@@ -415,7 +339,6 @@
   .gh-dot.fail { background: var(--danger); box-shadow: 0 0 0 3px rgba(229,144,135,.18); }
   .gh-panel { position: absolute; top: calc(100% + 8px); inset-inline-end: 0; z-index: 60; width: 330px; max-width: 88vw; text-align: start;
     background: #1c1810; border: 1px solid var(--border-strong); border-radius: 14px; padding: 14px; box-shadow: 0 18px 46px rgba(0,0,0,.5); }
-  :root[data-theme="light"] .gh-panel { background: #fffdf7; border-color: rgba(150,108,24,.45); box-shadow: 0 18px 46px rgba(120,90,20,.18); }
   .gh-panel .clabel { margin-bottom: 8px; }
   .gh-panel .hint { margin: 0 0 10px; }
   .gh-panel input { width: 100%; margin-bottom: 9px; }
@@ -648,7 +571,6 @@
   .off-badge { display: inline-block; padding: 1px 7px; border-radius: 20px; font-size: 10.5px; font-weight: 800; background: rgba(168,120,220,.18); color: var(--info); border: 1px solid rgba(168,120,220,.45); }
   .off-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 20px; }
   .off-box { width: 420px; max-width: 92vw; background: #1c1810; border: 1px solid var(--border-strong); border-radius: 16px; padding: 18px; box-shadow: 0 24px 60px rgba(0,0,0,.55); text-align: start; }
-  :root[data-theme="light"] .off-box { background: #fffdf7; }
   /* زرّ التحليل الذكي: يتميّز عن الأزرار الذهبية بلون --info من اللوحة لا بأزرق خارجها.
      النصّ داكن في الوضع الداكن (‏--info فاتح فيه) ويفتح في الفاتح عبر قاعدة .btn-run العامة. */
   .btn-run.sm.batch { background: var(--info); color: #0a1622; }
@@ -659,7 +581,6 @@
   .db-badge.off { color: var(--danger); border-color: rgba(200,90,90,.45); background: linear-gradient(180deg, rgba(200,90,90,.16), rgba(200,90,90,.05)); }
   .login-overlay { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(3px); }
   .login-box { width: 380px; max-width: 94vw; background: #1c1810; border: 1px solid var(--border-strong); border-radius: 18px; padding: 26px 24px; box-shadow: 0 24px 60px rgba(0,0,0,.6); text-align: center; }
-  :root[data-theme="light"] .login-box { background: #fffdf7; }
   .login-mark { font-size: 40px; margin-bottom: 6px; }
   .login-title { font-family: var(--serif); font-size: 21px; font-weight: 700; color: var(--gold-2); }   /* 700 = أثقل وزن حقيقي في Amiri */
   .login-sub { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin: 8px 0 18px; }
@@ -669,7 +590,6 @@
   .login-box input, .signup-card input { width: 100%; height: 44px; margin: 0; padding: 0 14px; box-sizing: border-box; border-radius: 10px; font-size: 14px; text-align: right;
     background: rgba(255,255,255,.04); border: 1px solid var(--border-strong); color: var(--text); outline: none; font-family: inherit;
     transition: border-color .18s, box-shadow .18s, background .18s; }
-  :root[data-theme="light"] .login-box input, :root[data-theme="light"] .signup-card input { background: rgba(42,34,22,.04); }
   .login-box input:focus, .signup-card input:focus { border-color: var(--gold); background: rgba(230,197,111,.06); box-shadow: 0 0 0 3px rgba(230,197,111,.18); }
   /* حقل البريد (LTR): محاذاة يسار طبيعية للنص وplaceholder اللاتيني */
   .login-box input[type="email"], .signup-card input[type="email"] { text-align: left; }
@@ -688,7 +608,6 @@
   .login-box input:-webkit-autofill, .login-box input:-webkit-autofill:hover, .login-box input:-webkit-autofill:focus,
   .signup-card input:-webkit-autofill, .signup-card input:-webkit-autofill:hover, .signup-card input:-webkit-autofill:focus {
     -webkit-text-fill-color: var(--text); -webkit-box-shadow: 0 0 0 1000px #221d13 inset; caret-color: var(--text); transition: background-color 9999s ease; }
-  :root[data-theme="light"] .login-box input:-webkit-autofill, :root[data-theme="light"] .signup-card input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px #fffdf7 inset; -webkit-text-fill-color: #2a2216; }
   /* شارة الدور ＋ segmented اختيار الصلاحية في «مستخدم جديد» */
   .role-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--gold-2); background: linear-gradient(180deg, rgba(230,197,111,.14), rgba(230,197,111,.05)); }
   .su-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden; }
@@ -749,7 +668,6 @@
   .bt-combo { position: relative; margin-top: 7px; }
   .bt-search { width: 100%; box-sizing: border-box; background: var(--panel-2); color: var(--fg); border: 1px solid var(--border); border-radius: 7px; padding: 4px 7px; font-size: 11px; }
   .bt-results-float { position: fixed; z-index: 600; max-height: 300px; overflow-y: auto; overscroll-behavior: contain; background: #211b10; border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 16px 44px rgba(0,0,0,.7); text-align: start; }
-  :root[data-theme="light"] .bt-results-float { background: #fffaf0; }
   .bt-results-float::-webkit-scrollbar { width: 14px; }
   .bt-results-float::-webkit-scrollbar-track { background: rgba(255,255,255,.05); border-radius: 8px; }
   .bt-results-float::-webkit-scrollbar-thumb { background: var(--gold-2, #c9a54a); border-radius: 8px; border: 3px solid transparent; background-clip: padding-box; }
@@ -947,7 +865,6 @@
   .dist-tag { cursor: help; font-size: 14px; }
   .from-merge { color: var(--green-2); font-weight: 800; }
   .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px); z-index: 200; max-width: 90vw; padding: 12px 20px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: var(--text); background: #1c1810; border: 1px solid var(--border-strong); box-shadow: 0 14px 40px rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
-  :root[data-theme="light"] .toast { background: #fffdf7; box-shadow: 0 14px 40px rgba(120,90,20,.18); }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .mc-btn.wait { border: 1px solid var(--border-strong); background: transparent; color: var(--gold-2); }
   .mc-btn.wait.on { background: rgba(201,154,60,.16); }
@@ -1146,7 +1063,6 @@
       <button type="button" class="side-link" data-page="newuser" onclick="goPage('newuser')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="sl">مستخدم جديد</span></button>
     </nav>
     <div class="tn-actions">
-    <button type="button" class="theme-btn thin-theme" id="themeBtn" onclick="toggleTheme()" aria-label="تبديل الوضع الداكن/الفاتح" title="تبديل الوضع الداكن/الفاتح">☀</button>
     <div class="notif-menu">
       <button type="button" class="notif-btn" id="notifBtn" onclick="toggleActivityPanel(event)" aria-label="آخر النشاطات" aria-expanded="false" title="آخر النشاطات"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/></svg></button>
       <div class="notif-panel" id="notifPanel" style="display:none">
@@ -1558,7 +1474,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "4f66288";
+const APP_VERSION = "9b997c3";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -3028,21 +2944,11 @@ const ICO = {
   branch: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="7" r="2.2"/><path d="M6 8.2v7.6"/><path d="M18 9.2c0 4-3 5-6 5"/></svg>`,
   store: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18l-1.2 4.2a2.6 2.6 0 0 1-2.5 1.9H6.7a2.6 2.6 0 0 1-2.5-1.9L3 4z"/><path d="M5 10.5V21h14V10.5"/><rect x="9" y="14" width="4" height="4"/></svg>`,
   warn: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 2.8 20h18.4L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r=".9" fill="currentColor" stroke="none"/></svg>`,
-  sun: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`,
   plus: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`,
-  moon: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>`,
 };
 
 // تبديل الوضع الفاتح/الغامق (يُحفظ الاختيار)
-const THEME_KEY = "zid-theme";
-function currentTheme() { return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark"; }
-function applyTheme(t) {
-  document.documentElement.setAttribute("data-theme", t);
-  try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
-  const btn = document.getElementById("themeBtn");   // أيقونة SVG في الشريط العلوي (ظاهرة في كل الصفحات)
-  if (btn) { btn.innerHTML = t === "light" ? ICO.moon : ICO.sun; btn.title = t === "light" ? "التبديل للوضع الغامق" : "التبديل للوضع الفاتح"; }
-}
-function toggleTheme() { applyTheme(currentTheme() === "light" ? "dark" : "light"); }
+// (أُزيل تبديل الثيم — التطبيق داكن فقط)
 
 // قائمة GitHub المنسدلة من الترويسة
 function toggleGhMenu(e) { if (e) e.stopPropagation(); const p = document.getElementById("ghPanel"); (p.style.display === "none") ? openGhMenu() : closeGhMenu(); }
@@ -4941,7 +4847,6 @@ function renderFingerprint() {
 }
 
 applyOpts();
-applyTheme(currentTheme());   // ضبط أيقونة زر الوضع حسب الحالة المحفوظة
 renderSideUser();              // بطاقة بريد المستخدم (تظهر عند توفّر جلسة)
 applyRoleUI();                 // إخفاء «مستخدم جديد» حتى يُحمّل الدور (يظهر للمالك بعد loadMyRole)
 renderReadiness(); renderInvCards();   // حالة أولية (تُحدَّث بعد loadInventoryMeta)
