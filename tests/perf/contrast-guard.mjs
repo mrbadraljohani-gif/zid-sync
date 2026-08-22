@@ -134,6 +134,9 @@ try {
     { id: "notif", prep: "goPage('home'); try{ toggleActivityPanel(); }catch(e){}" },             // لوحة الإشعارات المنبثقة
     { id: "ghmenu", prep: "goPage('inventory'); try{ openGhMenu(); }catch(e){}" },                 // قائمة الحفظ في الريبو المنبثقة (في صفحة المخزون)
     { id: "login", prep: "try{ showLogin&&showLogin(); }catch(e){}" },
+    { id: "recover", prep: "try{ showRecover(); }catch(e){}" },                                    // نموذج استرجاع كلمة المرور
+    { id: "offset", prep: "goPage('home'); try{ openOffset('A1'); }catch(e){}" },   // لوحة زيادة سعر المتغيّر (A1 في lastUpdated)
+    { id: "combofloat", prep: "goPage('home'); (function(){ var i=document.getElementById('s-u0'); if(i){ i.value='مخزن'; try{comboOpen('u0')}catch(e){} try{comboSearch('u0')}catch(e){} } })();" },   // قائمة البحث الهجين العائمة (bt-results-float)
   ];
   for (const w of WIDTHS) {
     for (const sc of SCENES) {
@@ -145,7 +148,7 @@ try {
       await page.evaluate(SETUP, CFG);
       await page.evaluate(p => { try { (0, eval)(p); } catch (e) {} }, sc.prep);
       if (BROKEN && sc.id === "home") await page.evaluate(() => { const s = document.createElement("style"); s.textContent = ".mc-sub, .mc-sub b { color: #4b4b52 !important; }"; document.head.appendChild(s); });
-      await new Promise(r => setTimeout(r, 70));
+      await new Promise(r => setTimeout(r, 160));
       const bad = await page.evaluate(MEASURE);
       if (bad.length) { for (const b of bad) fails.push(`@${w}px [${sc.id}] «${b.t}» نسبة ${b.ratio}/${b.thr} · ${b.color} · ${b.cls}`); }
       console.log(`  @${w}px · ${sc.id} · مخالفات=${bad.length}`);
