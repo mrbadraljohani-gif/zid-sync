@@ -1112,6 +1112,25 @@
   /* محتوى هذه الحاويات يعلو اللمعة */
   .card > *, .tn-bar > *, .login-box > *, .signup-card > *, .off-box > * { position: relative; z-index: 1; }
 
+  /* ═══ §٦ الشريط المتحرّك — أصناف «بدون ربط» (اسم · باركود · حالة) ═══
+     transform فقط (لا left/margin) · نسختان + translateX(-50%) = التفاف سلس · mask تلاشٍ طرفي.
+     يتوقّف: تحويم (سطح المكتب) · نقرة (mq-paused) · خارج الشاشة/تبويب مخفيّ (mq-suspend). */
+  .marquee { position: relative; overflow: hidden; margin: 4px 0 14px; border: 1px solid var(--hair); border-radius: 14px;
+    background: var(--panel-2);
+    -webkit-mask: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+    mask: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); }
+  .mq-track { display: flex; width: max-content; will-change: transform; animation: mq-slide 46s linear infinite; }
+  @keyframes mq-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .marquee:hover .mq-track, .marquee.mq-paused .mq-track, .marquee.mq-off .mq-track, .marquee.mq-hidden .mq-track { animation-play-state: paused; }
+  .mq-set { display: flex; flex-shrink: 0; }
+  .mq-item { display: inline-flex; align-items: center; gap: 9px; padding: 9px 15px; background: transparent; border: none; border-inline-end: 1px solid var(--border); cursor: pointer; font-family: inherit; white-space: nowrap; color: var(--text); transition: background .15s; }
+  .mq-item:hover { background: rgba(255,255,255,.04); }
+  .mq-nm { font-size: 12.5px; font-weight: 700; max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
+  .mq-bar { font-family: var(--mono); font-size: 11px; letter-spacing: .02em; color: var(--muted); direction: ltr; }
+  @media (prefers-reduced-motion: reduce) { .mq-track { animation: none; transform: none; } }
+  .mq-flash { animation: mq-flash 1.7s ease; }
+  @keyframes mq-flash { 0%, 100% { box-shadow: none; } 18%, 62% { box-shadow: 0 0 0 2px var(--gold), 0 0 22px color-mix(in srgb, var(--gold) 38%, transparent); } }
+
   /* ═══ §٤ الأزرار — :focus-visible + هدف اللمس ═══ */
   /* حلقة تركيز تتبع الشكل الجديد: outline يحترم border-radius فتصير الحلقة pill على الـpill و10px على المعتدل.
      offset 2px يضعها على الخلفية الداكنة خلف الزرّ فتُرى حتى على النحاس (brass). */
@@ -1220,6 +1239,8 @@
       <span class="zid-age-head" id="zidAgeHead"></span>
       <span class="rs-inv" id="rsInvAge"></span>
     </div>
+    <!-- §٦ الشريط المتحرّك: أصناف «بدون ربط» فقط (اسم · باركود · شارة حالة). مخفيّ إن 0. القارئ لا يُعلن (aria-live=off) -->
+    <div class="marquee" id="marquee" style="display:none" aria-label="أصناف بدون ربط" aria-live="off" onclick="mqTapToggle(event)"><div class="mq-track" id="mqTrack"></div></div>
     <!-- ②  بطاقات الأرقام (KPI) -->
     <div class="stats">
       <button type="button" class="stat" data-filter="updated" aria-pressed="false" onclick="selectCard('updated')"><span class="stat-ic">✅</span><b class="ok-txt" id="sUpd">0</b><span class="stat-lbl">تم تحديثه</span></button>
@@ -1560,7 +1581,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "531a008";
+const APP_VERSION = "7cf25e7";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2877,7 +2898,7 @@ function batchCardHTML(r, chkCls, famAttr) {
       <button class="mc-btn ignore" onclick="batchExclude('${uid}','ignore')" title="تجاهله (✕)">✕ تجاهل</button>
     </div>`;
   const search = esc(normText(String(r.z.sku) + " " + (r.z.name || "") + " " + (c ? String(c.code) + " " + (c.name || "") : "")));
-  return `<div class="mcard batch-card${r.wasLinked ? " lost" : ""}" data-status="need" data-search="${search}" title="${tip}">${zid}${wh}${actions}</div>`;
+  return `<div class="mcard batch-card${r.wasLinked ? " lost" : ""}" data-status="need" data-sku="${esc(String(r.z.sku))}" data-search="${search}" title="${tip}">${zid}${wh}${actions}</div>`;
 }
 // 🟢 المؤكد — الكل محدد افتراضياً؛ الاعتماد للمحدد فقط
 // 🟡 مجمّع بالعائلة — الاعتماد للبطاقات المحددة داخل العائلة فقط
@@ -3795,6 +3816,7 @@ function run(reprocess) {
     const rows0 = stData.rows;                                  // الصفوف الأصلية (لا تُعدّل)
     const iSku = H.indexOf("sku"), iQty = H.indexOf("quantity"), iPrice = H.indexOf("price");
     const iName = H.indexOf("name_ar"), iNameEn = H.indexOf("name_en"), iPublished = H.indexOf("published");
+    const iBarM = H.indexOf("barcode");   // §٦: باركود لعناصر الشريط المتحرّك (عرض فقط — لا يمسّ المطابقة)
     const iSale = H.indexOf("sale_price");                      // سعر التخفيض — يجب أن يبقى < السعر وإلا رفضه زد
     const iImg = detectImageCol(H, rows0);                      // عمود صور زد (إن وُجد)
     const imgOf = row => (iImg >= 0 ? firstUrl(row[iImg]) : "");
@@ -3927,7 +3949,7 @@ function run(reprocess) {
       const mapped = manualMap[rawKey];
       // البند ٣: عاد كوده للمخزن هذا الدور (خطاف الرفع) وبلا ربط يدوي سابق ولا تجاهُل ⇒ «يحتاج قرار» بوسم «توفّر» بلا مطابقة تلقائية. المربوط يدوياً يستأنف رابطه المقدّس، والمتجاهَل يبقى متجاهَلاً.
       if (reappearedSet.has(skuN) && !mapped && !ignoredSet.has(skuN)) {
-        unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, reappeared: true, noWhCode: false, published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
+        unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, reappeared: true, noWhCode: false, barcode: iBarM >= 0 ? (orig[iBarM] || "") : "", published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
         finalQtyByRaw[rawKey] = curQtyNum(orig[iQty]);   // لا يتغيّر حتى يُقرِّر المستخدم
         continue;
       }
@@ -3940,12 +3962,12 @@ function run(reprocess) {
         const noWhCode = !whIndex[skuN] && !whIndex[baseOf(rawSku)];   // كوده غير موجود في ملف المستودع أصلاً
         if (waiting) {
           // بانتظار التوفر: يُستثنى من تنبيه الجديد، ويبقى ظاهراً في «بدون ربط» بشارته
-          unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, waiting: true, noWhCode, published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
+          unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, waiting: true, noWhCode, barcode: iBarM >= 0 ? (orig[iBarM] || "") : "", published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
           finalQtyByRaw[rawKey] = 0; zeroDoor[rawKey] = "waiting";   // ⏳ تصفير مُدار ⇒ يدخل الإخفاء الموحّد
           qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", 0]); qtyCount++;   // ⏳ يدخل ملف الكميات الرئيسي بـ0 (كالغائب-صفر) — stripNoChangeQty يُسقط المصفَّر أصلاً في زد فلا استيراد عبثي
         } else if (hasHistory) {
           // غائب عن ملف المستودع (قد يكون متوفراً في فرع آخر — المرحلة 1)
-          absentList.push({ sku: rawKey, skuN, name: orig[iName] || "", mappedCode: manualMap[rawKey] || null, price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
+          absentList.push({ sku: rawKey, skuN, name: orig[iName] || "", mappedCode: manualMap[rawKey] || null, price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), barcode: iBarM >= 0 ? (orig[iBarM] || "") : "", published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
           if (opts.absent === "zero") {   // صفّر كميته فقط (خيار «كامل المخزون»)
             qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", 0]);
             qtyCount++;
@@ -3954,7 +3976,7 @@ function run(reprocess) {
           if (opts.absent === "zero") zeroDoor[rawKey] = "absent";   // غائب-صفر ⇒ يدخل الإخفاء الموحّد
         } else {
           // يشمل الآن «غير محدود بلا مطابقة» (دُمج في «بدون ربط») — curQtyNum(infinite)=Infinity فيبقى حيّاً، بلا أي دفع إلى qtyRows/priceRows
-          unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, noWhCode, published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
+          unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, noWhCode, barcode: iBarM >= 0 ? (orig[iBarM] || "") : "", published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
           finalQtyByRaw[rawKey] = curQtyNum(orig[iQty]);   // لا يتغيّر ⇒ كمية زد الحالية (∞ للّانهائي)
         }
         continue;
@@ -4291,7 +4313,63 @@ function refreshUnmatchedUI() {
   updateUnmatchedCard();
   batchData = null;   // بيانات «بدون ربط» تغيّرت ⇒ أعِد تحليل الثقة عند الرسم التالي
   renderDetail();
+  renderMarquee();    // §٦ الشريط المتحرّك (بعد renderDetail فيكون batchData جاهزاً)
 }
+
+// ==================== §٦ الشريط المتحرّك — أصناف «بدون ربط» فقط ====================
+// المصدر نفسه (batchData من analyzeBatch) والشارة نفسها (pubBadge) — لا مصدر ثانٍ ولا شارة جديدة.
+let mqObserver = null;
+function buildMarqueeData() {
+  const bd = batchData || (batchData = analyzeBatch());
+  const items = [...bd.green, ...bd.yellow, ...bd.red];   // كل «بدون ربط» (يحتاج قرار + غائب)
+  // الترتيب: يحتاج قرار (0) ← غائب (1)، ثم الأعلى سعراً داخل كل فئة
+  items.sort((a, b) => (a.isAbsent - b.isAbsent) || ((priceInt(b.z.price) || 0) - (priceInt(a.z.price) || 0)));
+  return items.slice(0, 30);
+}
+function mqItemHTML(r) {
+  const nm = esc(r.z.name || "—"), bar = esc(String(r.z.barcode || "").trim());
+  return `<button type="button" class="mq-item" onclick="mqGoto('${esc(String(r.z.sku))}')" title="${nm}">` +
+    `<span class="mq-nm">${nm}</span>` +
+    (bar ? `<span class="mq-bar" dir="ltr">${bar}</span>` : "") +
+    pubBadge(r.z) + `</button>`;
+}
+function renderMarquee() {
+  const el = document.getElementById("marquee"), track = document.getElementById("mqTrack");
+  if (!el || !track) return;
+  const items = buildMarqueeData();
+  if (!items.length) { el.style.display = "none"; track.innerHTML = ""; mqDisconnect(); return; }   // «بدون ربط»=0 ⇒ لا شريط
+  el.style.display = "block";
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) {
+    // ساكن: أول 6 عناصر بلا نسخة ثانية ولا حركة
+    track.innerHTML = `<div class="mq-set">${items.slice(0, 6).map(mqItemHTML).join("")}</div>`;
+    mqDisconnect(); return;
+  }
+  const set = items.map(mqItemHTML).join("");
+  track.innerHTML = `<div class="mq-set">${set}</div><div class="mq-set" aria-hidden="true">${set}</div>`;   // نسختان لالتفاف سلس
+  el.classList.remove("mq-paused");
+  mqObserve(el);
+}
+// إيقاف الحركة إن كان الشريط خارج الشاشة (IntersectionObserver) — القيد أداء
+function mqObserve(el) {
+  mqDisconnect();
+  if (!("IntersectionObserver" in window)) return;
+  mqObserver = new IntersectionObserver(es => { for (const e of es) el.classList.toggle("mq-off", !e.isIntersecting); }, { threshold: 0 });
+  mqObserver.observe(el);
+}
+function mqDisconnect() { if (mqObserver) { mqObserver.disconnect(); mqObserver = null; } }
+// نقرة على الشريط (لا على عنصر) تُوقف/تُشغّل — للجوال؛ سطح المكتب يوقف بالتحويم (CSS)
+function mqTapToggle(ev) { if (ev.target.closest(".mq-item")) return; const el = document.getElementById("marquee"); if (el) el.classList.toggle("mq-paused"); }
+// النقر على عنصر: انتقال إلى موضعه في القائمة الموحّدة وإبرازه
+function mqGoto(sku) {
+  goPage("home");
+  currentFilter = "unmatched"; renderDetail(); flushUnified();   // اعرض القائمة كاملةً ثم جد العنصر
+  const card = document.querySelector(`#detailTable .batch-card[data-sku="${(window.CSS && CSS.escape) ? CSS.escape(String(sku)) : String(sku)}"]`);
+  if (card) { card.scrollIntoView({ behavior: "smooth", block: "center" }); card.classList.remove("mq-flash"); void card.offsetWidth; card.classList.add("mq-flash"); setTimeout(() => card.classList.remove("mq-flash"), 1800); }
+  else document.getElementById("unBlock").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+// إيقاف الحركة عند إخفاء التبويب (لا رسم في الخلفية)
+document.addEventListener("visibilitychange", () => { const el = document.getElementById("marquee"); if (el) el.classList.toggle("mq-hidden", document.hidden); });
 
 // اختيار بطاقة كفلتر (الضغط على النشطة يعيد للافتراضي "بدون ربط")
 function selectCard(f) {
