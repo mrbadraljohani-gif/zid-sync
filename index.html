@@ -163,7 +163,7 @@
   @media (max-width: 760px) { .ready-bar { grid-template-columns: 1fr; } }
   .ready-card { display: flex; flex-direction: column; gap: 5px; padding: 13px 15px; border-radius: 13px; border: 1px solid color-mix(in srgb, var(--frost) 30%, transparent);
     background: linear-gradient(180deg, var(--panel-2), var(--panel)); }
-  .ready-card.off { border-style: dashed; border-color: color-mix(in srgb, var(--frost) 15%, transparent); opacity: .72; }   /* «غير مستخدم» — حدّ أخفت من النشط (30%) كي لا تتصدّر البطاقات الفارغة القسم */
+  .ready-card.off { border-style: dashed; border-color: color-mix(in srgb, var(--frost) 24%, transparent); opacity: .82; }   /* «غير مستخدم» — مرئي لكن أخفت من النشط (30%) */
   .ready-card.stale { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, transparent); }
   .rc-head { font-size: 13.5px; font-weight: 800; color: var(--gold-2); }
   .rc-info { font-size: 12.5px; color: var(--muted); font-weight: 600; }
@@ -625,7 +625,7 @@
   .login-link:hover { text-decoration: underline; }
   .migrate-bar { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 11px 18px; background: linear-gradient(120deg, color-mix(in srgb, var(--gold) 16%, transparent), color-mix(in srgb, var(--gold) 8%, transparent)); border-bottom: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); color: var(--gold); font-weight: 700; font-size: 13.5px; }
   .migrate-bar .mig-head { width: 100%; text-align: center; }
-  .offline-bar { padding: 12px 18px; margin-bottom: 14px; border-radius: 12px; text-align: center; background: color-mix(in srgb, var(--danger) 14%, transparent); border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent); color: var(--danger); font-weight: 800; font-size: 13.5px; line-height: 1.7; }
+  .offline-bar { padding: 8px 16px; margin-bottom: 12px; border-radius: 10px; text-align: center; background: color-mix(in srgb, var(--danger) 8%, transparent); border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent); color: var(--danger); font-weight: 700; font-size: 12.5px; line-height: 1.6; }   /* حضور أخفت — الشدّة في النصّ لا الخلفية */
   body.db-offline #runBtn { opacity: .5; pointer-events: none; }
   body.db-offline .btn-dl { opacity: .5; pointer-events: none; }
   .batch-inline { border: 1px solid var(--border-strong); border-radius: 14px; overflow: visible; background: var(--panel); }
@@ -915,6 +915,11 @@
   .uni-st { color: var(--muted); white-space: nowrap; }
   .uni-sep { color: var(--muted-2); }
   .uni-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  @media (max-width: 560px) {
+    .uni-bar { flex-direction: column; align-items: stretch; }
+    .uni-actions { width: 100%; justify-content: flex-start; }
+    .uni-actions .mc-btn, .uni-actions .btn-run { flex: 1 1 auto; }   /* أزرار الاعتماد/التراجع تتراصّ بعرض كامل بلا تداخل على الجوال */
+  }
   .mcard.uni-light { opacity: .9; }
   .mcard.uni-light .mc-actions { align-self: center; }
   .uni-sec { grid-column: 1 / -1; margin: 14px 2px 4px; padding: 7px 12px; border-radius: 9px; font-size: 12.5px; font-weight: 800; color: var(--muted); background: var(--panel); border: 1px dashed var(--border-strong); }
@@ -1475,7 +1480,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "aa27ecb";
+const APP_VERSION = "e46ab23";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
