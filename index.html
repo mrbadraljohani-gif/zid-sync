@@ -57,12 +57,30 @@
     color: var(--text);
     margin: 0;
     padding: 0;
-    background:
-      radial-gradient(1100px 560px at 85% -8%, color-mix(in srgb, var(--gold) 9%, transparent), transparent 58%),
-      radial-gradient(900px 520px at -5% 5%, color-mix(in srgb, var(--info) 8%, transparent), transparent 55%),
-      var(--bg);
+    background: var(--bg);   /* المحيط (الكرات + الشبكة) انتقل إلى .bg-ambient الثابتة — §٧ */
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
+  }
+  /* §٧ الخلفية المحيطة — ثلاث كرات (أزرق عميق/نحاسي/زنجاري) من التوكنات عبر color-mix (اختبار الفوشيا يسري)
+     ＋ شبكة 88px بـ--hair مع mask إشعاعي علوي. طبقة ثابتة شقيقة (لا أب) بـz-index:-1 فلا تُدخل
+     سياق تكديس يحبس الشريط اللاصق/لوحة الهامبرغر (القيد ١). pointer-events:none · ساكنة بلا حركة.
+     كرات = radial-gradient ناعمة أصلاً (لا filter:blur — يتجنّب إعادة تركيب مستمرة على تمرير الـ300، القيد ٢). */
+  .bg-ambient {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+    background:
+      radial-gradient(760px 620px at 12% 10%, color-mix(in srgb, var(--info) 15%, transparent), transparent 60%),
+      radial-gradient(820px 680px at 88% 6%, color-mix(in srgb, var(--gold) 12%, transparent), transparent 62%),
+      radial-gradient(720px 640px at 80% 95%, color-mix(in srgb, var(--green) 10%, transparent), transparent 60%),
+      var(--bg);
+  }
+  .bg-ambient::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+      repeating-linear-gradient(to right, var(--hair) 0 1px, transparent 1px 88px),
+      repeating-linear-gradient(to bottom, var(--hair) 0 1px, transparent 1px 88px);
+    -webkit-mask: radial-gradient(130% 92% at 50% -6%, #000 30%, transparent 72%);
+    mask: radial-gradient(130% 92% at 50% -6%, #000 30%, transparent 72%);
+    opacity: .55;
   }
   body { overflow-x: hidden; }   /* أمان ضد أي فيض أفقي على الشاشات الصغيرة */
   .wrap { max-width: 1560px; margin: 0 auto; }
@@ -1116,6 +1134,7 @@
 </style>
 </head>
 <body>
+<div class="bg-ambient" aria-hidden="true"></div>
 <div class="app-shell">
   <!-- شريط تنقّل علوي عائم: الشعار يميناً · الروابط وسطاً · الإجراءات يساراً (RTL) -->
   <header class="topnav">
@@ -1541,7 +1560,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "a95e227";
+const APP_VERSION = "531a008";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
