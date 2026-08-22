@@ -78,6 +78,8 @@ jobs:
         run: node tests/perf/mcard-containment.mjs
       - name: §٦ الشريط المتحرّك — المسار ≥ ضعف الحاوية (1·3·30، بلا فجوة)
         run: node tests/perf/marquee-loop.mjs
+      - name: جداول الجوال — لا انكسار حرفي في «تم تحديثه» @360/390
+        run: node tests/perf/table-mobile.mjs
       - name: Self-check — اختبار الرسم التدريجي يرسب بلا flush
         run: node tests/perf/progressive-search.mjs --broken
       - name: Progressive render does not break search-over-all

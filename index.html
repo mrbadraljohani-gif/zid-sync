@@ -89,7 +89,9 @@
   .app-shell { display: block; min-height: 100vh; max-width: 1680px; margin: 0 auto; }
   /* الشريط العائم: بطاقة مستديرة ملتصقة بأعلى الشاشة عند التمرير */
   /* خلفية معتمة من توكن السطح: المحتوى الممرَّر لا يعبر حشو الشريط ولا يظهر خلفه */
-  .topnav { position: sticky; top: 0; z-index: 100; padding: 14px var(--shell-pad) 4px; background: var(--bg); }
+  /* شفّاف فتجلس البطاقة الزجاجية على الخلفية المحيطة بلا أطراف سوداء صمّاء (§٧)؛
+     ضبابية خفيفة على الأطراف تمنع تسرّب المحتوى المتمرّر تحت الشريط اللاصق (tn-bar نفسه معتم فوقها) */
+  .topnav { position: sticky; top: 0; z-index: 100; padding: 14px var(--shell-pad) 4px; background: transparent; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
   /* العرض مشتق من نفس عمود المحتوى ⇒ حافة الشريط فوق حافة البطاقات تماماً */
   .tn-bar { display: flex; align-items: center; gap: 16px; position: relative;
     max-width: calc(var(--shell-max) - var(--shell-pad) * 2); margin: 0 auto;
@@ -835,6 +837,12 @@
   .exc-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px; font-size: 12.5px; color: var(--text); }
   .exc-undo { border: none; background: none; cursor: pointer; color: var(--gold-2); font-size: 15px; line-height: 1; padding: 0; }
   table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: fixed; }
+  /* العطل: على الجوال، table-layout:fixed + width:100% يضغط الأعمدة إلى ~عرض حرف فيلتفّ الاسم عمودياً (صفّ 478px).
+     الحلّ (أ): عرض طبيعي حسب المحتوى + min-width للأعمدة + إلغاء كسر الحروف ⇒ .twrap يمرّر أفقياً والجدول يبقى جدولاً. */
+  @media (max-width: 720px) {
+    .twrap table { table-layout: auto; width: auto; min-width: 100%; }
+    .twrap th, .twrap td { white-space: nowrap; overflow-wrap: normal; word-break: normal; }   /* سطر واحد لكل خلية ⇒ لا التفاف حرفي ولا صفوف طويلة؛ الجدول يفيض فيتمرّر أفقياً */
+  }
   th { text-align: right; padding: 12px; background: var(--steel); position: sticky; top: 0; z-index: 3; color: var(--gold-2); font-weight: 800; white-space: nowrap; box-shadow: inset 0 -1px 0 var(--border-strong); }
   td { padding: 8px 12px; border-top: 1px solid var(--border); color: var(--text); vertical-align: top; word-wrap: break-word; overflow-wrap: anywhere; }
   .mono { font-family: ui-monospace, Consolas, monospace; direction: ltr; unicode-bidi: embed; }
@@ -1585,7 +1593,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "81db0bf";
+const APP_VERSION = "f2b45cd";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
