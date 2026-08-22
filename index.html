@@ -130,7 +130,7 @@
   .user-panel button:focus-visible, .user-panel a:focus-visible,
   .user-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   .main-col { display: block; min-width: 0; }
-  .hamburger { font-size: 18px; line-height: 1; background: transparent; border: 1px solid var(--border-strong); color: var(--gold-2); border-radius: 10px; padding: 6px 11px; cursor: pointer; transition: all .15s; }
+  .hamburger { font-size: 18px; line-height: 1; background: rgba(255,255,255,.03); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid var(--hair); color: var(--gold-2); border-radius: 99px; padding: 6px 11px; cursor: pointer; transition: all .15s; }
   .hamburger { display: none; }   /* الجوال فقط */
   .hamburger:hover { border-color: var(--gold); color: var(--gold); background: var(--panel); }
   .db-badge.mini { font-size: 11.5px; padding: 6px 12px; }
@@ -174,7 +174,7 @@
   .inv-meta b { color: var(--gold-2); }
   /* سجل النشاط: زر 🔔 ولوحة منسدلة ＋ قائمة موسّعة في الحساب */
   .notif-menu { position: relative; }
-  .notif-btn { font-size: 15px; line-height: 1; background: transparent; border: 1px solid var(--border-strong); color: var(--gold-2); border-radius: 10px; padding: 6px 10px; cursor: pointer; transition: all .15s; }
+  .notif-btn { font-size: 15px; line-height: 1; background: rgba(255,255,255,.03); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid var(--hair); color: var(--gold-2); border-radius: 99px; padding: 6px 10px; cursor: pointer; transition: all .15s; }
   .notif-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--panel); }
   .notif-panel { position: absolute; top: calc(100% + 8px); left: 0; right: auto; z-index: 60; width: 340px; max-width: 92vw; text-align: start;
     background: var(--steel); border: 1px solid var(--border-strong); border-radius: 14px; padding: 10px; box-shadow: 0 18px 46px rgba(0,0,0,.5); }
@@ -541,18 +541,19 @@
   .lowfields .unit { color: var(--muted); white-space: nowrap; }
   .lowfields .opt-num { width: 62px; min-width: 0; flex: 0 0 auto; }
   .hint.mini { font-size: 11.5px; margin: 8px 2px 2px; }
+  /* §٤ الأساسي: نحاس مصمت · نصّ #1A1206 · pill · ظلّ نحاسي مخفّف (لا توهّج — خُفِّف في ج) */
   .btn-run {
-    width: 100%; border: none; border-radius: 14px; padding: 15px; font-size: 15.5px; font-weight: 800;
-    cursor: pointer; margin-bottom: 14px; font-family: inherit; color: #0a1622;
-    background: linear-gradient(135deg, var(--gold-2), var(--gold));
-    box-shadow: 0 6px 16px color-mix(in srgb, var(--gold) 22%, transparent); transition: all .2s;
+    width: 100%; border: none; border-radius: 99px; padding: 15px; font-size: 15.5px; font-weight: 800;
+    cursor: pointer; margin-bottom: 14px; font-family: inherit; color: #1A1206;
+    background: var(--gold);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--gold) 18%, transparent); transition: all .2s;
     display: flex; align-items: center; justify-content: center; gap: 8px; text-align: center;
   }
-  .btn-run:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px color-mix(in srgb, var(--gold) 30%, transparent); }
+  .btn-run:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px color-mix(in srgb, var(--gold) 24%, transparent); }
   .btn-run:disabled { background: rgba(255,255,255,.06); color: var(--muted-2); cursor: not-allowed; box-shadow: none; }
-  .btn-run.sm { width: auto; padding: 10px 20px; font-size: 14px; margin: 0; }
+  .btn-run.sm { width: auto; padding: 10px 20px; font-size: 14px; margin: 0; }   /* pill يُورَّث؛ هدف اللمس 44px عبر @media(pointer:coarse) أدناه */
   .btn-dl {
-    display: block; text-align: center; text-decoration: none; border-radius: 14px; padding: 14px; font-weight: 800; font-size: 15px;
+    display: block; text-align: center; text-decoration: none; border-radius: 99px; padding: 14px; font-weight: 800; font-size: 15px;
     color: #08160d; background: linear-gradient(135deg, var(--green-2), var(--green));
     box-shadow: 0 8px 24px color-mix(in srgb, var(--green) 28%, transparent); transition: all .2s;
   }
@@ -744,14 +745,17 @@
   .mc-wh-empty { opacity: 0; }
   .mc-actions { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
   /* background: transparent ضروري — بلا تصريح يرث الزرّ خلفية المتصفح الافتراضية (رمادي فاتح) فيُخرّب الوضع الداكن */
-  .mc-btn { border: none; border-radius: 9px; padding: 9px 16px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; background: transparent; color: var(--muted); }
-  .mc-btn.bind.gold { background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #0a1622; }
+  /* §٤ الثانوي (ghost): سطح شفّاف + حدّ --hair + نصّ --text. نصف قطر 10px (استثناء مقيس — لا pill:
+     ثلاثتها متراصّة تُقرأ «شارات» وتزاحم .mc-tag الشارات الحقيقية). بلا backdrop-filter (تظهر 300×3 في الصفوف — حارس glass-rows يمنعه). */
+  .mc-btn { border: 1px solid var(--hair); border-radius: 10px; padding: 9px 16px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; background: rgba(255,255,255,.03); color: var(--text); }
+  .mc-btn:hover:not(:disabled) { border-color: var(--border-strong); }
+  .mc-btn.bind.gold { background: var(--gold); color: #1A1206; border-color: transparent; }
   .mc-btn.bind.gold:hover { filter: brightness(1.06); }
-  .mc-btn.bind.outline { background: transparent; border: 1px solid var(--gold); color: var(--gold-2); }
+  .mc-btn.bind.outline { background: rgba(255,255,255,.03); border: 1px solid var(--gold); color: var(--gold-2); }
   .mc-btn.bind.outline:hover { background: color-mix(in srgb, var(--gold) 10%, transparent); }
-  .mc-btn.ignore { background: transparent; border: 1px solid var(--border-strong); color: var(--muted); }
+  .mc-btn.ignore { background: rgba(255,255,255,.03); border: 1px solid var(--hair); color: var(--muted); }
   .mc-btn.ignore:hover { border-color: var(--danger); color: var(--danger); }
-  .mc-btn:disabled { opacity: .5; cursor: default; }
+  .mc-btn:disabled { opacity: .5; cursor: not-allowed; }
   .sim-low { background: color-mix(in srgb, var(--amber) 14%, transparent); color: var(--amber); }
   @media (max-width: 720px) {
     .mcard { flex-wrap: wrap; }
@@ -763,9 +767,11 @@
   }
   .row-warn td { background: color-mix(in srgb, var(--danger) 10%, transparent); }
   .warn-flag { display: inline-block; margin-inline-start: 8px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent); white-space: nowrap; }
-  .mini-btn { border: 1px solid var(--border-strong); background: transparent; color: var(--muted); border-radius: 8px; padding: 5px 9px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
+  .mini-btn { border: 1px solid var(--hair); background: rgba(255,255,255,.03); color: var(--muted); border-radius: 10px; padding: 5px 9px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
   .mini-btn:hover { border-color: var(--gold); color: var(--gold-2); }
-  .mini-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+  .mini-btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 34%, transparent); }   /* §٤ الخطر: بنية ghost بـ--danger */
+  .mini-btn.danger:hover { border-color: var(--danger); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); }
+  .mini-btn:disabled { opacity: .5; cursor: not-allowed; }
   .act-cell { display: flex; gap: 6px; flex-wrap: wrap; }
   .test-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; padding: 10px 12px; background: color-mix(in srgb, var(--gold) 8%, transparent); border: 1px solid var(--border-strong); border-radius: 10px; }
   .test-bar .btn-run.sm { margin: 0; }
@@ -1086,6 +1092,26 @@
   }
   /* محتوى هذه الحاويات يعلو اللمعة */
   .card > *, .tn-bar > *, .login-box > *, .signup-card > *, .off-box > * { position: relative; z-index: 1; }
+
+  /* ═══ §٤ الأزرار — :focus-visible + هدف اللمس ═══ */
+  /* حلقة تركيز تتبع الشكل الجديد: outline يحترم border-radius فتصير الحلقة pill على الـpill و10px على المعتدل.
+     offset 2px يضعها على الخلفية الداكنة خلف الزرّ فتُرى حتى على النحاس (brass). */
+  .btn-run:focus-visible, .btn-dl:focus-visible, .mc-btn:focus-visible, .mini-btn:focus-visible,
+  .dl-card:focus-visible, .notif-btn:focus-visible, .hamburger:focus-visible, .theme-btn:focus-visible,
+  .chip:focus-visible, .bt-tab:focus-visible, .zid-mini-link:focus-visible, .mr-dl:focus-visible, .bt-card-chk:focus-visible {
+    outline: 2px solid var(--gold); outline-offset: 2px;
+  }
+  /* هدف اللمس 44px بلا تضخيم بصري — منطقة شفّافة تتوسّع على اللمس فقط.
+     الكبيرة (.btn-run) ≥44px أصلاً؛ الصغيرة تُبقي ارتفاعها البصري وتوسّع الإصابة عبر ::after.
+     .mc-actions gap يُرفَع إلى 12px فلا تتداخل مناطق الـ44px للأزرار المتراصّة (مقيس: فسحة ~2px). */
+  @media (pointer: coarse) {
+    .btn-run.sm { min-height: 44px; }
+    .mc-actions { gap: 12px; }
+    .mc-btn, .mini-btn { position: relative; }
+    .mc-btn::after, .mini-btn::after {
+      content: ""; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); height: 44px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1514,7 +1540,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "324f0ef";
+const APP_VERSION = "0082633";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";

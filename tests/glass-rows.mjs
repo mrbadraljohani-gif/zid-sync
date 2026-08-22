@@ -16,8 +16,8 @@ const html = readFileSync(join(root, "index.html"), "utf8");
 const css = html.slice(html.indexOf("<style>") + 7, html.indexOf("</style>"));
 const BROKEN = process.argv.includes("--broken");
 
-// مُحدِّد صفّ قائمة موحّدة: .batch-card أو .mcard (رأس/جسم الصفوف الـ300)
-const ROW_SEL = /(^|[\s,>+~])\.(batch-card|mcard)(\b|[.:])/;
+// مُحدِّد صفّ قائمة موحّدة + أزراره التي تتكرّر 300×: .batch-card/.mcard (الصفّ) و.mc-btn/.mini-btn (أزرار داخله)
+const ROW_SEL = /(^|[\s,>+~])\.(batch-card|mcard|mc-btn|mini-btn)(\b|[.:])/;
 
 // يمسح كتل «selector { decls }» ويُعيد أول مُحدِّد صفّ يحمل backdrop-filter (أو null)
 function glassLeaksToRows(cssText) {
