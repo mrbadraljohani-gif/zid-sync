@@ -334,15 +334,7 @@
   .stc.success .stc-icon { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
   .stc.success .stc-num, .stc.success .stc-badge { color: var(--green); }
   .stc.success .stc-badge { background: color-mix(in srgb, var(--green) 14%, transparent); }
-  /* صفّ أرقام الملخّص: رقم كبير فوق تسمية صغيرة */
-  .stc-figs { display: flex; flex-wrap: wrap; gap: 10px 18px; }
-  .stc-fig { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 62px; }
-  .stc-fig b { font-size: 20px; font-weight: 800; font-family: var(--serif); line-height: 1.1; color: var(--green-2); }
-  .stc-fig span { font-size: 11px; color: var(--muted); font-weight: 600; white-space: nowrap; }
   .stc-empty { font-size: 12.5px; color: var(--muted-2); }
-  .stc-stale { margin-top: 10px; font-size: 11.5px; font-weight: 700; line-height: 1.6; color: var(--amber);
-    padding: 7px 10px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--amber-tint) 55%, transparent);
-    background: color-mix(in srgb, var(--amber) 10%, transparent); }
   /* KPI: أربعة على سطح المكتب · عمودان على الجوال */
   /* الإصدار والبصمة — تذييل خفيف أسفل بطاقة الاتصال */
   .inv-meta-foot { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); }
@@ -1389,6 +1381,8 @@
         <div class="clabel">ملخّص سريع</div>
         <div id="mergeResult" class="merge-result" style="display:none"></div>
         <div class="stc-empty" id="mergeEmpty">ارفع «ملف المستودع» لبناء المخزن الموحّد.</div>
+        <!-- سطر ملخّص المطابقة الأخضر — نُقل من الرئيسية (فرع الفشل يبقى هناك ملاصقاً لأزرار التنزيل) -->
+        <div id="invSummaryLine" class="verify-ok" style="display:none;margin-top:10px"></div>
         <div class="qs-row"><span class="qs-k">قائمة الانتظار</span><b id="invWaiting"><bdi>0</bdi></b></div>
       </div>
       <div class="card">
@@ -1665,7 +1659,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "c5c6aac";
+const APP_VERSION = "623bad0";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2238,27 +2232,7 @@ function renderInventoryAttention() {
     actionLabel: "عرض المجموعات", onAction: "invGoto('variantInfo')",
   }));
 
-  // ④ ملخّص الملفّين — lastRunSummary (يُملأ في نهاية run فقط)
-  // (٢-ب) وُسِّعت لتكون الملخّص الكامل في المخزون (السطر الأخضر يبقى في الرئيسية ملاصقاً للأزرار — لا سطر مكرّر منقول)
-  const s = lastRunSummary;
-  const figs = [];
-  if (s) {
-    figs.push(["ملف الكميات", s.qtyCount], ["ملف الأسعار", s.priceCount]);
-    if (s.republishCount) figs.push(["إعادة نشر", s.republishCount]);
-    if (s.zeroLowCount) figs.push(["صُفّر (قيمة)", s.zeroLowCount]);
-    if (s.autoUnpubCount) figs.push(["إخفاء تلقائي", s.autoUnpubCount]);
-    if (s.distItemCount) figs.push(["موزّع الكمية", s.distItemCount], ["في كود", s.distGroupCount]);
-    if (s.noChangeDropped) figs.push(["بلا تغيير", s.noChangeDropped]);
-  }
-  // ⚠ بيانات زد قديمة — تُقرأ حيّةً (zidIsStale) لا مُلتقَطة، فتعكس المرور الفعلي للوقت
-  const staleNote = (s && typeof zidIsStale === "function" && zidIsStale() && zidSyncedAt != null)
-    ? `<div class="stc-stale">⚠ بيانات زد قديمة (${esc(ageText(zidSyncedAt))}) — يُنصح بتصدير جديد قبل اعتماد الرفع</div>` : "";
-  cards.push(statusCard({
-    status: "success", icon: ICO.files, title: "ملخّص الملفّين",
-    body: s
-      ? `<div class="stc-figs">${figs.map(([l, v]) => `<span class="stc-fig"><b><bdi>${esc(String(v))}</bdi></b><span>${esc(l)}</span></span>`).join("")}</div>${staleNote}`
-      : `<div class="stc-empty">شغّل «طابق وأنشئ» لعرض ملخّص الملفّين.</div>`,
-  }));
+  // (أُزيلت بطاقة «ملخّص الملفّين» — محتواها صار سطر الملخّص الأخضر المنقول #invSummaryLine في «ملخّص سريع»، فلا تكرار)
 
   wrap.innerHTML = cards.join("");
 }
@@ -4327,16 +4301,23 @@ function run(reprocess) {
     lastRunSummary = { qtyCount, priceCount, distItemCount, distGroupCount, noChangeDropped, republishCount, zeroLowCount, autoUnpubCount: lastAutoUnpubSimple.length + lastAutoUnpubParents.length };   // (٢-ب) وُسِّع لتحمل بطاقة المخزون كامل الملخّص — التقاط حالة بحت (نفس الأرقام المكتوبة في السطر الأخضر، بلا إعادة حساب)
     lastClassify = { ...cls, total: cls.matched + cls.unmatched + cls.ignored + cls.collided + cls.absent + cls.parent };   // توزيع منتجات زد للرسم الدائري — المجموع == عدد المنتجات المصنَّفة تماماً (كل منتج دلو واحد)
 
+    // سطر الملخّص الأخضر (النجاح) نُقل إلى صفحة المخزون (#invSummaryLine)؛ الرئيسية تحتفظ بفرع الفشل فقط (صمام ملاصق لزرّي التنزيل)
+    const invLine = document.getElementById("invSummaryLine");
+    const okEl = invLine || vm;   // هدف سطر النجاح: المخزون إن وُجد، وإلا الرئيسية (احتياط)
     if (vq.ok && vp.ok) {
-      vm.className = "verify-ok"; vm.style.display = "block";
-      vm.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + ((lastAutoUnpubSimple.length || lastAutoUnpubParents.length) ? (() => { const au = k => lastAutoUnpubSimple.filter(x => x.src === k).length; return ` · إخفاء تلقائي: ${lastAutoUnpubSimple.length + lastAutoUnpubParents.length} — بسيط ${lastAutoUnpubSimple.length} (رخص ${au("low")} · مطابَق٠ ${au("matched0")} · ⏳ ${au("waiting")} · غائب ${au("absent")}) · آباء ${lastAutoUnpubParents.length}`; })() : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
+      okEl.className = "verify-ok"; okEl.style.display = "block";
+      okEl.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + ((lastAutoUnpubSimple.length || lastAutoUnpubParents.length) ? (() => { const au = k => lastAutoUnpubSimple.filter(x => x.src === k).length; return ` · إخفاء تلقائي: ${lastAutoUnpubSimple.length + lastAutoUnpubParents.length} — بسيط ${lastAutoUnpubSimple.length} (رخص ${au("low")} · مطابَق٠ ${au("matched0")} · ⏳ ${au("waiting")} · غائب ${au("absent")}) · آباء ${lastAutoUnpubParents.length}`; })() : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
+      vm.className = ""; vm.style.display = "none"; vm.textContent = "";   // الرئيسية: لا سطر أخضر عند النجاح (نُقل للمخزون)
     } else {
       vm.className = "verify-fail"; vm.style.display = "block";
       vm.textContent = "✗ تم إيقاف التحميل — " + [!vq.ok ? "ملف الكميات: " + vq.msg : "", !vp.ok ? "ملف الأسعار: " + vp.msg : ""].filter(Boolean).join(" | ");
+      if (invLine) { invLine.style.display = "none"; invLine.textContent = ""; }
     }
-    // كتلة تشخيص اختيارية: تظهر فقط عند إضافة ?debug إلى الرابط (لا تُزعج السطر الأخضر في الاستخدام العادي)
+    // كتلة تشخيص اختيارية: تظهر فقط عند إضافة ?debug إلى الرابط (تُلحَق بالعنصر النشط: سطر المخزون عند النجاح، الرئيسية عند الفشل)
+    const dbgEl = (vq.ok && vp.ok) ? okEl : vm;
     if (/[?&]debug\b/.test(location.search)) {
-      vm.style.whiteSpace = "pre-wrap";
+      dbgEl.style.whiteSpace = "pre-wrap";
+      const vm = dbgEl;   // بقيّة الكتلة تكتب في vm — وجّهها للعنصر النشط
       const dbgGroups = [...whMembers.entries()].filter(([, m]) => m.length > 1).slice(0, 8).map(([wc, m]) => `${wc}(${whIndex[wc].qty})→[${m.map(x => shareByRaw.get(x)).join(",")}]`);
       vm.textContent += "\n\n⟪debug⟫"
         + `\nأصناف has_variants=Yes (آباء) مُستبعَدة كليّاً من ملفات الكميات: ${lastHasVarYes.size}`
@@ -4406,9 +4387,9 @@ function renderZidFreshness() {
     rsInv.innerHTML = ms != null ? `· المخزن: <b>${ageText(ms)}</b>` : (mergeWh ? `· المخزن: <b>الآن</b>` : "");
   }
   // (١-ب) أُزيل بانر «⚠ بيانات زد قديمة» المستقلّ من الرئيسية — التحذير يبقى مدمجاً في سطر الملخّص (.vm-stale أدناه)
-  // كرِّر التحذير في سطر التأكيد الأخضر (شريط التنزيل النهائي)
-  const vm = document.getElementById("verifyMsg");
-  if (vm && /verify-ok/.test(vm.className) && zidIsStale()) vm.innerHTML = esc(vm.textContent) + ` <span class="vm-stale">· ⚠ بيانات زد قديمة (${ageText(zidSyncedAt)})</span>`;
+  // كرِّر التحذير في سطر الملخّص الأخضر (نُقل إلى المخزون #invSummaryLine)
+  const vm = document.getElementById("invSummaryLine");
+  if (vm && /verify-ok/.test(vm.className) && vm.style.display !== "none" && zidIsStale()) vm.innerHTML = esc(vm.textContent) + ` <span class="vm-stale">· ⚠ بيانات زد قديمة (${ageText(zidSyncedAt)})</span>`;
 }
 function renderCollisionWarn() {
   const el = document.getElementById("collisionWarn");
