@@ -36,6 +36,8 @@ jobs:
         run: node tests/token-defs.mjs
       - name: §ب-٤ إيموجي — لا محرف تصويري في سياق الواجهة (عدا ↩ ⚠ ⚙)
         run: node tests/perf/emoji-guard.mjs
+      - name: بطاقات الإحصاء — لا بطاقة قابلة للنقر بلا حالة نشطة (data-card)
+        run: node tests/stat-active.mjs
       - name: Self-check — حارس الزجاج يرسب على backdrop-filter مصطنع في صفّ قائمة
         run: node tests/glass-rows.mjs --broken
       - name: §٢ الزجاج — لا تسرّب backdrop-filter إلى صفوف القائمة الموحّدة

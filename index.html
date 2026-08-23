@@ -1295,11 +1295,11 @@
     </div>
     <!-- ②  بطاقات الأرقام (KPI) -->
     <div class="stats">
-      <button type="button" class="stat" data-filter="updated" aria-pressed="false" onclick="selectCard('updated')"><span class="stat-ic"><svg class="ico inline ico-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16.2 9.3"/></svg></span><b class="ok-txt" id="sUpd">0</b><span class="stat-lbl">تم تحديثه</span></button>
-      <button type="button" class="stat stat-wide" data-filter="unmatched" aria-pressed="true" onclick="selectCard('unmatched')"><span class="stat-ic"><svg class="ico inline ico-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7.5 9L12 21 4.5 12z"/></svg></span><b class="amber-txt" id="sUn">0</b><span class="stat-lbl">بدون ربط</span><span class="stat-sub" id="sUnSub"></span></button>
-      <!-- عدّاد عرض (لا فلتر): «غائب» فئة مستقلّة تُرى ضمن القائمة الموحّدة — النقر يفتحها. بلا data-filter كي لا يتزامن توهّجه مع «بدون ربط» -->
-      <button type="button" class="stat" aria-pressed="false" onclick="selectCard('unmatched')" title="أصناف لها كود سابق وغائبة عن ملف المستودع الحالي (فروع المرحلة 1) — اضغط لعرضها في القائمة"><span class="stat-ic"><svg class="ico inline ico-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h4l1.5 3h7L17 13h4"/><path d="M4.4 5.6 3 13v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5l-1.4-7.4A2 2 0 0 0 17.7 4H6.3a2 2 0 0 0-1.9 1.6z"/></svg></span><b class="amber-txt" id="sAbsent">0</b><span class="stat-lbl">غائب عن الملف</span></button>
-      <button type="button" class="stat" data-filter="explorer" aria-pressed="false" onclick="selectCard('explorer')"><span class="stat-ic"><svg class="ico inline " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none"/></svg></span><b class="text-txt" id="sTot">0</b><span class="stat-lbl">إجمالي الأسطر — مستكشف</span></button>
+      <button type="button" class="stat" data-filter="updated" data-card="updated" aria-pressed="false" onclick="selectCard('updated')"><span class="stat-ic"><svg class="ico inline ico-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16.2 9.3"/></svg></span><b class="ok-txt" id="sUpd">0</b><span class="stat-lbl">تم تحديثه</span></button>
+      <button type="button" class="stat stat-wide" data-filter="unmatched" data-card="unmatched" aria-pressed="true" onclick="selectCard('unmatched')"><span class="stat-ic"><svg class="ico inline ico-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7.5 9L12 21 4.5 12z"/></svg></span><b class="amber-txt" id="sUn">0</b><span class="stat-lbl">بدون ربط</span><span class="stat-sub" id="sUnSub"></span></button>
+      <!-- «غائب»: بلا data-filter (لا فلتر مستقلّ)؛ الإبراز عبر data-card="absent" (مفصول عن الفلتر). النقر يفتح القائمة ويُمرّر لقسم «غائب» -->
+      <button type="button" class="stat" data-card="absent" aria-pressed="false" onclick="selectAbsent()" aria-label="غائب عن الملف — افتح قائمة «بدون ربط» وانتقل إلى قسم الغائب" title="أصناف لها كود سابق وغائبة عن ملف المستودع الحالي (فروع المرحلة 1) — اضغط لعرض قسمها في القائمة"><span class="stat-ic"><svg class="ico inline ico-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h4l1.5 3h7L17 13h4"/><path d="M4.4 5.6 3 13v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5l-1.4-7.4A2 2 0 0 0 17.7 4H6.3a2 2 0 0 0-1.9 1.6z"/></svg></span><b class="amber-txt" id="sAbsent">0</b><span class="stat-lbl">غائب عن الملف</span></button>
+      <button type="button" class="stat" data-filter="explorer" data-card="explorer" aria-pressed="false" onclick="selectCard('explorer')"><span class="stat-ic"><svg class="ico inline " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none"/></svg></span><b class="text-txt" id="sTot">0</b><span class="stat-lbl">إجمالي الأسطر — مستكشف</span></button>
       <!-- مقصودة: «جديد» مدمج في «بدون ربط»، وهذه تبقى مخفية ليكتب فيها updateNewCount بلا فحص وجود — لا تحذفها -->
       <b id="sNew" hidden>0</b><span id="sAbsentLbl" hidden></span>
     </div>
@@ -1659,7 +1659,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "359eed4";
+const APP_VERSION = "5d49d4e";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1699,6 +1699,7 @@ let boundSet = new Set();
 let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [], lastIgnored = [];
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
 let lastUpdated = [], currentFilter = "unmatched";
+let activeCard = "unmatched";   // مفتاح إبراز البطاقة (مفصول عن currentFilter): «غائب» تُبرَز بلا فلتر خاص (data-card لا data-filter)
 let expFilters = { link: new Set(), pub: new Set(), type: new Set(), qty: new Set(), admin: new Set() };   // فلاتر المستكشف (تقاطع AND، تعدد داخل البُعد OR)
 let expSearch = "", expSearchRaw = "", lastExplorerShown = [];
 let lastCollisions = [];   // مجموعات أكواد زد الخام المتصادمة بعد التطبيع (الصعبة فقط — تحذير أحمر)
@@ -2954,7 +2955,7 @@ function renderUnifiedList(title, wrap) {
   // (أ) الأصناف «غير المتوفرة» تظهر كصفوف خفيفة (⚠ سيُصفَّر / ✓ مُدار) بجانب المتجاهَل — تراجع عن خروجها من القائمة، ليبقى التأكيد مرئياً مع تراجع مباشر.
   const light = [...pending.map(u => unifiedLightRow(u, "pending")), ...managed.map(u => unifiedLightRow(u, "managed")), ...ignored.map(u => unifiedLightRow(u, "ignored"))];
   const rows = [...needCards];
-  if (absCards.length) { rows.push(`<div class="uni-sec">${ic("inbox","ico-warn")} غائب عن ملف المستودع (${absCards.length}) — لها كود سابق وغائبة عن الملف الحالي (قد تكون في فرع آخر)</div>`, ...absCards); }
+  if (absCards.length) { rows.push(`<div class="uni-sec" id="uniAbsentSec">${ic("inbox","ico-warn")} غائب عن ملف المستودع (${absCards.length}) — لها كود سابق وغائبة عن الملف الحالي (قد تكون في فرع آخر)</div>`, ...absCards); }
   if (light.length) { rows.push(`<div class="uni-sec">قرارات سابقة (⚠ سيُصفَّر · ✓ مُدار · ✕ متجاهَل)</div>`, ...light); }
   const allRows = rows;
   const sa = document.getElementById("sAbsent"); if (sa) sa.textContent = batchData.absentCount || 0;   // البطاقة العلوية = نفس مصدر الشريط
@@ -4549,9 +4550,17 @@ document.addEventListener("visibilitychange", () => { const el = document.getEle
 // اختيار بطاقة كفلتر (الضغط على النشطة يعيد للافتراضي "بدون ربط")
 function selectCard(f) {
   if (currentFilter === f && f !== "unmatched") f = "unmatched";
-  currentFilter = f;
+  currentFilter = f; activeCard = f;
   renderDetail();
   document.getElementById("unBlock").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+// «غائب»: يفتح القائمة الموحّدة (فلتر unmatched) ويُمرّر إلى قسم «غائب» ويُبرزه — بلا currentFilter جديد؛ والبطاقة تأخذ حالة نشطة (activeCard="absent")
+function selectAbsent() {
+  currentFilter = "unmatched"; activeCard = "absent";
+  renderDetail();
+  const sec = document.getElementById("uniAbsentSec");
+  if (sec) { sec.scrollIntoView({ behavior: "smooth", block: "center" }); sec.classList.remove("mq-flash"); void sec.offsetWidth; sec.classList.add("mq-flash"); setTimeout(() => sec.classList.remove("mq-flash"), 1800); }
+  else document.getElementById("unBlock").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 // رتبة الترتيب: مؤكد (0) ← له اقتراح (1) ← لا يوجد اقتراح (2) ← أكواد Z. الآلية (3، بالقاع)
@@ -4562,9 +4571,9 @@ function renderDetail() { keepScroll(renderDetailBody); }
 function renderDetailBody() {
   const f = currentFilter;
   document.querySelectorAll("#result .stat").forEach(s => {
-    const on = s.dataset.filter === f;
+    const on = s.dataset.card === activeCard;   // الإبراز بمفتاح data-card (مفصول عن الفلتر) — تقبل «غائب» حالة نشطة بلا فلتر خاص
     s.classList.toggle("active", on);
-    s.setAttribute("aria-pressed", on ? "true" : "false");   // بطاقات الإحصاء أزرار فلترة — حالتها تُعلَن
+    s.setAttribute("aria-pressed", on ? "true" : "false");   // بطاقات الإحصاء أزرار — حالتها تُعلَن
   });
   const title = document.getElementById("unTitle"); title.style.display = "";
   const wrap = document.getElementById("detailTable");
