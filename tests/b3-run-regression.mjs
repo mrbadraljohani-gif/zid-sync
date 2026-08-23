@@ -37,7 +37,7 @@ check(run.includes("matchedWhCodes.add(normCode(whCode))"), "المطابقة: �
 check(run.includes("matchedHistory.add(skuN)"), "المطابقة: تراكم تاريخ المطابقة");
 
 // ② الأب/المتغيّر سليمان
-check(run.includes("if (parentRaws.has(rawKey)) continue"), "الأب: مُستبعد من حلقة الكميات");
+check(/if \(parentRaws\.has\(rawKey\)\) \{[^}]*continue;/.test(run) || run.includes("if (parentRaws.has(rawKey)) continue"), "الأب: مُستبعد من حلقة الكميات");
 check(run.includes("parentsToPublish"), "الأب: نقل النشر إلى صف الأب");
 check(run.includes("kids.find(c => childQ(c) > 0)") && run.includes("if (live == null)"), "الأب: إخفاء بالإجماع + حماية الابن الحيّ");
 check(run.includes("shareByRaw") && run.includes("distByRaw"), "المتغيّر: توزيع كمية الكود على المتغيّرات");
