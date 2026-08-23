@@ -89,7 +89,7 @@ check(runSrc.includes("reappeared: reappearedSet.has(skuN)"), "المربوط ا
 check(/reapFlag = u\.reappeared/.test(script) && fnSrc("updatedTableHTML").includes("reapFlag"), "صفّ «تم تحديثه» يعرض شارة «↩ توفّر — راجع» للمربوط العائد");
 
 // (5ج) الدفعة ج البند ٥: إخفاء الأب بالإجماع لا لمساً مباشراً
-check(runSrc.includes("hasVarYesSet.forEach(rk => parentRaws.add(rk))") && runSrc.includes("if (parentRaws.has(rawKey)) continue"), "الآباء مُستبعدون من حلقة الكميات (لا صفّ كمية للأب)");
+check(runSrc.includes("hasVarYesSet.forEach(rk => parentRaws.add(rk))") && /if \(parentRaws\.has\(rawKey\)\) \{[^}]*continue;/.test(runSrc), "الآباء مُستبعدون من حلقة الكميات (لا صفّ كمية للأب)");
 check(runSrc.includes("kids.find(c => childQ(c) > 0)") && runSrc.includes("if (live == null)"), "إخفاء الأب بالإجماع (كل الأبناء 0) وابن حيّ يحميه");
 check(!/finalQtyByRaw\[(P|parent|pSku)\b/.test(runSrc), "لا تصفير مباشر لكمية الأب (finalQtyByRaw[child] فقط)");
 

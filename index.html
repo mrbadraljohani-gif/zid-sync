@@ -286,6 +286,18 @@
   .qs-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
   .qs-row .qs-k { font-size: 12.5px; color: var(--muted); font-weight: 600; }
   .qs-row b { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 16px; color: var(--text); }
+  /* الرسم الدائري (توزيع المنتجات) — SVG ساكن ＋ أسطورة نصّية · يتكدّسان على الجوال */
+  .pie-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 8px; }
+  .pie-svg { width: 128px; height: 128px; flex-shrink: 0; }
+  .pie-c-n { fill: var(--text); font-size: 21px; font-weight: 800; font-family: var(--mono); }
+  .pie-c-l { fill: var(--muted); font-size: 9px; font-weight: 700; }
+  .pie-legend { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .pie-lg { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+  .pie-sw { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+  .pie-lb { color: var(--muted); font-weight: 600; flex: 1 1 auto; }
+  .pie-lg b { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text); font-size: 13px; }
+  .pie-pct { color: var(--muted-2); font-size: 11px; min-width: 44px; text-align: end; }
+  @media (max-width: 860px) { .pie-wrap { flex-direction: column; align-items: stretch; } .pie-svg { align-self: center; } }
 
   /* بطاقة حالة — نفس أسطح التطبيق وحدوده وأنصاف أقطاره؛ اللون من توكن الحالة فقط */
   .stc { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 16px;
@@ -392,6 +404,7 @@
   .gh-panel { position: absolute; top: calc(100% + 8px); inset-inline-end: 0; z-index: 60; width: 330px; max-width: 88vw; text-align: start;
     background: var(--steel); border: 1px solid var(--border-strong); border-radius: 14px; padding: 14px; box-shadow: 0 18px 46px rgba(0,0,0,.5); }
   .gh-panel .clabel { margin-bottom: 8px; }
+  .cl-sub { font-weight: 600; color: var(--muted-2); font-size: 10.5px; letter-spacing: 0; }
   .gh-panel .hint { margin: 0 0 10px; }
   .gh-panel input { width: 100%; margin-bottom: 9px; }
   .gh-panel-btns { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -1374,21 +1387,8 @@
         <div id="invPie" class="stc-empty">يُبنى في الدفعة القادمة (رسم دائري ＋ أسطورة).</div>
       </div>
       <div class="card">
-        <div class="clabel">سجل النشاط</div>
-        <div class="act-bar">
-          <select id="actFilter" class="act-select" aria-label="تصفية سجل النشاط بنوع الحدث" onchange="renderActivityFull()">
-            <option value="">كل الأنواع</option>
-            <option value="link_added">ربط صنف</option>
-            <option value="link_removed">إزالة ربط</option>
-            <option value="sync_full">مزامنة زد</option>
-            <option value="waiting_added">إضافة انتظار</option>
-            <option value="waiting_removed">إزالة انتظار</option>
-            <option value="unpublish_added">إلغاء نشر</option>
-            <option value="file_generated">توليد ملف</option>
-          </select>
-          <button type="button" class="btn-run sm" onclick="renderActivityFull()">↻ تحديث</button>
-        </div>
-        <div class="act-scroll"><div class="notif-list" id="activityFull" style="max-height:300px" onscroll="actFade(this)"><div class="notif-empty">…</div></div></div>
+        <div class="clabel">سجل النشاط <span class="cl-sub">آخر ٥</span></div>
+        <div class="notif-list" id="activityMini" style="max-height:250px"><div class="notif-empty">…</div></div>
       </div>
     </div>
 
@@ -1439,7 +1439,21 @@
     <!-- صفّ ٤ — آخر الأحداث (جدول من activity_log؛ يُبنى في الدفعة القادمة) -->
     <div class="card">
       <div class="clabel">آخر الأحداث</div>
-      <div id="invActTable" class="stc-empty">يُبنى في الدفعة القادمة (جدول: الوقت · النوع · SKU زد · الطريقة · الحالة).</div>
+      <div class="act-bar">
+        <select id="actFilter" class="act-select" aria-label="تصفية سجل النشاط بنوع الحدث" onchange="renderActivityFull()">
+          <option value="">كل الأنواع</option>
+          <option value="link_added">ربط صنف</option>
+          <option value="link_removed">إزالة ربط</option>
+          <option value="sync_full">مزامنة زد</option>
+          <option value="waiting_added">إضافة انتظار</option>
+          <option value="waiting_removed">إزالة انتظار</option>
+          <option value="unpublish_added">إلغاء نشر</option>
+          <option value="file_generated">توليد ملف</option>
+        </select>
+        <button type="button" class="btn-run sm" onclick="renderActivityFull()">↻ تحديث</button>
+      </div>
+      <!-- دفعة ٤ ستحوّل هذا إلى جدول أعمدة (الوقت · النوع · SKU زد · الطريقة · الحالة)؛ حالياً السجل الكامل المفلتَر -->
+      <div class="act-scroll"><div class="notif-list" id="activityFull" style="max-height:380px" onscroll="actFade(this)"><div class="notif-empty">…</div></div></div>
     </div>
   </section>
 
@@ -1640,7 +1654,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "65866ee";
+const APP_VERSION = "22dd4a3";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1687,6 +1701,7 @@ let lastVariantGroups = [];   // مجموعات «أب/خيار» المكتشف
 let lastQtyRows = null, lastPriceRows = null, lastPriceOrig = null;   // صفوف الملفين الناتجين + أصل صفوف الأسعار (للتحقق عند التنزيل التجريبي)
 // التقاط حالة بحت لأرقام آخر مطابقة (كانت محلية داخل run فتُكتب للـDOM وتُفقد) — تقرأها صفحة المخزون
 let lastRunSummary = null;   // {qtyCount, priceCount, distItemCount, distGroupCount, noChangeDropped}
+let lastClassify = null;     // {matched, unmatched, ignored, collided, absent, parent, total} — توزيع منتجات زد للرسم الدائري (التقاط بحت في run؛ كل منتج في دلو واحد فيجمع تماماً)
 let lastHasVarYes = new Set(), lastHvWouldEnter = [];   // أكواد زد has_variants=Yes (آباء) — لا تدخل أي ملف كميات إطلاقاً
 // فحص نهائي حاسم: يحذف أي صف كوده منتج أب (has_variants=Yes) من أي مصفوفة صفوف كميات قبل الكتابة (يحافظ على صف الرأس)
 function stripHasVar(rows) { return (!lastHasVarYes || !lastHasVarYes.size) ? rows : rows.filter((r, i) => i === 0 || !lastHasVarYes.has(String(r[0]))); }
@@ -2233,6 +2248,7 @@ function renderInventoryPage() {
   renderMergeBar();
   const em = document.getElementById("mergeEmpty"); if (em) em.style.display = lastMerge ? "none" : "block";
   renderInvKPIs();
+  if (typeof loadActivityInto === "function") loadActivityInto("activityMini", "", 5);   // «آخر ٥» المصغّر (صفّ ٢)
   if (typeof renderFingerprint === "function") renderFingerprint();
 }
 // KPI اللوحة «أين أنا الآن» — كلها من مصادر حيّة، وتُظهر «—» قبل توفّر مصدرها (لا رقم ملفَّق قبل المطابقة)
@@ -2245,6 +2261,35 @@ function renderInvKPIs() {
   setK("kpiLinks", Object.keys(manualMap).length, true);        // الروابط: حقيقة مخزَّنة (0 ذو معنى)
   const kEmpty = document.getElementById("kpiEmpty"); if (kEmpty) kEmpty.style.display = (!lastMerge && !lastRunSummary && zp === 0) ? "block" : "none";
   const w = document.getElementById("invWaiting"); if (w) w.innerHTML = "<bdi>" + esc(String(waitingSet ? waitingSet.size : 0)) + "</bdi>";
+  renderInvPie();
+}
+// توزيع منتجات زد — رسم دائري SVG مضمّن (بلا مكتبة) + أسطورة نصّية. الألوان color-mix من التوكن (الفوشيا تسري).
+// الوصولية: الـSVG aria-hidden، والأسطورة (أرقام ونسب في <bdi>) هي المصدر المقروء — أوضح لقارئ الشاشة من aria-label مختزل.
+// بلا حركة إطلاقاً (رسم ساكن) ⇒ prefers-reduced-motion مُستوفى بنيوياً.
+const PIE_SLICES = [
+  { k: "matched", ar: "مربوطة", tok: "--green" },
+  { k: "unmatched", ar: "بلا ربط", tok: "--amber" },
+  { k: "ignored", ar: "متجاهلة", tok: "--muted" },
+  { k: "collided", ar: "متصادمة", tok: "--danger" },
+  { k: "absent", ar: "غائب", tok: "--info" },
+  { k: "parent", ar: "أب/خيار", tok: "--gold" },
+];
+function renderInvPie() {
+  const host = document.getElementById("invPie"); if (!host) return;
+  const c = lastClassify;
+  if (!c || !c.total) { host.className = "stc-empty"; host.innerHTML = "شغّل «طابق وأنشئ» في الرئيسية لعرض توزيع المنتجات."; return; }
+  host.className = "pie-wrap";
+  const total = c.total, r = 52, cx = 60, cy = 60, C = 2 * Math.PI * r;
+  let off = 0, segs = "", legend = "";
+  for (const s of PIE_SLICES) {
+    const v = c[s.k] || 0; if (v <= 0) continue;
+    const frac = v / total, pct = Math.round(frac * 1000) / 10;
+    const col = `color-mix(in srgb, var(${s.tok}) 82%, transparent)`;
+    segs += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${col}" stroke-width="15" stroke-dasharray="${(frac * C).toFixed(2)} ${(C - frac * C).toFixed(2)}" stroke-dashoffset="${(-off * C).toFixed(2)}"></circle>`;
+    off += frac;
+    legend += `<div class="pie-lg"><span class="pie-sw" style="background:${col}"></span><span class="pie-lb">${s.ar}</span><b><bdi>${v}</bdi></b><span class="pie-pct"><bdi>${pct}%</bdi></span></div>`;
+  }
+  host.innerHTML = `<svg class="pie-svg" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><g transform="rotate(-90 ${cx} ${cy})">${segs}</g><text x="${cx}" y="${cy - 1}" text-anchor="middle" class="pie-c-n">${total}</text><text x="${cx}" y="${cy + 13}" text-anchor="middle" class="pie-c-l">منتج</text></svg><div class="pie-legend">${legend}</div>`;
 }
 
 
@@ -4011,6 +4056,7 @@ function run(reprocess) {
     const distItemCount = distByRaw.size, distGroupCount = [...whMembers.values()].filter(m => m.length > 1).length;
 
     let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0, noChangeDropped = 0;
+    const cls = { matched: 0, unmatched: 0, ignored: 0, collided: 0, absent: 0, parent: 0 };   // §دفعة٢: تصنيف كل منتج مرّة واحدة (التقاط بحت للرسم الدائري)
     const unmatched = [], updatedList = [], absentList = [], saleConflicts = [], lowValDbg = [];   // العودة من الانتظار انتقلت إلى خطاف الرفع (البند ٣) — لا reactivated هنا
     const parentsToPublish = new Map();   // كود الأب ⇒ {sku, name, variants[]} — نشر يُنقَل من المتغيّرات إلى صف الأب
     const finalQtyByRaw = {};             // كمية كل صنف زد النهائية بعد كل القواعد (لإجماع إخفاء الأب + الإخفاء الموحّد)
@@ -4032,7 +4078,7 @@ function run(reprocess) {
       const isInf = String(orig[iQty]).trim().toLowerCase() === "infinite";
       const rawKey = String(rawSku);
       // منتج أب (بالصفر البادئ): مُستبعد تلقائياً من الملفين والعدّادات — خياراته هي التي تتحدث
-      if (parentRaws.has(rawKey)) continue;
+      if (parentRaws.has(rawKey)) { cls.parent++; continue; }
       const collided = collidedNorm.has(skuN) ? Object.keys(rawByNorm[skuN]) : null;
       // الربط اليدوي بالـSKU الخام أولاً؛ ثم — للأصناف غير المتصادمة فقط — المطابقة التلقائية بالكود
       const mapped = manualMap[rawKey];
@@ -4040,6 +4086,7 @@ function run(reprocess) {
       if (reappearedSet.has(skuN) && !mapped && !ignoredSet.has(skuN)) {
         unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, reappeared: true, noWhCode: false, barcode: iBarM >= 0 ? (orig[iBarM] || "") : "", published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
         finalQtyByRaw[rawKey] = curQtyNum(orig[iQty]);   // لا يتغيّر حتى يُقرِّر المستخدم
+        cls.unmatched++;   // «↩ توفّر» ⇒ يحتاج قرار = بلا ربط
         continue;
       }
       const whCode = resolveWhCode(rawSku, skuN);   // نفس دالة تمريرة التوزيع بالضبط — لا اختلاف
@@ -4052,11 +4099,11 @@ function run(reprocess) {
         if (waiting) {
           // بانتظار التوفر: يُستثنى من تنبيه الجديد، ويبقى ظاهراً في «بدون ربط» بشارته
           unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, waiting: true, noWhCode, barcode: iBarM >= 0 ? (orig[iBarM] || "") : "", published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
-          finalQtyByRaw[rawKey] = 0; zeroDoor[rawKey] = "waiting";   // ⏳ تصفير مُدار ⇒ يدخل الإخفاء الموحّد
+          finalQtyByRaw[rawKey] = 0; zeroDoor[rawKey] = "waiting"; cls.unmatched++;   // ⏳ تصفير مُدار ⇒ يدخل الإخفاء الموحّد (＋يُحسب ضمن «بلا ربط» في الرسم)
           qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", 0]); qtyCount++;   // ⏳ يدخل ملف الكميات الرئيسي بـ0 (كالغائب-صفر) — stripNoChangeQty يُسقط المصفَّر أصلاً في زد فلا استيراد عبثي
         } else if (hasHistory) {
           // غائب عن ملف المستودع (قد يكون متوفراً في فرع آخر — المرحلة 1)
-          absentList.push({ sku: rawKey, skuN, name: orig[iName] || "", mappedCode: manualMap[rawKey] || null, price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), barcode: iBarM >= 0 ? (orig[iBarM] || "") : "", published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
+          absentList.push({ sku: rawKey, skuN, name: orig[iName] || "", mappedCode: manualMap[rawKey] || null, price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), barcode: iBarM >= 0 ? (orig[iBarM] || "") : "", published: iPublished >= 0 ? (orig[iPublished] || "") : "" }); cls.absent++;
           if (opts.absent === "zero") {   // صفّر كميته فقط (خيار «كامل المخزون»)
             qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", 0]);
             qtyCount++;
@@ -4067,11 +4114,12 @@ function run(reprocess) {
           // يشمل الآن «غير محدود بلا مطابقة» (دُمج في «بدون ربط») — curQtyNum(infinite)=Infinity فيبقى حيّاً، بلا أي دفع إلى qtyRows/priceRows
           unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, noWhCode, barcode: iBarM >= 0 ? (orig[iBarM] || "") : "", published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
           finalQtyByRaw[rawKey] = curQtyNum(orig[iQty]);   // لا يتغيّر ⇒ كمية زد الحالية (∞ للّانهائي)
+          if (ignoredSet.has(skuN)) cls.ignored++; else if (collided) cls.collided++; else cls.unmatched++;   // متجاهلة/متصادمة/بلا ربط — تفرّق للرسم
         }
         continue;
       }
       // مطابقة ناجحة: سجّلها في تاريخ المطابقة (العودة من الانتظار تُعالَج في خطاف الرفع لا هنا — البند ٣: لا مطابقة تلقائية للعائد غير المربوط)
-      matchedWhCodes.add(normCode(whCode));   // كود المستودع صار مأخوذاً (يُستبعد من مرشّحي الربط الدفعي)
+      matchedWhCodes.add(normCode(whCode)); cls.matched++;   // كود المستودع صار مأخوذاً (يُستبعد من مرشّحي الربط الدفعي)
       if (!matchedHistory.has(skuN)) { matchedHistory.add(skuN); histChanged = true; }
       const oldQty = orig[iQty], oldPrice = orig[iPrice];
       // الكمية الفعلية = حصة المتغيّر بعد توزيع كمية الكود (أو الكمية الكاملة إن كان الكود لمتغيّر واحد/وضع «الكمية الكاملة»)
@@ -4242,6 +4290,7 @@ function run(reprocess) {
     document.getElementById("priceN").textContent = priceCount;
     // التقاط الأرقام نفسها المعروضة أعلاه (بلا إعادة حساب) لتقرأها صفحة المخزون
     lastRunSummary = { qtyCount, priceCount, distItemCount, distGroupCount, noChangeDropped, republishCount, zeroLowCount, autoUnpubCount: lastAutoUnpubSimple.length + lastAutoUnpubParents.length };   // (٢-ب) وُسِّع لتحمل بطاقة المخزون كامل الملخّص — التقاط حالة بحت (نفس الأرقام المكتوبة في السطر الأخضر، بلا إعادة حساب)
+    lastClassify = { ...cls, total: cls.matched + cls.unmatched + cls.ignored + cls.collided + cls.absent + cls.parent };   // توزيع منتجات زد للرسم الدائري — المجموع == عدد المنتجات المصنَّفة تماماً (كل منتج دلو واحد)
 
     if (vq.ok && vp.ok) {
       vm.className = "verify-ok"; vm.style.display = "block";
