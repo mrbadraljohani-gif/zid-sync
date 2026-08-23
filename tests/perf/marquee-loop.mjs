@@ -29,27 +29,33 @@ for (const w of [1280, 390]) {
   await page.setContent(html, { waitUntil: "load" });
   await new Promise(r => setTimeout(r, 250));
   for (const n of [1, 3, 30]) {
-    const res = await page.evaluate((count) => {
+    // يحاكي مسار run: يُرسَم الشريط و#result مخفيّ ثم يُظهَر (فخّ القياس والحاوية مخفيّة) — الإصلاح يعيد الرسم عبر ResizeObserver
+    await page.evaluate((count) => {
       const ov = document.getElementById("loginOverlay"); if (ov) ov.style.display = "none";
       try { goPage("home"); } catch {}
       const items = [];
       for (let i = 0; i < count; i++) items.push({ z: { sku: "S" + i, name: "صنف تجريبي " + i, barcode: "628120000" + i, price: 500 - i, published: i % 2 ? "Yes" : "No" }, isAbsent: false, reappeared: false, wasLinked: false });
       batchData = { green: items, yellow: [], red: [], total: count, lostCount: 0, needCount: count, absentCount: 0 };
       lastAutoUnpub = new Set();
-      const res = document.getElementById("result"); if (res) res.style.display = "block";
+      const res = document.getElementById("result");
+      if (res) res.style.display = "none";   // مخفيّ وقت الرسم (كما في run)
       renderMarquee();
-      const track = document.getElementById("mqTrack");
-      const cont = document.querySelector("#marquee .mq-viewport") || document.getElementById("marquee");   // ما بعد/قبل الإصلاح
-      const tw = track ? track.getBoundingClientRect().width : 0;
-      const cw = cont ? cont.getBoundingClientRect().width : 0;
-      return { tw: Math.round(tw), cw: Math.round(cw), ratio: cw ? +(tw / cw).toFixed(2) : 0 };
+      if (res) res.style.display = "block";   // ثم يُظهره run ⇒ ResizeObserver يعيد الرسم بقياس صحيح
     }, n);
-    const ok = res.tw >= 2 * res.cw;
-    if (!ok) fails.push(`@${w}px · ${n} صنف: مسار=${res.tw}px حاوية=${res.cw}px (نسبة ${res.ratio}× < 2×)`);
-    else console.log(`✓ @${w}px · ${n} صنف: مسار ${res.tw}px ≥ ضعف الحاوية ${res.cw}px (${res.ratio}×)`);
+    await new Promise(r => setTimeout(r, 260));   // مهلة ResizeObserver
+    const res = await page.evaluate(() => {
+      const track = document.getElementById("mqTrack");
+      const cont = document.querySelector("#marquee .mq-viewport") || document.getElementById("marquee");
+      return { tw: Math.round(track ? track.getBoundingClientRect().width : 0), cw: Math.round(cont ? cont.getBoundingClientRect().width : 0), items: track ? track.querySelectorAll(".mq-item").length : 0 };
+    });
+    const ratio = res.cw ? +(res.tw / res.cw).toFixed(2) : 0;
+    if (res.items <= 0) fails.push(`@${w}px · ${n} صنف: الشريط بلا عناصر (بدون ربط>0)`);   // العطل: شريط فارغ
+    else if (res.tw < 2 * res.cw) fails.push(`@${w}px · ${n} صنف: مسار=${res.tw}px < ضعف الحاوية ${res.cw}px (فجوة)`);
+    else if (res.tw > 40000) fails.push(`@${w}px · ${n} صنف: مسار=${res.tw}px انفجار (قياس والحاوية مخفيّة ⇒ طبقة تتجاوز حدّ GPU)`);
+    else console.log(`✓ @${w}px · ${n} صنف: عناصر=${res.items} · مسار ${res.tw}px (${ratio}×) — ضمن [2× , 40000px]`);
   }
   await page.close();
 }
 await browser.close();
-if (fails.length) { console.error("✗ فجوة في الشريط — المسار أقلّ من ضعف الحاوية:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ §٦ المسار ≥ ضعف الحاوية في كل الحالات (1·3·30) — تدفّق متصل بلا فجوة.");
+if (fails.length) { console.error("✗ عطل الشريط المتحرّك (عناصر/فجوة/انفجار):\n  " + fails.join("\n  ")); process.exit(1); }
+console.log("✅ §٦ الشريط: عناصر>0 والمسار ضمن [2× , 40000px] في كل الحالات (1·3·30) — بلا فجوة ولا انفجار.");

@@ -1659,7 +1659,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "623bad0";
+const APP_VERSION = "359eed4";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -4472,7 +4472,7 @@ function refreshUnmatchedUI() {
 
 // ==================== §٦ الشريط المتحرّك — أصناف «بدون ربط» فقط ====================
 // المصدر نفسه (batchData من analyzeBatch) والشارة نفسها (pubBadge) — لا مصدر ثانٍ ولا شارة جديدة.
-let mqObserver = null;
+let mqObserver = null, mqPendingRO = null;   // mqPendingRO: يعيد رسم الشريط حين تُخطَّط حاويته (تفادي فخّ القياس والحاوية مخفيّة)
 function buildMarqueeData() {
   const bd = batchData || (batchData = analyzeBatch());
   const items = [...bd.green, ...bd.yellow, ...bd.red];   // كل «بدون ربط» (يحتاج قرار + غائب)
@@ -4491,28 +4491,40 @@ function renderMarquee() {
   const el = document.getElementById("marquee"), track = document.getElementById("mqTrack");
   if (!el || !track) return;
   const items = buildMarqueeData();
-  if (!items.length) { el.style.display = "none"; track.innerHTML = ""; mqDisconnect(); return; }   // «بدون ربط»=0 ⇒ لا شريط
+  if (!items.length) { el.style.display = "none"; track.innerHTML = ""; mqDisconnect(); mqStopPending(); return; }   // «بدون ربط»=0 ⇒ لا شريط
   el.style.display = "block";
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (reduce) {
     // ساكن: أول 6 عناصر بلا نسخة ثانية ولا حركة
     track.innerHTML = `<div class="mq-set">${items.slice(0, 6).map(mqItemHTML).join("")}</div>`;
-    mqDisconnect(); return;
+    mqDisconnect(); mqStopPending(); return;
   }
   const set = items.map(mqItemHTML).join("");
-  // تكرار ديناميكي: النسختان لا تكفيان إن كان عرض النسخة < عرض الحاوية (فجوة).
-  // نقيس عرض نسخة واحدة، ونبني «نصفاً» = نسخ تكفي لملء الحاوية، ثم نصفين متطابقين ⇒ translateX(-50%) سلس مهما كان العدد.
   const vp = el.querySelector(".mq-viewport");
+  const wCont = (vp || el).getBoundingClientRect().width;
+  // ⚠ فخّ القياس والحاوية مخفيّة (#result/الصفحة display:none): wCont=0 ⇒ لو حسبنا التكرار لانفجر (نسخ ضخمة تتجاوز حدّ طبقة GPU 16384px فتُرسَم فارغة).
+  // الحلّ: لا نقِس الآن — نرسم نسختين مؤقتاً ونعيد الرسم عند تخطيط الحاوية (ResizeObserver).
+  if (wCont <= 1) {
+    track.innerHTML = `<div class="mq-set">${set}</div><div class="mq-set" aria-hidden="true">${set}</div>`;
+    el.classList.remove("mq-paused"); mqObserve(el);
+    if (typeof ResizeObserver !== "undefined" && !mqPendingRO) {
+      mqPendingRO = new ResizeObserver(() => { if (((vp || el).getBoundingClientRect().width) > 1) { mqStopPending(); renderMarquee(); } });
+      mqPendingRO.observe(vp || el);
+    }
+    return;
+  }
+  mqStopPending();
+  // تكرار ديناميكي: النسختان لا تكفيان إن كان عرض النسخة < عرض الحاوية (فجوة). نبني «نصفاً» يملأ الحاوية، ثم نصفين متطابقين ⇒ translateX(-50%) سلس.
   track.innerHTML = `<div class="mq-set">${set}</div>`;
   const wSet = track.querySelector(".mq-set").getBoundingClientRect().width || 1;
-  const wCont = (vp ? vp.getBoundingClientRect().width : el.getBoundingClientRect().width) || 1;
-  const half = Math.max(1, Math.ceil((wCont + 40) / wSet));   // +40 هامش أمان فلا فجوة عند الحدّ
+  const half = Math.max(1, Math.min(12, Math.ceil((wCont + 40) / wSet)));   // سقف 12: حتى مع قياس شاذّ لا ينفجر المسار فوق حدّ طبقة GPU
   let html = "";
   for (let i = 0; i < 2 * half; i++) html += `<div class="mq-set"${i === 0 ? "" : ' aria-hidden="true"'}>${set}</div>`;   // النصفان متطابقان؛ أول نسخة فقط تُقرأ
   track.innerHTML = html;
   el.classList.remove("mq-paused");
   mqObserve(el);
 }
+function mqStopPending() { if (mqPendingRO) { mqPendingRO.disconnect(); mqPendingRO = null; } }
 // إيقاف الحركة إن كان الشريط خارج الشاشة (IntersectionObserver) — القيد أداء
 function mqObserve(el) {
   mqDisconnect();
