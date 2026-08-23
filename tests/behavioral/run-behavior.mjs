@@ -97,6 +97,15 @@ function delmapCfg() {
   };
 }
 
+// أب has_variants=Yes **وله كود مستودع مطابِق** ⇒ يجب صفر صفوف كميات (لولا الاستبعاد لطابَق ودخل — مشهد معزول ذو أسنان). A1 ضابط.
+function parentQtyCfg() {
+  return {
+    stData: { sheetName: "P", header: HEADER, rows: [HEADER, Z("A1", "5", "100"), Z("PV", "5", "200", { hv: "Yes" })] },
+    whRows: [WH("A1", 9, 100), WH("PV", 9, 200)], lastMerge: merge(["A1", "PV"]), manualMap: {},
+    waiting: [], ignored: [], history: [], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: false, callHook: false,
+  };
+}
+
 // دالّة داخل الصفحة: تهيّئ الحالة، تستدعي الخطاف+run (＋قرار اختياري)، وتُعيد القراءات (دفاعية للنسخ القديمة)
 async function inpage(cfg) {
   const mk = () => { const c = { select() { return c; }, upsert: async () => ({ error: null }), delete() { return c; }, insert: async () => ({ error: null }), eq: async () => ({ error: null }), in: async () => ({ error: null }), order() { return c; }, range: async () => ({ data: [], error: null }) }; return c; };
@@ -197,6 +206,9 @@ try {
   // إجماع الأب
   if (!M.parentHidden.includes("P1")) fails.push("الإجماع: P1 (كل أبنائه 0) لم يُخفَ");
   if (M.parentHidden.includes("P2")) fails.push("الإجماع: P2 (ابن حيّ) أُخفي خطأً");
+  // الأب has_variants=Yes ⇒ صفر صفوف في ملف الكميات (سلوكياً لا بنيوياً — الحارس البنيوي أثبت هشاشته لهذا الثابت)
+  if (M.qtySkus.includes("P1")) fails.push("الأب: P1 (has_variants=Yes) دخل ملف الكميات (يجب صفر صفوف)");
+  if (M.qtySkus.includes("P2")) fails.push("الأب: P2 (has_variants=Yes) دخل ملف الكميات (يجب صفر صفوف)");
 
   // العائد (٣+١)
   const uW1 = M.unmatched.find(u => u.sku === "W1"), upW2 = M.updated.find(u => u.sku === "W2");
@@ -211,6 +223,19 @@ try {
 
   // A1 المطابَق العادي
   if (!(M.qtyOf.A1 === 9 || M.qtyOf.A1 === "9")) fails.push(`A1 المطابَق: كمية ${M.qtyOf.A1} ≠ 9`);
+
+  // ===== الأب has_variants=Yes ⇒ صفر صفوف كميات (سلوكي معزول ذو أسنان) =====
+  const PVc = await bootRead(browser, curHtml, parentQtyCfg());
+  if (PVc.err) fails.push("مشهد الأب رمى: " + PVc.err);
+  if (PVc.qtySkus.includes("PV")) fails.push("الأب: PV (has_variants=Yes وله كود مستودع) دخل ملف الكميات (يجب صفر صفوف)");
+  if (!PVc.qtySkus.includes("A1")) fails.push("مشهد الأب: A1 الضابط غائب عن ملف الكميات (مقارنة عابثة)");
+  notes.push(`الأب PV: qty=[${PVc.qtySkus}] (PV يغيب · A1 حاضر)`);
+  // أسنان: الأب محميّ بدفاع عميق (continue الحلقة ＋ stripHasVar النهائية) — يجب كسر الاثنين ليتغيّر السلوك فعلاً
+  const pvMut = curHtml
+    .replace("if (parentRaws.has(rawKey)) { cls.parent++; continue; }", "if (parentRaws.has(rawKey)) { cls.parent++; }")
+    .replace("qtyRows = stripHasVar(qtyRows); qtyCount = qtyRows.length - 1;", "qtyCount = qtyRows.length - 1;");
+  if (pvMut === curHtml) fails.push("أسنان الأب: تعذّر تطبيق الطفرة (لم يُطابَق استبعاد الأب/stripHasVar)");
+  else { const PT = await bootRead(browser, pvMut, parentQtyCfg()); if (!PT.qtySkus.includes("PV")) fails.push("أسنان الأب: بعد كسر الحارسين بقي PV خارج ملف الكميات — الاختبار بلا أسنان"); else notes.push(`أسنان الأب (بكسر continue ＋ stripHasVar): qty=[${PT.qtySkus}] ⇒ PV دخل (الاختبار له أسنان)`); }
 
   // ===== ٤: applyDecision يعكس القرار فوراً (جديد غير مطابَق ⇒ wait ⇒ يدخل ملف الكميات بـ0 فوراً) =====
   if (M.qtySkus.includes("NEW1")) fails.push("٤ (خطّ أساس): NEW1 الجديد ظهر في ملف الكميات قبل أي قرار");

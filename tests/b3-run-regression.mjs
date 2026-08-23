@@ -38,6 +38,12 @@ check(run.includes("matchedHistory.add(skuN)"), "المطابقة: تراكم ت
 
 // ② الأب/المتغيّر سليمان
 check(/if \(parentRaws\.has\(rawKey\)\) \{[^}]*continue;/.test(run) || run.includes("if (parentRaws.has(rawKey)) continue"), "الأب: مُستبعد من حلقة الكميات");
+// [مرساة الأب] إثبات أن مطابقة regex (بعد التحوّل عن النصّ الحرفي) تُرصد إزالة الاستبعاد فعلاً — لم تُرخَ المرساة
+{
+  const stripped = run.replace(/if \(parentRaws\.has\(rawKey\)\) \{[^}]*continue;\s*\}/, "/*أُزيل*/").replace("if (parentRaws.has(rawKey)) continue;", "/*أُزيل*/");
+  const stillMatches = /if \(parentRaws\.has\(rawKey\)\) \{[^}]*continue;/.test(stripped) || stripped.includes("if (parentRaws.has(rawKey)) continue");
+  check(!stillMatches, "[مرساة الأب] regex الاستبعاد يرسب عند إزالة الاستبعاد (اسمح للأب بدخول qtyRows) — لم يُرخَ بالتحوّل نصّ→regex");
+}
 check(run.includes("parentsToPublish"), "الأب: نقل النشر إلى صف الأب");
 check(run.includes("kids.find(c => childQ(c) > 0)") && run.includes("if (live == null)"), "الأب: إخفاء بالإجماع + حماية الابن الحيّ");
 check(run.includes("shareByRaw") && run.includes("distByRaw"), "المتغيّر: توزيع كمية الكود على المتغيّرات");
