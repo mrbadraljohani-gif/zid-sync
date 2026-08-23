@@ -88,6 +88,10 @@ jobs:
         run: node tests/perf/marquee-idle.mjs --broken
       - name: §٦ خمول الشريط — إعادة الرسم بنفس البيانات لا تصفّر الحركة (تستمرّ) · تغيّر البيانات يعيد البناء
         run: node tests/perf/marquee-idle.mjs
+      - name: Self-check — حارس رؤية الشريط يرسب على عطل تموضع RTL (viewport يفرغ)
+        run: node tests/perf/marquee-visible.mjs --broken
+      - name: §٦ رؤية الشريط — العناصر تعبر viewport عبر الدورة كاملةً (لا فجوة · المتمايزة == min(30,المجتمع))
+        run: node tests/perf/marquee-visible.mjs
       - name: Self-check — حارس الرسم الدائري يرسب على فرق الإجمالي
         run: node tests/perf/pie-sum.mjs --broken
       - name: لوحة المخزون — مجموع شرائح الرسم == الإجمالي (بلا بقايا)

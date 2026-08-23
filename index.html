@@ -1166,6 +1166,7 @@
   .marquee { margin: 12px 0 16px; padding: 9px 0 3px; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
   .mq-label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .02em; padding: 0 4px 8px; }
   .mq-viewport { position: relative; overflow: hidden;
+    direction: ltr; /* mq-fill */   /* ⚠ حاسم: اتجاه الـviewport يحكم موضع المسار. rtl يلصقه يميناً بلا فائض يمينيّ ⇒ ينزلق يساراً ويفرغ معظم الدورة. ltr ⇒ الفائض يميناً فتدخل النسخة الثانية وتملأ دائماً. */
     -webkit-mask: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
     mask: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
   .mq-track { display: flex; width: max-content; will-change: transform; animation: mq-slide 46s linear infinite; }
@@ -1174,7 +1175,7 @@
   /* القلّة (≤6): مجموعة واحدة ساكنة بلا انزلاق — لا تنزلق خارج الشاشة ولا توهم بالتكرار */
   .marquee.mq-static .mq-track { animation: none; transform: none; }
   .mq-set { display: flex; flex-shrink: 0; }
-  .mq-item { display: inline-flex; align-items: center; gap: 14px; padding: 8px 20px; background: transparent; border: none; border-inline-end: 1px solid var(--border); cursor: pointer; font-family: inherit; white-space: nowrap; color: var(--text); transition: background .15s; border-radius: 8px; }
+  .mq-item { direction: rtl; /* الـviewport ltr لتموضع الانزلاق؛ العنصر يعيد rtl فيبقى ترتيب الاسم·الباركود·الشارة والنصّ العربي صحيحاً */ display: inline-flex; align-items: center; gap: 14px; padding: 8px 20px; background: transparent; border: none; border-inline-end: 1px solid var(--border); cursor: pointer; font-family: inherit; white-space: nowrap; color: var(--text); transition: background .15s; border-radius: 8px; }
   .mq-item:hover { background: rgba(255,255,255,.05); }
   .mq-nm { font-size: 12.5px; font-weight: 700; max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .mq-bar { font-family: var(--mono); font-size: 11px; letter-spacing: .02em; color: var(--muted); direction: ltr; }
@@ -1661,7 +1662,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "c9a771d";
+const APP_VERSION = "b3be58f";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
