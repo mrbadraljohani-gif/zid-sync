@@ -10,8 +10,9 @@
 //   وعند **تغيّر** البيانات (قرار يُسقط صنفاً) ⇒ يُعاد البناء (الوسم يزول) ⇒ لا بيات.
 //   والتسمية بالعدد الحيّ تُحدَّث دائماً (حتى حين يبقى المسار محفوظاً).
 //
-// --broken / HTML_PATH=<نسخة قبل الإصلاح>: renderMarquee يعيد الكتابة دائماً ⇒
-//   الوسم يزول حتى بنفس البيانات ⇒ الحارس يرسب (إثبات الأسنان على الحالة الحالية).
+// --broken: يعطّل حارس الخمول في المصدر نفسه (يستبدل شرط التخطّي بـ false) فيعيد
+//   renderMarquee الكتابة دائماً كما قبل الإصلاح ⇒ الوسم يزول حتى بنفس البيانات ⇒
+//   الحارس يرسب. (لا نعتمد git — HEAD في CI هو commit الإصلاح لا ما قبله.)
 // ============================================================================
 import { readFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -21,9 +22,12 @@ import puppeteer from "puppeteer-core";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const BROKEN = process.argv.includes("--broken");
-const src = BROKEN
-  ? execFileSync("git", ["show", "HEAD:index.html"], { cwd: root, maxBuffer: 64 * 1024 * 1024 }).toString()   // النسخة قبل الإصلاح
-  : readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8");
+const IDLE_GUARD = "key === mqLastKey && track.children.length";   // شرط الخمول في renderMarquee
+let src = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8");
+if (BROKEN) {
+  if (!src.includes(IDLE_GUARD)) { console.error("✗ (--broken) لم أجد شرط الخمول لتعطيله — تغيّر الكود؟"); process.exit(2); }
+  src = src.replace(IDLE_GUARD, "false");   // عطّل الخمول ⇒ إعادة الكتابة دائماً (سلوك ما قبل الإصلاح)
+}
 function findChrome() {
   const c = ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", process.env.CHROME_PATH || "", "/usr/bin/google-chrome-stable", "/usr/bin/google-chrome"];
   for (const x of c) if (x && existsSync(x)) return x;
