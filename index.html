@@ -117,6 +117,7 @@
   .ico-warn { color: var(--amber); }
   .ico-bad { color: var(--danger); }
   .ico-info { color: var(--info); }
+  .ico-mute { color: var(--muted); }
   .ico.inline { display: inline-block; vertical-align: -3px; }   /* لأيقونة داخل نصّ/شارة inline */
   .theme-btn .ico, .notif-btn .ico { width: 16px; height: 16px; }
   .ph-ico .ico { width: 21px; height: 21px; }
@@ -298,6 +299,14 @@
   .pie-lg b { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text); font-size: 13px; }
   .pie-pct { color: var(--muted-2); font-size: 11px; min-width: 44px; text-align: end; }
   @media (max-width: 860px) { .pie-wrap { flex-direction: column; align-items: stretch; } .pie-svg { align-self: center; } }
+  /* جدول «آخر الأحداث»: شارات الحالة (مشتقّة من event_type) — ألوان color-mix من التوكن بمعناها */
+  .act-st { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 11px; font-weight: 800; white-space: nowrap; border: 1px solid transparent; }
+  .act-st.st-ok { color: var(--green-2); background: color-mix(in srgb, var(--green) 13%, transparent); border-color: color-mix(in srgb, var(--green) 30%, transparent); }
+  .act-st.st-wait { color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); border-color: color-mix(in srgb, var(--amber-tint) 45%, transparent); }
+  .act-st.st-info { color: var(--info); background: color-mix(in srgb, var(--info) 13%, transparent); border-color: color-mix(in srgb, var(--info) 30%, transparent); }
+  .act-st.st-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
+  .act-st.st-mute { color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); border-color: color-mix(in srgb, var(--muted) 26%, transparent); }
+  .act-type .ico { vertical-align: -3px; }
 
   /* بطاقة حالة — نفس أسطح التطبيق وحدوده وأنصاف أقطاره؛ اللون من توكن الحالة فقط */
   .stc { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 16px;
@@ -1440,20 +1449,22 @@
     <div class="card">
       <div class="clabel">آخر الأحداث</div>
       <div class="act-bar">
-        <select id="actFilter" class="act-select" aria-label="تصفية سجل النشاط بنوع الحدث" onchange="renderActivityFull()">
+        <select id="actFilter" class="act-select" aria-label="تصفية سجل النشاط بنوع الحدث" onchange="renderActivityTable()">
           <option value="">كل الأنواع</option>
           <option value="link_added">ربط صنف</option>
           <option value="link_removed">إزالة ربط</option>
           <option value="sync_full">مزامنة زد</option>
           <option value="waiting_added">إضافة انتظار</option>
           <option value="waiting_removed">إزالة انتظار</option>
+          <option value="ignored_added">تجاهل صنف</option>
+          <option value="ignored_removed">إلغاء تجاهل</option>
           <option value="unpublish_added">إلغاء نشر</option>
           <option value="file_generated">توليد ملف</option>
         </select>
-        <button type="button" class="btn-run sm" onclick="renderActivityFull()">↻ تحديث</button>
+        <button type="button" class="btn-run sm" onclick="renderActivityTable()">↻ تحديث</button>
       </div>
-      <!-- دفعة ٤ ستحوّل هذا إلى جدول أعمدة (الوقت · النوع · SKU زد · الطريقة · الحالة)؛ حالياً السجل الكامل المفلتَر -->
-      <div class="act-scroll"><div class="notif-list" id="activityFull" style="max-height:380px" onscroll="actFade(this)"><div class="notif-empty">…</div></div></div>
+      <!-- جدول نحيف من activity_log: الوقت · النوع · SKU زد · الطريقة · الحالة (الحالة مشتقّة من event_type) -->
+      <div id="invActTable" class="stc-empty">…</div>
     </div>
   </section>
 
@@ -1654,7 +1665,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "22dd4a3";
+const APP_VERSION = "c5c6aac";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2029,7 +2040,7 @@ function goPage(id, fromHash) {
   });
   if (id === "home") renderReadiness();
   if (id === "db") renderInvCards();
-  if (id === "inventory") { renderInventoryPage(); renderActivityFull(); }
+  if (id === "inventory") { renderInventoryPage(); renderActivityTable(); }
   if (id === "options" && typeof renderOffsetsList === "function") renderOffsetsList();
   closeSidebar();
   const h = PAGE_HASH[id] || "home";   // حدّث الـhash (بلا إعادة تحميل) ما لم يأتِ التنقّل من الـhash أصلاً
@@ -2101,6 +2112,7 @@ const ACT_META = {
   waiting_added: { ic: "hourglass", cl: "ico-warn", t: "نُقل للانتظار" }, waiting_removed: { ic: "↩", t: "أُزيل من الانتظار" },
   unpublish_added: { ic: "ban", cl: "ico-bad", t: "طلب إلغاء نشر" }, file_generated: { ic: "files", t: "توليد ملف" },
   warehouse_sync_full: { ic: "warehouse", t: "مزامنة المستودع" }, branch_sync_full: { ic: "branch", t: "مزامنة الفرع" },
+  ignored_added: { ic: "ban", cl: "ico-mute", t: "تجاهل صنف" }, ignored_removed: { ic: "ban", t: "إلغاء تجاهل" },
 };
 function relTime(iso) {
   const t = Date.parse(iso); if (!Number.isFinite(t)) return "";
@@ -2142,10 +2154,33 @@ function actFade(el) {
   const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 4;
   w.classList.toggle("at-end", atEnd);
 }
-function renderActivityFull() {
-  const sel = document.getElementById("actFilter");
-  loadActivityInto("activityFull", sel ? sel.value : "", 200);
-  const el = document.getElementById("activityFull"); if (el) setTimeout(() => actFade(el), 60);
+// جدول «آخر الأحداث» النحيف من activity_log (دفعة ٤): الوقت · النوع · SKU زد · الطريقة · الحالة
+// الحالة مشتقّة من event_type (لا عمود جديد ولا مصدر ثانٍ) · الطريقة من details.source (لأحداث الربط) · علاج .upd-table للجوال
+function actStatus(t) {
+  const M = { link_added: ["معتمد", "st-ok"], waiting_added: ["في الانتظار", "st-wait"], ignored_added: ["متجاهَل", "st-mute"], ignored_removed: ["أُزيل", "st-mute"], link_removed: ["أُزيل", "st-mute"], waiting_removed: ["أُزيل", "st-mute"], sync_full: ["مكتمل", "st-info"], product_synced: ["مكتمل", "st-info"], file_generated: ["مكتمل", "st-info"], unpublish_added: ["إلغاء نشر", "st-bad"] };
+  const x = M[t] || ["—", "st-mute"];
+  return `<span class="act-st ${x[1]}">${esc(x[0])}</span>`;
+}
+function actMethod(d) {
+  const s = d && d.source ? String(d.source) : "";
+  return s === "manual" ? "يدوي" : s === "imported" ? "مستورد" : (s === "auto-approved" || s === "auto-confirmed") ? "تلقائي" : "—";
+}
+function actTableRow(r) {
+  const meta = ACT_META[r.event_type] || { ic: "•", t: r.event_type };
+  const icon = ICO[meta.ic] ? ic(meta.ic, meta.cl) : "";
+  return `<tr><td><bdi>${esc(relTime(r.created_at))}</bdi></td><td class="act-type">${icon} ${esc(meta.t)}</td>` +
+    `<td class="mono"><span dir="ltr">${esc(r.zid_sku || "—")}</span></td><td>${esc(actMethod(r.details))}</td><td>${actStatus(r.event_type)}</td></tr>`;
+}
+async function renderActivityTable() {
+  const host = document.getElementById("invActTable"); if (!host) return;
+  const sel = document.getElementById("actFilter"); const type = sel ? sel.value : "";
+  if (!(dbOnline && sb)) { host.className = "stc-empty"; host.innerHTML = "غير متصل بالقاعدة — سجل الأحداث غير متاح."; return; }
+  let rows = [];
+  try { rows = type ? await db.activity.getByType(type, 60) : await db.activity.getRecent(60); }
+  catch { host.className = "stc-empty"; host.innerHTML = "تعذّر جلب الأحداث."; return; }
+  if (!rows.length) { host.className = "stc-empty"; host.innerHTML = "لا أحداث بعد."; return; }
+  host.className = "twrap";
+  host.innerHTML = `<table class="upd-table" aria-label="آخر الأحداث"><thead><tr><th scope="col">الوقت</th><th scope="col">النوع</th><th scope="col">SKU زد</th><th scope="col">الطريقة</th><th scope="col">الحالة</th></tr></thead><tbody>${rows.map(actTableRow).join("")}</tbody></table>`;
 }
 
 // ===== صفحة المخزون =====

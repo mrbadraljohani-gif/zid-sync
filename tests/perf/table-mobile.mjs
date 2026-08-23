@@ -33,22 +33,31 @@ for (const w of [360, 390, 768, 900]) {
     lastUpdated = list; currentFilter = "updated";
     document.getElementById("result").style.display = "block";
     renderDetail();
-    const t = document.querySelector("#detailTable table");
-    if (!t) return { noTable: true };
-    let maxRowH = 0, minCellW = 1e9;
-    t.querySelectorAll("tbody tr").forEach(tr => { maxRowH = Math.max(maxRowH, tr.getBoundingClientRect().height); });
-    t.querySelectorAll("tbody td").forEach(td => { const cw = td.getBoundingClientRect().width; if (cw > 0) minCellW = Math.min(minCellW, cw); });
-    return { maxRowH: Math.round(maxRowH), minCellW: Math.round(minCellW) };
+    const measure = t => { if (!t) return null; let h = 0, w = 1e9; t.querySelectorAll("tbody tr").forEach(tr => h = Math.max(h, tr.getBoundingClientRect().height)); t.querySelectorAll("tbody td").forEach(td => { const cw = td.getBoundingClientRect().width; if (cw > 0) w = Math.min(w, cw); }); return { maxRowH: Math.round(h), minCellW: Math.round(w) }; };
+    const upd = measure(document.querySelector("#detailTable table"));
+    // مشهد جدول «آخر الأحداث» (دفعة ٤): نبني .upd-table عبر actTableRow الحقيقي داخل #invActTable
+    let act = null;
+    try {
+      try { goPage("inventory"); } catch {}   // #invActTable في صفحة المخزون — يجب تنشيطها للقياس
+      const host = document.getElementById("invActTable");
+      if (host && typeof actTableRow === "function") {
+        const evs = [{ event_type: "sync_full", zid_sku: "0801512", details: { source: "manual" }, created_at: new Date(0).toISOString() }, { event_type: "link_added", zid_sku: "4506822", details: { source: "manual" }, created_at: new Date(0).toISOString() }, { event_type: "waiting_added", zid_sku: "0380124", details: {}, created_at: new Date(0).toISOString() }];
+        host.className = "twrap";
+        host.innerHTML = `<table class="upd-table"><thead><tr><th>الوقت</th><th>النوع</th><th>SKU زد</th><th>الطريقة</th><th>الحالة</th></tr></thead><tbody>${evs.map(actTableRow).join("")}</tbody></table>`;
+        act = measure(host.querySelector("table"));
+      }
+    } catch (e) {}
+    return { upd, act };
   });
-  if (res.noTable) { fails.push(`@${w}px: تعذّر رسم جدول «تم تحديثه»`); }
-  else {
-    // العتبة: الانكسار الحرفي يعطي خلية ~36px وصفّاً 478px+؛ الالتفاف الكلمي المشروع (اسم طويل في عمود محدود) ≤~180px
-    const bad = res.maxRowH > 260 || res.minCellW < 40;
-    if (bad) fails.push(`@${w}px: أقصى ارتفاع صفّ=${res.maxRowH}px · أضيق خلية=${res.minCellW}px (انكسار حرفي)`);
-    else console.log(`✓ @${w}px «تم تحديثه»: أقصى صفّ ${res.maxRowH}px · أضيق خلية ${res.minCellW}px`);
-  }
+  const chk = (m, label) => {
+    if (!m) { fails.push(`@${w}px: تعذّر رسم ${label}`); return; }
+    if (m.maxRowH > 260 || m.minCellW < 40) fails.push(`@${w}px ${label}: أقصى صفّ=${m.maxRowH}px · أضيق خلية=${m.minCellW}px (انكسار حرفي)`);
+    else console.log(`✓ @${w}px ${label}: أقصى صفّ ${m.maxRowH}px · أضيق خلية ${m.minCellW}px`);
+  };
+  chk(res.upd, "«تم تحديثه»");
+  chk(res.act, "«آخر الأحداث»");
   await page.close();
 }
 await browser.close();
 if (fails.length) { console.error("✗ انكسار جدول على الجوال:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ «تم تحديثه» — لا انكسار حرفي (صفوف ≤260px، خلايا ≥40px) عبر 360/390/768/900.");
+console.log("✅ جداول الجوال («تم تحديثه» ＋ «آخر الأحداث») — لا انكسار حرفي (صفوف ≤260px، خلايا ≥40px) عبر 360/390/768/900.");
