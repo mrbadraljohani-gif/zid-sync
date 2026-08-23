@@ -1171,6 +1171,8 @@
   .mq-track { display: flex; width: max-content; will-change: transform; animation: mq-slide 46s linear infinite; }
   @keyframes mq-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   .marquee:hover .mq-track, .marquee.mq-paused .mq-track, .marquee.mq-off .mq-track, .marquee.mq-hidden .mq-track { animation-play-state: paused; }
+  /* القلّة (≤6): مجموعة واحدة ساكنة بلا انزلاق — لا تنزلق خارج الشاشة ولا توهم بالتكرار */
+  .marquee.mq-static .mq-track { animation: none; transform: none; }
   .mq-set { display: flex; flex-shrink: 0; }
   .mq-item { display: inline-flex; align-items: center; gap: 14px; padding: 8px 20px; background: transparent; border: none; border-inline-end: 1px solid var(--border); cursor: pointer; font-family: inherit; white-space: nowrap; color: var(--text); transition: background .15s; border-radius: 8px; }
   .mq-item:hover { background: rgba(255,255,255,.05); }
@@ -1289,8 +1291,8 @@
       <span class="rs-inv" id="rsInvAge"></span>
     </div>
     <!-- §٦ الشريط المتحرّك: أصناف «بدون ربط» فقط (اسم · باركود · شارة حالة). مخفيّ إن 0. القارئ لا يُعلن (aria-live=off) -->
-    <div class="marquee" id="marquee" style="display:none" aria-label="أصناف بدون ربط — انقر للانتقال" aria-live="off">
-      <div class="mq-label">أصناف بلا ربط — انقر للانتقال</div>
+    <div class="marquee" id="marquee" style="display:none" aria-label="تحتاج قرارك — انقر للانتقال" aria-live="off">
+      <div class="mq-label">تحتاج قرارك — انقر للانتقال</div>
       <div class="mq-viewport" onclick="mqTapToggle(event)"><div class="mq-track" id="mqTrack"></div></div>
     </div>
     <!-- ②  بطاقات الأرقام (KPI) -->
@@ -1659,7 +1661,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "5d49d4e";
+const APP_VERSION = "23f7249";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -4492,14 +4494,22 @@ function renderMarquee() {
   const el = document.getElementById("marquee"), track = document.getElementById("mqTrack");
   if (!el || !track) return;
   const items = buildMarqueeData();
-  if (!items.length) { el.style.display = "none"; track.innerHTML = ""; mqDisconnect(); mqStopPending(); return; }   // «بدون ربط»=0 ⇒ لا شريط
+  if (!items.length) { el.style.display = "none"; track.innerHTML = ""; el.classList.remove("mq-static"); mqDisconnect(); mqStopPending(); return; }   // 0 عنصر ⇒ الشريط مخفيّ كلياً (لا تنبيه بلا محتوى — يختلف عن إخفاء أصناف فعّالة)
   el.style.display = "block";
+  // التسمية بالعدد الحيّ للمجتمع الفعلي (يحتاج قرارك + غائب) لا عدّاد بطاقة «بدون ربط» (الذي يشمل المُدار/المتجاهَل/⏳)
+  const pop = batchData ? ((batchData.needCount || 0) + (batchData.absentCount || 0)) : items.length;
+  const labelTxt = `تحتاج قرارك (${pop})`;
+  const label = el.querySelector(".mq-label"); if (label) label.textContent = labelTxt;
+  el.setAttribute("aria-label", labelTxt + " — انقر للانتقال");
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (reduce) {
-    // ساكن: أول 6 عناصر بلا نسخة ثانية ولا حركة
+  // ساكن عند القلّة (≤6) أو reduced-motion: نسخة واحدة بلا تكرار ولا انزلاق.
+  // ≤6 ⇒ items.slice(0,6) = كلها (صفر تكرار — التكرار عند القلّة هو ما يوهم بالعطل)؛ لا نُخفي صنفاً فعّالاً، نعرضه ساكناً.
+  if (reduce || items.length <= 6) {
     track.innerHTML = `<div class="mq-set">${items.slice(0, 6).map(mqItemHTML).join("")}</div>`;
+    el.classList.add("mq-static");
     mqDisconnect(); mqStopPending(); return;
   }
+  el.classList.remove("mq-static");
   const set = items.map(mqItemHTML).join("");
   const vp = el.querySelector(".mq-viewport");
   const wCont = (vp || el).getBoundingClientRect().width;

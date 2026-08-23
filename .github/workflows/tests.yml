@@ -80,7 +80,9 @@ jobs:
         run: node tests/perf/mcard-containment.mjs --broken
       - name: احتواء .mcard — لا عنصر يتجاوز حدود البطاقة @360/390
         run: node tests/perf/mcard-containment.mjs
-      - name: §٦ الشريط المتحرّك — المسار ≥ ضعف الحاوية (1·3·30، بلا فجوة)
+      - name: Self-check — حارس الشريط يرسب على اقتطاع القائمة (تنوّع لا طول)
+        run: node tests/perf/marquee-loop.mjs --broken
+      - name: §٦ الشريط — الفريدة == min(30, needCount+absentCount) · ≤6 ساكن · >6 انزلاق · التسمية بالعدد
         run: node tests/perf/marquee-loop.mjs
       - name: Self-check — حارس الرسم الدائري يرسب على فرق الإجمالي
         run: node tests/perf/pie-sum.mjs --broken
