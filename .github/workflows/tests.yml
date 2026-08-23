@@ -84,6 +84,10 @@ jobs:
         run: node tests/perf/marquee-loop.mjs --broken
       - name: §٦ الشريط — الفريدة == min(30, needCount+absentCount) · ≤6 ساكن · >6 انزلاق · التسمية بالعدد
         run: node tests/perf/marquee-loop.mjs
+      - name: Self-check — حارس خمول الشريط يرسب على النسخة قبل الإصلاح (إعادة رسم تصفّر الحركة)
+        run: node tests/perf/marquee-idle.mjs --broken
+      - name: §٦ خمول الشريط — إعادة الرسم بنفس البيانات لا تصفّر الحركة (تستمرّ) · تغيّر البيانات يعيد البناء
+        run: node tests/perf/marquee-idle.mjs
       - name: Self-check — حارس الرسم الدائري يرسب على فرق الإجمالي
         run: node tests/perf/pie-sum.mjs --broken
       - name: لوحة المخزون — مجموع شرائح الرسم == الإجمالي (بلا بقايا)

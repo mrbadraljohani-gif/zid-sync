@@ -1661,7 +1661,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "23f7249";
+const APP_VERSION = "c9a771d";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -4476,6 +4476,7 @@ function refreshUnmatchedUI() {
 // ==================== §٦ الشريط المتحرّك — أصناف «بدون ربط» فقط ====================
 // المصدر نفسه (batchData من analyzeBatch) والشارة نفسها (pubBadge) — لا مصدر ثانٍ ولا شارة جديدة.
 let mqObserver = null, mqPendingRO = null;   // mqPendingRO: يعيد رسم الشريط حين تُخطَّط حاويته (تفادي فخّ القياس والحاوية مخفيّة)
+let mqLastKey = null;   // مفتاح خمول: mode + SKUs المرسومة — إن لم يتغيّر لا نلمس track (فتُحفَظ حركة CSS؛ إعادة كتابة innerHTML تصفّرها)
 function buildMarqueeData() {
   const bd = batchData || (batchData = analyzeBatch());
   const items = [...bd.green, ...bd.yellow, ...bd.red];   // كل «بدون ربط» (يحتاج قرار + غائب)
@@ -4494,19 +4495,24 @@ function renderMarquee() {
   const el = document.getElementById("marquee"), track = document.getElementById("mqTrack");
   if (!el || !track) return;
   const items = buildMarqueeData();
-  if (!items.length) { el.style.display = "none"; track.innerHTML = ""; el.classList.remove("mq-static"); mqDisconnect(); mqStopPending(); return; }   // 0 عنصر ⇒ الشريط مخفيّ كلياً (لا تنبيه بلا محتوى — يختلف عن إخفاء أصناف فعّالة)
+  if (!items.length) { el.style.display = "none"; track.innerHTML = ""; el.classList.remove("mq-static"); mqLastKey = null; mqDisconnect(); mqStopPending(); return; }   // 0 عنصر ⇒ الشريط مخفيّ كلياً (لا تنبيه بلا محتوى — يختلف عن إخفاء أصناف فعّالة)
   el.style.display = "block";
-  // التسمية بالعدد الحيّ للمجتمع الفعلي (يحتاج قرارك + غائب) لا عدّاد بطاقة «بدون ربط» (الذي يشمل المُدار/المتجاهَل/⏳)
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const mode = (reduce || items.length <= 6) ? "static" : "slide";
+  // التسمية بالعدد الحيّ (يحتاج قرارك + غائب) لا عدّاد بطاقة «بدون ربط». تُحدَّث **دائماً** — عنصر منفصل عن track فلا تمسّ الحركة.
   const pop = batchData ? ((batchData.needCount || 0) + (batchData.absentCount || 0)) : items.length;
   const labelTxt = `تحتاج قرارك (${pop})`;
   const label = el.querySelector(".mq-label"); if (label) label.textContent = labelTxt;
   el.setAttribute("aria-label", labelTxt + " — انقر للانتقال");
-  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // ⚠ خمول: مفتاح = الوضع + تسلسل SKUs المرسومة. إن لم يتغيّر ولا يزال track مرسوماً ⇒ **لا نلمس innerHTML** فتستمرّ حركة CSS
+  // (إعادة كتابة innerHTML تُنشئ عنصر مسار جديداً فتُستأنف الحركة من translateX(0) — سبب «صنفان يعبران» عند تكرار الرسم).
+  const key = mode + ":" + items.map(r => String(r.z.sku)).join("|");
+  if (key === mqLastKey && track.children.length) return;   // البيانات المرسومة نفسها — التسمية حُدّثت أعلاه، والمسار محفوظ
   // ساكن عند القلّة (≤6) أو reduced-motion: نسخة واحدة بلا تكرار ولا انزلاق.
   // ≤6 ⇒ items.slice(0,6) = كلها (صفر تكرار — التكرار عند القلّة هو ما يوهم بالعطل)؛ لا نُخفي صنفاً فعّالاً، نعرضه ساكناً.
   if (reduce || items.length <= 6) {
     track.innerHTML = `<div class="mq-set">${items.slice(0, 6).map(mqItemHTML).join("")}</div>`;
-    el.classList.add("mq-static");
+    el.classList.add("mq-static"); mqLastKey = key;
     mqDisconnect(); mqStopPending(); return;
   }
   el.classList.remove("mq-static");
@@ -4517,6 +4523,7 @@ function renderMarquee() {
   // الحلّ: لا نقِس الآن — نرسم نسختين مؤقتاً ونعيد الرسم عند تخطيط الحاوية (ResizeObserver).
   if (wCont <= 1) {
     track.innerHTML = `<div class="mq-set">${set}</div><div class="mq-set" aria-hidden="true">${set}</div>`;
+    mqLastKey = null;   // رسم مؤقّت (بلا قياس) ⇒ أبطِل الخمول ليُعاد البناء المقيس عند إطلاق الـResizeObserver
     el.classList.remove("mq-paused"); mqObserve(el);
     if (typeof ResizeObserver !== "undefined" && !mqPendingRO) {
       mqPendingRO = new ResizeObserver(() => { if (((vp || el).getBoundingClientRect().width) > 1) { mqStopPending(); renderMarquee(); } });
@@ -4532,6 +4539,7 @@ function renderMarquee() {
   let html = "";
   for (let i = 0; i < 2 * half; i++) html += `<div class="mq-set"${i === 0 ? "" : ' aria-hidden="true"'}>${set}</div>`;   // النصفان متطابقان؛ أول نسخة فقط تُقرأ
   track.innerHTML = html;
+  mqLastKey = key;   // بناء مقيس مكتمل ⇒ سجّل المفتاح؛ إعادة الرسم بنفس البيانات ستُتخطّى (تُحفَظ الحركة)
   el.classList.remove("mq-paused");
   mqObserve(el);
 }
