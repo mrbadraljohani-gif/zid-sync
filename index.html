@@ -172,10 +172,6 @@
   .sidebar-scrim { display: none; }
   .acc-card { margin-bottom: 14px; }
   .acc-status-row { display: flex; flex-wrap: wrap; gap: 10px; }
-  .acc-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
-  .acc-stat { flex: 1 1 120px; text-align: center; padding: 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); }
-  .acc-stat b { display: block; font-size: 24px; font-weight: 700; color: var(--gold-2); font-family: var(--serif); }
-  .acc-stat span { font-size: 12px; color: var(--muted); font-weight: 600; }
   .acc-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-top: 12px; }
   /* نموذج التسجيل موسّط أفقياً بعرض أقصى موحّد بدل التثبيت في جانب الصفحة */
   .signup-card { max-width: 480px; margin-inline: auto; }
@@ -265,6 +261,31 @@
   .inv-age { margin-inline-start: auto; font-size: 12px; color: var(--muted-2); white-space: nowrap; align-self: center; }
   .inv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
   @media (max-width: 860px) { .inv-grid { grid-template-columns: minmax(0, 1fr); } }
+  /* ═══ لوحة معلومات المخزون (إعادة تصميم) ═══ شبكات الصفوف: KPI × ثلاثي × ثنائي · الجوال عمود واحد */
+  .dash-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 4px 0 14px; }
+  .dash-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+  .dash-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+  @media (max-width: 860px) { .dash-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dash-3, .dash-2 { grid-template-columns: minmax(0, 1fr); } }
+  /* بطاقة KPI: أيقونة ملوّنة دلالياً + رقم بارز (mono) + تسمية + سطر فرعي · شريط لون علوي حسب الدور */
+  .kpi { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 18px 18px 16px; overflow: hidden; }
+  .kpi::before { content: ""; position: absolute; top: 0; inset-inline: 0; height: 3px; }
+  .kpi[data-k="products"]::before { background: color-mix(in srgb, var(--info) 80%, transparent); }
+  .kpi[data-k="unified"]::before { background: color-mix(in srgb, var(--green) 80%, transparent); }
+  .kpi[data-k="unmatched"]::before { background: color-mix(in srgb, var(--amber) 80%, transparent); }
+  .kpi[data-k="links"]::before { background: color-mix(in srgb, var(--gold) 80%, transparent); }
+  .kpi .kpi-ic { display: block; margin-bottom: 2px; }
+  .kpi[data-k="products"] .kpi-ic { color: var(--info); }
+  .kpi[data-k="unified"] .kpi-ic { color: var(--green-2); }
+  .kpi[data-k="unmatched"] .kpi-ic { color: var(--amber); }
+  .kpi[data-k="links"] .kpi-ic { color: var(--gold-2); }
+  .kpi .kpi-ic .ico { width: 20px; height: 20px; }
+  .kpi > b { font-size: 30px; font-weight: 800; line-height: 1.05; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text); }
+  .kpi .kpi-lbl { font-size: 13px; font-weight: 700; color: var(--text); }
+  .kpi .kpi-sub { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  /* سطر مفتاح/قيمة في «ملخّص سريع» */
+  .qs-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .qs-row .qs-k { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+  .qs-row b { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 16px; color: var(--text); }
 
   /* بطاقة حالة — نفس أسطح التطبيق وحدوده وأنصاف أقطاره؛ اللون من توكن الحالة فقط */
   .stc { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 16px;
@@ -302,9 +323,6 @@
     padding: 7px 10px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--amber-tint) 55%, transparent);
     background: color-mix(in srgb, var(--amber) 10%, transparent); }
   /* KPI: أربعة على سطح المكتب · عمودان على الجوال */
-  .kpi-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-  @media (max-width: 860px) { .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  .kpi-row .acc-stat { flex: none; }
   /* الإصدار والبصمة — تذييل خفيف أسفل بطاقة الاتصال */
   .inv-meta-foot { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); }
   .inv-meta-foot .fingerprint { font-size: 11px; color: var(--muted-2); line-height: 1.7; }
@@ -1333,28 +1351,49 @@
       <div class="ph-txt"><h2>مراجعة الجرد</h2><p>متابعة حالة المنتجات والربط والتغييرات</p></div>
       <span class="inv-age" id="invLastUpdate"></span>
     </div>
-    <div class="section-head"><span class="n">١</span><h2>يحتاج انتباهك</h2><span class="line"></span></div>
-    <div class="inv-grid" id="invAttention"></div>
-    <!-- تفاصيل البطاقات: تظهر عند وجود ما يُعرض (نفس دوالّ الرسم القائمة) -->
-    <div class="action-center inv-details">
-      <div id="collisionWarn" style="display:none"></div>
-      <div id="newAlert" class="alert-new" style="display:none" onclick="invStartBatch()"></div>
-      <div id="variantInfo" style="display:none"></div>
-      <div id="parentPublishMsg" style="display:none"></div>   <!-- نُقل من الرئيسية (٢-أ): لوحة «نشر مُنقَل إلى الأب» — renderParentPublish يجدها بالمعرّف أينما كانت -->
+    <!-- لوحة معلومات: صفّ KPI ← ملخّص/توزيع/نشاط ← اتصال/انتباه ← جدول (دفعة ١: الهيكل ＋ KPI؛ التوزيع والجدول لاحقاً) -->
+    <!-- صفّ ١ — KPI «أين أنا الآن»: منتجات زد · الموحّد · بلا ربط · الروابط. تبدأ «—» (لا رقم قبل المصدر) -->
+    <div class="dash-kpis">
+      <div class="card kpi" data-k="products"><span class="kpi-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18l-1.2 4.2a2.6 2.6 0 0 1-2.5 1.9H6.7a2.6 2.6 0 0 1-2.5-1.9L3 4z"/><path d="M5 10.5V21h14V10.5"/><rect x="9" y="14" width="4" height="4"/></svg></span><b id="kpiProducts">—</b><span class="kpi-lbl">منتجات زد</span><span class="kpi-sub">في القاعدة</span></div>
+      <div class="card kpi" data-k="unified"><span class="kpi-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></span><b id="kpiUnified">—</b><span class="kpi-lbl">المخزن الموحّد</span><span class="kpi-sub">مستودع ＋ فرع</span></div>
+      <div class="card kpi" data-k="unmatched"><span class="kpi-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1.4 1.4"/><path d="M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1.4-1.4"/><path d="M4 4l16 16"/></svg></span><b id="kpiUnmatched">—</b><span class="kpi-lbl">بلا ربط</span><span class="kpi-sub">يحتاج قرارك</span></div>
+      <div class="card kpi" data-k="links"><span class="kpi-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1.4 1.4"/><path d="M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1.4-1.4"/></svg></span><b id="kpiLinks">—</b><span class="kpi-lbl">الروابط</span><span class="kpi-sub">محفوظة</span></div>
+    </div>
+    <div class="stc-empty" id="kpiEmpty" style="display:none;margin:-4px 2px 14px">ارفع «ملف المستودع» من صفحة تحديث قاعدة البيانات لبناء المخزن الموحّد وبدء المطابقة.</div>
+
+    <!-- صفّ ٢ — ملخّص سريع · توزيع المنتجات · سجل النشاط -->
+    <div class="dash-3">
+      <div class="card">
+        <div class="clabel">ملخّص سريع</div>
+        <div id="mergeResult" class="merge-result" style="display:none"></div>
+        <div class="stc-empty" id="mergeEmpty">ارفع «ملف المستودع» لبناء المخزن الموحّد.</div>
+        <div class="qs-row"><span class="qs-k">قائمة الانتظار</span><b id="invWaiting"><bdi>0</bdi></b></div>
+      </div>
+      <div class="card">
+        <div class="clabel">توزيع المنتجات</div>
+        <div id="invPie" class="stc-empty">يُبنى في الدفعة القادمة (رسم دائري ＋ أسطورة).</div>
+      </div>
+      <div class="card">
+        <div class="clabel">سجل النشاط</div>
+        <div class="act-bar">
+          <select id="actFilter" class="act-select" aria-label="تصفية سجل النشاط بنوع الحدث" onchange="renderActivityFull()">
+            <option value="">كل الأنواع</option>
+            <option value="link_added">ربط صنف</option>
+            <option value="link_removed">إزالة ربط</option>
+            <option value="sync_full">مزامنة زد</option>
+            <option value="waiting_added">إضافة انتظار</option>
+            <option value="waiting_removed">إزالة انتظار</option>
+            <option value="unpublish_added">إلغاء نشر</option>
+            <option value="file_generated">توليد ملف</option>
+          </select>
+          <button type="button" class="btn-run sm" onclick="renderActivityFull()">↻ تحديث</button>
+        </div>
+        <div class="act-scroll"><div class="notif-list" id="activityFull" style="max-height:300px" onscroll="actFade(this)"><div class="notif-empty">…</div></div></div>
+      </div>
     </div>
 
-    <div class="section-head"><span class="n">٢</span><h2>المخزن الموحّد</h2><span class="line"></span></div>
-    <div class="card"><div id="mergeResult" class="merge-result" style="display:none"></div>
-      <div class="stc-empty" id="mergeEmpty">ارفع «ملف المستودع» من صفحة تحديث قاعدة البيانات لبناء المخزن الموحّد.</div></div>
-
-    <div class="section-head"><span class="n">٣</span><h2>نظرة عامة</h2><span class="line"></span></div>
-    <div class="card"><div class="acc-stats kpi-row">
-      <div class="acc-stat"><b id="accProducts"><bdi>0</bdi></b><span>منتجات زد (القاعدة)</span></div>
-      <div class="acc-stat"><b id="accLinks"><bdi>0</bdi></b><span>الروابط</span></div>
-      <div class="acc-stat"><b id="accWaiting"><bdi>0</bdi></b><span>قائمة الانتظار</span></div>
-    </div></div>
-
-    <div class="inv-grid" style="margin-top:14px">
+    <!-- صفّ ٣ — الاتصال والملكية · يحتاج انتباهك -->
+    <div class="dash-2">
       <div class="card acc-card">
         <div class="clabel">الاتصال والجلسة</div>
         <div class="acc-status-row" style="margin-top:10px">
@@ -1384,23 +1423,23 @@
         </div>
       </div>
 
-      <div class="card acc-card">
-        <div class="clabel">سجل النشاط</div>
-        <div class="act-bar">
-          <select id="actFilter" class="act-select" aria-label="تصفية سجل النشاط بنوع الحدث" onchange="renderActivityFull()">
-            <option value="">كل الأنواع</option>
-            <option value="link_added">ربط صنف</option>
-            <option value="link_removed">إزالة ربط</option>
-            <option value="sync_full">مزامنة زد</option>
-            <option value="waiting_added">إضافة انتظار</option>
-            <option value="waiting_removed">إزالة انتظار</option>
-            <option value="unpublish_added">إلغاء نشر</option>
-            <option value="file_generated">توليد ملف</option>
-          </select>
-          <button type="button" class="btn-run sm" onclick="renderActivityFull()">↻ تحديث</button>
+      <div class="card">
+        <div class="clabel">يحتاج انتباهك</div>
+        <div class="inv-grid" id="invAttention"></div>
+        <!-- لوحات التفاصيل (تظهر عند وجود ما يُعرض؛ نفس دوالّ الرسم القائمة بمعرّفاتها) -->
+        <div class="action-center inv-details">
+          <div id="collisionWarn" style="display:none"></div>
+          <div id="newAlert" class="alert-new" style="display:none" onclick="invStartBatch()"></div>
+          <div id="variantInfo" style="display:none"></div>
+          <div id="parentPublishMsg" style="display:none"></div>
         </div>
-        <div class="act-scroll"><div class="notif-list" id="activityFull" style="max-height:440px" onscroll="actFade(this)"><div class="notif-empty">…</div></div></div>
       </div>
+    </div>
+
+    <!-- صفّ ٤ — آخر الأحداث (جدول من activity_log؛ يُبنى في الدفعة القادمة) -->
+    <div class="card">
+      <div class="clabel">آخر الأحداث</div>
+      <div id="invActTable" class="stc-empty">يُبنى في الدفعة القادمة (جدول: الوقت · النوع · SKU زد · الطريقة · الحالة).</div>
     </div>
   </section>
 
@@ -1601,7 +1640,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "9483748";
+const APP_VERSION = "65866ee";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2193,12 +2232,19 @@ function renderInventoryPage() {
   renderInventoryAttention();
   renderMergeBar();
   const em = document.getElementById("mergeEmpty"); if (em) em.style.display = lastMerge ? "none" : "block";
-  // KPI — قراءة الحالة القائمة (كانت في renderAccount المحذوفة)
-  const set = (id, v) => { const e = document.getElementById(id); if (e) e.innerHTML = "<bdi>" + esc(String(v)) + "</bdi>"; };
-  set("accProducts", (zidDbMeta && zidDbMeta.product_count) ? zidDbMeta.product_count : 0);
-  set("accLinks", Object.keys(manualMap).length);
-  set("accWaiting", waitingSet ? waitingSet.size : 0);
+  renderInvKPIs();
   if (typeof renderFingerprint === "function") renderFingerprint();
+}
+// KPI اللوحة «أين أنا الآن» — كلها من مصادر حيّة، وتُظهر «—» قبل توفّر مصدرها (لا رقم ملفَّق قبل المطابقة)
+function renderInvKPIs() {
+  const setK = (id, v, has) => { const e = document.getElementById(id); if (e) e.innerHTML = has ? "<bdi>" + esc(String(v)) + "</bdi>" : "—"; };
+  const zp = (zidDbMeta && zidDbMeta.product_count) ? zidDbMeta.product_count : (stData ? stData.rows.length - 1 : 0);
+  setK("kpiProducts", zp, zp > 0);                              // منتجات زد: القاعدة أو الملف المرفوع
+  setK("kpiUnified", lastMerge ? lastMerge.total : 0, !!lastMerge);   // الموحّد: بعد الدمج فقط
+  setK("kpiUnmatched", lastUnmatchedRaw.length, !!lastRunSummary);    // بلا ربط: بعد المطابقة فقط (لا صفر صامت قبلها)
+  setK("kpiLinks", Object.keys(manualMap).length, true);        // الروابط: حقيقة مخزَّنة (0 ذو معنى)
+  const kEmpty = document.getElementById("kpiEmpty"); if (kEmpty) kEmpty.style.display = (!lastMerge && !lastRunSummary && zp === 0) ? "block" : "none";
+  const w = document.getElementById("invWaiting"); if (w) w.innerHTML = "<bdi>" + esc(String(waitingSet ? waitingSet.size : 0)) + "</bdi>";
 }
 
 

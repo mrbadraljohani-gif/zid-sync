@@ -108,6 +108,10 @@ check(!/\.pub-badge[^{]*\{[^}]*var\(--danger\)/.test(html), "الشارة لا �
 check(/id="sUn">0</.test(html), "عدّاد «بدون ربط» يبدأ 0 في الترميز");
 check(/id="sUpd"[^>]*>0</.test(html) || /id="sUpd">0</.test(html), "عدّاد «تم تحديثه» يبدأ 0");
 check(/id="unBlock"[^>]*style="display:none"/.test(html), "كتلة القائمة (#unBlock) مخفيّة حتى المطابقة");
+// (5ب) KPI لوحة المخزون تبدأ «—» لا رقماً ملفَّقاً قبل توفّر مصدرها الحيّ (renderInvKPIs يملؤها)
+for (const id of ["kpiProducts", "kpiUnified", "kpiUnmatched", "kpiLinks"])
+  check(new RegExp('id="' + id + '">—<').test(html), `KPI «${id}» يبدأ «—» في الترميز (لا رقم قبل المصدر)`);
+check(/function renderInvKPIs\b/.test(script), "renderInvKPIs معرّفة (تملأ KPI من مصادر حيّة)");
 
 // النتيجة
 console.log(`✓ ${ok.length} تحقّق ناجح`);
