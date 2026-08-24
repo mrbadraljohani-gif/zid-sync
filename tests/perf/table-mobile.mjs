@@ -35,6 +35,9 @@ for (const w of [360, 390, 768, 900]) {
     renderDetail();
     const measure = t => { if (!t) return null; let h = 0, w = 1e9; t.querySelectorAll("tbody tr").forEach(tr => h = Math.max(h, tr.getBoundingClientRect().height)); t.querySelectorAll("tbody td").forEach(td => { const cw = td.getBoundingClientRect().width; if (cw > 0) w = Math.min(w, cw); }); return { maxRowH: Math.round(h), minCellW: Math.round(w) }; };
     const upd = measure(document.querySelector("#detailTable table"));
+    // عرض اسم زد داخل .prodcell (صورة + اسم): إن انهار (الصورة تلتهم العمود المحدود، والاسم لا يملأ) صار كلمة/سطر ⇒ صفّ طويل. الصفّ وحده لا يمسكه (قد يبقى <260).
+    const nmSpan = document.querySelector("#detailTable td.upd-nm .prodcell > span");
+    if (upd && nmSpan) upd.nmSpanW = Math.round(nmSpan.getBoundingClientRect().width);
     // مشهد جدول «آخر الأحداث» (دفعة ٤): نبني .upd-table عبر actTableRow الحقيقي داخل #invActTable
     let act = null;
     try {
@@ -55,6 +58,8 @@ for (const w of [360, 390, 768, 900]) {
     else console.log(`✓ @${w}px ${label}: أقصى صفّ ${m.maxRowH}px · أضيق خلية ${m.minCellW}px`);
   };
   chk(res.upd, "«تم تحديثه»");
+  if (res.upd && res.upd.nmSpanW != null && res.upd.nmSpanW < 120)
+    fails.push(`@${w}px «تم تحديثه»: عرض اسم زد=${res.upd.nmSpanW}px < 120 (منهار لكلمة/سطر — الصورة تلتهم العمود والاسم لا يملأ)`);
   chk(res.act, "«آخر الأحداث»");
   await page.close();
 }
