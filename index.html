@@ -1000,6 +1000,9 @@
   .uni-chip bdi { font-family: var(--mono); font-weight: 700; color: var(--text); }
   .uni-chip.need { border-color: color-mix(in srgb, var(--amber) 34%, transparent); color: var(--amber); }
   .uni-chip.need bdi { color: var(--amber); }
+  .uni-chip.abs { border-color: color-mix(in srgb, var(--info) 34%, transparent); color: var(--info); }
+  .uni-chip.abs bdi { color: var(--info); }
+  .uni-shown { font-size: 12px; font-weight: 700; color: var(--amber); margin-inline-start: 4px; }
   .uni-chip.wait { border-color: color-mix(in srgb, var(--muted) 28%, transparent); }
   /* §دفعة٣: نسبة المطابقة ظاهرة داخل البطاقة (لا tooltip — الجوال بلا تحويم) */
   .mc-match:empty { display: none; }
@@ -1661,7 +1664,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "079e39e";
+const APP_VERSION = "aba3f8f";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2818,7 +2821,17 @@ async function undoLastBatch() {
 // تنقّل التبويبات بلوحة المفاتيح (نمط tablist): ← → للانتقال، Home/End للطرفين.
 // في RTL يُقلب اتجاه السهمين ليطابق الترتيب البصري.
 
-function toggleLostOnly() { batchLostOnly = !batchLostOnly; renderDetail(); }
+function toggleLostOnly() {
+  batchLostOnly = !batchLostOnly;
+  renderDetail();
+  // كل «سبق ربطه» غائب بحكم التعريف (isAbsent && manualMap)، فتفعيل الفلتر يُفرِغ أعلى
+  // القائمة وتبقى البطاقات في قسم «غائب» أسفلها — فيبدو الفلتر معطّلاً. نُظهر أول نتيجة.
+  if (batchLostOnly) requestAnimationFrame(() => {
+    flushUnified();
+    const first = document.querySelector("#unBody .batch-card");
+    if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}
 // تطبيق فلتر «سبق ربطه فقط» على قائمة تبويب
 function btFilter(list) { return batchLostOnly ? list.filter(r => r.wasLinked) : list; }
 // طلب ٣: شارة حالة النشر في زد (المصدر = عمود published نفسه الذي يقرأه run). منشور=--green · غير منشور=--muted (لا --danger). أيقونة SVG. تُظهر الحالة الحالية، و«← سيُخفى» إن كان سيُصدَّر published=No.
@@ -2872,18 +2885,20 @@ function unifiedLightRow(u, status) {
 async function undoWaitDecision(rawSku, skuN) { await applyDecision(() => unmarkWaiting(rawSku, skuN)); }
 
 // شريط الحالة (لاصق ومعتم): عدّادات الحالة + ثقة «يحتاج قرار» + فلتر «سبق ربطه» + اعتماد جماعي
-function unifiedBar(needN, g, y, r, absentN, p, m) {
+function unifiedBar(needN, g, y, r, absentN, p, m, shownN) {
   const lost = batchData.lostCount || 0;   // «سبق ربطه» = روابط يدوية ضائعة (غائب + كود يدوي محفوظ) — صار مقيّداً ومعقولاً
   return `<div class="uni-head"><b>يحتاج ربط</b><span><bdi>${needN}</bdi> منتجاً يحتاج قرارك</span></div>
   <div class="uni-bar">
     <div class="uni-counts">
       <span class="uni-chip need"><b>يحتاج ربط</b> <bdi>${needN}</bdi></span>
+      <span class="uni-chip abs"><b>غائب عن المخزن</b> <bdi>${absentN}</bdi></span>
       <span class="uni-chip wait"><b>غير متوفر</b> <bdi>${p + m}</bdi></span>
     </div>
     <div class="uni-filter">
       <span class="uni-flabel">فلترة:</span>
-      <button class="exp-chip${batchLostOnly ? "" : " on"}" aria-pressed="${!batchLostOnly}" onclick="${batchLostOnly ? "toggleLostOnly()" : ""}">الكل</button>
+      <button class="exp-chip${batchLostOnly ? "" : " on"}" aria-pressed="${!batchLostOnly}" onclick="${batchLostOnly ? "toggleLostOnly()" : ""}" title="كل البطاقات (يحتاج ربط ＋ غائب)">الكل <bdi>${needN + absentN}</bdi></button>
       ${lost ? `<button class="exp-chip${batchLostOnly ? " on" : ""}" aria-pressed="${batchLostOnly}" onclick="toggleLostOnly()" title="روابط يدوية ضائعة (غائبة رغم كود يدوي محفوظ) — أولى بإعادة الربط">${ic("link2", "ico-info")} سبق ربطه ${lost}</button>` : ""}
+      ${batchLostOnly ? `<span class="uni-shown">يعرض <bdi>${shownN}</bdi> من <bdi>${needN + absentN}</bdi></span>` : ""}
     </div>
     <div class="uni-actions">
       <button class="btn-run sm" onclick="acceptUnified('all')">${ic("check")} اعتماد العناصر المحددة</button>
@@ -2924,11 +2939,11 @@ function renderUnifiedList(title, wrap) {
   // (أ) الأصناف «غير المتوفرة» تظهر كصفوف خفيفة (⚠ سيُصفَّر / ✓ مُدار) — تراجع عن خروجها من القائمة، ليبقى التأكيد مرئياً مع تراجع مباشر.
   const light = [...pending.map(u => unifiedLightRow(u, "pending")), ...managed.map(u => unifiedLightRow(u, "managed"))];
   const rows = [...needCards];
-  if (absCards.length) { rows.push(`<div class="uni-sec" id="uniAbsentSec">${ic("inbox","ico-warn")} غائب عن المخزن (<bdi>${absentN}</bdi>) — لها كود سابق وغائبة عن المخزن الموحّد الحالي (قد تكون في فرع آخر)</div>`, ...absCards); }
+  if (absCards.length) { rows.push(`<div class="uni-sec" id="uniAbsentSec">${ic("inbox","ico-warn")} غائب عن المخزن (${batchLostOnly ? `<bdi>${absCards.length}</bdi> من <bdi>${absentN}</bdi>` : `<bdi>${absentN}</bdi>`}) — لها كود سابق وغائبة عن المخزن الموحّد الحالي (قد تكون في فرع آخر)</div>`, ...absCards); }
   if (light.length) { rows.push(`<div class="uni-sec">${ic("hourglass","ico-warn")} غير متوفر (<bdi>${light.length}</bdi>)</div>`, ...light); }
   const allRows = rows;
   const sa = document.getElementById("sAbsent"); if (sa) sa.textContent = batchData.absentCount || 0;   // البطاقة العلوية = نفس مصدر الشريط
-  wrap.innerHTML = unifiedBar(needN, gN, yN, rN, absentN, pending.length, managed.length)
+  wrap.innerHTML = unifiedBar(needN, gN, yN, rN, absentN, pending.length, managed.length, needCards.length + absCards.length)
     + `<div class="mcards uni-list" id="unBody"></div>`;
   const host = document.getElementById("unBody");
   cancelAnimationFrame(unifiedRAF); unifiedPending = null;

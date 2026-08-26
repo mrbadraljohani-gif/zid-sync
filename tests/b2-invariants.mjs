@@ -78,6 +78,14 @@ check(/pending\.map\(u => unifiedLightRow\(u, "pending"\)\)/.test(uni) && /manag
 // (عطل ٢) عدّادات الشريط من غير المُصفّى؛ btFilter للبطاقات المرسومة فقط
 check(/const gAll = batchData\.green/.test(uni) && /unifiedBar\(needN, gN, yN, rN, absentN,/.test(uni), "عطل٢: عدّاد الشريط من batchData الخام (needN/absentN)");
 check(/const g = btFilter\(gAll\)/.test(uni), "btFilter على البطاقات المرسومة فقط");
+// §إصلاح الفلتر: «سبق ربطه» كان يبدو معطّلاً — الأرقام لا تتغيّر وكل نتائجه في قسم «غائب»
+// أسفل الصفحة. الآن: رقم دقيق بجوار كل خيار ＋ «يعرض X من Y» ＋ تمرير لأول نتيجة.
+check(bar.includes("${needN + absentN}"), "فلتر «الكل» يحمل عدده الدقيق (يحتاج ربط ＋ غائب)");
+check(bar.includes("uni-shown") && bar.includes("يعرض"), "مؤشّر «يعرض X من Y» يظهر عند تفعيل الفلتر");
+check(bar.includes("uni-chip abs"), "شريحة «غائب عن المخزن» في الشريط (كانت في ترويسة القسم وحدها)");
+check(uni.includes("needCards.length + absCards.length"), "shownN = البطاقات المرسومة فعلاً (لا الخام)");
+const tl = fnSrc("toggleLostOnly");
+check(tl.includes("scrollIntoView") && tl.includes("flushUnified"), "تفعيل الفلتر يمرّر لأول نتيجة (وإلا بدا معطّلاً)");
 // (عطل ١أ) تعطيل «غير متوفر» للـno-op — نفس شروط run (مصدر واحد)
 const wn = fnSrc("waitNoopReason");
 check(wn.includes("curQtyNum(z.qty)") && wn.includes("famIndex") && wn.includes('=== "yes"'), "waitNoopReason بنفس شروط run (curQtyNum + published + famIndex)");
