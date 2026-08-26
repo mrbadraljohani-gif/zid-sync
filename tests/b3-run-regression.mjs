@@ -57,6 +57,15 @@ check(/getElementById\("sUpd"\)\.textContent = updatedList\.length/.test(run), "
 check(/getElementById\("sUn"\)\.textContent = unmatched\.length/.test(run), "العدّاد: بدون ربط = unmatched.length");
 check(/getElementById\("sTot"\)\.textContent = rows0\.length - 1/.test(run), "العدّاد: إجمالي الأسطر = rows0.length-1");
 
+// §الدفعة٥: «غائب عن المخزن» ⇒ صفر ＋ إخفاء **دائماً** — لا خيار. المنطقة كانت بلا مرساة إطلاقاً.
+check(!run.includes("opts.absent"), "الغائب: لا شرط opts.absent باقٍ في run (التصفير قاعدة لا خيار)");
+const iAbs = run.indexOf("absentList.push(");
+const absBlk = iAbs < 0 ? "" : run.slice(iAbs, iAbs + 700);
+check(iAbs >= 0, "الغائب: absentList.push موجود");
+check(absBlk.includes("finalQtyByRaw[rawKey] = 0;"), "الغائب: finalQtyByRaw = 0 بلا شرط");
+check(absBlk.includes("zeroDoor[rawKey] = \"absent\""), "الغائب: يدخل الإخفاء الموحّد عبر zeroDoor بلا شرط");
+check(absBlk.includes("qtyRows.push(") && absBlk.includes("qtyCount++"), "الغائب: يدخل ملف الكميات بصفر بلا شرط");
+
 // ⑤ حياد البند ٣: الاعتراض محكوم بـreappearedSet (فارغ ⇒ لا يقع) + لا عودة تلقائية داخل run
 check(/if \(reappearedSet\.has\(skuN\) && !mapped\)/.test(run), "العودة: الاعتراض محكوم بـreappearedSet (فارغ = حياد تامّ)");
 check(!run.includes("reactivated.push") && !/waitingSet\.delete\(skuN\); waitChanged/.test(run), "العودة: أُزيل الحذف/إعادة التفعيل التلقائي من run (نُقل للخطاف)");

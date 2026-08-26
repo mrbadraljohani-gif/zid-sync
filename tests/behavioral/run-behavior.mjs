@@ -66,6 +66,35 @@ function masterCfg() {
   };
 }
 
+// ===== fixture الدفعة ٥: «غائب عن المخزن» ⇒ كمية 0 ＋ published=No دائماً =====
+// المنطقة كانت **بلا حارس** إطلاقاً (صفر مرساة على absent في b3، وصفر مشهد سلوكي).
+// AB1: له matchedHistory · غائب عن المخزن الموحّد · كمية زد 7 (≠0) · منشور  ⇒ يجب: qty=0 ＋ published=No
+// AB2: مربوط يدوياً وكوده المخزني غائب ⇒ نفس المعاملة (الغياب لا يفرّق بين مصدر التاريخ)
+// AB0: مطابَق ضابط — يثبت أن التغيير لم يمسّ المسار العادي
+// ABZ: غائب لكن كمية زد 0 أصلاً ⇒ stripNoChangeQty يُسقطه (لا استيراد عبثي)
+// ABV: غائب ومتغيّر (له أب) ⇒ لا published على صفّه (النشر يُدار من الأب)
+function absentCfg() {
+  const rows = [HEADER,
+    Z("AB0", "3", "500"),                                 // مطابَق: زد 3 ⇒ مخزن 9 (تغيير فعليّ وإلا أسقطه stripNoChangeQty)
+    Z("AB1", "7", "500"),
+    Z("AB2", "4", "500"),
+    Z("ABZ", "0", "500"),
+    Z("ABP", "3", "500", { hv: "Yes" }),
+    Z("ABV", "5", "500", { par: "ABP" }),
+  ];
+  return {
+    stData: { sheetName: "P", header: HEADER, rows },
+    whRows: [WH("AB0", 9, 500)], lastMerge: merge(["AB0"]),
+    manualMap: { AB2: "WHX" },
+    waiting: [],
+    history: ["AB1", "ABZ", "ABV"],
+    // **keep عمداً**: بعد الدفعة ٥ لم يعد للخيار أثر — فنجاحُ الفحص يثبت أن التصفير
+    // صار قاعدة لا خياراً، ورسوبُه على النسخة القديمة يثبت أن للفحص أسناناً.
+    opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" },
+    uploaded: false, callHook: false,
+  };
+}
+
 // مشهد ج-١ الأدنى: عنصر لا-محدود + مطابَق ضابط — بلا انتظار/خطاف (يعمل على النسخ القديمة)
 function infCfg() {
   const rows = [HEADER, Z("A1", "5", "100"), Z("INF1", "infinite", "50")];
@@ -158,6 +187,8 @@ async function inpage(cfg) {
     unmatched: (lastUnmatchedRaw || []).map(u => ({ sku: String(u.sku), reappeared: !!u.reappeared, waiting: !!u.waiting })),
     saleConflicts: (typeof lastSaleConflicts !== "undefined" && lastSaleConflicts ? lastSaleConflicts : []).map(s => String(s.sku)),
     reappearedSet: (typeof reappearedSet !== "undefined" && reappearedSet ? [...reappearedSet] : []),
+    absent: (typeof lastAbsent !== "undefined" && lastAbsent ? lastAbsent : []).map(a => String(a.sku)),
+    pubOf: (() => { const m = {}; pr.slice(1).forEach(r => { if (iPub >= 0) m[String(r[iSku])] = String(r[iPub]); }); return m; })(),
     waitingLeft: [...waitingSet],
   };
 }
@@ -277,8 +308,12 @@ try {
   const DMb = await bootRead(browser, curHtml, delmapCfg());
   const DMd = await bootRead(browser, curHtml, { ...delmapCfg(), decision: { type: "delmap", sku: "MAP1" } });
   if (!(DMb.qtyOf.MAP1 === 9 || DMb.qtyOf.MAP1 === "9")) fails.push(`delMap خطّ أساس: MAP1 المربوط ليس في الكميات (=${DMb.qtyOf.MAP1})`);
-  if ("MAP1" in DMd.qtyOf) fails.push(`إصلاح البانر: بعد delMap بقي MAP1 في الكميات (=${DMd.qtyOf.MAP1}) — run(true) لم يعكس الحذف`);
-  notes.push(`delMap: قبل=${DMb.qtyOf.MAP1} · بعد=${"MAP1" in DMd.qtyOf ? DMd.qtyOf.MAP1 : "غائب(صحيح)"}`);
+  // §الدفعة٥ — تحوّل سلوكي مقصود: كان حذف الرابط يُخرِج الصنف من الملفّين. الآن matchedHistory
+  // تراكم في التشغيل الأول، فيصير الصنف «معروفاً سابقاً وغائباً عن المخزن» ⇒ يُصدَّر بـ0 ويُخفى.
+  // الفحص ما زال يثبت الفوريّة (run(true))، لكن بالنتيجة الصحيحة الجديدة لا بالاختفاء.
+  if (Number(DMd.qtyOf.MAP1) !== 0) fails.push(`إصلاح البانر: بعد delMap كمية MAP1 = ${DMd.qtyOf.MAP1} لا 0 — run(true) لم يعكس الحذف`);
+  if (String((DMd.pubOf || {}).MAP1 || "").toLowerCase() !== "no") fails.push(`الدفعة٥: بعد delMap لم يُخفَ MAP1 (published=${(DMd.pubOf||{}).MAP1})`);
+  notes.push(`delMap: قبل=${DMb.qtyOf.MAP1} · بعد=${"MAP1" in DMd.qtyOf ? DMd.qtyOf.MAP1 : "غائب"} · pub=${(DMd.pubOf||{}).MAP1}`);
   const DMo = await bootRead(browser, showAt("831c299"), { ...delmapCfg(), decision: { type: "delmap", sku: "MAP1" } });
   if (!("MAP1" in DMo.qtyOf)) fails.push("أسنان delMap: على 831c299 اختفى MAP1 رغم markDirty (بلا run(true)) — بلا أسنان");
   notes.push(`أسنان delMap (831c299): بعد delMap MAP1=${"MAP1" in DMo.qtyOf ? DMo.qtyOf.MAP1 : "غائب"} (يبقى = العطل القديم)`);
@@ -292,6 +327,39 @@ try {
   if (before.qtyRows.length <= 1) fails.push("ج-١: مقارنة عابثة — ملف الكميات فارغ (A1 الضابط مفقود)");
   if (before.qtySkus.includes("INF1") || after.qtySkus.includes("INF1")) fails.push("ج-١: INF1 دخل الكميات في إحدى النسختين");
   notes.push(`ج-١ حياد: before.qty=[${before.qtySkus}] == after.qty=[${after.qtySkus}] ⇒ ${eq(b, a)}`);
+
+  // ===== الدفعة ٥: «غائب عن المخزن» ⇒ كمية 0 ＋ published=No دائماً =====
+  // المنطقة كانت بلا حارس. الـfixture تمرّر absent:"keep" عمداً — فنجاحُها يثبت أن
+  // التصفير صار **قاعدة لا خياراً**، ورسوبُها على النسخة قبل التغيير يثبت الأسنان.
+  const AB = await bootRead(browser, curHtml, absentCfg());
+  if (AB.err) fails.push("الدفعة٥: خطأ تشغيل — " + AB.err);
+  const q = AB.qtyOf || {}, p = AB.pubOf || {};
+  // (أ) الضابط: المطابَق لم يتأثّر
+  if (!AB.qtySkus.includes("AB0")) fails.push("الدفعة٥: AB0 المطابَق غاب عن ملف الكميات — التغيير مسّ المسار العادي");
+  if (Number(q.AB0) !== 9) fails.push(`الدفعة٥: AB0 كميته ${q.AB0} لا 9 (المطابَق يجب أن يبقى على كميته)`);
+  // (ب) الغائب بتاريخ مطابقة ⇒ 0 في الكميات
+  if (Number(q.AB1) !== 0) fails.push(`الدفعة٥: AB1 (غائب · منشور · كمية زد 7) كميته المُصدَّرة ${q.AB1} لا 0`);
+  if (Number(q.AB2) !== 0) fails.push(`الدفعة٥: AB2 (غائب · مربوط يدوياً) كميته المُصدَّرة ${q.AB2} لا 0`);
+  // (ج) الغائب البسيط المنشور ⇒ published=No في الأسعار
+  if (String(p.AB1 || "").toLowerCase() !== "no") fails.push(`الدفعة٥: AB1 لم يُخفَ في ملف الأسعار (published=${p.AB1})`);
+  if (String(p.AB2 || "").toLowerCase() !== "no") fails.push(`الدفعة٥: AB2 لم يُخفَ في ملف الأسعار (published=${p.AB2})`);
+  // (د) lastAbsent يحوي الغائبين، ولا يدخلون «يحتاج ربط»
+  for (const k of ["AB1", "AB2"]) {
+    if (!AB.absent.includes(k)) fails.push(`الدفعة٥: ${k} ليس في lastAbsent`);
+    if (AB.unmatched.some(u => u.sku === k)) fails.push(`الدفعة٥: ${k} دخل «يحتاج ربط» (يجب أن يبقى غائباً)`);
+  }
+  // (هـ) المصفَّر أصلاً في زد يُسقطه stripNoChangeQty — لا استيراد عبثي
+  if (AB.qtySkus.includes("ABZ")) fails.push("الدفعة٥: ABZ (كمية زد 0 أصلاً) دخل ملف الكميات — stripNoChangeQty لم يُسقطه");
+  // (و) المتغيّر الغائب: يُصفَّر لكن لا published على صفّه (النشر يُدار من الأب)
+  if (Number(q.ABV) !== 0) fails.push(`الدفعة٥: ABV (متغيّر غائب) كميته ${q.ABV} لا 0`);
+  if (String(p.ABV || "").toLowerCase() === "yes") fails.push("الدفعة٥: ABV المتغيّر حمل published=Yes (النشر يُدار من الأب)");
+  notes.push(`الدفعة٥ الغائب: qty=[${AB.qtySkus}] · AB1=${q.AB1}/pub=${p.AB1} · AB2=${q.AB2}/pub=${p.AB2} · ABV=${q.ABV} · lastAbsent=[${AB.absent}]`);
+
+  // ===== أسنان الدفعة ٥: على النسخة قبل التغيير (absent:keep فعّال) لا تصفير =====
+  const ABOLD = await bootRead(browser, showAt("079e39e"), absentCfg());
+  const oldZeroed = ABOLD.qtySkus.includes("AB1");
+  if (oldZeroed) fails.push("أسنان الدفعة٥: النسخة القديمة صفّرت AB1 أيضاً — الفحص بلا أسنان");
+  notes.push(`أسنان الدفعة٥ (079e39e): AB1 في الكميات=${oldZeroed} (يجب false — keep كان يعمل)`);
 
   // ===== أسنان ج-٣: على 917989d (قبل نقل العودة) W1 يُطابَق تلقائياً ⇒ «تم تحديثه» لا «يحتاج قرار» =====
   const OLD = await bootRead(browser, showAt("917989d"), masterCfg());

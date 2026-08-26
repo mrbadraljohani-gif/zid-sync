@@ -56,7 +56,11 @@ check(ab.includes("needCount") && ab.includes("absentCount"), "analyzeBatch يف
 // renderUnifiedList لا وجود الكلمة في الشريط (كانت تمرّ بالمصادفة من title زرّ الفلتر).
 check(uni.includes("const needN = gN + yN + rN") && uni.includes("absentN = isAbs(gAll)"), "renderUnifiedList: needN يستثني الغائب وabsentN مفصول");
 check(uni.includes("id=\"uniAbsentSec\"") && uni.slice(uni.indexOf("uniAbsentSec")).slice(0, 220).includes("${absentN}"), "ترويسة قسم «غائب» تعرض العدّ الخام (absentN) لا المُصفّى");
-check(uni.includes("isAbsent") && uni.includes("uni-sec"), "renderUnifiedList يرتّب: يحتاج قرار ثم غائب (قسم مستقلّ)");
+// §تدقيق المراسي: كانت includes("isAbsent")+includes("uni-sec") — وجود لا ترتيب، فقلبُ
+// rows = [...absCards] لم يكن يُرسِبها. المرساة الآن على **مواضع** البناء في rows.
+const iNeed = uni.indexOf("const rows = [...needCards]"), iAbs = uni.indexOf("...absCards)"), iLight = uni.indexOf("...light)");
+check(iNeed >= 0 && iAbs > iNeed && iLight > iAbs, "renderUnifiedList يبني rows بالترتيب: يحتاج ربط ← غائب ← غير متوفر");
+check(uni.includes("isAbsent") && uni.includes("uni-sec"), "الغائب قسم مستقلّ (uni-sec) لا مطويّ في «يحتاج ربط»");
 
 // (4ج) مسار القرارات الموحّد (الدفعة ج، البند ٤): كل إجراء ⇒ run(true)
 const ad = fnSrc("applyDecision");
@@ -92,7 +96,12 @@ check(hook.includes("reappearedSet") && hook.includes("bulkRemove"), "الخطا
 check(/if \(reappearedSet\.has\(skuN\) && !mapped\)/.test(runSrc) && /reappeared: true/.test(runSrc), "run يوجّه العائد غير المربوط إلى «يحتاج ربط» (reappeared) بلا مطابقة");
 check(!/waitingSet\.delete\(skuN\); waitChanged/.test(runSrc) && !runSrc.includes("reactivated.push"), "run لم يعد يحذف الانتظار/يعيد التفعيل تلقائياً (نُقل للخطاف)");
 check(fnSrc("analyzeBatch").includes("reappeared: !!z.reappeared"), "analyzeBatch يحمل وسم «توفّر» (reappeared)");
-check(script.includes("↩ توفّر"), "شارة «↩ توفّر» معرّفة في lostTag");
+// §تدقيق المراسي: كانت script.includes("↩ توفّر") — والنصّ يرد في تعليقين وفي
+// renderReactivated، فحذفُ الشارة من lostTag كان لا يُرسِبها. المرساة الآن على مصدر lostTag نفسه.
+const lostSrc = (() => { const k = script.indexOf("const lostTag = "); return k < 0 ? "" : script.slice(k, script.indexOf(String.fromCharCode(10), k)); })();
+check(lostSrc.length > 0, "lostTag معرّفة (const سهمي)");
+check(lostSrc.includes("r.reappeared") && lostSrc.includes("توفّر") && lostSrc.includes("lost-tag"), "lostTag يبني شارة «↩ توفّر» من r.reappeared (لا نصّ عائم في الملف)");
+check(lostSrc.includes("r.wasLinked") && lostSrc.includes("سبق ربطه"), "lostTag يبني شارة «سبق ربطه» من r.wasLinked");
 // (١ج) المربوط العائد يستأنف رابطه لكن بوسم «↩ توفّر» ظاهر في «تم تحديثه» للمراجعة
 check(runSrc.includes("reappeared: reappearedSet.has(skuN)"), "المربوط العائد يُوسَم reappeared في updatedList (يستأنف بوسم — البند ١)");
 check(/reapFlag = u\.reappeared/.test(script) && fnSrc("updatedTableHTML").includes("reapFlag"), "صفّ «تم تحديثه» يعرض شارة «↩ توفّر — راجع» للمربوط العائد");

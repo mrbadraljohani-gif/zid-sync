@@ -1531,14 +1531,7 @@
           <button role="radio" aria-checked="false" class="chip" data-group="price" data-v="none" onclick="setOpt(this)">لا تحدّث</button>
         </span>
       </div>
-      <div class="setrow">
-        <span class="setlabel">الأصناف الغائبة عن الملف <span class="set-info" title="«صفّر كميتها» استخدمه فقط عندما يمثّل ملفك كامل مخزونك (مستودع ＋ فروع). في المرحلة 1 (المستودع الرئيسي فقط) قد تكون هذه الأصناف متوفرة في الفروع — اترك «كما هي».">ⓘ</span></span>
-        <span class="seg" role="radiogroup" aria-label="الأصناف الغائبة عن الملف">
-          <button role="radio" aria-checked="true" class="chip on" data-group="absent" data-v="keep" onclick="setOpt(this)">اتركها كما هي</button>
-          <button role="radio" aria-checked="false" class="chip" data-group="absent" data-v="zero" onclick="setOpt(this)">صفّر كميتها</button>
-        </span>
-      </div>
-      <p class="danger-hint set-warn" id="absentWarn" style="display:none">⚠ «صفّر كميتها» للمرحلة 2 فقط (المخزون الكامل: مستودع ＋ فروع). في المرحلة 1 قد تكون هذه الأصناف متوفرة في الفروع.</p>
+      <p class="hint" style="margin:6px 2px 0">الأصناف الغائبة عن المخزن الموحّد (مستودع ＋ فرع) تُصدَّر بكمية 0 وغير منشورة — قاعدة ثابتة لا خيار.</p>
       <div class="setrow">
         <span class="setlabel">توزيع كمية المستودع على المتغيرات</span>
         <span class="seg" role="radiogroup" aria-label="توزيع كمية المستودع على المتغيرات">
@@ -1668,7 +1661,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "6eecf5b";
+const APP_VERSION = "079e39e";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1679,7 +1672,7 @@ const ALIAS_KEY = "zid-aliases-v1";          // أزواج «جذر زد|||جذ�
 const TAGS_KEY = "zid-link-tags-v1";         // {sku:{tag,date}} وسم كل رابط (link-tags.json)
 const OPT_KEY = "zid-options-v1";
 let whRows = null, stData = null, lastMerge = null;   // lastMerge: ناتج الدمج للاستعلام عن منتج (بحث المخزن)
-let opts = { price: "incl", inf: "skip", absent: "keep", lowzero: "on", lowPrice: 400, lowQty: 3, split: "equal" };
+let opts = { price: "incl", inf: "skip", lowzero: "on", lowPrice: 400, lowQty: 3, split: "equal" };
 let manualMap = {};
 let baseMap = {};   // نسخة الملف (mapping.json) للتمييز عن المحلي غير المصدَّر
 let matchedHistory = new Set();   // skuN لكل صنف طوبق سابقاً (يتراكم عبر الجلسات — منظومة matched-history.json)
@@ -3315,8 +3308,7 @@ function setLowThreshold() {
   if (document.getElementById("result").style.display === "block") run(true);
 }
 function syncAbsentWarn() {
-  const w = document.getElementById("absentWarn");
-  if (w) w.style.display = opts.absent === "zero" ? "block" : "none";
+  /* §الدفعة٥: حُذف خيار «الأصناف الغائبة» — التصفير قاعدة ثابتة، فلا تحذير مشروط. */
 }
 
 // مزامنة أزرار الخيارات مع القيم المحفوظة
@@ -4173,12 +4165,12 @@ function run(reprocess) {
         } else if (hasHistory) {
           // غائب عن ملف المستودع (قد يكون متوفراً في فرع آخر — المرحلة 1)
           absentList.push({ sku: rawKey, skuN, name: orig[iName] || "", mappedCode: manualMap[rawKey] || null, price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), barcode: iBarM >= 0 ? (orig[iBarM] || "") : "", published: iPublished >= 0 ? (orig[iPublished] || "") : "" }); cls.absent++;
-          if (opts.absent === "zero") {   // صفّر كميته فقط (خيار «كامل المخزون»)
-            qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", 0]);
-            qtyCount++;
-          }
-          finalQtyByRaw[rawKey] = opts.absent === "zero" ? 0 : curQtyNum(orig[iQty]);   // «صفّر»⇒0 · «اترك»⇒كمية زد الحالية
-          if (opts.absent === "zero") zeroDoor[rawKey] = "absent";   // غائب-صفر ⇒ يدخل الإخفاء الموحّد
+          // §الدفعة٥: قاعدة واحدة بلا خيار — كل غائب عن **المخزن الموحّد** (مستودع ＋ فرع)
+          // يُصدَّر بكمية 0 ويُخفى. stripNoChangeQty يُسقط ما هو 0 أصلاً في زد ⇒ لا استيراد عبثي.
+          qtyRows.push([String(rawSku), iName >= 0 ? orig[iName] : "", iNameEn >= 0 ? orig[iNameEn] : "", 0]);
+          qtyCount++;
+          finalQtyByRaw[rawKey] = 0;
+          zeroDoor[rawKey] = "absent";   // يدخل الإخفاء الموحّد (بسيط منشور ⇒ published=No · الأب بالإجماع)
         } else {
           // يشمل الآن «غير محدود بلا مطابقة» (دُمج في «بدون ربط») — curQtyNum(infinite)=Infinity فيبقى حيّاً، بلا أي دفع إلى qtyRows/priceRows
           unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, noWhCode, barcode: iBarM >= 0 ? (orig[iBarM] || "") : "", published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
