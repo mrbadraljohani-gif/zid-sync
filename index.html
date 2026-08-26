@@ -990,6 +990,25 @@
   .uni-st { color: var(--muted); white-space: nowrap; }
   .uni-sep { color: var(--muted-2); }
   .cat-out { background: color-mix(in srgb, var(--muted) 10%, transparent); border: 1px solid color-mix(in srgb, var(--muted) 24%, transparent); color: var(--muted); }
+  /* §دفعة٣: رأس وصفي ＋ شريحتا حالة (بدل ثمانية أرقام في سطر) */
+  .uni-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; padding: 2px 2px 8px; }
+  .uni-head b { font-size: 15px; color: var(--text); }
+  .uni-head span { font-size: 12.5px; color: var(--muted); }
+  .uni-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px;
+    border: 1px solid var(--hair); background: color-mix(in srgb, var(--panel-2) 70%, transparent); color: var(--muted); }
+  .uni-chip b { font-weight: 700; }
+  .uni-chip bdi { font-family: var(--mono); font-weight: 700; color: var(--text); }
+  .uni-chip.need { border-color: color-mix(in srgb, var(--amber) 34%, transparent); color: var(--amber); }
+  .uni-chip.need bdi { color: var(--amber); }
+  .uni-chip.wait { border-color: color-mix(in srgb, var(--muted) 28%, transparent); }
+  /* §دفعة٣: نسبة المطابقة ظاهرة داخل البطاقة (لا tooltip — الجوال بلا تحويم) */
+  .mc-match:empty { display: none; }
+  .mc-match { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 11.5px; }
+  .cf { display: inline-block; padding: 2px 8px; border-radius: 999px; font-weight: 700; border: 1px solid transparent; }
+  .cf-g { color: var(--green); border-color: color-mix(in srgb, var(--green) 34%, transparent); background: color-mix(in srgb, var(--green) 10%, transparent); }
+  .cf-y { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 34%, transparent); background: color-mix(in srgb, var(--amber) 10%, transparent); }
+  .cf-r { color: var(--muted); border-color: var(--hair); }
+  .mc-why { color: var(--muted); }
   .uni-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .uni-flabel { font-size: 12px; font-weight: 700; color: var(--muted); margin-inline-end: 2px; }
   .uni-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -1649,7 +1668,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "c417dbc";
+const APP_VERSION = "4e482f6";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2861,10 +2880,11 @@ async function undoWaitDecision(rawSku, skuN) { await applyDecision(() => unmark
 // شريط الحالة (لاصق ومعتم): عدّادات الحالة + ثقة «يحتاج قرار» + فلتر «سبق ربطه» + اعتماد جماعي
 function unifiedBar(needN, g, y, r, absentN, p, m) {
   const lost = batchData.lostCount || 0;   // «سبق ربطه» = روابط يدوية ضائعة (غائب + كود يدوي محفوظ) — صار مقيّداً ومعقولاً
-  return `<div class="uni-bar">
+  return `<div class="uni-head"><b>يحتاج ربط</b><span><bdi>${needN}</bdi> منتجاً يحتاج قرارك</span></div>
+  <div class="uni-bar">
     <div class="uni-counts">
-      <b class="uni-need">${ic("spark","ico-warn")} يحتاج قرار ${needN}</b> <span class="uni-conf">${DOT_OK} ${g} · ${DOT_MID} ${y} · ${DOT_BAD} ${r}</span>
-      <span class="uni-sep">·</span> <span class="uni-st">${ic("inbox","ico-warn")} غائب ${absentN}</span> · <span class="uni-st">${ic("hourglass","ico-warn")} غير متوفر ${p + m}</span>${lost ? ` · <span class="lost-count">${ic("link2","ico-info")} سبق ربطه ${lost}</span>` : ""}
+      <span class="uni-chip need"><b>يحتاج ربط</b> <bdi>${needN}</bdi></span>
+      <span class="uni-chip wait"><b>غير متوفر</b> <bdi>${p + m}</bdi></span>
     </div>
     <div class="uni-filter">
       <span class="uni-flabel">فلترة:</span>
@@ -2910,8 +2930,8 @@ function renderUnifiedList(title, wrap) {
   // (أ) الأصناف «غير المتوفرة» تظهر كصفوف خفيفة (⚠ سيُصفَّر / ✓ مُدار) — تراجع عن خروجها من القائمة، ليبقى التأكيد مرئياً مع تراجع مباشر.
   const light = [...pending.map(u => unifiedLightRow(u, "pending")), ...managed.map(u => unifiedLightRow(u, "managed"))];
   const rows = [...needCards];
-  if (absCards.length) { rows.push(`<div class="uni-sec" id="uniAbsentSec">${ic("inbox","ico-warn")} غائب عن ملف المستودع (${absCards.length}) — لها كود سابق وغائبة عن الملف الحالي (قد تكون في فرع آخر)</div>`, ...absCards); }
-  if (light.length) { rows.push(`<div class="uni-sec">غير متوفر — تُصدَّر بكمية 0 وغير منشورة</div>`, ...light); }
+  if (absCards.length) { rows.push(`<div class="uni-sec" id="uniAbsentSec">${ic("inbox","ico-warn")} غائب عن المخزن (<bdi>${absentN}</bdi>) — لها كود سابق وغائبة عن المخزن الموحّد الحالي (قد تكون في فرع آخر)</div>`, ...absCards); }
+  if (light.length) { rows.push(`<div class="uni-sec">${ic("hourglass","ico-warn")} غير متوفر (<bdi>${light.length}</bdi>)</div>`, ...light); }
   const allRows = rows;
   const sa = document.getElementById("sAbsent"); if (sa) sa.textContent = batchData.absentCount || 0;   // البطاقة العلوية = نفس مصدر الشريط
   wrap.innerHTML = unifiedBar(needN, gN, yN, rN, absentN, pending.length, managed.length)
@@ -2950,11 +2970,22 @@ function batchWhInner(r) {
     `<div class="mc-sku">باركود المستودع: <span dir="ltr">${esc(String(c.code))}</span></div>` +
     `<div class="mc-sub">سعر المستودع: ${priceInt(c.price) ?? "—"} ر.س · الكمية: <b>${esc(String(c.qty ?? "—"))}</b></div>`;
 }
+// صفّ «نسبة المطابقة» — درجة الثقة ＋ أسبابها بأرقام حقيقية (مقاس/سعر/تشابه اسم)، ظاهرة لا في tooltip.
+const CONF_LBL = { "bt-g": ["مطابقة مؤكدة", "cf-g"], "bt-y": ["مطابقة محتملة", "cf-y"], "bt-rd": ["بلا مرشّح موثوق", "cf-r"] };
+function matchLine(r, chkCls) {
+  const [lbl, cls] = CONF_LBL[chkCls] || CONF_LBL["bt-rd"];
+  const c = r.chosen;
+  // بلا مرشّح ⇒ لا صفّ مطابقة إطلاقاً: عمود المستودع يقول «لا مرشّح — ابحث بالأسفل» فعلاً،
+  // وإضافة «بلا مرشّح موثوق» تحته تكرار دلالي يقرأه المستخدم مرّتين.
+  if (!c) return "";
+  const why = reasonText(c);
+  return `<span class="cf ${cls}">${lbl}</span>` + (why ? ` <span class="mc-why">${esc(why)}</span>` : "");
+}
 function batchCardHTML(r, chkCls, famAttr) {
   const uid = "u" + (btUidSeq++); batchRowByUid[uid] = r;
   if (r.chosen === undefined) r.chosen = r.best;
   const c = r.chosen, zp = priceInt(r.z.price);
-  const tip = c ? esc("مطابقة: " + reasonText(c)) : "";   // النسبة/الأسباب صارت tooltip (لا عمود أوسط)
+  const tip = "";   // النسبة/الأسباب صارت **ظاهرة** في صفّ .mc-match — لا tooltip (الجوال بلا تحويم)
   const zid = `<div class="mc-zid"><span class="mc-tag zid">ZID PRODUCT</span>
       <div class="mc-row">${thumb(r.z.img)}<div class="mc-txt">
         <div class="mc-name">${esc(r.z.name) || "—"}</div>
@@ -2963,6 +2994,7 @@ function batchCardHTML(r, chkCls, famAttr) {
       </div></div></div>`;
   const wh = `<div class="mc-wh"><span class="mc-tag whs">WAREHOUSE</span>
       <div id="whd-${uid}">${batchWhInner(r)}</div>
+      <div class="mc-match" id="m-${uid}">${matchLine(r, chkCls)}</div>
       <div class="bt-combo"><input class="bt-search" id="s-${uid}" aria-label="ابحث في المستودع بالكود أو الاسم لربط هذا الصنف" role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="غيّر/ابحث في المستودع بالكود أو الاسم…" oninput="comboSearch('${uid}')" onfocus="comboOpen('${uid}')" onkeydown="comboKey('${uid}',event)"></div>
     </div>`;
   const noop = waitNoopReason(r.z);   // عطل ١(أ): سبب تعطيل «غير متوفر» إن كان بلا أثر
@@ -2970,7 +3002,7 @@ function batchCardHTML(r, chkCls, famAttr) {
     ? `<button class="mc-btn wait" disabled aria-disabled="true">${ic("hourglass","ico-warn")} غير متوفر</button><div class="wait-note">${esc(noop)}</div>`
     : `<button class="mc-btn wait" onclick="batchExclude('${uid}','wait')" title="سجّله «غير متوفر حالياً» (⏳)">${ic("hourglass","ico-warn")} غير متوفر</button>`;
   const actions = `<div class="mc-actions">
-      <label class="bt-card-chk"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${c ? "checked" : ""}><span>اعتماد</span></label>
+      <label class="bt-card-chk"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${c ? "checked" : ""}><span>اعتماد الربط</span></label>
       ${waitBtn}
     </div>`;
   const search = esc(normText(String(r.z.sku) + " " + (r.z.name || "") + " " + (c ? String(c.code) + " " + (c.name || "") : "")));
@@ -3043,7 +3075,8 @@ function comboPick(uid, code) {
   if (!w) return;
   r.chosen = { code: w.code, name: w.name, price: w.price, qty: w.qty, sizeM: !!(extractSize(r.z.name) && extractSize(w.name) && extractSize(r.z.name) === extractSize(w.name)), priceM: priceMatch(r.z.price, w.price), sim: nameSimilarity(r.z.name, w.name) };
   const whd = document.getElementById("whd-" + uid); if (whd) whd.innerHTML = batchWhInner(r);   // عمود المستودع في البطاقة
-  const card = whd && whd.closest(".batch-card"); if (card) card.title = "مطابقة: " + reasonText(r.chosen);   // تحديث tooltip المطابقة
+  const ml = document.getElementById("m-" + uid);   // اختيار يدوي ⇒ الثقة تصير «مؤكدة» بأسباب المرشّح المثبَّت
+  if (ml) ml.innerHTML = matchLine(r, "bt-g");
   hideBtDrop();
   const inp = document.getElementById("s-" + uid); if (inp) inp.value = "";
   const chk = document.querySelector(`#batchBody input[data-uid="${uid}"]`); if (chk) { chk.disabled = false; chk.checked = true; }   // تثبيت المرشّح ⇒ حدِّد البطاقة

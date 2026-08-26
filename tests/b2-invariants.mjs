@@ -28,8 +28,14 @@ check(/batchData = null;\s*\/\/ بيانات «بدون ربط»/.test(script), 
 
 // (2) حارس «إيموجي»: مؤشّرات الثقة في الشريط الموحّد SVG (DOT_*) لا إيموجي ملوّنة 🟢🟡🔴
 const bar = fnSrc("unifiedBar");
-check(bar.includes("DOT_OK") && bar.includes("DOT_MID") && bar.includes("DOT_BAD"), "unifiedBar يستعمل نقاط SVG (DOT_*) للثقة");
-check(!bar.includes("🟢") && !bar.includes("🟡") && !bar.includes("🔴"), "unifiedBar بلا إيموجي ثقة ملوّنة (🟢/🟡/🔴)");
+// §دفعة٣: الثقة انتقلت من الشريط إلى بطاقة الصنف (matchLine) — النصّ صريح لا نقاط ملوّنة.
+const ml = fnSrc("matchLine");
+check(/CONF_LBL/.test(script) && ml.includes("CONF_LBL"), "الثقة عبر matchLine ＋ CONF_LBL (تسمية نصّية صريحة)");
+check(["مطابقة مؤكدة", "مطابقة محتملة", "بلا مرشّح موثوق"].every(t => script.includes(t)), "درجات الثقة الثلاث بتسميات عربية صريحة");
+check(!ml.includes("🟢") && !ml.includes("🟡") && !ml.includes("🔴"), "matchLine بلا إيموجي ثقة ملوّنة");
+check(fnSrc("batchCardHTML").includes("matchLine(r, chkCls)"), "البطاقة تعرض صفّ المطابقة ظاهراً (لا tooltip — الجوال بلا تحويم)");
+check(!bar.includes("🟢") && !bar.includes("🟡") && !bar.includes("🔴"), "unifiedBar بلا إيموجي ثقة ملوّنة");
+check(!/DOT_OK|DOT_MID|DOT_BAD/.test(bar), "§دفعة٣: الشريط بلا نقاط ثقة — عدّادان فقط (يحتاج ربط · غير متوفر)");
 
 // (3) الرسم تدريجي + البحث عبر flush
 const uni = fnSrc("renderUnifiedList");
@@ -46,7 +52,10 @@ const ab = fnSrc("analyzeBatch");
 check(/wasLinked\s*=\s*isAbsent\s*&&\s*!!\s*manualMap\[/.test(ab), "«سبق ربطه» = isAbsent && manualMap (لا matchedHistory المتشبّع)");
 check(!/wasLinked\s*=\s*matchedHistory\.has/.test(ab), "wasLinked لم يعد يعتمد matchedHistory.has");
 check(ab.includes("needCount") && ab.includes("absentCount"), "analyzeBatch يفصل needCount عن absentCount");
-check(bar.includes("غائب") && bar.includes("يحتاج قرار"), "unifiedBar يعرض «غائب» منفصلاً عن «يحتاج قرار»");
+// §دفعة٣: «غائب» خرج من الشريط إلى ترويسة قسمه. الثابت المحروس هو **فصل العدّ** في
+// renderUnifiedList لا وجود الكلمة في الشريط (كانت تمرّ بالمصادفة من title زرّ الفلتر).
+check(uni.includes("const needN = gN + yN + rN") && uni.includes("absentN = isAbs(gAll)"), "renderUnifiedList: needN يستثني الغائب وabsentN مفصول");
+check(uni.includes("id=\"uniAbsentSec\"") && uni.slice(uni.indexOf("uniAbsentSec")).slice(0, 220).includes("${absentN}"), "ترويسة قسم «غائب» تعرض العدّ الخام (absentN) لا المُصفّى");
 check(uni.includes("isAbsent") && uni.includes("uni-sec"), "renderUnifiedList يرتّب: يحتاج قرار ثم غائب (قسم مستقلّ)");
 
 // (4ج) مسار القرارات الموحّد (الدفعة ج، البند ٤): كل إجراء ⇒ run(true)
