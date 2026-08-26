@@ -176,10 +176,6 @@
   .acc-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-top: 12px; }
   /* نموذج التسجيل موسّط أفقياً بعرض أقصى موحّد بدل التثبيت في جانب الصفحة */
   .signup-card { max-width: 480px; margin-inline: auto; }
-  .zid-mini { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 4px; padding: 10px 15px; border-radius: 11px;
-    border: 1px solid var(--border); background: var(--panel); font-size: 13px; font-weight: 700; color: var(--muted); }
-  .zid-mini b { color: var(--text); }
-  .zid-mini.stale { border-color: var(--border-strong); background: color-mix(in srgb, var(--gold) 10%, transparent); color: var(--gold-2); }
   .zid-mini-link { color: var(--gold-2); cursor: pointer; font-weight: 800; white-space: nowrap; }
   .zid-mini-link:hover { color: var(--gold); text-decoration: underline; }
   /* المرحلة 4: شريط الجاهزية في الرئيسية (3 بطاقات) ＋ سطر ميتا تحت بطاقات الرفع */
@@ -678,7 +674,9 @@
   .role-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--gold-2); background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 14%, transparent), color-mix(in srgb, var(--gold) 5%, transparent)); }
   .su-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden; }
   .su-seg .chip { border: none; border-radius: 0; }
-  body.nonowner #bindAllBtn { opacity: .5; }
+  /* غير المالك: الربط صلاحية المالك (requireOwner ＋ RLS هما الحاجز؛ هذا إعلان بصري).
+     كان يستهدف #bindAllBtn المحذوف فمات الأثر — الآن على الأزرار الحيّة وقت الرسم. */
+  body.nonowner [data-owner-only] { opacity: .5; }
   .login-box .btn-run { width: 100%; margin-top: 6px; height: 46px; }
   /* زرّ الإجراء الرئيسي في الرئيسية: عرض مضبوط وموسّط بدل امتداد كامل الحاوية */
   #runBtn { width: 60%; min-width: 280px; margin-inline: auto; }
@@ -1667,7 +1665,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "19e8bd1";
+const APP_VERSION = "19827fd";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1986,7 +1984,6 @@ function applyRoleUI() {
   document.body.classList.toggle("nonowner", myRole != null && !owner);
   const nu = document.querySelector('.side-link[data-page="newuser"]'); if (nu) nu.style.display = owner ? "" : "none";
   if (!owner) { const p = document.getElementById("page-newuser"); if (p && p.classList.contains("active")) goPage("home"); }
-  const ba = document.getElementById("bindAllBtn"); if (ba) ba.title = owner ? "" : "الربط صلاحية المالك";
   const rb = document.getElementById("roleBadge"); if (rb) rb.textContent = myRole ? ("👤 " + roleLabel(myRole)) : "";
 }
 function pickSignupRole(btn) {
@@ -2902,7 +2899,8 @@ async function undoWaitDecision(rawSku, skuN) { await applyDecision(() => unmark
 
 // شريط الحالة (لاصق ومعتم): عدّادات الحالة + ثقة «يحتاج قرار» + فلتر «سبق ربطه» + اعتماد جماعي
 function unifiedBar(needN, g, y, r, absentN, p, m, shownN) {
-  const lost = batchData.lostCount || 0;   // «سبق ربطه» = روابط يدوية ضائعة (غائب + كود يدوي محفوظ) — صار مقيّداً ومعقولاً
+  const lost = batchData.lostCount || 0;
+  const ownTip = isOwner() ? "" : 'title="الربط صلاحية المالك"';   // إعلان بصري؛ الحاجز الفعلي requireOwner ＋ RLS   // «سبق ربطه» = روابط يدوية ضائعة (غائب + كود يدوي محفوظ) — صار مقيّداً ومعقولاً
   return `<div class="uni-head"><b>يحتاج ربط</b><span><bdi>${needN}</bdi> منتجاً يحتاج قرارك</span></div>
   <div class="uni-bar">
     <div class="uni-counts">
@@ -2917,8 +2915,8 @@ function unifiedBar(needN, g, y, r, absentN, p, m, shownN) {
       ${batchLostOnly ? `<span class="uni-shown">يعرض <bdi>${shownN}</bdi> من <bdi>${needN + absentN}</bdi></span>` : ""}
     </div>
     <div class="uni-actions">
-      <button class="btn-run sm" onclick="acceptUnified('all')">${ic("check")} اعتماد العناصر المحددة</button>
-      <button class="mc-btn" onclick="acceptUnified('green')">${ic("spark")} اعتماد المطابقات المؤكدة</button>
+      <button class="btn-run sm" data-owner-only ${ownTip} onclick="acceptUnified('all')">${ic("check")} اعتماد العناصر المحددة</button>
+      <button class="mc-btn" data-owner-only ${ownTip} onclick="acceptUnified('green')">${ic("spark")} اعتماد المطابقات المؤكدة</button>
       <button class="mc-btn" onclick="undoLastBatch()" ${lastBatchUndo ? "" : "disabled"}>↩ التراجع عن آخر عملية${lastBatchUndo ? ` (${lastBatchUndo.count})` : ""}</button>
     </div></div>`;
 }
@@ -3395,26 +3393,10 @@ function updateZidPanel() {
     if (title) title.textContent = "تصدير المنتجات من زد";
     if (hint) hint.textContent = "من لوحة زد: المنتجات ← تصدير";
   }
-  updateZidMini();
   if (typeof renderReadiness === "function") renderReadiness();
   if (typeof renderInventoryPage === "function") renderInventoryPage();
 }
 // السطر المعلوماتي المصغّر لبيانات زد في الصفحة الرئيسية (مع رابط «تحديث ←» لصفحة القاعدة)
-function updateZidMini() {
-  const mini = document.getElementById("zidMiniInfo"); if (!mini) return;
-  let txt;
-  if (zidDbMeta && zidDbMeta.product_count > 0) {
-    const ms = zidDbMeta.synced_at ? Date.parse(zidDbMeta.synced_at) : null;
-    txt = `${ic("store")} بيانات زد (القاعدة): <b>${zidDbMeta.product_count}</b> صنف · ${ageText(ms)}`;
-  } else if (stData) {
-    txt = `${ic("store")} بيانات زد (ملف): <b>${stData.rows.length - 1}</b> صنف · ${ageText(zidSyncedAt)}`;
-  } else {
-    txt = `${ic("store")} لا توجد بيانات زد بعد — حدّث القاعدة`;
-  }
-  const stale = zidIsStale();
-  mini.className = "zid-mini" + (stale ? " stale" : "");
-  mini.innerHTML = `<span>${txt}${stale ? " " + ICO.warn : ""}</span><a class="zid-mini-link" onclick="goPage('db')">تحديث ←</a>`;
-}
 
 async function loadZidMeta() {
   if (!sb) return;
@@ -3545,8 +3527,7 @@ async function onStore(inp) {
         if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg fail"; sm.innerHTML = "⚠ تعذّرت مزامنة القاعدة: " + esc(e.message || String(e)) + " — يُستخدم الملف مباشرة لهذه الجلسة."; }
       }
     } else if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg"; sm.innerHTML = "ℹ️ غير متصل بالقاعدة — يُستخدم الملف مباشرة (بلا مزامنة)."; }
-    updateZidMini();
-  } catch (x) { showErr("ملف المتجر: " + x.message); }
+    } catch (x) { showErr("ملف المتجر: " + x.message); }
   inp.value = "";
   launchMatchIfReady();
 }
@@ -5244,9 +5225,7 @@ function runZdQuery() {
 function renderPills() {
   const mc = document.getElementById("mapCount"); if (mc) mc.textContent = Object.keys(manualMap).length;
   if (typeof renderInventoryPage === "function") renderInventoryPage();
-  const pl = document.getElementById("pills");   // قائمة الروابط القديمة أُزيلت مع قسم ③؛ نُبقي التحديث دفاعياً
-  if (pl) pl.innerHTML = Object.entries(manualMap)
-    .map(([s, c]) => `<span class="pill"><span class="mono">${s} → ${c}</span><button onclick="delMap('${s}')">×</button></span>`).join("");
+  // (قائمة الروابط #pills أُزيلت مع قسم ③؛ وإلغاء الربط صار زرّاً في صفّ «تم تحديثه» — unlinkRow)
   renderFingerprint();
 }
 // إلغاء الربط من صفّ «تم تحديثه» — تصحيح لخطأ ربط. تأكيد خفيف لأنّ الأثر فوريّ على الملفّين.

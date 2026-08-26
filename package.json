@@ -12,7 +12,7 @@
     "test:overflow:self": "node tests/perf/overflow-guard.mjs --broken",
     "test:progressive": "node tests/perf/progressive-search.mjs",
     "test:progressive:self": "node tests/perf/progressive-search.mjs --broken",
-    "test": "npm run test:crlf && npm run test:invariants && npm run test:b2 && npm run test:b2counts && npm run test:missed && npm run test:runreg && npm run test:overflow && npm run test:progressive",
+    "test": "npm run test:deadids && npm run test:crlf && npm run test:invariants && npm run test:b2 && npm run test:b2counts && npm run test:missed && npm run test:runreg && npm run test:overflow && npm run test:progressive",
     "test:b2counts": "node tests/b2-analyze-counts.mjs",
     "test:missed": "node tests/b2-missed-rounds.mjs",
     "test:missed:self": "node tests/b2-missed-rounds.mjs --broken",
@@ -27,7 +27,9 @@
     "test:valves:self": "node tests/valves.mjs --broken",
     "test:manual": "node tests/manual-link.mjs",
     "test:manual:self": "node tests/manual-link.mjs --broken",
-    "test:manual:self2": "node tests/manual-link.mjs --broken-unlink"
+    "test:manual:self2": "node tests/manual-link.mjs --broken-unlink",
+    "test:deadids": "node tests/dead-ids.mjs",
+    "test:deadids:self": "node tests/dead-ids.mjs --broken"
   },
   "keywords": [],
   "author": "",

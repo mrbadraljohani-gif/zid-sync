@@ -16,6 +16,10 @@ jobs:
         run: |
           node -e "const fs=require('fs');const h=fs.readFileSync('index.html','utf8').replace(/\r\n/g,'\n');const s=h.lastIndexOf('\n<script>\n');const e=h.lastIndexOf('\n</script>');fs.writeFileSync('/tmp/main.js',h.slice(s+9,e));"
           node --check /tmp/main.js
+      - name: Self-check — حارس المعرّفات اليتيمة يرصد معرّفاً محقوناً
+        run: node tests/dead-ids.mjs --broken
+      - name: معرّفات يتيمة — لا مُحدِّد في JS بلا عنصر في الترميز (فشل صامت)
+        run: node tests/dead-ids.mjs
       - name: Self-check — حارس CRLF يرسب بإزالة التطبيع (الفخّ حقيقي)
         run: node tests/crlf-safe.mjs --broken
       - name: CRLF — الحراس الساكنة تمرّ على نسخة نهايات أسطرها CRLF (ويندوز)
