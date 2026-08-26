@@ -1664,7 +1664,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "aba3f8f";
+const APP_VERSION = "4949b74";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2777,10 +2777,10 @@ function analyzeBatch() {
 async function batchApply(pairs, tag) {
   if (!pairs.length) return;
   const undo = pairs.map(p => ({ sku: String(p.sku), prev: (String(p.sku) in manualMap) ? manualMap[String(p.sku)] : null }));
-  setBusy("batchBody", true);
+  setBusy("unBody", true);
   try { await dbSetMappings(pairs, tag); }   // طلب واحد للقاعدة؛ يحدّث manualMap عند النجاح فقط
-  catch (e) { setBusy("batchBody", false); const m = e && e.message; if (m && m !== "db-offline" && m !== "not-owner") showToast("✗ تعذّر اعتماد الروابط في القاعدة: " + m); return; }
-  setBusy("batchBody", false);
+  catch (e) { setBusy("unBody", false); const m = e && e.message; if (m && m !== "db-offline" && m !== "not-owner") showToast("✗ تعذّر اعتماد الروابط في القاعدة: " + m); return; }
+  setBusy("unBody", false);
   const newAliases = [];
   for (const { sku, code } of pairs) {
     boundSet.add(String(sku));
@@ -3088,7 +3088,9 @@ function comboPick(uid, code) {
   if (ml) ml.innerHTML = matchLine(r, "bt-g");
   hideBtDrop();
   const inp = document.getElementById("s-" + uid); if (inp) inp.value = "";
-  const chk = document.querySelector(`#batchBody input[data-uid="${uid}"]`); if (chk) { chk.disabled = false; chk.checked = true; }   // تثبيت المرشّح ⇒ حدِّد البطاقة
+  // ⚠ #batchBody حاوية اللوحة القديمة المحذوفة — القائمة الموحّدة تُرسم في #unBody.
+  // بالمُحدِّد القديم كان الصندوق لا يُحدَّد بعد الاختيار ⇒ **الربط اليدوي لا يدخل «اعتماد المحدد»**.
+  const chk = document.querySelector(`#unBody input[data-uid="${uid}"]`); if (chk) { chk.disabled = false; chk.checked = true; }   // تثبيت المرشّح ⇒ حدِّد البطاقة
 }
 
 // ==== الاستبعاد الفردي: ⏳ غير متوفر — يُحفظ فوراً ويُزال من العائلة بلا اعتماد ====

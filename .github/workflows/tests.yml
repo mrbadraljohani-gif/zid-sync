@@ -110,6 +110,10 @@ jobs:
         run: node tests/valves.mjs --broken
       - name: الدفعة ٤ — صمّاما الحماية (بوّابة الرفع ١٥٪ · صمّام التنزيل ٦٠٪)
         run: node tests/valves.mjs
+      - name: Self-check — حارس الربط اليدوي يرسب بإعادة مُحدِّد #batchBody المحذوف
+        run: node tests/manual-link.mjs --broken
+      - name: الربط اليدوي — المسار كاملاً (بحث ⇒ اختيار ⇒ تحديد ⇒ اعتماد ⇒ mappings ⇒ الملفّان)
+        run: node tests/manual-link.mjs
       - name: Behavioral run() harness (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام · ٣+١ عودة + أسنان)
         run: node tests/behavioral/run-behavior.mjs
       - name: Self-check — حارس التباين يرسب على نصّ منخفض التباين

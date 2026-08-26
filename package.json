@@ -24,7 +24,9 @@
     "test:crlf": "node tests/crlf-safe.mjs",
     "test:crlf:self": "node tests/crlf-safe.mjs --broken",
     "test:valves": "node tests/valves.mjs",
-    "test:valves:self": "node tests/valves.mjs --broken"
+    "test:valves:self": "node tests/valves.mjs --broken",
+    "test:manual": "node tests/manual-link.mjs",
+    "test:manual:self": "node tests/manual-link.mjs --broken"
   },
   "keywords": [],
   "author": "",
