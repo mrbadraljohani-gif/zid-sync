@@ -39,7 +39,7 @@ check(fnSrc("filterUnmatched").includes("flushUnified"), "filterUnmatched يست
 
 // (4) الصفّ الخفيف تفاعلي (تراجع مباشر بلا تحويله لبطاقة كاملة)
 const light = fnSrc("unifiedLightRow");
-check(light.includes("undoWaitDecision") && light.includes("undoIgnoreDecision"), "الصفّ الخفيف فيه تراجع مباشر (undo*)");
+check(light.includes("undoWaitDecision"), "الصفّ الخفيف فيه تراجع مباشر (undoWaitDecision)");
 
 // (4ب) فصل «غائب» عن «يحتاج قرار» + إصلاح «سبق ربطه» (الدفعة ب-٢ التصحيحية)
 const ab = fnSrc("analyzeBatch");
@@ -55,13 +55,13 @@ check(ad.includes("run(true)"), "applyDecision يستدعي run(true) (يعكس 
 check(/const ok = await applyDecision\(/.test(fnSrc("batchExclude")), "batchExclude يمرّ عبر applyDecision (إصلاح عطل run(true))");
 check(fnSrc("batchApply").includes("run(true)"), "batchApply يعكس الربط فوراً بـrun(true)");
 check(fnSrc("undoLastBatch").includes("run(true)"), "undoLastBatch يمرّ بـrun(true)");
-check(script.includes("undoWaitDecision(rawSku, skuN) { await applyDecision") && script.includes("undoIgnoreDecision(rawSku, skuN) { await applyDecision"), "تراجع الصفوف الخفيفة عبر applyDecision");
+check(script.includes("undoWaitDecision(rawSku, skuN) { await applyDecision"), "تراجع الصفوف الخفيفة عبر applyDecision");
 
 // (1ج) الدفعة ج البند ١: unpublishSet/toggleUnpublish أُزيلا (دُمجا في «غير متوفر» = qty0+published No)
 check(!script.includes("unpublishSet") && !/function\s+toggleUnpublish/.test(script), "unpublishSet/toggleUnpublish محذوفان");
 
 // (2ج) قرار المستخدم: «غير متوفر» يعود صفّاً خفيفاً (⚠ سيُصفَّر/✓ مُدار) بجانب المتجاهَل — تراجع عن خروجه من القائمة
-check(/pending\.map\(u => unifiedLightRow\(u, "pending"\)\)/.test(uni) && /managed\.map\(u => unifiedLightRow\(u, "managed"\)\)/.test(uni) && /ignored\.map\(u => unifiedLightRow\(u, "ignored"\)\)/.test(uni), "الصفوف الخفيفة تشمل سيُصفَّر/مُدار/متجاهَل");
+check(/pending\.map\(u => unifiedLightRow\(u, "pending"\)\)/.test(uni) && /managed\.map\(u => unifiedLightRow\(u, "managed"\)\)/.test(uni), "الصفوف الخفيفة تشمل سيُصفَّر/مُدار");
 // (عطل ٢) عدّادات الشريط من غير المُصفّى؛ btFilter للبطاقات المرسومة فقط
 check(/const gAll = batchData\.green/.test(uni) && /unifiedBar\(needN, gN, yN, rN, absentN,/.test(uni), "عطل٢: عدّاد الشريط من batchData الخام (needN/absentN)");
 check(/const g = btFilter\(gAll\)/.test(uni), "btFilter على البطاقات المرسومة فقط");
@@ -80,7 +80,7 @@ check(fnSrc("onMergeWh").includes("whWasUploaded = true") && fnSrc("onMergeBranc
 
 // (3ج) الدفعة ج البند ٣: العودة من الانتظار في خطاف الرفع (لا run) — «يحتاج قرار» بوسم «توفّر» بلا مطابقة تلقائية
 check(hook.includes("reappearedSet") && hook.includes("bulkRemove"), "الخطاف يكتشف العودة دائماً (reappearedSet + إزالة من القاعدة)");
-check(/if \(reappearedSet\.has\(skuN\) && !mapped && !ignoredSet\.has\(skuN\)\)/.test(runSrc) && /reappeared: true/.test(runSrc), "run يوجّه العائد غير المربوط/المتجاهَل إلى «يحتاج قرار» (reappeared) بلا مطابقة");
+check(/if \(reappearedSet\.has\(skuN\) && !mapped\)/.test(runSrc) && /reappeared: true/.test(runSrc), "run يوجّه العائد غير المربوط إلى «يحتاج ربط» (reappeared) بلا مطابقة");
 check(!/waitingSet\.delete\(skuN\); waitChanged/.test(runSrc) && !runSrc.includes("reactivated.push"), "run لم يعد يحذف الانتظار/يعيد التفعيل تلقائياً (نُقل للخطاف)");
 check(fnSrc("analyzeBatch").includes("reappeared: !!z.reappeared"), "analyzeBatch يحمل وسم «توفّر» (reappeared)");
 check(script.includes("↩ توفّر"), "شارة «↩ توفّر» معرّفة في lostTag");

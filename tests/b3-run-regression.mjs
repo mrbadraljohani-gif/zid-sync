@@ -58,7 +58,7 @@ check(/getElementById\("sUn"\)\.textContent = unmatched\.length/.test(run), "ا�
 check(/getElementById\("sTot"\)\.textContent = rows0\.length - 1/.test(run), "العدّاد: إجمالي الأسطر = rows0.length-1");
 
 // ⑤ حياد البند ٣: الاعتراض محكوم بـreappearedSet (فارغ ⇒ لا يقع) + لا عودة تلقائية داخل run
-check(/if \(reappearedSet\.has\(skuN\) && !mapped && !ignoredSet\.has\(skuN\)\)/.test(run), "العودة: الاعتراض محكوم بـreappearedSet (فارغ = حياد تامّ)");
+check(/if \(reappearedSet\.has\(skuN\) && !mapped\)/.test(run), "العودة: الاعتراض محكوم بـreappearedSet (فارغ = حياد تامّ)");
 check(!run.includes("reactivated.push") && !/waitingSet\.delete\(skuN\); waitChanged/.test(run), "العودة: أُزيل الحذف/إعادة التفعيل التلقائي من run (نُقل للخطاف)");
 
 // النتيجة

@@ -895,8 +895,6 @@
   button.mini { border: none; border-radius: 8px; padding: 7px 12px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
   button.mini.bind { background: linear-gradient(135deg, var(--green-2), var(--green)); color: #08160d; }
   button.mini.bind:hover:not(:disabled) { filter: brightness(1.06); }
-  button.mini.ignore { background: transparent; border: 1px solid var(--border-strong); color: var(--muted); }
-  button.mini.ignore:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
   button.mini:disabled { opacity: .4; cursor: default; }
   .sugg-code { color: var(--gold-2); font-weight: 700; font-family: ui-monospace, Consolas, monospace; direction: ltr; unicode-bidi: embed; font-size: 14px; }
   .sugg-name { color: var(--muted); }
@@ -917,7 +915,6 @@
   #unBody tr:nth-child(odd) td { background: rgba(255,255,255,.025); }
   #unBody tr.zrow td { background: color-mix(in srgb, var(--gold) 5%, transparent); }
   #unBody tr.bound td { background: color-mix(in srgb, var(--green) 18%, transparent); }
-  #unBody tr.ignored { opacity: .5; }
   #unBody tr.removing td { opacity: 0; transition: opacity .25s ease; }
   /* البطاقات كفلاتر تفاعلية */
   .stat { cursor: pointer; transition: all .15s; }
@@ -934,7 +931,6 @@
   .cat-badge { display: inline-block; padding: 3px 11px; border-radius: 20px; font-size: 12px; font-weight: 800; }
   .cat-upd { background: color-mix(in srgb, var(--green) 12%, transparent); border: 1px solid color-mix(in srgb, var(--green) 26%, transparent); color: var(--green); }
   .cat-new { background: color-mix(in srgb, var(--amber) 12%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 26%, transparent); color: var(--amber); }
-  .cat-ign { background: color-mix(in srgb, var(--muted) 12%, transparent); border: 1px solid color-mix(in srgb, var(--muted) 26%, transparent); color: var(--muted); }
   .cat-inf { background: color-mix(in srgb, var(--info) 12%, transparent); border: 1px solid color-mix(in srgb, var(--info) 26%, transparent); color: var(--info); }
   .cat-abs { background: color-mix(in srgb, var(--gold) 12%, transparent); border: 1px solid color-mix(in srgb, var(--gold) 26%, transparent); color: var(--gold); }
   .cat-wait { background: color-mix(in srgb, var(--amber) 12%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 26%, transparent); color: var(--amber); }
@@ -1056,10 +1052,6 @@
   .export-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
   .export-btn { background: transparent !important; border: 1px solid var(--gold) !important; color: var(--gold-2) !important; box-shadow: none !important; }
   .export-btn:hover { background: color-mix(in srgb, var(--gold) 10%, transparent) !important; transform: none !important; }
-  details#ignoredCard summary { cursor: pointer; font-weight: 800; color: var(--muted); list-style: none; font-size: 14px; }
-  details#ignoredCard summary::-webkit-details-marker { display: none; }
-  details#ignoredCard[open] summary { color: var(--text); }
-  #ignoredBody td { font-size: 14px; }
   /* تنسيق موحّد لكل حقول الإدخال النصّية. يشمل search وemail وurl وtel وtextarea
      — بلا ذلك يرث type=search إطار المتصفح الافتراضي (2px inset · زوايا حادّة · بلا حشو). */
   input[type=text], input[type=password], input[type=number],
@@ -1353,14 +1345,6 @@
     </div>
   </div>
 
-  <details class="card" id="ignoredCard" style="display:none">
-    <summary><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg> متجاهلة سابقاً (<span id="ignoredCount">0</span>) — اضغط للعرض</summary>
-    <div class="twrap" style="margin-top:12px"><table aria-label="الأصناف المتجاهَلة">
-      <colgroup><col class="c-sku"><col><col style="width:140px"></colgroup>
-      <thead><tr><th scope="col">SKU زد</th><th scope="col">اسم المنتج</th><th scope="col">إجراء</th></tr></thead>
-      <tbody id="ignoredBody"></tbody>
-    </table></div>
-  </details>
   </section><!-- /page-home -->
 
   <!-- ============ الصفحة: المخزون (لوحة معلومات) ============ -->
@@ -1455,8 +1439,6 @@
           <option value="sync_full">مزامنة زد</option>
           <option value="waiting_added">إضافة انتظار</option>
           <option value="waiting_removed">إزالة انتظار</option>
-          <option value="ignored_added">تجاهل صنف</option>
-          <option value="ignored_removed">إلغاء تجاهل</option>
           <option value="unpublish_added">إلغاء نشر</option>
           <option value="file_generated">توليد ملف</option>
         </select>
@@ -1664,11 +1646,10 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "15fe471";
+const APP_VERSION = "7712a7f";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
-const IGN_KEY = "zid-ignored-v1";
 const OFF_KEY = "zid-offsets-v1";
 const HIST_KEY = "zid-matched-history-v1";   // أكواد سبق أن طوبقت (لتمييز «الغائب» عن «الجديد»)
 const WAIT_KEY = "zid-waiting-v1";            // أصناف «غير متوفر حالياً» بانتظار ظهور كودها
@@ -1678,7 +1659,7 @@ const OPT_KEY = "zid-options-v1";
 let whRows = null, stData = null, lastMerge = null;   // lastMerge: ناتج الدمج للاستعلام عن منتج (بحث المخزن)
 let opts = { price: "incl", inf: "skip", absent: "keep", lowzero: "on", lowPrice: 400, lowQty: 3, split: "equal" };
 let manualMap = {};
-let baseMap = {}, baseIgnSet = new Set();   // نسخة الملف (mapping.json/ignored.json) للتمييز عن المحلي غير المصدَّر
+let baseMap = {};   // نسخة الملف (mapping.json) للتمييز عن المحلي غير المصدَّر
 let matchedHistory = new Set();   // skuN لكل صنف طوبق سابقاً (يتراكم عبر الجلسات — منظومة matched-history.json)
 let waitingSet = new Set();       // skuN لأصناف بانتظار التوفر (waiting.json)
 let waitingMeta = new Map();      // normCode(skuN) ⇒ {sku الخام, name, missed عدد الرفعات الغائبة, lastSeen} — لعدّاد missed_rounds/last_seen_at (خطاف الرفع)
@@ -1698,10 +1679,9 @@ let batchLostOnly = false;             // فلتر «سبق ربطه فقط» (�
 let batchRowByUid = {}, btUidSeq = 0;  // سجل uid⇒صف (يفصل عمليات الصف عن فهارس fi/ri — يصمد أمام الفلترة)
 let lastParentPublish = [], lastParentCol = "";   // آباء نُقل إليهم النشر من متغيّراتهم + اسم عمود مرجع الأب (تشخيص)
 let priceOffsets = {};                  // زيادة سعر المتغيرات: skuN ⇒ قيمة الزيادة (ر.س)
-let ignoredSet = new Set();
 let excludedSet = new Set();           // استبعاد مؤقت للجلسة فقط (in-memory): يُستثنى الصنف من ملفي التنزيل — لا يُحفظ ويُصفَّر عند إعادة التحميل أو مطابقة جديدة
 let boundSet = new Set();
-let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [], lastIgnored = [];
+let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [];
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
 let lastUpdated = [], currentFilter = "unmatched";
 let activeCard = "unmatched";   // مفتاح إبراز البطاقة (مفصول عن currentFilter): «غائب» تُبرَز بلا فلتر خاص (data-card لا data-filter)
@@ -1712,7 +1692,7 @@ let lastVariantGroups = [];   // مجموعات «أب/خيار» المكتشف
 let lastQtyRows = null, lastPriceRows = null, lastPriceOrig = null;   // صفوف الملفين الناتجين + أصل صفوف الأسعار (للتحقق عند التنزيل التجريبي)
 // التقاط حالة بحت لأرقام آخر مطابقة (كانت محلية داخل run فتُكتب للـDOM وتُفقد) — تقرأها صفحة المخزون
 let lastRunSummary = null;   // {qtyCount, priceCount, distItemCount, distGroupCount, noChangeDropped}
-let lastClassify = null;     // {matched, unmatched, ignored, collided, absent, parent, total} — توزيع منتجات زد للرسم الدائري (التقاط بحت في run؛ كل منتج في دلو واحد فيجمع تماماً)
+let lastClassify = null;     // {matched, unmatched, collided, absent, parent, total} — توزيع منتجات زد للرسم الدائري (التقاط بحت في run؛ كل منتج في دلو واحد فيجمع تماماً)
 let lastHasVarYes = new Set(), lastHvWouldEnter = [];   // أكواد زد has_variants=Yes (آباء) — لا تدخل أي ملف كميات إطلاقاً
 // فحص نهائي حاسم: يحذف أي صف كوده منتج أب (has_variants=Yes) من أي مصفوفة صفوف كميات قبل الكتابة (يحافظ على صف الرأس)
 function stripHasVar(rows) { return (!lastHasVarYes || !lastHasVarYes.size) ? rows : rows.filter((r, i) => i === 0 || !lastHasVarYes.has(String(r[0]))); }
@@ -1723,7 +1703,7 @@ try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}
 const SUPA_URL = "https://pfbcyxciqrttukayskkg.supabase.co";
 const SUPA_KEY = "sb_publishable_2HUBheWf6LHP9IRKcoeCvQ_Ms75eNZW";   // مفتاح النشر (آمن مع RLS) — لا secret key إطلاقاً
 let sb = null, dbOnline = false, dbMappings = [], bootLocalMap = {}, authSession = null;   // bootLocalMap = روابط المحلي (mapping.json+localStorage) وقت الإقلاع — لا تُمَسّ بعد ذلك (لكشف الترحيل)
-let bootLocalIgnored = new Set(), bootLocalWaiting = new Set(), bootLocalAliases = new Set();   // لقطات محلية للترحيل (الدفعة أ) — لا تُمَسّ بعد الإقلاع
+let bootLocalWaiting = new Set(), bootLocalAliases = new Set();   // لقطات محلية للترحيل (الدفعة أ) — لا تُمَسّ بعد الإقلاع
 
 const db = {
   mappings: {
@@ -1732,13 +1712,6 @@ const db = {
     async bulkUpsert(rows) { const { error } = await sb.from("mappings").upsert(rows, { onConflict: "zid_sku" }); if (error) throw error; },
     async remove(zid_sku) { const { error } = await sb.from("mappings").delete().eq("zid_sku", String(zid_sku)); if (error) throw error; },
     async bulkRemove(skus) { if (!skus.length) return; const { error } = await sb.from("mappings").delete().in("zid_sku", skus.map(String)); if (error) throw error; },
-  },
-  // المتجاهَلات ✕ (ignored_items) — القاعدة مصدرها الوحيد (الدفعة أ)
-  ignored: {
-    async getAll() { const { data, error } = await sb.from("ignored_items").select("zid_sku,name"); if (error) throw error; return data || []; },
-    async upsert(zid_sku, name) { const { error } = await sb.from("ignored_items").upsert({ zid_sku: String(zid_sku), name: name || "" }, { onConflict: "zid_sku" }); if (error) throw error; },
-    async bulkUpsert(rows) { if (!rows.length) return; const { error } = await sb.from("ignored_items").upsert(rows, { onConflict: "zid_sku" }); if (error) throw error; },
-    async remove(zid_sku) { const { error } = await sb.from("ignored_items").delete().eq("zid_sku", String(zid_sku)); if (error) throw error; },
   },
   // aliases المتعلَّمة (جذر زد|||جذر مستودع) — القاعدة مصدرها الوحيد (الدفعة أ)
   aliases: {
@@ -1863,18 +1836,8 @@ async function unmarkWaiting(rawSku, skuN) {
   try { await db.waiting.remove(rawSku); } catch (e) { dbFail(e); }
   const k = normCode(skuN); waitingSet.delete(k); waitingMeta.delete(k); logActivity("waiting_removed", rawSku, null);
 }
-async function dbAddIgnored(rawSku, skuN, name) {
-  requireOnline();
-  try { await db.ignored.upsert(rawSku, name || ""); } catch (e) { dbFail(e); }
-  ignoredSet.add(normCode(skuN)); logActivity("ignored_added", rawSku, { name: name || "" });
-}
-async function dbDelIgnored(rawSku, skuN) {
-  requireOnline();
-  try { await db.ignored.remove(rawSku); } catch (e) { dbFail(e); }
-  ignoredSet.delete(normCode(skuN)); logActivity("ignored_removed", rawSku, null);
-}
 // تحميل القرارات من القاعدة مصدراً وحيداً (يستبدل الذاكرة — لا اتحاد مع المحلي)
-let dbIgnoredCount = 0, dbWaitingCount = 0, dbAliasesCount = 0;   // أعداد القاعدة (لعرض شريط الترحيل لكل جدول)
+let dbWaitingCount = 0, dbAliasesCount = 0;   // أعداد القاعدة (لعرض شريط الترحيل لكل جدول)
 async function loadWaitingFromDB() {
   if (!sb) return;
   try {
@@ -1885,11 +1848,6 @@ async function loadWaitingFromDB() {
     }
   }
   catch (e) { console.warn("waiting DB load failed:", e); }   // قاعدة فارغة ⇒ نُبقي المحلي (بذرة ترحيل) ونعرض شريط الترحيل
-}
-async function loadIgnoredFromDB() {
-  if (!sb) return;
-  try { const rows = await db.ignored.getAll(); dbIgnoredCount = rows.length; if (rows.length) ignoredSet = new Set(rows.map(r => normCode(r.zid_sku)).filter(Boolean)); }
-  catch (e) { console.warn("ignored DB load failed:", e); }
 }
 async function loadAliasesFromDB() {
   if (!sb) return;
@@ -2284,7 +2242,6 @@ function renderInvKPIs() {
 const PIE_SLICES = [
   { k: "matched", ar: "مربوطة", tok: "--green" },
   { k: "unmatched", ar: "بلا ربط", tok: "--amber" },
-  { k: "ignored", ar: "متجاهلة", tok: "--muted" },
   { k: "collided", ar: "متصادمة", tok: "--danger" },
   { k: "absent", ar: "غائب", tok: "--info" },
   { k: "parent", ar: "أب/خيار", tok: "--gold" },
@@ -2447,7 +2404,6 @@ async function loadMappingsFromDB() {
       manualMap = {}; rows.forEach(r => { if (r.zid_sku != null) manualMap[String(r.zid_sku)] = normCode(r.warehouse_code); });
     }
     // القاعدة فارغة ⇒ **لا نمسح المحلي** (يبقى ما حمّله loadConfig مصدراً للترحيل) ونعرض شريط الترحيل.
-    await loadIgnoredFromDB();   // المتجاهَلات من القاعدة (تستبدل الذاكرة إن كانت غير فارغة)
     await loadAliasesFromDB();   // aliases المتعلَّمة من القاعدة
     await loadWaitingFromDB();   // قائمة الانتظار من القاعدة (تستبدل الذاكرة) — تتزامن بين الأجهزة
     renderPills(); setDbBadge(true); checkMigration();
@@ -2478,7 +2434,6 @@ function migPending() {
   const out = [];
   const nMap = Object.keys(bootLocalMap || {}).length;
   if (dbMappings.length === 0 && nMap > 0) out.push({ type: "map", label: "الروابط", n: nMap });
-  if (dbIgnoredCount === 0 && bootLocalIgnored.size > 0) out.push({ type: "ignored", label: "المتجاهَلات", n: bootLocalIgnored.size });
   if (dbWaitingCount === 0 && bootLocalWaiting.size > 0) out.push({ type: "waiting", label: "قائمة الانتظار", n: bootLocalWaiting.size });
   if (dbAliasesCount === 0 && bootLocalAliases.size > 0) out.push({ type: "aliases", label: "aliases المتعلَّمة", n: bootLocalAliases.size });
   return out;
@@ -2502,10 +2457,6 @@ async function doMigration(type) {
       manualMap = {}; dbMappings.forEach(r => { if (r.zid_sku != null) manualMap[String(r.zid_sku)] = normCode(r.warehouse_code); });
       renderPills(); updateDbBadge();
       showToast(`✓ رُحّل ${rows.length} رابط إلى القاعدة.`);
-    } else if (type === "ignored") {
-      const rows = [...bootLocalIgnored].map(k => ({ zid_sku: String(k), name: "" }));
-      await db.ignored.bulkUpsert(rows); await loadIgnoredFromDB();
-      showToast(`✓ رُحّل ${rows.length} متجاهَل إلى القاعدة.`);
     } else if (type === "waiting") {
       const rows = [...bootLocalWaiting].map(k => ({ zid_sku: String(k), name: "" }));
       await db.waiting.bulkUpsert(rows); await loadWaitingFromDB();
@@ -2521,19 +2472,14 @@ async function doMigration(type) {
   }
 }
 
-// تحميل mapping.json و ignored.json عبر fetch، ودمجهما مع localStorage (يتعامل مع 404 بهدوء)
+// تحميل mapping.json عبر fetch، ودمجه مع localStorage (يتعامل مع 404 بهدوء)
 async function loadConfig() {
-  let fileMap = {}, fileIgn = [];
+  let fileMap = {};
   try { const r = await fetch("mapping.json", { cache: "no-store" }); if (r.ok) fileMap = await r.json(); } catch {}
-  try { const r = await fetch("ignored.json", { cache: "no-store" }); if (r.ok) fileIgn = await r.json(); } catch {}
-  let localMap = {}, localIgn = [];
+  let localMap = {};
   try { localMap = JSON.parse(localStorage.getItem(MAP_KEY) || "{}"); } catch {}
-  try { localIgn = JSON.parse(localStorage.getItem(IGN_KEY) || "[]"); } catch {}
   baseMap = (fileMap && typeof fileMap === "object") ? fileMap : {};                 // نسخة الملف (للتشخيص)
-  baseIgnSet = new Set((Array.isArray(fileIgn) ? fileIgn : []).map(normCode).filter(Boolean));
   manualMap = Object.assign({}, baseMap, localMap);
-  const merged = [...(Array.isArray(fileIgn) ? fileIgn : []), ...(Array.isArray(localIgn) ? localIgn : [])];
-  ignoredSet = new Set(merged.map(normCode).filter(Boolean));
   // تاريخ المطابقة + قائمة الانتظار (نفس منظومة الإعدادات: ملف الريبو + localStorage)
   const loadSet = async (path, key, setBase) => {
     let file = [], loc = [];
@@ -2559,7 +2505,7 @@ async function loadConfig() {
   try { const r = await fetch("aliases.json", { cache: "no-store" }); if (r.ok) { const a = await r.json(); if (Array.isArray(a)) a.forEach(k => batchAliases.add(String(k))); } } catch {}
   try { const loc = JSON.parse(localStorage.getItem(ALIAS_KEY) || "[]"); if (Array.isArray(loc)) loc.forEach(k => batchAliases.add(String(k))); } catch {}
 }
-// الدفعة أ: أُزيلت saveIgnored/saveWaiting/saveAliases/saveLinkTags — القرارات تُكتب في القاعدة أولاً بلا localStorage.
+// الدفعة أ: أُزيلت saveWaiting/saveAliases/saveLinkTags — القرارات تُكتب في القاعدة أولاً بلا localStorage.
 function saveOffsets() { localStorage.setItem(OFF_KEY, JSON.stringify(priceOffsets)); }        // priceOffsets يبقى محلياً (خارج نطاق الدفعة أ)
 function saveMatchedHistory() { localStorage.setItem(HIST_KEY, JSON.stringify([...matchedHistory])); }   // matchedHistory يبقى محلياً (الدفعة د لاحقاً)
 // ترحيل mapping.json من المفاتيح المطبَّعة القديمة إلى مفاتيح SKU الخام (يعتمد الأصفار كما في زد)
@@ -2752,7 +2698,7 @@ function classifyBatch(best, second) {
 
 // محرك الترشيح لكل صنف في «جديد يحتاج قراراً» + حلّ التنازع + التصنيف
 function analyzeBatch() {
-  const okItem = u => !boundSet.has(String(u.sku)) && !ignoredSet.has(normCode(u.skuN)) && !waitingSet.has(normCode(u.skuN)) && !u.orphanParent && !(famIndex && famIndex.isParent(u.sku));   // الآباء الموضعيون خارج الترشيح نهائياً
+  const okItem = u => !boundSet.has(String(u.sku)) && !waitingSet.has(normCode(u.skuN)) && !u.orphanParent && !(famIndex && famIndex.isParent(u.sku));   // الآباء الموضعيون خارج الترشيح نهائياً
   const unm = lastUnmatchedRaw.filter(okItem);
   // الأصناف الغائبة (في matched-history ولا تُطابَق بالكود الآن) = الروابط اليدوية الضائعة — نُدرجها للترشيح بأولوية
   const seen = new Set(unm.map(u => String(u.sku)));
@@ -2893,14 +2839,11 @@ const reasonText = b => [b.sizeM ? "مقاس✓" : "", b.priceM ? "سعر✓" : 
 let unifiedPending = null, unifiedRAF = 0;   // مخزّن الرسم التدريجي المؤجَّل (ج)
 const UNI_CHUNK = 40;                          // حجم دفعة الرسم التدريجي
 
-// صفّ خفيف لصنف مُقرَّر (سيُصفَّر/مُدار/متجاهَل) — يبقى تفاعلياً: تراجع مباشر بلا تحويله لبطاقة كاملة
+// صفّ خفيف لصنف مُقرَّر (سيُصفَّر/مُدار) — يبقى تفاعلياً: تراجع مباشر بلا تحويله لبطاقة كاملة
 function unifiedLightRow(u, status) {
   const badge = status === "pending" ? `<span class="cat-badge cat-wait">⚠ سيُصفَّر</span>`
-    : status === "managed" ? `<span class="cat-badge cat-mng">✓ مُدار</span>`
-    : `<span class="cat-badge cat-ign">✕ متجاهَل</span>`;
-  const undo = status === "ignored"
-    ? `<button class="mc-btn" onclick="undoIgnoreDecision('${esc(String(u.sku))}','${esc(u.skuN)}')">↩ إلغاء التجاهل</button>`
-    : `<button class="mc-btn" onclick="undoWaitDecision('${esc(String(u.sku))}','${esc(u.skuN)}')">↩ تراجع</button>`;
+    : `<span class="cat-badge cat-mng">✓ مُدار</span>`;
+  const undo = `<button class="mc-btn" onclick="undoWaitDecision('${esc(String(u.sku))}','${esc(u.skuN)}')">↩ تراجع</button>`;
   const search = esc(normText(String(u.sku) + " " + (u.name || "")));
   return `<div class="mcard uni-light" data-status="${status}" data-search="${search}">`
     + `<div class="mc-zid"><div class="mc-row"><div class="mc-txt">`
@@ -2909,15 +2852,14 @@ function unifiedLightRow(u, status) {
     + `</div></div></div><div class="mc-actions">${undo}</div></div>`;
 }
 async function undoWaitDecision(rawSku, skuN) { await applyDecision(() => unmarkWaiting(rawSku, skuN)); }
-async function undoIgnoreDecision(rawSku, skuN) { await applyDecision(() => dbDelIgnored(rawSku, skuN)); }
 
 // شريط الحالة (لاصق ومعتم): عدّادات الحالة + ثقة «يحتاج قرار» + فلتر «سبق ربطه» + اعتماد جماعي
-function unifiedBar(needN, g, y, r, absentN, p, m, ig) {
+function unifiedBar(needN, g, y, r, absentN, p, m) {
   const lost = batchData.lostCount || 0;   // «سبق ربطه» = روابط يدوية ضائعة (غائب + كود يدوي محفوظ) — صار مقيّداً ومعقولاً
   return `<div class="uni-bar">
     <div class="uni-counts">
       <b class="uni-need">${ic("spark","ico-warn")} يحتاج قرار ${needN}</b> <span class="uni-conf">${DOT_OK} ${g} · ${DOT_MID} ${y} · ${DOT_BAD} ${r}</span>
-      <span class="uni-sep">·</span> <span class="uni-st">${ic("inbox","ico-warn")} غائب ${absentN}</span> · <span class="uni-st">⚠ سيُصفَّر ${p}</span> · <span class="uni-st">✓ مُدار ${m}</span> · <span class="uni-st">✕ متجاهَل ${ig}</span>${lost ? ` · <span class="lost-count">${ic("link2","ico-info")} سبق ربطه ${lost}</span>` : ""}
+      <span class="uni-sep">·</span> <span class="uni-st">${ic("inbox","ico-warn")} غائب ${absentN}</span> · <span class="uni-st">⚠ سيُصفَّر ${p}</span> · <span class="uni-st">✓ مُدار ${m}</span>${lost ? ` · <span class="lost-count">${ic("link2","ico-info")} سبق ربطه ${lost}</span>` : ""}
     </div>
     <div class="uni-actions">
       ${lost ? `<button class="mc-btn ${batchLostOnly ? "on-lost" : ""}" onclick="toggleLostOnly()" title="روابط يدوية ضائعة (غائبة رغم كود يدوي محفوظ) — أولى بإعادة الربط">${batchLostOnly ? "✓ سبق ربطه فقط" : ic("link2", "ico-info") + " المفقودة فقط"}</button>` : ""}
@@ -2944,7 +2886,6 @@ function renderUnifiedList(title, wrap) {
   const isW = u => waitingSet.has(normCode(u.skuN));
   const pending = raw0.filter(u => isW(u) && curQtyNum(u.qty) !== 0);
   const managed = raw0.filter(u => isW(u) && curQtyNum(u.qty) === 0);
-  const ignored = raw0.filter(u => ignoredSet.has(normCode(u.skuN)));
   title.style.display = "none";   // العنوان القديم يُستبدل بشريط الحالة اللاصق
   // ترتيب: «يحتاج قرار» (غير الغائب، بترتيب الثقة green→yellow→red) ثم «غائب» ثم المُقرَّرة
   batchRowByUid = {}; btUidSeq = 0;
@@ -2957,14 +2898,14 @@ function renderUnifiedList(title, wrap) {
   const notAbs = a => a.filter(x => !x.isAbsent).length, isAbs = a => a.filter(x => x.isAbsent).length;
   const gN = notAbs(gAll), yN = notAbs(yAll), rN = notAbs(rAll);            // عدّادات الثقة من الخام
   const needN = gN + yN + rN, absentN = isAbs(gAll) + isAbs(yAll) + isAbs(rAll);   // «يحتاج قرار»/«غائب» من الخام
-  // (أ) الأصناف «غير المتوفرة» تظهر كصفوف خفيفة (⚠ سيُصفَّر / ✓ مُدار) بجانب المتجاهَل — تراجع عن خروجها من القائمة، ليبقى التأكيد مرئياً مع تراجع مباشر.
-  const light = [...pending.map(u => unifiedLightRow(u, "pending")), ...managed.map(u => unifiedLightRow(u, "managed")), ...ignored.map(u => unifiedLightRow(u, "ignored"))];
+  // (أ) الأصناف «غير المتوفرة» تظهر كصفوف خفيفة (⚠ سيُصفَّر / ✓ مُدار) — تراجع عن خروجها من القائمة، ليبقى التأكيد مرئياً مع تراجع مباشر.
+  const light = [...pending.map(u => unifiedLightRow(u, "pending")), ...managed.map(u => unifiedLightRow(u, "managed"))];
   const rows = [...needCards];
   if (absCards.length) { rows.push(`<div class="uni-sec" id="uniAbsentSec">${ic("inbox","ico-warn")} غائب عن ملف المستودع (${absCards.length}) — لها كود سابق وغائبة عن الملف الحالي (قد تكون في فرع آخر)</div>`, ...absCards); }
-  if (light.length) { rows.push(`<div class="uni-sec">قرارات سابقة (⚠ سيُصفَّر · ✓ مُدار · ✕ متجاهَل)</div>`, ...light); }
+  if (light.length) { rows.push(`<div class="uni-sec">قرارات سابقة (⚠ سيُصفَّر · ✓ مُدار)</div>`, ...light); }
   const allRows = rows;
   const sa = document.getElementById("sAbsent"); if (sa) sa.textContent = batchData.absentCount || 0;   // البطاقة العلوية = نفس مصدر الشريط
-  wrap.innerHTML = unifiedBar(needN, gN, yN, rN, absentN, pending.length, managed.length, ignored.length)
+  wrap.innerHTML = unifiedBar(needN, gN, yN, rN, absentN, pending.length, managed.length)
     + `<div class="mcards uni-list" id="unBody"></div>`;
   const host = document.getElementById("unBody");
   cancelAnimationFrame(unifiedRAF); unifiedPending = null;
@@ -3022,7 +2963,6 @@ function batchCardHTML(r, chkCls, famAttr) {
   const actions = `<div class="mc-actions">
       <label class="bt-card-chk"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${c ? "checked" : ""}><span>اعتماد</span></label>
       ${waitBtn}
-      <button class="mc-btn ignore" onclick="batchExclude('${uid}','ignore')" title="تجاهله (✕)">✕ تجاهل</button>
     </div>`;
   const search = esc(normText(String(r.z.sku) + " " + (r.z.name || "") + " " + (c ? String(c.code) + " " + (c.name || "") : "")));
   return `<div class="mcard batch-card${r.wasLinked ? " lost" : ""}" data-status="need" data-sku="${esc(String(r.z.sku))}" data-search="${search}" title="${tip}">${zid}${wh}${actions}</div>`;
@@ -3100,7 +3040,7 @@ function comboPick(uid, code) {
   const chk = document.querySelector(`#batchBody input[data-uid="${uid}"]`); if (chk) { chk.disabled = false; chk.checked = true; }   // تثبيت المرشّح ⇒ حدِّد البطاقة
 }
 
-// ==== الاستبعاد الفردي: ⏳ انتظار / ✕ تجاهل — يُحفظ فوراً ويُزال من العائلة بلا اعتماد ====
+// ==== الاستبعاد الفردي: ⏳ غير متوفر — يُحفظ فوراً ويُزال من العائلة بلا اعتماد ====
 // ==================== مسار القرارات الموحّد (الدفعة ج، البند ٤) ====================
 // كل إجراء يمرّ من هنا: القاعدة (عبر الغلاف؛ يرمي عند الفشل فلا تغيير) ← الذاكرة (يحدّثها الغلاف)
 // ← run(true) (يبني lastQtyRows/lastPriceRows ويعيد الرسم عبر refreshUnmatchedUI) ← activity_log (في الغلاف).
@@ -3113,7 +3053,7 @@ async function applyDecision(action) {
 async function batchExclude(uid, action) {
   const r = batchRowByUid[uid]; if (!r) return;
   const skuN = normCode(r.z.skuN);
-  const ok = await applyDecision(() => action === "wait" ? markWaiting(r.z.sku, skuN, r.z.name) : dbAddIgnored(r.z.sku, skuN, r.z.name));
+  const ok = await applyDecision(() => markWaiting(r.z.sku, skuN, r.z.name));
   if (!ok) return;
   // (ب) تنبيه المتغيّر: كمية المتغيّر تُصفَّر لكن النشر يُدار من الأب — يُخفى الأب فقط حين تصير كل متغيّراته 0.
   const parent = action === "wait" && famIndex ? famIndex.parentOfSku(r.z.sku) : null;
@@ -3121,12 +3061,12 @@ async function batchExclude(uid, action) {
     const n = (famIndex.childrenOf[String(parent)] || []).length;
     showToast(`⏳ صُفّرت كمية المتغيّر ${r.z.sku}. النشر يُدار من المنتج الأب (${parent}) — سيُخفى الأب تلقائياً حين تصير كل متغيّراته${n ? ` الـ${n}` : ""} صفراً.`);
   } else {
-    showToast(`${action === "wait" ? "⏳ نُقل للانتظار" : "🚫 تجاهل"}: ${r.z.sku} — حُفظ في القاعدة.`);
+    showToast(`⏳ نُقل للانتظار: ${r.z.sku} — حُفظ في القاعدة.`);
   }
 }
 
 // قراءة المحدد ⇒ أزواج (sku, code) من المرشّح المثبَّت لكل صف
-// 🔴: اعتماد البطاقات التي عيّن لها المستخدم مرشّحاً بالبحث (التجاهل/الانتظار عبر ⏳/✕ لكل بطاقة)
+// 🔴: اعتماد البطاقات التي عيّن لها المستخدم مرشّحاً بالبحث (الانتظار عبر ⏳/✕ لكل بطاقة)
 
 // تحليل الأسعار ومؤشر التطابق السعري
 function priceNum(v) { const n = Number(String(v == null ? "" : v).replace(/[^\d.\-]/g, "")); return Number.isFinite(n) && n > 0 ? n : null; }
@@ -3248,7 +3188,7 @@ async function putFileToRepo(path, content, token, message) {
 async function saveToRepo(reason) {
   const token = localStorage.getItem(TOKEN_KEY);
   if (!token) { repoStatus("warn", "⚠ لم تُدخل رمز GitHub بعد — الروابط محفوظة محلياً فقط. أدخل الرمز للحفظ في الريبو."); return; }
-  // الدفعة أ: القرارات الستة (روابط/تجاهل/انتظار/aliases/وسوم) في القاعدة حصراً؛ الريبو يحفظ ما بقي محلياً فقط.
+  // الدفعة أ: القرارات (روابط/انتظار/aliases) في القاعدة حصراً؛ الريبو يحفظ ما بقي محلياً فقط.
   const offsets = JSON.stringify(priceOffsets, null, 2);
   const history = JSON.stringify([...matchedHistory].sort(), null, 2);
   const sig = offsets + " " + history;
@@ -4071,7 +4011,7 @@ function run(reprocess) {
     const distItemCount = distByRaw.size, distGroupCount = [...whMembers.values()].filter(m => m.length > 1).length;
 
     let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0, noChangeDropped = 0;
-    const cls = { matched: 0, unmatched: 0, ignored: 0, collided: 0, absent: 0, parent: 0 };   // §دفعة٢: تصنيف كل منتج مرّة واحدة (التقاط بحت للرسم الدائري)
+    const cls = { matched: 0, unmatched: 0, collided: 0, absent: 0, parent: 0 };   // §دفعة٢: تصنيف كل منتج مرّة واحدة (التقاط بحت للرسم الدائري)
     const unmatched = [], updatedList = [], absentList = [], saleConflicts = [], lowValDbg = [];   // العودة من الانتظار انتقلت إلى خطاف الرفع (البند ٣) — لا reactivated هنا
     const parentsToPublish = new Map();   // كود الأب ⇒ {sku, name, variants[]} — نشر يُنقَل من المتغيّرات إلى صف الأب
     const finalQtyByRaw = {};             // كمية كل صنف زد النهائية بعد كل القواعد (لإجماع إخفاء الأب + الإخفاء الموحّد)
@@ -4097,8 +4037,8 @@ function run(reprocess) {
       const collided = collidedNorm.has(skuN) ? Object.keys(rawByNorm[skuN]) : null;
       // الربط اليدوي بالـSKU الخام أولاً؛ ثم — للأصناف غير المتصادمة فقط — المطابقة التلقائية بالكود
       const mapped = manualMap[rawKey];
-      // البند ٣: عاد كوده للمخزن هذا الدور (خطاف الرفع) وبلا ربط يدوي سابق ولا تجاهُل ⇒ «يحتاج قرار» بوسم «توفّر» بلا مطابقة تلقائية. المربوط يدوياً يستأنف رابطه المقدّس، والمتجاهَل يبقى متجاهَلاً.
-      if (reappearedSet.has(skuN) && !mapped && !ignoredSet.has(skuN)) {
+      // البند ٣: عاد كوده للمخزن هذا الدور (خطاف الرفع) وبلا ربط يدوي سابق ⇒ «يحتاج قرار» بوسم «توفّر» بلا مطابقة تلقائية. المربوط يدوياً يستأنف رابطه المقدّس، والمتجاهَل يبقى متجاهَلاً.
+      if (reappearedSet.has(skuN) && !mapped) {
         unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, reappeared: true, noWhCode: false, barcode: iBarM >= 0 ? (orig[iBarM] || "") : "", published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
         finalQtyByRaw[rawKey] = curQtyNum(orig[iQty]);   // لا يتغيّر حتى يُقرِّر المستخدم
         cls.unmatched++;   // «↩ توفّر» ⇒ يحتاج قرار = بلا ربط
@@ -4129,7 +4069,7 @@ function run(reprocess) {
           // يشمل الآن «غير محدود بلا مطابقة» (دُمج في «بدون ربط») — curQtyNum(infinite)=Infinity فيبقى حيّاً، بلا أي دفع إلى qtyRows/priceRows
           unmatched.push({ sku: rawKey, skuN, name: orig[iName] || "", price: orig[iPrice], qty: orig[iQty], img: imgOf(orig), collided, noWhCode, barcode: iBarM >= 0 ? (orig[iBarM] || "") : "", published: iPublished >= 0 ? (orig[iPublished] || "") : "" });
           finalQtyByRaw[rawKey] = curQtyNum(orig[iQty]);   // لا يتغيّر ⇒ كمية زد الحالية (∞ للّانهائي)
-          if (ignoredSet.has(skuN)) cls.ignored++; else if (collided) cls.collided++; else cls.unmatched++;   // متجاهلة/متصادمة/بلا ربط — تفرّق للرسم
+          if (collided) cls.collided++; else cls.unmatched++;   // متصادمة/يحتاج ربط — تفرّق للرسم
         }
         continue;
       }
@@ -4305,7 +4245,7 @@ function run(reprocess) {
     document.getElementById("priceN").textContent = priceCount;
     // التقاط الأرقام نفسها المعروضة أعلاه (بلا إعادة حساب) لتقرأها صفحة المخزون
     lastRunSummary = { qtyCount, priceCount, distItemCount, distGroupCount, noChangeDropped, republishCount, zeroLowCount, autoUnpubCount: lastAutoUnpubSimple.length + lastAutoUnpubParents.length };   // (٢-ب) وُسِّع لتحمل بطاقة المخزون كامل الملخّص — التقاط حالة بحت (نفس الأرقام المكتوبة في السطر الأخضر، بلا إعادة حساب)
-    lastClassify = { ...cls, total: cls.matched + cls.unmatched + cls.ignored + cls.collided + cls.absent + cls.parent };   // توزيع منتجات زد للرسم الدائري — المجموع == عدد المنتجات المصنَّفة تماماً (كل منتج دلو واحد)
+    lastClassify = { ...cls, total: cls.matched + cls.unmatched + cls.collided + cls.absent + cls.parent };   // توزيع منتجات زد للرسم الدائري — المجموع == عدد المنتجات المصنَّفة تماماً (كل منتج دلو واحد)
 
     // سطر الملخّص الأخضر (النجاح) نُقل إلى صفحة المخزون (#invSummaryLine)؛ الرئيسية تحتفظ بفرع الفشل فقط (صمام ملاصق لزرّي التنزيل)
     const invLine = document.getElementById("invSummaryLine");
@@ -4349,7 +4289,7 @@ function run(reprocess) {
     if (histChanged) saveMatchedHistory();
     // (العودة من الانتظار + حذفها من القاعدة انتقلا إلى processWaitingOnUpload — البند ٣)
 
-    // بطاقة «بدون ربط» تجمع كل أصناف زد بلا ربط (جديد + متجاهَل + ⏳ + مُدار)؛ تفكيكها في updateUnmatchedCard.
+    // بطاقة «بدون ربط» تجمع كل أصناف زد بلا ربط (جديد + ⏳ + مُدار)؛ تفكيكها في updateUnmatchedCard.
     // «الغائب عن الملف» لم يعد بطاقة مستقلة — المُدار انتقل لبطاقة «بدون ربط»، والغائب-له-تاريخ يُرى في المستكشف بفلتر (نفس منطق ⏳/الغائب/العودة).
     document.getElementById("sUpd").textContent = updatedList.length;
     document.getElementById("sUn").textContent = unmatched.length;
@@ -4467,8 +4407,6 @@ function renderParentPublish() {
 }
 /* ---------- تصنيف + عرض تفاصيل الفلاتر (البطاقات) ---------- */
 function refreshUnmatchedUI() {
-  const ignored = lastUnmatchedRaw.filter(u => ignoredSet.has(normCode(u.skuN)));
-  renderIgnored(ignored);
   updateNewCount();
   updateUnmatchedCard();
   batchData = null;   // بيانات «بدون ربط» تغيّرت ⇒ أعِد تحليل الثقة عند الرسم التالي
@@ -4618,7 +4556,7 @@ function renderDetailBody() {
   filterUnmatched();
 }
 
-// بطاقة «بدون ربط» الموحّدة: تبويبات داخلية (يحتاج قرار / سيُصفَّر / مُدار / متجاهَل / الكل) + زر ملف التصفير
+// بطاقة «بدون ربط» الموحّدة: تبويبات داخلية (يحتاج قرار / سيُصفَّر / مُدار / الكل) + زر ملف التصفير
 // التركيز يتبع التبويب المُعتمَد فعلاً لا المطلوب: التبويب الفارغ يُرجع إلى «يحتاج قرار» (سطر cnt[sub])
 // فلو ركّزنا على المطلوب لبقي التركيز على تبويب aria-selected=false — تناقض بين التركيز والاختيار.
 
@@ -4657,7 +4595,6 @@ function buildExplorerRows() {
     const linked = !!manualMap[raw] || whSet.has(skuN) || whSet.has(normCode(baseOf(raw)));
     const admin = [];
     if (waitingSet.has(skuN)) admin.push(qtyKind === "zero" ? "managed" : "waiting");
-    if (ignoredSet.has(skuN)) admin.push("ignored");
     if (absentSet.has(skuN)) admin.push("absent");
     out.push({ sku: raw, name, pub, type, qtyKind, qtyDisplay, linked, admin, isParent, search: normText(raw + " " + name + " " + bar) });
   }
@@ -4680,7 +4617,7 @@ function explorerCompute() {
   return { rows, shown };
 }
 function expBadges(r) {
-  const m = { waiting: [ic("hourglass", "ico-warn") + " بانتظار", "cat-wait"], managed: ["✓ مُدار", "cat-mng"], ignored: ["متجاهَل", "cat-ign"], absent: ["غائب " + ic("inbox", "ico-warn"), "cat-abs"] };
+  const m = { waiting: [ic("hourglass", "ico-warn") + " بانتظار", "cat-wait"], managed: ["✓ مُدار", "cat-mng"], absent: ["غائب " + ic("inbox", "ico-warn"), "cat-abs"] };
   return r.admin.map(a => { const x = m[a]; return x ? `<span class="cat-badge ${x[1]}">${x[0]}</span>` : ""; }).join(" ");
 }
 function explorerBodyHTML(shown) {
@@ -4708,7 +4645,7 @@ function renderExplorer(wrap) {
     ${grp("pub", "النشر", [["pub", "منشور"], ["unpub", "غير منشور"]])}
     ${grp("type", "النوع", [["parent", "أب"], ["variant", "متغيّر"], ["simple", "بسيط"]])}
     ${grp("qty", "الكمية", [["zero", "صفر"], ["pos", ">0", "أكبر من صفر"], ["inf", "∞", "غير محدود"]])}
-    ${grp("admin", "إداري", [["waiting", ic("hourglass", "ico-warn"), "بانتظار التوفر"], ["managed", "✓ مُدار"], ["ignored", "متجاهَل"], ["absent", ic("inbox", "ico-warn"), "غائب عن الملف"]])}
+    ${grp("admin", "إداري", [["waiting", ic("hourglass", "ico-warn"), "بانتظار التوفر"], ["managed", "✓ مُدار"], ["absent", ic("inbox", "ico-warn"), "غائب عن الملف"]])}
     <div class="exp-actions">
       <span class="exp-count" id="expCount">يعرض <b>${shown.length}</b> من ${rows.length}</span>
       <button class="exp-chip" onclick="clearExpFilters()">مسح الفلاتر</button>
@@ -4733,7 +4670,7 @@ function clearExpFilters() { expFilters = { link: new Set(), pub: new Set(), typ
 function exportExplorer() {
   const rows = lastExplorerShown || [];
   if (!rows.length) { showErr("لا صفوف معروضة للتصدير — عدّل الفلاتر."); return; }
-  const admLbl = { waiting: "بانتظار", managed: "مُدار", ignored: "متجاهَل", absent: "غائب" };
+  const admLbl = { waiting: "بانتظار", managed: "مُدار", absent: "غائب" };
   const typeLbl = t => t === "parent" ? "أب" : (t === "variant" ? "متغيّر" : "بسيط");
   const aoa = [["SKU", "الاسم", "النوع", "الكمية", "النشر", "الربط", "الحالة الإدارية"],
     ...rows.map(r => [r.sku, r.name, typeLbl(r.type), r.qtyKind === "inf" ? "غير محدود" : r.qtyDisplay, r.pub ? "منشور" : "غير منشور", r.linked ? "مربوط" : "بلا ربط", r.admin.map(a => admLbl[a] || a).join(" ／ ")])];
@@ -5001,7 +4938,7 @@ function deleteOffset(sk) {
 
 // شريط التنبيه البرتقالي + البطاقة الخامسة (يستبعد ما رُبط في هذه الجلسة)
 function updateNewCount() {
-  const newCount = lastUnmatchedRaw.filter(u => !ignoredSet.has(normCode(u.skuN)) && !boundSet.has(String(u.sku)) && !waitingSet.has(normCode(u.skuN))).length;
+  const newCount = lastUnmatchedRaw.filter(u => !boundSet.has(String(u.sku)) && !waitingSet.has(normCode(u.skuN))).length;
   const sn = document.getElementById("sNew"); if (sn) sn.textContent = newCount;   // البطاقة أُزيلت (مدمجة في «بدون ربط») — تحديث دفاعي
   const alert = document.getElementById("newAlert");
   if (newCount > 0) {
@@ -5010,37 +4947,19 @@ function updateNewCount() {
   } else alert.style.display = "none";
 }
 
-// سطر تفكيك بطاقة «بدون ربط»: يحتاج قرارك · متجاهَل · ⏳ سيُصفَّر · مُصفَّر مُدار
+// سطر تفكيك بطاقة «بدون ربط»: يحتاج قرارك · ⏳ سيُصفَّر · مُصفَّر مُدار
 function updateUnmatchedCard() {
   const raw = lastUnmatchedRaw || [];
-  const ignoredN = raw.filter(u => ignoredSet.has(normCode(u.skuN))).length;
   const wait = raw.filter(u => waitingSet.has(normCode(u.skuN)));
   const managed = wait.filter(u => curQtyNum(u.qty) === 0).length;
   const pending = wait.length - managed;
-  const newN = raw.filter(u => !ignoredSet.has(normCode(u.skuN)) && !boundSet.has(String(u.sku)) && !waitingSet.has(normCode(u.skuN))).length;
+  const newN = raw.filter(u => !boundSet.has(String(u.sku)) && !waitingSet.has(normCode(u.skuN))).length;
   const un = document.getElementById("sUn"); if (un) un.textContent = raw.length;
   const sub = document.getElementById("sUnSub");
-  if (sub) sub.textContent = `يحتاج قرارك ${newN} · متجاهَل ${ignoredN} · ⏳ ${pending} · مُدار ${managed}`;
+  if (sub) sub.textContent = `يحتاج قرارك ${newN} · ⏳ ${pending} · مُدار ${managed}`;
 }
 
-function renderIgnored(list) {
-  lastIgnored = list;
-  const card = document.getElementById("ignoredCard");
-  document.getElementById("ignoredCount").textContent = list.length;
-  if (!list.length) { card.style.display = "none"; return; }
-  card.style.display = "block";
-  document.getElementById("ignoredBody").innerHTML = list.map((u, i) =>
-    `<tr><td class="mono">${esc(String(u.sku))}</td><td>${esc(u.name) || "—"}</td>` +
-    `<td><button class="mini ignore" onclick="unignore(${i})">إلغاء التجاهل ↩</button></td></tr>`).join("");
-}
 
-async function unignore(i) {
-  const u = lastIgnored[i];
-  if (!u) return;
-  try { await dbDelIgnored(u.sku, u.skuN); } catch { return; }   // قاعدة أولاً؛ فشل ⇒ لا تغيير
-  run(true);   // يعكس إلغاء التجاهل في الملفّين فوراً (كان refreshUnmatchedUI يعيد الرسم فقط بلا إعادة بناء)
-  renderFingerprint();
-}
 
 
 // بطاقة مطابقة: كتلة زد (يمين) · مؤشر (وسط) · مستودع (يسار الوسط) · أزرار (أقصى اليسار)
@@ -5190,13 +5109,12 @@ async function delMap(s) { try { await dbDelMapping(s); } catch { return; } rend
 // بصمة الجلسة: تشخيص اختلاف النتائج بين الأجهزة (ملف مقابل محلي غير مصدَّر)
 function renderFingerprint() {
   const el = document.getElementById("fingerprint"); if (!el) return;
-  // الدفعة أ: الروابط/التجاهل/الانتظار مصدرها القاعدة مباشرةً (لا «محلي غير مصدَّر»). matchedHistory وحده يبقى محلياً.
+  // الدفعة أ: الروابط/الانتظار مصدرها القاعدة مباشرةً (لا «محلي غير مصدَّر»). matchedHistory وحده يبقى محلياً.
   const localHistExtra = [...matchedHistory].filter(k => !baseHistSet.has(k)).length;
   const zid = stData ? (stData.rows.length - 1) : 0;
   const wh = whRows ? whRows.length : 0;
   el.innerHTML = `🔎 بصمة الجلسة · ` +
     `الروابط: ${Object.keys(manualMap).length} (قاعدة) · ` +
-    `التجاهلات: ${ignoredSet.size} (قاعدة) · ` +
     `الانتظار: ${waitingSet.size} (قاعدة) · ` +
     `تاريخ المطابقة: ${matchedHistory.size}` + (localHistExtra ? ` <b>(+${localHistExtra} غير مصدَّر)</b>` : ``) + ` · ` +
     `صفوف زد: ${zid} · صفوف المستودع: ${wh} · ` +
@@ -5219,7 +5137,7 @@ routeFromHash();               // الإقلاع: افتح صفحة الـhash (
 (async () => {
   await loadConfig();
   bootLocalMap = { ...manualMap };   // روابط المحلي (mapping.json ＋ localStorage) قبل أي تفاعل مع القاعدة — مرجع الترحيل الثابت
-  bootLocalIgnored = new Set(ignoredSet); bootLocalWaiting = new Set(waitingSet); bootLocalAliases = new Set(batchAliases);   // لقطات الترحيل (الدفعة أ)
+  bootLocalWaiting = new Set(waitingSet); bootLocalAliases = new Set(batchAliases);   // لقطات الترحيل (الدفعة أ)
   renderPills();
   renderOffsetsList();
   initSupabase();   // بعد تحميل المحلي: أنشئ عميل القاعدة، وعند وجود جلسة اعتمد الروابط من القاعدة مصدراً للحقيقة

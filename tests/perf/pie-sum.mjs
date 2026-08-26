@@ -28,7 +28,7 @@ const res = await page.evaluate((broken) => {
   out.emptyHasSvg = !!host.querySelector("svg");
   out.emptyHasMsg = /شغّل/.test(host.textContent);
   // (2) حالة معطاة
-  const parts = { matched: 100, unmatched: 40, ignored: 10, collided: 5, absent: 20, parent: 15 };
+  const parts = { matched: 100, unmatched: 40, collided: 5, absent: 20, parent: 15 };
   const sum = Object.values(parts).reduce((a, b) => a + b, 0);
   lastClassify = { ...parts, total: broken ? sum + 17 : sum };   // broken: إجمالي لا يطابق مجموع الأجزاء
   renderInvPie();

@@ -50,7 +50,7 @@ function masterCfg() {
     Z("P2.1", "0", "1000", { par: "P2" }),
     Z("W1", "2", "300"),                                    // انتظار عاد كوده (غير مربوط)
     Z("W2", "2", "300"),                                    // انتظار عاد كوده المربوط (WH2)
-    Z("IG1", "2", "300"),                                   // انتظار + متجاهَل عاد
+    Z("IG1", "2", "300"),                                   // انتظار عاد (كان متجاهَلاً — حُذف «تجاهل» في الدفعة ١)
     Z("W3", "2", "300"),                                    // انتظار ما زال غائباً
     Z("NEW1", "7", "300"),                                  // جديد بلا مطابقة (لاختبار applyDecision: wait ⇒ يُصفَّر فوراً)
   ];
@@ -61,7 +61,7 @@ function masterCfg() {
     whRows, lastMerge: merge(codes),
     manualMap: { W2: "WH2" },
     waiting: [{ skuN: "W1", sku: "W1" }, { skuN: "W2", sku: "W2" }, { skuN: "IG1", sku: "IG1" }, { skuN: "W3", sku: "W3" }],
-    ignored: ["IG1"], history: [], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" },
+    history: [], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" },
     uploaded: true, callHook: true,
   };
 }
@@ -72,7 +72,7 @@ function infCfg() {
   return {
     stData: { sheetName: "P", header: HEADER, rows },
     whRows: [WH("A1", 9, 100)], lastMerge: merge(["A1"]),
-    manualMap: {}, waiting: [], ignored: [], history: [],
+    manualMap: {}, waiting: [], history: [],
     opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" },
     uploaded: false, callHook: false,
   };
@@ -83,7 +83,7 @@ function countsCfg() {
   const rows = [HEADER, Z("N1", "5", "100"), Z("N2", "6", "100"), Z("L1", "2", "300"), Z("L2", "2", "300")];
   return {
     stData: { sheetName: "P", header: HEADER, rows }, whRows: [], lastMerge: merge([]),
-    manualMap: { L1: "WL1", L2: "WL2" }, waiting: [], ignored: [], history: ["L1", "L2"],
+    manualMap: { L1: "WL1", L2: "WL2" }, waiting: [], history: ["L1", "L2"],
     opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: false, callHook: false, countsProbe: true,
   };
 }
@@ -93,7 +93,7 @@ function delmapCfg() {
   return {
     stData: { sheetName: "P", header: HEADER, rows: [HEADER, Z("MAP1", "3", "100")] },
     whRows: [WH("WMAP", 9, 100)], lastMerge: merge(["WMAP"]), manualMap: { MAP1: "WMAP" },
-    waiting: [], ignored: [], history: [], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: false,
+    waiting: [], history: [], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: false,
   };
 }
 
@@ -102,7 +102,7 @@ function parentQtyCfg() {
   return {
     stData: { sheetName: "P", header: HEADER, rows: [HEADER, Z("A1", "5", "100"), Z("PV", "5", "200", { hv: "Yes" })] },
     whRows: [WH("A1", 9, 100), WH("PV", 9, 200)], lastMerge: merge(["A1", "PV"]), manualMap: {},
-    waiting: [], ignored: [], history: [], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: false, callHook: false,
+    waiting: [], history: [], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: false, callHook: false,
   };
 }
 
@@ -117,7 +117,6 @@ async function inpage(cfg) {
   manualMap = cfg.manualMap || {};
   waitingSet = new Set((cfg.waiting || []).map(w => w.skuN));
   try { waitingMeta = new Map((cfg.waiting || []).map(w => [w.skuN, { sku: w.sku, name: "", missed: 0, lastSeen: null }])); } catch (e) {}
-  ignoredSet = new Set(cfg.ignored || []);
   matchedHistory = new Set(cfg.history || []);
   try { priceOffsets = {}; } catch (e) {}
   try { opts = Object.assign(opts, cfg.opts || {}); } catch (e) {}
@@ -216,7 +215,8 @@ try {
   if (M.updated.some(u => u.sku === "W1")) fails.push("٣: W1 دخل «تم تحديثه» (يجب ألا يُطابَق تلقائياً)");
   if (!(upW2 && upW2.reappeared)) fails.push("١: W2 (مربوط عاد) ليس في «تم تحديثه» بوسم reappeared");
   if (M.unmatched.some(u => u.sku === "W2" && u.reappeared)) fails.push("١: W2 المربوط ظهر كـ«يحتاج قرار» (يجب أن يستأنف رابطه)");
-  if (M.unmatched.some(u => u.sku === "IG1" && u.reappeared)) fails.push("٢: IG1 المتجاهَل ظهر كعائد يحتاج قرار (يجب أن يبقى متجاهَلاً)");
+  // الدفعة ١: حُذف «تجاهل» ⇒ IG1 لم يعد مستثنى من حارس العودة، فيجب أن يسلك سلوك W1 بالضبط (عاد غير مربوط ⇒ «يحتاج ربط» بوسم reappeared).
+  if (!M.unmatched.some(u => u.sku === "IG1" && u.reappeared)) fails.push("الدفعة١: IG1 (عاد غير مربوط) ليس في «يحتاج ربط» بوسم reappeared — بقايا استثناء التجاهل؟");
   if (!M.waitingLeft.includes("W3")) fails.push("٢: W3 (غائب) خرج من الانتظار خطأً");
   if (M.waitingLeft.includes("W1") || M.waitingLeft.includes("W2")) fails.push("٣: العائد لم يُزَل من الانتظار");
   if (!(M.reappearedSet.includes("W1") && M.reappearedSet.includes("W2"))) fails.push("٣: reappearedSet لا يشمل W1/W2 (كشف العودة — يشمل المربوط بالكود المُحَلّ)");
@@ -255,7 +255,7 @@ try {
   // ===== تشخيص عطل ١: صنف كميته 0 أصلاً في زد ⇒ wait ⇒ لا صفّ كميات (stripNoChangeQty) لكنه يُخفى إن كان منشوراً بسيطاً =====
   const Z0 = await bootRead(browser, curHtml, {
     stData: { sheetName: "P", header: HEADER, rows: [HEADER, Z("ZP", "0", "300", { pub: "Yes" })] },
-    whRows: [], lastMerge: merge([]), manualMap: {}, waiting: [], ignored: [], history: [],
+    whRows: [], lastMerge: merge([]), manualMap: {}, waiting: [], history: [],
     opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: false, callHook: false,
     decision: { type: "wait", raw: "ZP", skuN: "ZP" },
   });

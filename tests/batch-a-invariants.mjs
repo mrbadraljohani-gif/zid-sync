@@ -50,8 +50,6 @@ check(!/\blinkTags\s*\[/.test(script) && !/JSON\.stringify\(linkTags/.test(scrip
 const dbFirst = [
   ["markWaiting", "waitingSet.add"],
   ["unmarkWaiting", "waitingSet.delete"],
-  ["dbAddIgnored", "ignoredSet.add"],
-  ["dbDelIgnored", "ignoredSet.delete"],
   ["dbSetMapping", "manualMap["],
 ];
 for (const [fn, memWrite] of dbFirst) {
@@ -77,7 +75,7 @@ check(/if\s*\(\s*ok\s*&&\s*count\s*>\s*0\s*&&\s*dbOnline\s*\)/.test(script), "wi
 // (6) exportConfig/saveToRepo لا يكتبان ملفات القرارات الخمسة
 for (const fn of ["exportConfig", "saveToRepo"]) {
   const body = fnBody(fn) || "";
-  for (const f of ["mapping.json", "ignored.json", "waiting.json", "aliases.json", "link-tags.json"]) {
+  for (const f of ["mapping.json", "waiting.json", "aliases.json", "link-tags.json"]) {
     check(!body.includes(f), `${fn} لا يكتب ${f} (قرارات القاعدة)`);
   }
 }
@@ -90,6 +88,13 @@ for (const tok of ["verifyQuantities", "verifyPrices", "hasVarYesSet", "parentOf
 
 // ============================================================================
 console.log(`✓ ${ok.length} تحقّق ناجح`);
+
+// (6) حذف «تجاهل» (دفعة تبسيط التدفّق ١): لا بقايا لأي معرّف — الحارس الصحيح لأي حذف.
+//     ignored_added/ignored_removed مستثناة عمداً: تبقى في ACT_META/actDescribe لفهم السجل التاريخي.
+const goneNames = ["ignoredSet","dbAddIgnored","dbDelIgnored","loadIgnoredFromDB","db.ignored","undoIgnoreDecision","renderIgnored","unignore","ignoredCard","ignoredCount","ignoredBody","lastIgnored","bootLocalIgnored","baseIgnSet","IGN_KEY","cls.ignored","cat-ign","ignored.json","ignored_items"];
+for (const g of goneNames) if (html.includes(g)) fails.push("بقايا «تجاهل» في index.html: " + g);
+for (const k of ["ignored_added","ignored_removed"]) if (!html.includes(k)) fails.push(k + " حُذف من ACT_META/actDescribe — السجل التاريخي يصير غير مفهوم");
+
 if (fails.length) {
   console.error(`\n✗ ${fails.length} فشل:`);
   for (const f of fails) console.error("  ✗ " + f);
