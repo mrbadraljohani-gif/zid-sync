@@ -112,6 +112,8 @@ jobs:
         run: node tests/valves.mjs
       - name: Self-check — حارس الربط اليدوي يرسب بإعادة مُحدِّد #batchBody المحذوف
         run: node tests/manual-link.mjs --broken
+      - name: Self-check — حارس «إلغاء الربط» يرسب بإسقاط استثناء unlinkedSet
+        run: node tests/manual-link.mjs --broken-unlink
       - name: الربط اليدوي — المسار كاملاً (بحث ⇒ اختيار ⇒ تحديد ⇒ اعتماد ⇒ mappings ⇒ الملفّان)
         run: node tests/manual-link.mjs
       - name: Behavioral run() harness (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام · ٣+١ عودة + أسنان)

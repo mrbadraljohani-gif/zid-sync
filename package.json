@@ -26,7 +26,8 @@
     "test:valves": "node tests/valves.mjs",
     "test:valves:self": "node tests/valves.mjs --broken",
     "test:manual": "node tests/manual-link.mjs",
-    "test:manual:self": "node tests/manual-link.mjs --broken"
+    "test:manual:self": "node tests/manual-link.mjs --broken",
+    "test:manual:self2": "node tests/manual-link.mjs --broken-unlink"
   },
   "keywords": [],
   "author": "",

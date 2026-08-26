@@ -308,12 +308,14 @@ try {
   const DMb = await bootRead(browser, curHtml, delmapCfg());
   const DMd = await bootRead(browser, curHtml, { ...delmapCfg(), decision: { type: "delmap", sku: "MAP1" } });
   if (!(DMb.qtyOf.MAP1 === 9 || DMb.qtyOf.MAP1 === "9")) fails.push(`delMap خطّ أساس: MAP1 المربوط ليس في الكميات (=${DMb.qtyOf.MAP1})`);
-  // §الدفعة٥ — تحوّل سلوكي مقصود: كان حذف الرابط يُخرِج الصنف من الملفّين. الآن matchedHistory
-  // تراكم في التشغيل الأول، فيصير الصنف «معروفاً سابقاً وغائباً عن المخزن» ⇒ يُصدَّر بـ0 ويُخفى.
-  // الفحص ما زال يثبت الفوريّة (run(true))، لكن بالنتيجة الصحيحة الجديدة لا بالاختفاء.
-  if (Number(DMd.qtyOf.MAP1) !== 0) fails.push(`إصلاح البانر: بعد delMap كمية MAP1 = ${DMd.qtyOf.MAP1} لا 0 — run(true) لم يعكس الحذف`);
-  if (String((DMd.pubOf || {}).MAP1 || "").toLowerCase() !== "no") fails.push(`الدفعة٥: بعد delMap لم يُخفَ MAP1 (published=${(DMd.pubOf||{}).MAP1})`);
-  notes.push(`delMap: قبل=${DMb.qtyOf.MAP1} · بعد=${"MAP1" in DMd.qtyOf ? DMd.qtyOf.MAP1 : "غائب"} · pub=${(DMd.pubOf||{}).MAP1}`);
+  // §إلغاء الربط = **تصحيح لا إخفاء**: الصنف يعود إلى «يحتاج ربط»، لا يُصفَّر ولا يُخفى.
+  // (كان في الدفعة ٥ يُصفَّر لأن matchedHistory تراكمي؛ unlinkedSet تستثنيه الآن.)
+  // الفحص ما زال يثبت الفوريّة: قبل الحذف 9 في الملف، وبعده خارجه تماماً.
+  if ("MAP1" in DMd.qtyOf) fails.push(`إلغاء الربط: MAP1 ما زال في ملف الكميات (=${DMd.qtyOf.MAP1}) — يجب أن يخرج، فالتصحيح لا يُصدِّر شيئاً`);
+  if (String((DMd.pubOf || {}).MAP1 || "").toLowerCase() === "no") fails.push("إلغاء الربط: MAP1 أُخفي (published=No) — التصحيح ليس إخفاءً");
+  if (!DMd.unmatched.some(u => u.sku === "MAP1")) fails.push("إلغاء الربط: MAP1 لم يعد إلى «يحتاج ربط»");
+  if (DMd.absent.includes("MAP1")) fails.push("إلغاء الربط: MAP1 صُنّف «غائباً عن المخزن» — الاستثناء لم يعمل");
+  notes.push(`إلغاء الربط: قبل=${DMb.qtyOf.MAP1} · بعد=${"MAP1" in DMd.qtyOf ? DMd.qtyOf.MAP1 : "خارج الملف(صحيح)"} · في «يحتاج ربط»=${DMd.unmatched.some(u => u.sku === "MAP1")} · غائب=${DMd.absent.includes("MAP1")}`);
   const DMo = await bootRead(browser, showAt("831c299"), { ...delmapCfg(), decision: { type: "delmap", sku: "MAP1" } });
   if (!("MAP1" in DMo.qtyOf)) fails.push("أسنان delMap: على 831c299 اختفى MAP1 رغم markDirty (بلا run(true)) — بلا أسنان");
   notes.push(`أسنان delMap (831c299): بعد delMap MAP1=${"MAP1" in DMo.qtyOf ? DMo.qtyOf.MAP1 : "غائب"} (يبقى = العطل القديم)`);

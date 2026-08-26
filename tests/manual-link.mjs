@@ -21,7 +21,10 @@ import puppeteer from "puppeteer-core";
 
 let html = readFileSync(new URL("../index.html", import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const BROKEN = process.argv.includes("--broken");
+const BROKEN2 = process.argv.includes("--broken-unlink");
 if (BROKEN) html = html.replace('#unBody input[data-uid="${uid}"]', '#batchBody input[data-uid="${uid}"]');
+
+if (BROKEN2) html = html.replace("&& !unlinkedSet.has(skuN);", ";");   // إسقاط استثناء «أُلغي الربط»
 
 function findChrome() {
   const c = ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", process.env.CHROME_PATH || "", "/usr/bin/google-chrome-stable"];
@@ -113,6 +116,24 @@ const out = await page.evaluate(async () => {
   log.push(["ZX9 انتقل إلى «تم تحديثه» وخرج من «يحتاج ربط»", (lastUpdated || []).some(u => String(u.sku) === "ZX9") && !(lastUnmatchedRaw || []).some(u => String(u.sku) === "ZX9")]);
   log.push(["ZX9 دخل ملف الأسعار (سعر زد 1200 ⇒ 1190)", pSk.includes("ZX9")]);
   log.push(["الضابط CTRL لم يتأثّر", qty1.includes("CTRL")]);
+
+  // ===== إلغاء الربط = تصحيح: يعود إلى «يحتاج ربط»، لا «غائب» ولا تصفير ولا إخفاء =====
+  db.mappings.remove = async () => {};
+  window.confirm = () => true;
+  await unlinkRow("ZX9");
+  await new Promise(r => setTimeout(r, 900));
+  const qty2 = (lastQtyRows || []).slice(1).map(r => String(r[0]));
+  const iPub = HEADER.indexOf("published"), iSku = HEADER.indexOf("sku");
+  const pub2 = {}; (lastPriceRows || []).slice(1).forEach(r => { pub2[String(r[iSku])] = String(r[iPub]); });
+  log.push(["إلغاء الربط: الصنف عاد إلى «يحتاج ربط»", (lastUnmatchedRaw || []).some(u => String(u.sku) === "ZX9")]);
+  log.push(["★ إلغاء الربط: لا صفّ بصفر في ملف الكميات (تصحيح لا إخفاء)", !qty2.includes("ZX9")]);
+  log.push(["★ إلغاء الربط: لا published=No في ملف الأسعار", String(pub2.ZX9 || "").toLowerCase() !== "no"]);
+  log.push(["إلغاء الربط: الصنف ليس «غائباً عن المخزن»", !(lastAbsent || []).some(a => String(a.sku) === "ZX9")]);
+  log.push(["إلغاء الربط: unlinkedSet تحمل الوسم", unlinkedSet.has(normCode("ZX9"))]);
+  currentFilter = "unmatched"; batchData = null; renderDetail();
+  await new Promise(r => setTimeout(r, 400));
+  log.push(["شارة «أُلغي الربط» ظاهرة على الصنف (لا توست يزول)", (document.getElementById("unBody") || {}).innerHTML.includes("أُلغي الربط")]);
+  log.push(["الضابط CTRL ما زال في الكميات بعد الإلغاء", qty2.includes("CTRL")]);
   return { log, dbWrites };
 });
 
@@ -121,6 +142,12 @@ await browser.close(); server.close();
 const fails = out.log.filter(x => !x[1]).map(x => x[0]);
 if (errs.length) fails.push("أخطاء JS: " + errs.join(" | "));
 
+if (BROKEN2) {
+  if (!fails.length) { console.error("✗ التحقّق الذاتي: بإسقاط استثناء unlinkedSet لم يرسب شيء — بلا أسنان."); process.exit(1); }
+  console.log("✅ تحقّق ذاتي (إلغاء الربط): بإسقاط الاستثناء رسب " + fails.length + " فحصاً — للحارس أسنان.");
+  for (const f of fails) console.log("   ✗ " + f);
+  process.exit(0);
+}
 if (BROKEN) {
   if (!fails.length) { console.error("✗ التحقّق الذاتي: بإعادة #batchBody لم يرسب شيء — الحارس بلا أسنان."); process.exit(1); }
   console.log(`✅ تحقّق ذاتي: بإعادة المُحدِّد المعطوب (#batchBody) رسب ${fails.length} فحصاً — للحارس أسنان.`);

@@ -1002,6 +1002,9 @@
   .uni-chip.need bdi { color: var(--amber); }
   .uni-chip.abs { border-color: color-mix(in srgb, var(--info) 34%, transparent); color: var(--info); }
   .uni-chip.abs bdi { color: var(--info); }
+  .unlink-tag { display: inline-block; margin-inline-start: 6px; font-size: 10.5px; font-weight: 800; padding: 1px 7px; border-radius: 999px;
+    color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 34%, transparent); }
+  .mini-btn.unlink:hover:not(:disabled) { border-color: color-mix(in srgb, var(--amber) 55%, transparent); color: var(--amber); }
   .uni-shown { font-size: 12px; font-weight: 700; color: var(--amber); margin-inline-start: 4px; }
   .uni-chip.wait { border-color: color-mix(in srgb, var(--muted) 28%, transparent); }
   /* §دفعة٣: نسبة المطابقة ظاهرة داخل البطاقة (لا tooltip — الجوال بلا تحويم) */
@@ -1664,7 +1667,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "4949b74";
+const APP_VERSION = "19e8bd1";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1710,6 +1713,11 @@ let lastVariantGroups = [];   // مجموعات «أب/خيار» المكتشف
 let lastQtyRows = null, lastPriceRows = null, lastPriceOrig = null;   // صفوف الملفين الناتجين + أصل صفوف الأسعار (للتحقق عند التنزيل التجريبي)
 // التقاط حالة بحت لأرقام آخر مطابقة (كانت محلية داخل run فتُكتب للـDOM وتُفقد) — تقرأها صفحة المخزون
 let lastRunSummary = null;
+// «أُلغي رابطه» — تصحيح لخطأ ربط، لا إعلانٌ أن المنتج لم يعد لديك. عمر الصفحة فقط:
+// نيّة تصحيح عابرة لا قرار دائم، فلا تُخزَّن في القاعدة. تُستثنى من قاعدة «الغائب»
+// فيعود الصنف إلى «يحتاج ربط» بدل أن يُصفَّر ويُخفى. matchedHistory تراكمي فلا يصلح
+// للتمييز — الفارق في **الفعل**، وdbDelMapping وحدها تعرفه.
+let unlinkedSet = new Set();
 let lastZeroRatio = { zero: 0, total: 0, pct: 0 };   // ② نسبة التصفير المقيسة آخر تشغيل (تُعرض دائماً)   // {qtyCount, priceCount, distItemCount, distGroupCount, noChangeDropped}
 let lastClassify = null;     // {matched, unmatched, collided, absent, parent, total} — توزيع منتجات زد للرسم الدائري (التقاط بحت في run؛ كل منتج في دلو واحد فيجمع تماماً)
 let lastHasVarYes = new Set(), lastHvWouldEnter = [];   // أكواد زد has_variants=Yes (آباء) — لا تدخل أي ملف كميات إطلاقاً
@@ -1888,7 +1896,9 @@ function blockedOffline() {   // true ⇒ العملية محجوبة (مع تو
 function requireOwner() { if (linkForbidden()) { showToast("🔒 الربط صلاحية المالك — غير متاح لهذا الحساب."); throw new Error("not-owner"); } }
 async function dbSetMapping(sku, code, source) { requireOnline(); requireOwner(); await db.mappings.upsert(sku, code, source); manualMap[String(sku)] = normCode(code); updateDbBadge(); logActivity("link_added", sku, { code: normCode(code), source: source || "manual" }); }
 async function dbSetMappings(pairs, source) { requireOnline(); requireOwner(); const rows = pairs.map(p => ({ zid_sku: String(p.sku), warehouse_code: normCode(p.code), source: source || "manual" })); await db.mappings.bulkUpsert(rows); for (const p of pairs) manualMap[String(p.sku)] = normCode(p.code); updateDbBadge(); logActivity("link_added", pairs.length === 1 ? pairs[0].sku : null, { count: pairs.length, source: source || "manual" }); }
-async function dbDelMapping(sku) { requireOnline(); requireOwner(); await db.mappings.remove(sku); delete manualMap[String(sku)]; updateDbBadge(); logActivity("link_removed", sku, null); }
+// إلغاء الربط: unlinkedSet تستثنيه من قاعدة «الغائب»، وboundSet يُخفيه من «يحتاج ربط»
+// عبر okItem — بلا حذفه منها يعود الصنف إلى القائمة **غير مرئي**.
+async function dbDelMapping(sku) { requireOnline(); requireOwner(); await db.mappings.remove(sku); delete manualMap[String(sku)]; unlinkedSet.add(normCode(sku)); boundSet.delete(String(sku)); updateDbBadge(); logActivity("link_removed", sku, null); }
 
 function initSupabase() {
   if (!window.supabase) { setDbBadge(false, "تعذّر تحميل مكتبة Supabase"); return; }
@@ -2856,6 +2866,12 @@ function waitNoopReason(z) {
   return pub ? "" : "مصفّر ومخفي أصلاً — لا تغيير مطلوب";                    // بسيط غير منشور ＋ 0 ⇒ no-op · بسيط منشور ＋ 0 ⇒ سيُخفى (فعّال)
 }
 // عائلات 🟡 وفق الفلتر الحالي — تُستخدم في العرض وpickAlt وacceptFamily معاً (تطابق الفهارس fi/ri)
+// شارة «أُلغي الربط» — تبقى على الصنف حتى يُربط من جديد (لا توست يزول).
+const unlinkTag = r => {
+  const z = r && r.z ? r.z : r; if (!z) return "";
+  if (!unlinkedSet.has(normCode(z.skuN)) || manualMap[String(z.sku)]) return "";
+  return `<span class="unlink-tag" title="أُلغي رابطه في هذه الجلسة — اربطه قبل التصدير وإلا خرج من ملفَّي التحديث">${ic("warn")} أُلغي الربط — اربطه قبل التصدير</span>`;
+};
 const lostTag = r => (r.reappeared ? `<span class="lost-tag" title="عاد كوده للمخزن بعد أن كان «غير متوفر» — أُزيل من الانتظار وينتظر قرارك (بلا مطابقة تلقائية)">↩ توفّر</span>` : "") + (r.isAbsent ? `<span class="cat-badge cat-abs" title="غائب عن ملف المستودع الحالي — قد يكون في فرع آخر (المرحلة 1)">${ic("inbox","ico-warn")} غائب</span>` : "") + (r.wasLinked ? `<span class="lost-tag" title="غائب رغم كود سابق محفوظ يدوياً — رابط يدوي ضائع، أولوية إعادة ربط">${ic("link2","ico-info")} سبق ربطه</span>` : "");
 const priceCell = (z, w) => `<span dir="ltr">${priceInt(z) ?? "—"} / ${priceInt(w) ?? "—"}</span>${priceBadge(z, w)}`;
 const reasonText = b => [b.sizeM ? "مقاس✓" : "", b.priceM ? "سعر✓" : "", b.sim >= 0.5 ? "اسم " + Math.round(b.sim * 100) + "٪" : "", b.aliasHit ? "زوج معروف" : ""].filter(Boolean).join(" · ");
@@ -2998,7 +3014,7 @@ function batchCardHTML(r, chkCls, famAttr) {
   const zid = `<div class="mc-zid"><span class="mc-tag zid">ZID PRODUCT</span>
       <div class="mc-row">${thumb(r.z.img)}<div class="mc-txt">
         <div class="mc-name">${esc(r.z.name) || "—"}</div>
-        <div class="mc-sku">SKU: <span dir="ltr">${esc(String(r.z.sku))}</span>${lostTag(r)}${(famIndex && famIndex.parentOfSku(r.z.sku)) ? `<span class="col-tag" title="متغيّر — أبوه (من ترتيب تصدير زد)">متغيّر · أبوه <span dir="ltr">${esc(String(famIndex.parentOfSku(r.z.sku)))}</span></span>` : ""}</div>
+        <div class="mc-sku">SKU: <span dir="ltr">${esc(String(r.z.sku))}</span>${lostTag(r)}${unlinkTag(r)}${(famIndex && famIndex.parentOfSku(r.z.sku)) ? `<span class="col-tag" title="متغيّر — أبوه (من ترتيب تصدير زد)">متغيّر · أبوه <span dir="ltr">${esc(String(famIndex.parentOfSku(r.z.sku)))}</span></span>` : ""}</div>
         <div class="mc-sub">سعر زد: ${zp ?? "—"} ر.س · الكمية: <b>${esc(String(r.z.qty ?? "—"))}</b> ${pubBadge(r.z)}</div>
       </div></div></div>`;
   const wh = `<div class="mc-wh"><span class="mc-tag whs">WAREHOUSE</span>
@@ -4172,7 +4188,8 @@ function run(reprocess) {
       if (!wh) {
         // بلا مطابقة في الملف الحالي: نميّز الغائب (له تاريخ) عن الجديد فعلاً
         const waiting = waitingSet.has(skuN);
-        const hasHistory = !!manualMap[rawKey] || matchedHistory.has(skuN);
+        // أُلغي رابطه في هذه الجلسة ⇒ **ليس غائباً بل يحتاج ربطاً**: التصحيح لا يُخفي منتجاً.
+        const hasHistory = (!!manualMap[rawKey] || matchedHistory.has(skuN)) && !unlinkedSet.has(skuN);
         const noWhCode = !whIndex[skuN] && !whIndex[baseOf(rawSku)];   // كوده غير موجود في ملف المستودع أصلاً
         if (waiting) {
           // بانتظار التوفر: يُستثنى من تنبيه الجديد، ويبقى ظاهراً في «بدون ربط» بشارته
@@ -4868,7 +4885,7 @@ function updatedTableHTML(list) {
     // المستبعد: صف باهت بزر «استعادة» فقط (لا تحديد ولا تنزيل تجريبي). غيره: أزرار العمل المعتادة
     const actCell = u.excluded
       ? `<button class="mini-btn" onclick="restoreExcluded('${esc(u.skuN)}')" title="أعِد هذا الصنف إلى ملفي التنزيل">↩ استعادة</button>`
-      : `${offBtn}<button class="mini-btn" onclick="downloadOne('${esc(u.skuN)}')" title="نزّل ملف اختبار يحوي هذا المنتج وحده لتجرّبه في زد قبل الاستيراد الكامل"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3v6.2L4.8 17a2 2 0 0 0 1.7 3h11a2 2 0 0 0 1.7-3l-4.7-7.8V3"/><path d="M8.5 3h7"/><path d="M7.2 14h9.6"/></svg> جرّب</button><button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="استبعاد مؤقت من ملفي التنزيل في هذه الجلسة (لا يُحفظ)">✕ شيلها</button>`;
+      : `${offBtn}<button class="mini-btn unlink" onclick="unlinkRow('${esc(String(u.sku))}')" title="الربط خاطئ؟ ألغِه ليعود الصنف إلى «يحتاج ربط» — لا يُخفي المنتج ولا يُصفّره">${ic("link2")} إلغاء الربط</button><button class="mini-btn" onclick="downloadOne('${esc(u.skuN)}')" title="نزّل ملف اختبار يحوي هذا المنتج وحده لتجرّبه في زد قبل الاستيراد الكامل"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3v6.2L4.8 17a2 2 0 0 0 1.7 3h11a2 2 0 0 0 1.7-3l-4.7-7.8V3"/><path d="M8.5 3h7"/><path d="M7.2 14h9.6"/></svg> جرّب</button><button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="استبعاد مؤقت من ملفي التنزيل في هذه الجلسة (لا يُحفظ)">✕ شيلها</button>`;
     const chkCell = u.excluded ? `` : `<input type="checkbox" class="test-chk" data-sku="${esc(u.sku)}" ${chk} aria-label="تحديد ${esc(u.sku)} للتنزيل التجريبي" onchange="toggleTest('${esc(u.sku)}', this.checked)">`;
     return `<tr class="${warn ? "row-warn " : ""}${u.excluded ? "row-excluded" : ""}" data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
       `<td class="chk-cell">${chkCell}</td>` +
@@ -5231,6 +5248,16 @@ function renderPills() {
   if (pl) pl.innerHTML = Object.entries(manualMap)
     .map(([s, c]) => `<span class="pill"><span class="mono">${s} → ${c}</span><button onclick="delMap('${s}')">×</button></span>`).join("");
   renderFingerprint();
+}
+// إلغاء الربط من صفّ «تم تحديثه» — تصحيح لخطأ ربط. تأكيد خفيف لأنّ الأثر فوريّ على الملفّين.
+async function unlinkRow(sku) {
+  const code = manualMap[String(sku)];
+  if (!code) { showToast("لا رابط يدوي لهذا الصنف."); return; }
+  const msg = `إلغاء ربط ${sku} ← ${code}؟` + `\n\n` +
+    `يعود الصنف إلى «يحتاج ربط» ولا يدخل ملفَّي التصدير حتى تربطه من جديد.\n` +
+    `لا يُخفى من المتجر ولا تُصفَّر كميته — هذا تصحيح لا إخفاء.`;
+  if (!confirm(msg)) return;
+  await delMap(sku);
 }
 async function delMap(s) { try { await dbDelMapping(s); } catch { return; } renderPills(); run(true); }   // run(true): يعكس حذف الرابط في الملفّين فوراً (كبقية القرارات — أزال آخر مسار لا يُعيد البناء)
 
