@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const script = readFileSync(join(root, "index.html"), "utf8");
+const script = readFileSync(join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 const s = script.slice(script.lastIndexOf("\n<script>\n"), script.lastIndexOf("\n</script>"));
 function fnSrc(name){const re=new RegExp("(?:async\\s+)?function\\s+"+name+"\\s*\\([^)]*\\)\\s*\\{");const m=re.exec(s);if(!m)throw new Error("no "+name);let i=m.index+m[0].length,d=1;for(;i<s.length&&d>0;i++){if(s[i]==="{")d++;else if(s[i]==="}")d--;}return s.slice(m.index,i);}
 

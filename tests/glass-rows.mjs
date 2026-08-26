@@ -12,7 +12,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const html = readFileSync(join(root, "index.html"), "utf8");
+const html = readFileSync(join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 const css = html.slice(html.indexOf("<style>") + 7, html.indexOf("</style>"));
 const BROKEN = process.argv.includes("--broken");
 

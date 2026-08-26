@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8");
+const html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 function findChrome() { const c = ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", process.env.CHROME_PATH || "", "/usr/bin/google-chrome-stable", "/usr/bin/google-chrome"]; for (const x of c) if (x && existsSync(x)) return x; for (const n of ["google-chrome-stable", "google-chrome", "chromium"]) try { return execFileSync("bash", ["-lc", "command -v " + n]).toString().trim(); } catch {} return ""; }
 const browser = await puppeteer.launch({ executablePath: findChrome(), headless: "new", args: ["--no-sandbox"] });
 const fails = [];

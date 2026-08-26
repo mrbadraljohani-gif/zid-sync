@@ -22,7 +22,7 @@ import puppeteer from "puppeteer-core";
 
 const BROKEN = process.argv.includes("--broken");
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8");
+const html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 function findChrome() {
   const c = ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", process.env.CHROME_PATH || "", "/usr/bin/google-chrome-stable", "/usr/bin/google-chrome"];
   for (const x of c) if (x && existsSync(x)) return x;

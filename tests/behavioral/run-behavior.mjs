@@ -20,8 +20,8 @@ import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const curHtml = readFileSync(join(root, "index.html"), "utf8");
-const showAt = ref => execFileSync("git", ["show", ref + ":index.html"], { cwd: root, maxBuffer: 64 * 1024 * 1024 }).toString();
+const curHtml = readFileSync(join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
+const showAt = ref => execFileSync("git", ["show", ref + ":index.html"], { cwd: root, maxBuffer: 64 * 1024 * 1024 }).toString().replace(/\r\n/g, "\n");
 
 function findChrome() {
   const c = ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/usr/bin/google-chrome-stable", "/usr/bin/google-chrome", process.env.CHROME_PATH || ""];

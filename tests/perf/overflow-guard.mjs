@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const css = (readFileSync(join(root, "index.html"), "utf8").match(/<style>([\s\S]*?)<\/style>/) || [, ""])[1];
+const css = (readFileSync(join(root, "index.html"), "utf8").replace(/\r\n/g, "\n").match(/<style>([\s\S]*?)<\/style>/) || [, ""])[1];
 const BROKEN = process.argv.includes("--broken");
 const WIDTHS = [360, 390];
 

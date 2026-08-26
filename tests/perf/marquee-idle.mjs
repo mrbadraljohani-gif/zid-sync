@@ -23,7 +23,7 @@ import puppeteer from "puppeteer-core";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const BROKEN = process.argv.includes("--broken");
 const IDLE_GUARD = "key === mqLastKey && track.children.length";   // شرط الخمول في renderMarquee
-let src = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8");
+let src = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 if (BROKEN) {
   if (!src.includes(IDLE_GUARD)) { console.error("✗ (--broken) لم أجد شرط الخمول لتعطيله — تغيّر الكود؟"); process.exit(2); }
   src = src.replace(IDLE_GUARD, "false");   // عطّل الخمول ⇒ إعادة الكتابة دائماً (سلوك ما قبل الإصلاح)

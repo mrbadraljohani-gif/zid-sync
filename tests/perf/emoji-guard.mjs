@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-let src = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8");
+let src = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 
 // (1) جرّد تعليقات الكتلة /* */ و<!-- -->
 src = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/<!--[\s\S]*?-->/g, "");

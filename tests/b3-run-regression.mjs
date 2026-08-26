@@ -13,7 +13,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const html = readFileSync(join(root, "index.html"), "utf8");
+const html = readFileSync(join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 const script = html.slice(html.lastIndexOf("\n<script>\n"), html.lastIndexOf("\n</script>"));
 const BROKEN = process.argv.includes("--broken");
 

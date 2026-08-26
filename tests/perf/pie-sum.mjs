@@ -7,7 +7,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import puppeteer from "puppeteer-core";
-const html = readFileSync(new URL("../../index.html", import.meta.url), "utf8");
+const html = readFileSync(new URL("../../index.html", import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const BROKEN = process.argv.includes("--broken");
 function findChrome() { const c = ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", process.env.CHROME_PATH || "", "/usr/bin/google-chrome-stable"]; for (const x of c) if (x && existsSync(x)) return x; for (const n of ["google-chrome-stable", "google-chrome", "chromium"]) try { return execFileSync("bash", ["-lc", "command -v " + n]).toString().trim(); } catch {} return ""; }
 const browser = await puppeteer.launch({ executablePath: findChrome(), headless: "new", args: ["--no-sandbox"] });

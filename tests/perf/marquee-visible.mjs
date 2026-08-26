@@ -25,7 +25,7 @@ import puppeteer from "puppeteer-core";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const BROKEN = process.argv.includes("--broken");
 const FILL = "direction: ltr; /* mq-fill */";
-let src = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8");
+let src = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 if (BROKEN) {
   if (!src.includes(FILL)) { console.error("✗ (--broken) لم أجد علامة mq-fill لإزالتها — تغيّر الكود؟"); process.exit(2); }
   src = src.replace(FILL, "/* mq-fill removed */");   // أعِد عطل تموضع RTL

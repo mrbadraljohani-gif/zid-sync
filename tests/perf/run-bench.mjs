@@ -18,7 +18,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const html = readFileSync(join(root, "index.html"), "utf8");
+const html = readFileSync(join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 const css = (html.match(/<style>([\s\S]*?)<\/style>/) || [, ""])[1];   // نفس CSS الحقيقي (تخطيط أمين)
 
 function findChrome() {

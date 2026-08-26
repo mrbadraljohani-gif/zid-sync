@@ -12,7 +12,7 @@
     "test:overflow:self": "node tests/perf/overflow-guard.mjs --broken",
     "test:progressive": "node tests/perf/progressive-search.mjs",
     "test:progressive:self": "node tests/perf/progressive-search.mjs --broken",
-    "test": "npm run test:invariants && npm run test:b2 && npm run test:b2counts && npm run test:missed && npm run test:runreg && npm run test:overflow && npm run test:progressive",
+    "test": "npm run test:crlf && npm run test:invariants && npm run test:b2 && npm run test:b2counts && npm run test:missed && npm run test:runreg && npm run test:overflow && npm run test:progressive",
     "test:b2counts": "node tests/b2-analyze-counts.mjs",
     "test:missed": "node tests/b2-missed-rounds.mjs",
     "test:missed:self": "node tests/b2-missed-rounds.mjs --broken",
@@ -20,7 +20,9 @@
     "test:runreg:self": "node tests/b3-run-regression.mjs --broken",
     "test:behavior": "node tests/behavioral/run-behavior.mjs",
     "test:contrast": "node tests/perf/contrast-guard.mjs",
-    "test:contrast:self": "node tests/perf/contrast-guard.mjs --broken"
+    "test:contrast:self": "node tests/perf/contrast-guard.mjs --broken",
+    "test:crlf": "node tests/crlf-safe.mjs",
+    "test:crlf:self": "node tests/crlf-safe.mjs --broken"
   },
   "keywords": [],
   "author": "",
