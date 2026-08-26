@@ -989,6 +989,9 @@
   .uni-conf { color: var(--muted); white-space: nowrap; }
   .uni-st { color: var(--muted); white-space: nowrap; }
   .uni-sep { color: var(--muted-2); }
+  .cat-out { background: color-mix(in srgb, var(--muted) 10%, transparent); border: 1px solid color-mix(in srgb, var(--muted) 24%, transparent); color: var(--muted); }
+  .uni-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .uni-flabel { font-size: 12px; font-weight: 700; color: var(--muted); margin-inline-end: 2px; }
   .uni-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   @media (max-width: 560px) {
     .uni-bar { flex-direction: column; align-items: stretch; }
@@ -1293,9 +1296,9 @@
     <!-- ②  بطاقات الأرقام (KPI) -->
     <div class="stats">
       <button type="button" class="stat" data-filter="updated" data-card="updated" aria-pressed="false" onclick="selectCard('updated')"><span class="stat-ic"><svg class="ico inline ico-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16.2 9.3"/></svg></span><b class="ok-txt" id="sUpd">0</b><span class="stat-lbl">تم تحديثه</span></button>
-      <button type="button" class="stat stat-wide" data-filter="unmatched" data-card="unmatched" aria-pressed="true" onclick="selectCard('unmatched')"><span class="stat-ic"><svg class="ico inline ico-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7.5 9L12 21 4.5 12z"/></svg></span><b class="amber-txt" id="sUn">0</b><span class="stat-lbl">بدون ربط</span><span class="stat-sub" id="sUnSub"></span></button>
+      <button type="button" class="stat stat-wide" data-filter="unmatched" data-card="unmatched" aria-pressed="true" onclick="selectCard('unmatched')"><span class="stat-ic"><svg class="ico inline ico-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7.5 9L12 21 4.5 12z"/></svg></span><b class="amber-txt" id="sUn">0</b><span class="stat-lbl">يحتاج ربط</span><span class="stat-sub" id="sUnSub"></span></button>
       <!-- «غائب»: بلا data-filter (لا فلتر مستقلّ)؛ الإبراز عبر data-card="absent" (مفصول عن الفلتر). النقر يفتح القائمة ويُمرّر لقسم «غائب» -->
-      <button type="button" class="stat" data-card="absent" aria-pressed="false" onclick="selectAbsent()" aria-label="غائب عن الملف — افتح قائمة «بدون ربط» وانتقل إلى قسم الغائب" title="أصناف لها كود سابق وغائبة عن ملف المستودع الحالي (فروع المرحلة 1) — اضغط لعرض قسمها في القائمة"><span class="stat-ic"><svg class="ico inline ico-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h4l1.5 3h7L17 13h4"/><path d="M4.4 5.6 3 13v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5l-1.4-7.4A2 2 0 0 0 17.7 4H6.3a2 2 0 0 0-1.9 1.6z"/></svg></span><b class="amber-txt" id="sAbsent">0</b><span class="stat-lbl">غائب عن الملف</span></button>
+      <button type="button" class="stat" data-card="absent" aria-pressed="false" onclick="selectAbsent()" aria-label="غائب عن المخزن — افتح قائمة «يحتاج ربط» وانتقل إلى قسم الغائب" title="أصناف لها كود سابق وغائبة عن ملف المستودع الحالي (فروع المرحلة 1) — اضغط لعرض قسمها في القائمة"><span class="stat-ic"><svg class="ico inline ico-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h4l1.5 3h7L17 13h4"/><path d="M4.4 5.6 3 13v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5l-1.4-7.4A2 2 0 0 0 17.7 4H6.3a2 2 0 0 0-1.9 1.6z"/></svg></span><b class="amber-txt" id="sAbsent">0</b><span class="stat-lbl">غائب عن الملف</span></button>
       <button type="button" class="stat" data-filter="explorer" data-card="explorer" aria-pressed="false" onclick="selectCard('explorer')"><span class="stat-ic"><svg class="ico inline " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none"/></svg></span><b class="text-txt" id="sTot">0</b><span class="stat-lbl">إجمالي الأسطر — مستكشف</span></button>
       <!-- مقصودة: «جديد» مدمج في «بدون ربط»، وهذه تبقى مخفية ليكتب فيها updateNewCount بلا فحص وجود — لا تحذفها -->
       <b id="sNew" hidden>0</b><span id="sAbsentLbl" hidden></span>
@@ -1646,7 +1649,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "7712a7f";
+const APP_VERSION = "c417dbc";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2183,7 +2186,7 @@ function renderInventoryAttention() {
   // ② بدون ربط — lastUnmatchedRaw
   cards.push(statusCard({
     status: "amber", icon: ICO.link2, count: lastUnmatchedRaw.length, countLabel: "صنف",
-    title: "بدون ربط",
+    title: "يحتاج ربط",
     description: "كمياتها لن تتحدّث.",
     actionLabel: "ابدأ الربط الذكي", onAction: "invStartBatch()",
   }));
@@ -2841,13 +2844,15 @@ const UNI_CHUNK = 40;                          // حجم دفعة الرسم ا�
 
 // صفّ خفيف لصنف مُقرَّر (سيُصفَّر/مُدار) — يبقى تفاعلياً: تراجع مباشر بلا تحويله لبطاقة كاملة
 function unifiedLightRow(u, status) {
-  const badge = status === "pending" ? `<span class="cat-badge cat-wait">⚠ سيُصفَّر</span>`
-    : `<span class="cat-badge cat-mng">✓ مُدار</span>`;
+  // حالة واحدة ظاهرة للمستخدم: «غير متوفر» ＋ نتيجتها الصريحة «0 · غير منشور» (النتيجة ليست حالة).
+  const badge = `<span class="cat-badge cat-wait">${ic("hourglass")} غير متوفر</span>`;
+  // النتيجة ليست حالة: تُعرض موسومة صراحةً بعد حالة النشر الحالية في زد فلا تُقرأ كتناقض.
+  const outcome = `<span class="cat-badge cat-out" title="يدخل ملف الكميات بـ0 ويُخفى في ملف الأسعار (published=No)">${ic("eyeOff")} التصدير: 0 · غير منشور</span>`;
   const undo = `<button class="mc-btn" onclick="undoWaitDecision('${esc(String(u.sku))}','${esc(u.skuN)}')">↩ تراجع</button>`;
   const search = esc(normText(String(u.sku) + " " + (u.name || "")));
   return `<div class="mcard uni-light" data-status="${status}" data-search="${search}">`
     + `<div class="mc-zid"><div class="mc-row"><div class="mc-txt">`
-    + `<div class="mc-name">${esc(u.name) || "—"} ${badge} ${pubBadge(u)}</div>`
+    + `<div class="mc-name">${esc(u.name) || "—"} ${badge} ${pubBadge(u)} ${outcome}</div>`
     + `<div class="mc-sku">SKU: <span dir="ltr">${esc(String(u.sku))}</span></div>`
     + `</div></div></div><div class="mc-actions">${undo}</div></div>`;
 }
@@ -2859,13 +2864,17 @@ function unifiedBar(needN, g, y, r, absentN, p, m) {
   return `<div class="uni-bar">
     <div class="uni-counts">
       <b class="uni-need">${ic("spark","ico-warn")} يحتاج قرار ${needN}</b> <span class="uni-conf">${DOT_OK} ${g} · ${DOT_MID} ${y} · ${DOT_BAD} ${r}</span>
-      <span class="uni-sep">·</span> <span class="uni-st">${ic("inbox","ico-warn")} غائب ${absentN}</span> · <span class="uni-st">⚠ سيُصفَّر ${p}</span> · <span class="uni-st">✓ مُدار ${m}</span>${lost ? ` · <span class="lost-count">${ic("link2","ico-info")} سبق ربطه ${lost}</span>` : ""}
+      <span class="uni-sep">·</span> <span class="uni-st">${ic("inbox","ico-warn")} غائب ${absentN}</span> · <span class="uni-st">${ic("hourglass","ico-warn")} غير متوفر ${p + m}</span>${lost ? ` · <span class="lost-count">${ic("link2","ico-info")} سبق ربطه ${lost}</span>` : ""}
+    </div>
+    <div class="uni-filter">
+      <span class="uni-flabel">فلترة:</span>
+      <button class="exp-chip${batchLostOnly ? "" : " on"}" aria-pressed="${!batchLostOnly}" onclick="${batchLostOnly ? "toggleLostOnly()" : ""}">الكل</button>
+      ${lost ? `<button class="exp-chip${batchLostOnly ? " on" : ""}" aria-pressed="${batchLostOnly}" onclick="toggleLostOnly()" title="روابط يدوية ضائعة (غائبة رغم كود يدوي محفوظ) — أولى بإعادة الربط">${ic("link2", "ico-info")} سبق ربطه ${lost}</button>` : ""}
     </div>
     <div class="uni-actions">
-      ${lost ? `<button class="mc-btn ${batchLostOnly ? "on-lost" : ""}" onclick="toggleLostOnly()" title="روابط يدوية ضائعة (غائبة رغم كود يدوي محفوظ) — أولى بإعادة الربط">${batchLostOnly ? "✓ سبق ربطه فقط" : ic("link2", "ico-info") + " المفقودة فقط"}</button>` : ""}
-      <button class="btn-run sm" onclick="acceptUnified('green')">✓ اعتماد المؤكد</button>
-      <button class="mc-btn" onclick="acceptUnified('all')">✓ اعتماد كل المحدد</button>
-      <button class="mc-btn" onclick="undoLastBatch()" ${lastBatchUndo ? "" : "disabled"}>↩ تراجع${lastBatchUndo ? ` (${lastBatchUndo.count})` : ""}</button>
+      <button class="btn-run sm" onclick="acceptUnified('all')">${ic("check")} اعتماد العناصر المحددة</button>
+      <button class="mc-btn" onclick="acceptUnified('green')">${ic("spark")} اعتماد المطابقات المؤكدة</button>
+      <button class="mc-btn" onclick="undoLastBatch()" ${lastBatchUndo ? "" : "disabled"}>↩ التراجع عن آخر عملية${lastBatchUndo ? ` (${lastBatchUndo.count})` : ""}</button>
     </div></div>`;
 }
 // اعتماد المحدد: green فقط أو كل المحدد (green+yellow+red). يقرأ المرشّح المثبَّت لكل صف
@@ -2902,7 +2911,7 @@ function renderUnifiedList(title, wrap) {
   const light = [...pending.map(u => unifiedLightRow(u, "pending")), ...managed.map(u => unifiedLightRow(u, "managed"))];
   const rows = [...needCards];
   if (absCards.length) { rows.push(`<div class="uni-sec" id="uniAbsentSec">${ic("inbox","ico-warn")} غائب عن ملف المستودع (${absCards.length}) — لها كود سابق وغائبة عن الملف الحالي (قد تكون في فرع آخر)</div>`, ...absCards); }
-  if (light.length) { rows.push(`<div class="uni-sec">قرارات سابقة (⚠ سيُصفَّر · ✓ مُدار)</div>`, ...light); }
+  if (light.length) { rows.push(`<div class="uni-sec">غير متوفر — تُصدَّر بكمية 0 وغير منشورة</div>`, ...light); }
   const allRows = rows;
   const sa = document.getElementById("sAbsent"); if (sa) sa.textContent = batchData.absentCount || 0;   // البطاقة العلوية = نفس مصدر الشريط
   wrap.innerHTML = unifiedBar(needN, gN, yN, rN, absentN, pending.length, managed.length)
@@ -4617,7 +4626,7 @@ function explorerCompute() {
   return { rows, shown };
 }
 function expBadges(r) {
-  const m = { waiting: [ic("hourglass", "ico-warn") + " بانتظار", "cat-wait"], managed: ["✓ مُدار", "cat-mng"], absent: ["غائب " + ic("inbox", "ico-warn"), "cat-abs"] };
+  const m = { waiting: [ic("hourglass", "ico-warn") + " غير متوفر", "cat-wait"], managed: [ic("eyeOff") + " غير متوفر · 0", "cat-mng"], absent: ["غائب " + ic("inbox", "ico-warn"), "cat-abs"] };
   return r.admin.map(a => { const x = m[a]; return x ? `<span class="cat-badge ${x[1]}">${x[0]}</span>` : ""; }).join(" ");
 }
 function explorerBodyHTML(shown) {
@@ -4641,11 +4650,11 @@ function renderExplorer(wrap) {
         return `<button class="exp-chip${on ? " on" : ""}" aria-pressed="${on}" aria-label="${nm}" title="${nm}" onclick="toggleExpFilter('${dim}','${k}')">${t}</button>`; }).join("") + `</div>`;
   const bar = `<div class="exp-bar">
     <input type="text" id="expSearch" class="exp-search" aria-label="ابحث في المستكشف بالـSKU أو الاسم أو الباركود" placeholder="ابحث بالـSKU أو الاسم أو الباركود…" value="${esc(expSearchRaw)}" oninput="onExpSearch(this.value)">
-    ${grp("link", "الربط", [["linked", "مربوط"], ["unlinked", "بدون ربط"]])}
+    ${grp("link", "الربط", [["linked", "مربوط"], ["unlinked", "يحتاج ربط"]])}
     ${grp("pub", "النشر", [["pub", "منشور"], ["unpub", "غير منشور"]])}
     ${grp("type", "النوع", [["parent", "أب"], ["variant", "متغيّر"], ["simple", "بسيط"]])}
     ${grp("qty", "الكمية", [["zero", "صفر"], ["pos", ">0", "أكبر من صفر"], ["inf", "∞", "غير محدود"]])}
-    ${grp("admin", "إداري", [["waiting", ic("hourglass", "ico-warn"), "بانتظار التوفر"], ["managed", "✓ مُدار"], ["absent", ic("inbox", "ico-warn"), "غائب عن الملف"]])}
+    ${grp("admin", "إداري", [["waiting", ic("hourglass", "ico-warn"), "غير متوفر"], ["managed", ic("eyeOff"), "غير متوفر · مصفَّر"], ["absent", ic("inbox", "ico-warn"), "غائب عن الملف"]])}
     <div class="exp-actions">
       <span class="exp-count" id="expCount">يعرض <b>${shown.length}</b> من ${rows.length}</span>
       <button class="exp-chip" onclick="clearExpFilters()">مسح الفلاتر</button>
@@ -4670,7 +4679,7 @@ function clearExpFilters() { expFilters = { link: new Set(), pub: new Set(), typ
 function exportExplorer() {
   const rows = lastExplorerShown || [];
   if (!rows.length) { showErr("لا صفوف معروضة للتصدير — عدّل الفلاتر."); return; }
-  const admLbl = { waiting: "بانتظار", managed: "مُدار", absent: "غائب" };
+  const admLbl = { waiting: "غير متوفر", managed: "غير متوفر · مصفَّر", absent: "غائب" };
   const typeLbl = t => t === "parent" ? "أب" : (t === "variant" ? "متغيّر" : "بسيط");
   const aoa = [["SKU", "الاسم", "النوع", "الكمية", "النشر", "الربط", "الحالة الإدارية"],
     ...rows.map(r => [r.sku, r.name, typeLbl(r.type), r.qtyKind === "inf" ? "غير محدود" : r.qtyDisplay, r.pub ? "منشور" : "غير منشور", r.linked ? "مربوط" : "بلا ربط", r.admin.map(a => admLbl[a] || a).join(" ／ ")])];
@@ -4943,7 +4952,7 @@ function updateNewCount() {
   const alert = document.getElementById("newAlert");
   if (newCount > 0) {
     alert.style.display = "flex";
-    alert.innerHTML = `${ICO.link2} <bdi>${newCount}</bdi> منتجاً جديداً بدون ربط — كمياتها لن تتحدث · اضغط لبدء الربط الذكي ←`;
+    alert.innerHTML = `${ICO.link2} <bdi>${newCount}</bdi> منتجاً يحتاج ربط — كمياتها لن تتحدث · اضغط لبدء الربط الذكي ←`;
   } else alert.style.display = "none";
 }
 
@@ -4956,7 +4965,7 @@ function updateUnmatchedCard() {
   const newN = raw.filter(u => !boundSet.has(String(u.sku)) && !waitingSet.has(normCode(u.skuN))).length;
   const un = document.getElementById("sUn"); if (un) un.textContent = raw.length;
   const sub = document.getElementById("sUnSub");
-  if (sub) sub.textContent = `يحتاج قرارك ${newN} · ⏳ ${pending} · مُدار ${managed}`;
+  if (sub) sub.textContent = `يحتاج ربط ${newN} · غير متوفر ${pending + managed}`;
 }
 
 
