@@ -106,6 +106,10 @@ jobs:
         run: node tests/perf/progressive-search.mjs --broken
       - name: Progressive render does not break search-over-all
         run: node tests/perf/progressive-search.mjs
+      - name: Self-check — حارس الصمّامين يرسب بكسر نداء بوّابة الرفع
+        run: node tests/valves.mjs --broken
+      - name: الدفعة ٤ — صمّاما الحماية (بوّابة الرفع ١٥٪ · صمّام التنزيل ٦٠٪)
+        run: node tests/valves.mjs
       - name: Behavioral run() harness (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام · ٣+١ عودة + أسنان)
         run: node tests/behavioral/run-behavior.mjs
       - name: Self-check — حارس التباين يرسب على نصّ منخفض التباين

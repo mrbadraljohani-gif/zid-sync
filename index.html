@@ -1668,7 +1668,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "4e482f6";
+const APP_VERSION = "6eecf5b";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1713,7 +1713,8 @@ let lastCollisions = [];   // مجموعات أكواد زد الخام المت
 let lastVariantGroups = [];   // مجموعات «أب/خيار» المكتشفة والمعالَجة تلقائياً
 let lastQtyRows = null, lastPriceRows = null, lastPriceOrig = null;   // صفوف الملفين الناتجين + أصل صفوف الأسعار (للتحقق عند التنزيل التجريبي)
 // التقاط حالة بحت لأرقام آخر مطابقة (كانت محلية داخل run فتُكتب للـDOM وتُفقد) — تقرأها صفحة المخزون
-let lastRunSummary = null;   // {qtyCount, priceCount, distItemCount, distGroupCount, noChangeDropped}
+let lastRunSummary = null;
+let lastZeroRatio = { zero: 0, total: 0, pct: 0 };   // ② نسبة التصفير المقيسة آخر تشغيل (تُعرض دائماً)   // {qtyCount, priceCount, distItemCount, distGroupCount, noChangeDropped}
 let lastClassify = null;     // {matched, unmatched, collided, absent, parent, total} — توزيع منتجات زد للرسم الدائري (التقاط بحت في run؛ كل منتج في دلو واحد فيجمع تماماً)
 let lastHasVarYes = new Set(), lastHvWouldEnter = [];   // أكواد زد has_variants=Yes (آباء) — لا تدخل أي ملف كميات إطلاقاً
 // فحص نهائي حاسم: يحذف أي صف كوده منتج أب (has_variants=Yes) من أي مصفوفة صفوف كميات قبل الكتابة (يحافظ على صف الرأس)
@@ -3586,7 +3587,10 @@ async function onMergeWh(inp) {
   try {
     const { list, header, headers, colMap } = await readInvFileFull(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
     invHeaderDbg.wh = { headers, colMap };   // للتشخيص ?debug
-    mergeWh = aggregateInv(list, "wh");   // تجميع بالكود (جمع الكمية) — يطابق منطق الدمج داخل الملف
+    const aggWh = aggregateInv(list, "wh");   // تجميع بالكود (جمع الكمية) — يطابق منطق الدمج داخل الملف
+    // ① بوّابة الرفع: تسبق الاعتماد المحلي **والكتابة** معاً — الإلغاء يترك المخزن السابق كما هو تماماً.
+    if (!invShrinkCheck("wh", aggWh.length)) { showToast("أُلغي الرفع — المخزن السابق كما هو."); inp.value = ""; return; }
+    mergeWh = aggWh;
     whWasUploaded = true;                 // رفع ملف فعلي ⇒ يُفعّل عدّ missed_rounds في خطاف الرفع
     document.getElementById("whStatus").innerHTML = `<span class="ok-txt">✓ ${f.name} — ${mergeWh.length} صنف</span>`;
     document.getElementById("whCard").classList.add("ok");
@@ -3603,7 +3607,9 @@ async function onMergeBranch(inp) {
   try {
     const { list, header, headers, colMap } = await readInvFileFull(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
     invHeaderDbg.branch = { headers, colMap };   // للتشخيص ?debug
-    const agg = aggregateInv(list, "branch"); mergeBranches = [agg];
+    const agg = aggregateInv(list, "branch");
+    if (!invShrinkCheck("branch", agg.length)) { showToast("أُلغي الرفع — الفرع السابق كما هو."); inp.value = ""; return; }
+    mergeBranches = [agg];
     whWasUploaded = true;                 // رفع ملف فرع فعلي ⇒ يُفعّل عدّ missed_rounds في خطاف الرفع
     document.getElementById("brStatus").innerHTML = `<span class="ok-txt">✓ ${f.name} — ${agg.length} صنف</span>`;
     document.getElementById("brCard").classList.add("ok");
@@ -3766,6 +3772,72 @@ function buildInvDbRows(aggList) {
 }
 const invRowToMerge = r => ({ code: r.code, name: r.name || "", qty: r.qty, incl: r.price_incl, excl: r.price_excl, bar: r.barcode || "" });
 // مزامنة كاملة لجدول (مستودع/فرع): upsert دفعات + حذف الغائب + تحديث الميتا + سجل نشاط
+// ===== ② صمّام التنزيل: نسبة التصفير (الدفعة ٤) =====
+// المقام **إجمالي منتجات زد** لا حجم الملف: مستقرّ ومعروف، فالنسبة تُقارَن بين التشغيلات.
+// (حجم الملف يتقلّص كلما قلّت التغييرات، فنسبةٌ منه تقفز بلا معنى.)
+// لا يمسّ الحساب إطلاقاً — طبقة قراءة فوق qtyRows الجاهزة.
+const ZERO_GATE_PCT = 60;   // فوقها ⇒ يوقف التنزيل حتى تأكيد صريح
+function zeroRatio(qtyRows, zidTotal) {
+  if (!Array.isArray(qtyRows) || qtyRows.length < 2 || !zidTotal) return { zero: 0, total: zidTotal || 0, pct: 0 };
+  let zero = 0;
+  for (let i = 1; i < qtyRows.length; i++) if (Number(qtyRows[i][3]) === 0) zero++;
+  const exact = (zero / zidTotal) * 100;
+  return { zero, total: zidTotal, pct: Math.round(exact * 10) / 10, exact };   // exact للمقارنة · pct للعرض
+}
+function zeroGateOk(z) {
+  if ((z.exact != null ? z.exact : z.pct) <= ZERO_GATE_PCT) return true;
+  return confirm(
+    `توقّف: نسبة التصفير غير معتادة.
+
+` +
+    `سيُصدَّر بكمية صفر: ${z.zero} صنفاً
+` +
+    `من إجمالي منتجات زد: ${z.total}
+` +
+    `النسبة: ${z.pct}% (الحدّ ${ZERO_GATE_PCT}%)
+
+` +
+    `تصفير بهذا الحجم يعني عادةً أن ملف المستودع ناقص أو عموده مفقود.
+` +
+    `استيراد هذا الملف في زد يُنزل كميات هذه الأصناف إلى صفر ويُخفي البسيط منها.
+
+` +
+    `تنزيل الملف رغم ذلك؟`
+  );
+}
+
+// ===== ① بوّابة الرفع: انكماش المخزن (الدفعة ٤) =====
+// خلل في ملف المستودع (عمود مفقود · صفوف ناقصة · ملف جزئي) يجعل مئات الأصناف «غائبة»
+// فتُصفَّر وتُخفى دفعةً واحدة. البوّابة توقف السبب قبل أن يصل للمطابقة أصلاً.
+const INV_SHRINK_PCT = 15;   // انكماش يتجاوزه ⇒ توقّف وتأكيد صريح
+function invShrinkCheck(kind, newCount) {
+  const prev = kind === "wh" ? (invMeta && invMeta.wh_count) : (invMeta && invMeta.branch_count);
+  if (!prev || !Number.isFinite(Number(prev)) || Number(prev) <= 0) return true;   // لا مرجع سابق ⇒ لا بوّابة
+  const before = Number(prev), drop = before - newCount;
+  if (drop <= 0) return true;
+  const exact = (drop / before) * 100;          // المقارنة على الدقيق: Math.round(15.05) = 15 فيمرّ تجاوزٌ فعليّ
+  const pct = Math.round(exact * 10) / 10;      // والتدوير للعرض فقط
+  if (exact <= INV_SHRINK_PCT) return true;
+  const label = kind === "wh" ? "المستودع" : "الفرع";
+  return confirm(
+    `توقّف: ملف ${label} الجديد أصغر بكثير من السابق.
+
+` +
+    `الرفعة السابقة: ${before} كوداً
+` +
+    `الرفعة الجديدة: ${newCount} كوداً
+` +
+    `النقص: ${drop} كوداً (${pct}%)
+
+` +
+    `كل كود ناقص يصير «غائباً عن المخزن»، فتُصدَّر كميته صفراً ويُخفى من المتجر.
+` +
+    `إن كان الملف ناقصاً أو عموده مفقوداً فألغِ الآن وأعِد تصديره كاملاً.
+
+` +
+    `متابعة رغم النقص؟`
+  );
+}
 async function syncInventoryToDB(kind, aggList, header, fileName) {
   const table = INV_TABLE[kind], rows = buildInvDbRows(aggList);
   const newCodes = rows.map(r => r.code), newSet = new Set(newCodes);
@@ -4271,6 +4343,7 @@ function run(reprocess) {
       const nc = stripNoChangeQty(qtyRows, curQtyOf, null); qtyRows = nc.rows; qtyCount = qtyRows.length - 1; noChangeDropped = nc.dropped; }
     lastQtyRows = qtyRows; lastPriceRows = priceRows; lastPriceOrig = priceOrig;   // للتنزيل التجريبي (صف واحد أو المحدد) مع التحقق
     const mkBlob = aoa => { const ws = XLSX.utils.aoa_to_sheet(aoa); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1"); return new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }); };
+    lastZeroRatio = zeroRatio(qtyRows, rows0.length - 1);   // يُقاس كل تشغيل ويُعرض دائماً (فالمستخدم يعرف نطاقه الطبيعي)
     const vq = verifyQuantities(qtyRows);
     const vp = verifyPrices(priceRows, priceOrig, H, autoUnpub);   // يمرّر Yes→No للإخفاء الآلي (بسيط/آباء عبر كل الأبواب)
     const vm = document.getElementById("verifyMsg");
@@ -4278,7 +4351,11 @@ function run(reprocess) {
       const el = document.getElementById(id);
       if (ok && count > 0 && dbOnline) {   // بلا اتصال ⇒ لا تنزيل (الدفعة أ)
         el.href = URL.createObjectURL(mkBlob(aoa)); el.classList.remove("disabled");
-        el.onclick = () => { logActivity("file_generated", null, { kind: id === "dlQty" ? "quantities" : "prices", count }); saveToRepo(reason); };
+        el.onclick = ev => {
+          if (id === "dlQty" && !zeroGateOk(lastZeroRatio)) { ev.preventDefault(); return false; }   // ② الصمّام: يوقف التنزيل فعلاً
+          logActivity("file_generated", null, { kind: id === "dlQty" ? "quantities" : "prices", count });
+          saveToRepo(reason);
+        };
       } else { el.removeAttribute("href"); el.classList.add("disabled"); }
     };
     wireDl("dlQty", vq.ok, qtyRows, qtyCount, "بعد تحميل ملف الكميات");
@@ -4294,7 +4371,7 @@ function run(reprocess) {
     const okEl = invLine || vm;   // هدف سطر النجاح: المخزون إن وُجد، وإلا الرئيسية (احتياط)
     if (vq.ok && vp.ok) {
       okEl.className = "verify-ok"; okEl.style.display = "block";
-      okEl.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + ((lastAutoUnpubSimple.length || lastAutoUnpubParents.length) ? (() => { const au = k => lastAutoUnpubSimple.filter(x => x.src === k).length; return ` · إخفاء تلقائي: ${lastAutoUnpubSimple.length + lastAutoUnpubParents.length} — بسيط ${lastAutoUnpubSimple.length} (رخص ${au("low")} · مطابَق٠ ${au("matched0")} · ⏳ ${au("waiting")} · غائب ${au("absent")}) · آباء ${lastAutoUnpubParents.length}`; })() : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
+      okEl.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + ` · مصفَّر: ${lastZeroRatio.zero} من ${lastZeroRatio.total} (${lastZeroRatio.pct}%)` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + ((lastAutoUnpubSimple.length || lastAutoUnpubParents.length) ? (() => { const au = k => lastAutoUnpubSimple.filter(x => x.src === k).length; return ` · إخفاء تلقائي: ${lastAutoUnpubSimple.length + lastAutoUnpubParents.length} — بسيط ${lastAutoUnpubSimple.length} (رخص ${au("low")} · مطابَق٠ ${au("matched0")} · ⏳ ${au("waiting")} · غائب ${au("absent")}) · آباء ${lastAutoUnpubParents.length}`; })() : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
       vm.className = ""; vm.style.display = "none"; vm.textContent = "";   // الرئيسية: لا سطر أخضر عند النجاح (نُقل للمخزون)
     } else {
       vm.className = "verify-fail"; vm.style.display = "block";

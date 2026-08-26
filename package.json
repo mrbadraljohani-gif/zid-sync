@@ -22,7 +22,9 @@
     "test:contrast": "node tests/perf/contrast-guard.mjs",
     "test:contrast:self": "node tests/perf/contrast-guard.mjs --broken",
     "test:crlf": "node tests/crlf-safe.mjs",
-    "test:crlf:self": "node tests/crlf-safe.mjs --broken"
+    "test:crlf:self": "node tests/crlf-safe.mjs --broken",
+    "test:valves": "node tests/valves.mjs",
+    "test:valves:self": "node tests/valves.mjs --broken"
   },
   "keywords": [],
   "author": "",
