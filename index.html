@@ -1189,7 +1189,7 @@
     direction: ltr; /* mq-fill */   /* ⚠ حاسم: اتجاه الـviewport يحكم موضع المسار. rtl يلصقه يميناً بلا فائض يمينيّ ⇒ ينزلق يساراً ويفرغ معظم الدورة. ltr ⇒ الفائض يميناً فتدخل النسخة الثانية وتملأ دائماً. */
     -webkit-mask: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
     mask: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
-  .mq-track { display: flex; width: max-content; will-change: transform; animation: mq-slide 46s linear infinite; }
+  .mq-track { display: flex; width: max-content; will-change: transform; animation: mq-slide 46s linear infinite reverse; }   /* reverse ⇒ الانزلاق يسار←يمين (نفس مواضع الدورة بترتيب معكوس، فالالتفاف سلس والإشغال كما هو) */
   @keyframes mq-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   .marquee:hover .mq-track, .marquee.mq-paused .mq-track, .marquee.mq-off .mq-track, .marquee.mq-hidden .mq-track { animation-play-state: paused; }
   /* القلّة (≤6): مجموعة واحدة ساكنة بلا انزلاق — لا تنزلق خارج الشاشة ولا توهم بالتكرار */
@@ -1665,7 +1665,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "32a4671";
+const APP_VERSION = "e7972a8";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
