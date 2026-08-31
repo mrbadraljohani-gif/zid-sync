@@ -594,7 +594,7 @@
   .seg .chip.on { background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #0a1622; font-weight: 800; }
   .lowfields { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); }
   .lowfields .unit { color: var(--muted); white-space: nowrap; }
-  .lowfields .opt-num { width: 62px; min-width: 0; flex: 0 0 auto; }
+  .lowfields .opt-num { width: 72px; min-width: 0; flex: 0 0 auto; padding: 8px 6px; font-size: 13px; text-align: center; direction: ltr; }   /* يتجاوز padding/font الأساس (input[type=number] أعلى تخصيصاً) الذي كان يقصّ القيمة داخل 62px */
   .hint.mini { font-size: 11.5px; margin: 8px 2px 2px; }
   /* §٤ الأساسي: نحاس مصمت · نصّ #1A1206 · pill · ظلّ نحاسي مخفّف (لا توهّج — خُفِّف في ج) */
   .btn-run {
@@ -1665,7 +1665,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "2c8279e";
+const APP_VERSION = "32a4671";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
