@@ -80,6 +80,14 @@ jobs:
         run: google-chrome-stable --version
       - name: Install deps (puppeteer-core فقط)
         run: npm ci
+      - name: Self-check — حارس كشف الأعمدة يرسب بتعطيل قاعدة السعر المجرّد
+        run: node tests/inv-cols.mjs --broken
+      - name: كشف أعمدة المخزن (G1) — السعر بمرادفاته · الكميه(هاء) · الباركورد(خطأ) · أعلام found
+        run: node tests/inv-cols.mjs
+      - name: Self-check — حارس حماية الرفع يرسب بتعطيل فحص السعر
+        run: node tests/perf/upload-reject.mjs --broken
+      - name: حماية الرفع (G2) — عمود جوهري مفقود ⇒ رفض غنيّ في البطاقة بلا اعتماد
+        run: node tests/perf/upload-reject.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)

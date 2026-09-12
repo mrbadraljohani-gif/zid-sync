@@ -511,6 +511,9 @@
   /* بدائل مُوكَّنة لألوان كانت مضمّنة في السمة style (تتبع الثيم الآن) */
   .ok-txt { color: var(--green-2); font-weight: 700; }
   .amber-txt { color: var(--amber); }
+  /* رفض الرفع: رسالة تبقى في بطاقة الملف نفسها (لا توست) حتى رفع ملف صحيح — عمود جوهري غير مكتشَف */
+  .ustatus.rejected { color: var(--danger); white-space: pre-line; line-height: 1.6; font-weight: 600; }
+  .upload.rejected, .card.rejected { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); }
   .info-txt { color: var(--info); }
   .text-txt { color: var(--text); }
   /* .stage-n تُنسَّق الآن مع .section-head .n في قاعدة واحدة (شارة ترقيم موحّدة) */
@@ -1665,7 +1668,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "e7972a8";
+const APP_VERSION = "0955ecb";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -3509,12 +3512,17 @@ async function onStore(inp) {
     const sheetName = wb.SheetNames.includes("Products") ? "Products" : wb.SheetNames[0];
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: "" });
     const header = rows[0].map(h => String(h).trim());
-    if (!header.includes("sku")) throw new Error("لم أجد عمود 'sku' — تأكد أنه ملف تصدير المنتجات من زد");
+    if (!header.includes("sku")) {   // حماية الرفع: عمود sku الجوهري مفقود ⇒ رفض في البطاقة، بلا اعتماد (بيانات زد السابقة كما هي)
+      const cols = header.filter(Boolean); const shown = cols.slice(0, 20).map(esc).join(" · ") + (cols.length > 20 ? " …" : "");
+      showUploadReject("stStatus", "stCard",
+        `رُفض ملف متجر زد — ${esc(f.name)}\nلم أجد عمود: sku.\nالأعمدة المقروءة: ${shown}\nالاسم المقبول: sku (عمود تصدير المنتجات من زد)\nالملف لم يُحفظ ولم يُستعمل — بيانات زد السابقة كما هي.`);
+      inp.value = ""; return;
+    }
     stData = { sheetName, rows, header };
     zidSource = "file"; zidSyncedAt = Date.now();   // ملف طازج ⇒ غير قديم
     rebuildFamilyIndex();   // فهرس العائلة الموحّد من ترتيب الملف
-    document.getElementById("stStatus").innerHTML = `<span class="ok-txt">✓ ${f.name} — ${rows.length - 1} سطر</span>`;
-    document.getElementById("stCard").classList.add("ok");
+    const stS = document.getElementById("stStatus"); stS.className = "ustatus"; stS.innerHTML = `<span class="ok-txt">✓ ${f.name} — ${rows.length - 1} سطر</span>`;
+    const stC = document.getElementById("stCard"); stC.classList.remove("rejected"); stC.classList.add("ok");
     zidIndexCache = null; if (typeof runZdQuery === "function") runZdQuery();   // حدّث فهرس/نتائج «استعلام عن منتج»
     // مزامنة القاعدة (الملف الجديد = الحقيقة الكاملة) — أو الاستخدام المباشر عند عدم الاتصال (توافق تام)
     const sm = document.getElementById("zidSyncMsg");
@@ -3548,17 +3556,52 @@ function normHead(s) {
     .replace(/[إأآا]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/ش/g, "س")
     .replace(/[^ء-يa-z0-9]/g, "");  // يُبقي الحروف العربية واللاتينية والأرقام فقط
 }
-// كشف مطبَّع متسامح لرؤوس ملف المخزن (احتواء بعد التطبيع) — يعالج التنويعات الإملائية والمسافات المفقودة
+// أنماط رؤوس المخزن — مصدر واحد قابل للتوسّع (كل نمط predicate على الرأس المطبَّع بـnormHead)
+// السعر: «سامل» (شامل/شامل الضريبة) · «سعر» بلا «قبل» (السعر/سعر البيع/السعر النهائي) · price · incl ⇒ شامل. و«قبل+ضريب»/«سعر+قبل»/excl ⇒ قبل الضريبة.
+const HEAD_PATTERNS = {
+  code:    x => x.includes("كود") || x.includes("code") || x.includes("sku") || (x.includes("رقم") && x.includes("صنف")),
+  name:    x => x.includes("اسم") || x.includes("name"),
+  qty:     x => x.includes("كميه") || x.includes("qty") || x.includes("quantity"),   // normHead: ة→ه فـ«الكمية»/«الكميه» كلاهما «كميه»
+  excl:    x => (x.includes("قبل") && x.includes("ضريب")) || (x.includes("سعر") && x.includes("قبل")) || x.includes("excl"),
+  incl:    x => x.includes("سامل") || x.includes("incl") || x.includes("price") || (x.includes("سعر") && !x.includes("قبل")),
+  barcode: x => x.includes("باركود") || x.includes("باركور"),   // «باركور» يعالج خطأ «الباركورد» الشائع
+};
+const INV_HEAD_ACCEPTED = {   // للعرض في رسالة الرفض
+  الكود: "رقم الصنف · كود · SKU",
+  الكمية: "الكمية · الكميه · quantity",
+  السعر: "السعر · السعر شامل الضريبة · شامل الضريبة · شامل · price (أو قبل الضريبة · excl)",
+};
+// كشف مطبَّع متسامح — يُرجع الفهارس (توافق parseInvRows) ＋ أعلام «وُجد بالنمط» والرؤوس المطابَقة (لرسالة الرفض)
 function detectInvCols(first) {
   const h = first.map(normHead);
-  const find = pred => h.findIndex(pred);
-  let ci = find(x => x.includes("كود") || x.includes("code") || x.includes("sku") || (x.includes("رقم") && x.includes("صنف"))); if (ci < 0) ci = 0;
-  let ni = find(x => x.includes("اسم") || x.includes("name")); if (ni < 0) ni = 1;
-  let qi = find(x => x.includes("كميه") || x.includes("qty") || x.includes("quantity")); if (qi < 0) qi = 2;
-  const ii = find(x => (x.includes("سامل") && x.includes("ضريب")) || x.includes("incl"));   // «شامل الضريبة» ⇒ سامل بعد التطبيع
-  const ei = find(x => (x.includes("قبل") && x.includes("ضريب")) || x.includes("excl"));
-  const bi = find(x => x.includes("باركود") || x.includes("barcode"));
-  return { ci, ni, qi, ii, ei, bi };
+  const find = key => h.findIndex(HEAD_PATTERNS[key]);
+  let ci = find("code"), ni = find("name"), qi = find("qty");
+  const ii = find("incl"), ei = find("excl"), bi = find("barcode");
+  const found = { code: ci >= 0, name: ni >= 0, qty: qi >= 0, incl: ii >= 0, excl: ei >= 0, barcode: bi >= 0 };
+  const head = { code: ci >= 0 ? first[ci] : null, qty: qi >= 0 ? first[qi] : null, incl: ii >= 0 ? first[ii] : null, excl: ei >= 0 ? first[ei] : null, barcode: bi >= 0 ? first[bi] : null };
+  if (ci < 0) ci = 0; if (ni < 0) ni = 1; if (qi < 0) qi = 2;   // fallback موضعي — للملف بلا رأس فقط؛ الرأس الموجود يُحرَس في invColError
+  return { ci, ni, qi, ii, ei, bi, found, head };
+}
+// حارس الرفع: رأس موجود لكن عمود جوهري (كود/كمية/سعر) غير مكتشَف ⇒ رسالة رفض غنيّة (وإلا null)
+function invColError(colMap, headers, fileName, fileLabel) {
+  const f = colMap.found, H = colMap.head, missing = [];
+  if (!f.code) missing.push("الكود");
+  if (!f.qty) missing.push("الكمية");
+  if (!f.incl && !f.excl) missing.push("السعر");
+  if (!missing.length) return null;
+  const mark = (ok, hv) => ok ? esc(String(hv)) + " ✓" : "✗";
+  const priceH = f.incl ? H.incl : (f.excl ? H.excl : null);
+  const store = fileLabel === "متجر زد" ? "بيانات زد السابقة" : "المخزن السابق";
+  return `رُفض ملف ${fileLabel} — ${esc(fileName)}\n` +
+    `لم أجد عمود: ${missing.join(" · ")}.\n` +
+    `الأعمدة المقروءة: ${headers.map(esc).join(" · ")}\n` +
+    `الربط: الكود ← ${mark(f.code, H.code)} · الكمية ← ${mark(f.qty, H.qty)} · السعر ← ${mark(f.incl || f.excl, priceH)}\n` +
+    missing.map(m => `الأسماء المقبولة لـ${m}: ${INV_HEAD_ACCEPTED[m]}`).join("\n") + "\n" +
+    `الملف لم يُحفظ ولم يُستعمل — ${store} كما هو.`;
+}
+function showUploadReject(statusId, cardId, msg) {
+  const s = document.getElementById(statusId); if (s) { s.className = "ustatus rejected"; s.textContent = msg; }
+  const c = document.getElementById(cardId); if (c) { c.classList.remove("ok"); c.classList.add("rejected"); }
 }
 function invLooksHeader(first) { return first.map(normHead).some(x => /رقم|كود|اسم|كميه|سعر|سامل|قبل|code|name|qty|quantity|price|barcode|باركود/.test(x)); }
 function parseInvRows(aoa) {
@@ -3591,15 +3634,18 @@ async function readInvFileFull(f) {
 async function onMergeWh(inp) {
   const f = inp.files[0]; if (!f) return; showErr("");
   try {
-    const { list, header, headers, colMap } = await readInvFileFull(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
+    const { list, header, headers, colMap } = await readInvFileFull(f);
+    // حماية الرفع: رأس موجود لكن عمود جوهري غير مكتشَف ⇒ رفض صريح في البطاقة، بلا اعتماد ولا كتابة (المخزن السابق كما هو)
+    if (header && header.length) { const err = invColError(colMap, headers, f.name, "المستودع"); if (err) { showUploadReject("whStatus", "whCard", err); inp.value = ""; return; } }
+    if (!list.length) throw new Error("لا أصناف صالحة في الملف");
     invHeaderDbg.wh = { headers, colMap };   // للتشخيص ?debug
     const aggWh = aggregateInv(list, "wh");   // تجميع بالكود (جمع الكمية) — يطابق منطق الدمج داخل الملف
     // ① بوّابة الرفع: تسبق الاعتماد المحلي **والكتابة** معاً — الإلغاء يترك المخزن السابق كما هو تماماً.
     if (!invShrinkCheck("wh", aggWh.length)) { showToast("أُلغي الرفع — المخزن السابق كما هو."); inp.value = ""; return; }
     mergeWh = aggWh;
     whWasUploaded = true;                 // رفع ملف فعلي ⇒ يُفعّل عدّ missed_rounds في خطاف الرفع
-    document.getElementById("whStatus").innerHTML = `<span class="ok-txt">✓ ${f.name} — ${mergeWh.length} صنف</span>`;
-    document.getElementById("whCard").classList.add("ok");
+    const whS = document.getElementById("whStatus"); whS.className = "ustatus"; whS.innerHTML = `<span class="ok-txt">✓ ${f.name} — ${mergeWh.length} صنف</span>`;
+    const whC = document.getElementById("whCard"); whC.classList.remove("rejected"); whC.classList.add("ok");
     if (dbOnline && sb) {
       try { const r = await syncInventoryToDB("wh", mergeWh, header, f.name); const sm = document.getElementById("whSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg ok"; sm.innerHTML = `✓ مزامنة المستودع: جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — الإجمالي ${r.total} صنف`; } }
       catch (e) { const sm = document.getElementById("whSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg fail"; sm.innerHTML = "⚠ تعذّرت مزامنة المستودع: " + esc(e.message || String(e)) + " — يُستخدم الملف مباشرة."; } }
@@ -3611,14 +3657,16 @@ async function onMergeWh(inp) {
 async function onMergeBranch(inp) {
   const f = inp.files[0]; if (!f) return; showErr("");
   try {
-    const { list, header, headers, colMap } = await readInvFileFull(f); if (!list.length) throw new Error("لا أصناف صالحة في الملف");
+    const { list, header, headers, colMap } = await readInvFileFull(f);
+    if (header && header.length) { const err = invColError(colMap, headers, f.name, "الفرع"); if (err) { showUploadReject("brStatus", "brCard", err); inp.value = ""; return; } }
+    if (!list.length) throw new Error("لا أصناف صالحة في الملف");
     invHeaderDbg.branch = { headers, colMap };   // للتشخيص ?debug
     const agg = aggregateInv(list, "branch");
     if (!invShrinkCheck("branch", agg.length)) { showToast("أُلغي الرفع — الفرع السابق كما هو."); inp.value = ""; return; }
     mergeBranches = [agg];
     whWasUploaded = true;                 // رفع ملف فرع فعلي ⇒ يُفعّل عدّ missed_rounds في خطاف الرفع
-    document.getElementById("brStatus").innerHTML = `<span class="ok-txt">✓ ${f.name} — ${agg.length} صنف</span>`;
-    document.getElementById("brCard").classList.add("ok");
+    const brS = document.getElementById("brStatus"); brS.className = "ustatus"; brS.innerHTML = `<span class="ok-txt">✓ ${f.name} — ${agg.length} صنف</span>`;
+    const brC = document.getElementById("brCard"); brC.classList.remove("rejected"); brC.classList.add("ok");
     if (dbOnline && sb) {
       try { const r = await syncInventoryToDB("branch", agg, header, f.name); const sm = document.getElementById("brSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg ok"; sm.innerHTML = `✓ مزامنة الفرع: جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — الإجمالي ${r.total} صنف`; } }
       catch (e) { const sm = document.getElementById("brSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg fail"; sm.innerHTML = "⚠ تعذّرت مزامنة الفرع: " + esc(e.message || String(e)) + " — يُستخدم الملف مباشرة."; } }
