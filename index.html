@@ -1668,7 +1668,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "0955ecb";
+const APP_VERSION = "eaa09ce";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -3873,30 +3873,24 @@ function invShrinkCheck(kind, newCount) {
   const pct = Math.round(exact * 10) / 10;      // والتدوير للعرض فقط
   if (exact <= INV_SHRINK_PCT) return true;
   const label = kind === "wh" ? "المستودع" : "الفرع";
+  // النتيجة تختلف بالمصدر: المستودع يحذف الناقص (مصدر واحد)؛ الفرع لا يحذف (دفعة صفرية) — النصّ يقول الحقيقة الجديدة لكلٍّ.
+  const consequence = kind === "wh"
+    ? `كل كود ناقص يصير «غائباً عن المخزن»، فتُصدَّر كميته صفراً ويُخفى من المتجر.\nإن كان الملف ناقصاً أو عموده مفقوداً فألغِ الآن وأعِد تصديره كاملاً.`
+    : `الأكواد الناقصة تبقى محفوظة — لا حذف (الرفعة تضيف وتحدّث فقط، حتى دعم الفروع المتعدّدة).\nلكن ملفاً أصغر من المتوقّع قد يعني نقصاً أو عموداً مفقوداً — تحقّق قبل المتابعة.`;
   return confirm(
-    `توقّف: ملف ${label} الجديد أصغر بكثير من السابق.
-
-` +
-    `الرفعة السابقة: ${before} كوداً
-` +
-    `الرفعة الجديدة: ${newCount} كوداً
-` +
-    `النقص: ${drop} كوداً (${pct}%)
-
-` +
-    `كل كود ناقص يصير «غائباً عن المخزن»، فتُصدَّر كميته صفراً ويُخفى من المتجر.
-` +
-    `إن كان الملف ناقصاً أو عموده مفقوداً فألغِ الآن وأعِد تصديره كاملاً.
-
-` +
-    `متابعة رغم النقص؟`
+    `توقّف: ملف ${label} الجديد أصغر من السابق.\n\n` +
+    `الرفعة السابقة: ${before} كوداً\n` +
+    `الرفعة الجديدة: ${newCount} كوداً\n` +
+    `النقص: ${drop} كوداً (${pct}%)\n\n` +
+    consequence + `\n\nمتابعة؟`
   );
 }
 async function syncInventoryToDB(kind, aggList, header, fileName) {
   const table = INV_TABLE[kind], rows = buildInvDbRows(aggList);
   const newCodes = rows.map(r => r.code), newSet = new Set(newCodes);
   const existing = (await db.inventory.getAllCodes(table)).map(String), existSet = new Set(existing);
-  const toDelete = existing.filter(c => !newSet.has(c));
+  // دفعة صفرية: الفرع لا يحذف (يضيف ويحدّث فقط) — يمنع محو أكواد الفروع الأخرى من الخانة المشتركة حتى دعم الفروع المتعدّدة (دفعة ١). المستودع مصدر واحد فحذفه سليم.
+  const toDelete = kind === "wh" ? existing.filter(c => !newSet.has(c)) : [];
   const added = newCodes.filter(c => !existSet.has(c)).length, updated = newCodes.length - added;
   const setMsg = (id, cls, t) => { const el = document.getElementById(id); if (el) { el.style.display = "block"; el.className = "zid-sync-msg" + (cls ? " " + cls : ""); el.innerHTML = t; } };
   const msgId = kind === "wh" ? "whSyncMsg" : "brSyncMsg";
