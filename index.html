@@ -1681,7 +1681,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "1a17ef9";
+const APP_VERSION = "1ce5edf";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -3695,7 +3695,7 @@ async function onMergeBranch(inp) {
     if (!list.length) throw new Error("لا أصناف صالحة في الملف");
     invHeaderDbg.branch = { headers, colMap };   // للتشخيص ?debug
     const agg = aggregateInv(list, "branch");
-    if (!invShrinkCheck("branch", agg.length)) { showToast("أُلغي الرفع — الفرع السابق كما هو."); inp.value = ""; return; }
+    if (!invShrinkCheck("branch", agg.length, branchId)) { showToast("أُلغي الرفع — الفرع السابق كما هو."); inp.value = ""; return; }
     whWasUploaded = true;                 // رفع ملف فرع فعلي ⇒ يُفعّل عدّ missed_rounds في خطاف الرفع
     if (dbOnline && sb) {
       try {
@@ -3929,15 +3929,18 @@ function zeroGateOk(z) {
 // خلل في ملف المستودع (عمود مفقود · صفوف ناقصة · ملف جزئي) يجعل مئات الأصناف «غائبة»
 // فتُصفَّر وتُخفى دفعةً واحدة. البوّابة توقف السبب قبل أن يصل للمطابقة أصلاً.
 const INV_SHRINK_PCT = 15;   // انكماش يتجاوزه ⇒ توقّف وتأكيد صريح
-function invShrinkCheck(kind, newCount) {
-  const prev = kind === "wh" ? (invMeta && invMeta.wh_count) : (invMeta && invMeta.branch_count);
-  if (!prev || !Number.isFinite(Number(prev)) || Number(prev) <= 0) return true;   // لا مرجع سابق ⇒ لا بوّابة
+function invShrinkCheck(kind, newCount, branchId) {
+  // ١ب: الفرع يُقارَن بمرجع **الفرع المختار نفسه** (item_count من invBranches) لا الإجمالي — وإلا أنذر كاذباً
+  // (رفع فرع صغير جديد يُقارَن بمجموع كل الفروع فيبدو انكماشاً هائلاً). المستودع مصدر واحد فيبقى wh_count.
+  let prev, label;
+  if (kind === "wh") { prev = invMeta && invMeta.wh_count; label = "المستودع"; }
+  else { const br = (invBranches || []).find(b => b.id === branchId); prev = br && br.item_count; label = "الفرع" + (br && br.name ? ` «${br.name}»` : ""); }
+  if (!prev || !Number.isFinite(Number(prev)) || Number(prev) <= 0) return true;   // لا مرجع سابق (فرع جديد item_count=0) ⇒ لا بوّابة
   const before = Number(prev), drop = before - newCount;
   if (drop <= 0) return true;
   const exact = (drop / before) * 100;          // المقارنة على الدقيق: Math.round(15.05) = 15 فيمرّ تجاوزٌ فعليّ
   const pct = Math.round(exact * 10) / 10;      // والتدوير للعرض فقط
   if (exact <= INV_SHRINK_PCT) return true;
-  const label = kind === "wh" ? "المستودع" : "الفرع";
   // كلا المصدرين يحذف الناقص داخل نطاقه (المستودع مصدر واحد · الفرع داخل branch_id الخاصّ به) ⇒ الكود الناقص يغيب فيُصفَّر ويُخفى.
   return confirm(
     `توقّف: ملف ${label} الجديد أصغر من السابق.\n\n` +
@@ -4052,14 +4055,16 @@ function invHeaderDbgLine(kind) {
 function renderInvCards() {
   const fmt = (cnt, ms, file) => cnt ? `القاعدة: <b>${cnt}</b> صنف · ${invAge(ms)}` + (file ? ` · ملف: ${esc(file)}` : "") : "القاعدة: — لم يُزامَن بعد";
   const wl = document.getElementById("whMetaLine"); if (wl) wl.innerHTML = fmt(invMeta && invMeta.wh_count, invMeta && invMeta.wh_synced_at ? Date.parse(invMeta.wh_synced_at) : null, invMeta && invMeta.wh_file_name);
-  const bl = document.getElementById("brMetaLine"); if (bl) bl.innerHTML = fmt(invMeta && invMeta.branch_count, invMeta && invMeta.branch_synced_at ? Date.parse(invMeta.branch_synced_at) : null, invMeta && invMeta.branch_file_name);
+  const bl = document.getElementById("brMetaLine");
+  if (bl) { const k = (invBranches || []).length; const pre = k > 1 ? `<b>${k}</b> فروع · ` : ""; bl.innerHTML = pre + fmt(invMeta && invMeta.branch_count, invMeta && invMeta.branch_synced_at ? Date.parse(invMeta.branch_synced_at) : null, invMeta && invMeta.branch_file_name); }
 }
 function renderReadiness() {
   const el = document.getElementById("readyBar"); if (!el) return;
   const whC = invMeta && invMeta.wh_count ? invMeta.wh_count : 0, whMs = invMeta && invMeta.wh_synced_at ? Date.parse(invMeta.wh_synced_at) : null;
   const brC = invMeta && invMeta.branch_count ? invMeta.branch_count : 0, brMs = invMeta && invMeta.branch_synced_at ? Date.parse(invMeta.branch_synced_at) : null;
+  const brK = (invBranches || []).length;   // ١ب: عدد الفروع — العنوان يعكس التعدّد بدل «الفرع» المفردة المضلّلة
   const zC = zidDbMeta && zidDbMeta.product_count ? zidDbMeta.product_count : 0, zMs = zidDbMeta && zidDbMeta.synced_at ? Date.parse(zidDbMeta.synced_at) : null;
-  el.innerHTML = readyCard(ICO.warehouse, "المستودع", whC, whMs, whC > 0) + readyCard(ICO.branch, "الفرع", brC, brMs, brC > 0) + readyCard(ICO.store, "متجر زد", zC, zMs, zC > 0);
+  el.innerHTML = readyCard(ICO.warehouse, "المستودع", whC, whMs, whC > 0) + readyCard(ICO.branch, brK > 1 ? `الفروع (${brK})` : "الفرع", brC, brMs, brC > 0) + readyCard(ICO.store, "متجر زد", zC, zMs, zC > 0);
 }
 
 // طبّع كمية زد الحالية: رقم، و«غير محدود»/فارغ ⇒ NaN (لا تساوي أي رقم — يبقى تغييراً حقيقياً)
@@ -5035,6 +5040,7 @@ function toggleAllTest() {
 // تنزيل ملفَي اختبار للأصناف المحددة معاً: الكميات + الأسعار (بالأسعار النهائية شاملة الزيادات وتعديلات النشر)
 function downloadSelected() {
   if (blockedOffline()) return;
+  if (invMergeIncomplete()) { showToast("⚠ الموحّد ناقص — أعِد التحميل (طابق وأنشئ / حدّث الصفحة) قبل التنزيل."); return; }   // منع صريح على أزرار التجربة أيضاً
   if (!testSelected.size) { showErr("حدّد صنفاً واحداً على الأقل من القائمة أولاً."); return; }
   const iSkuP = stData.header.indexOf("sku");
   const inSel = sk => testSelected.has(String(sk));
@@ -5081,6 +5087,7 @@ function downloadSelected() {
 // تنزيل ملف اختبار يحوي هذا المنتج وحده — ملف لكل نوع تغيّر (الكميات و/أو الأسعار) ليُجرَّب المساران في زد
 function downloadOne(skuN) {
   if (blockedOffline()) return;
+  if (invMergeIncomplete()) { showToast("⚠ الموحّد ناقص — أعِد التحميل (طابق وأنشئ / حدّث الصفحة) قبل التنزيل."); return; }   // منع صريح على أزرار التجربة أيضاً
   const target = normCode(skuN);
   const iSkuP = stData.header.indexOf("sku");
   const files = [];

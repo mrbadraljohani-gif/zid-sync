@@ -42,11 +42,12 @@ const gate = await page.evaluate(() => {
   window.confirm = m => { calls.push(m); return false; };   // المستخدم يلغي
   const out = { pct: INV_SHRINK_PCT, calls };
   invMeta = { id: 1, wh_count: 2000, branch_count: 1000 };
+  invBranches = [{ id: "br1", name: "فرع", item_count: 1000 }];   // ١ب: الفرع يُقارَن بمرجعه هو (item_count) لا الإجمالي
   out.small = invShrinkCheck("wh", 1900);        // −5%  ⇒ يمرّ بلا حوار
   out.atEdge = invShrinkCheck("wh", 1700);       // −15% (على الحدّ) ⇒ يمرّ
   out.overEdge = invShrinkCheck("wh", 1699);     // −15.05% ⇒ يوقف
   out.growth = invShrinkCheck("wh", 2400);       // نمو ⇒ يمرّ
-  out.branch = invShrinkCheck("branch", 400);    // الفرع له مرجعه المستقلّ ⇒ يوقف
+  out.branch = invShrinkCheck("branch", 400, "br1");    // 400 مقابل مرجع الفرع 1000 (−60%) ⇒ يوقف
   invMeta = null;
   out.noRef = invShrinkCheck("wh", 5);           // بلا مرجع سابق ⇒ يمرّ (لا بوّابة بلا مقارنة)
   return out;
@@ -55,7 +56,7 @@ check(gate.small === true, "① −5% يجب أن يمرّ بلا حوار");
 check(gate.atEdge === true, `① الانكماش على الحدّ (${gate.pct}%) يجب أن يمرّ`);
 check(gate.overEdge === false, `① تجاوز الحدّ (${gate.pct}%) يجب أن يوقف`);
 check(gate.growth === true, "① نمو المخزن يجب أن يمرّ");
-check(gate.branch === false, "① الفرع يُقارَن بمرجعه المستقلّ (branch_count)");
+check(gate.branch === false, "① الفرع يُقارَن بمرجعه المستقلّ (item_count الخاصّ به، لا الإجمالي)");
 check(gate.noRef === true, "① بلا مرجع سابق ⇒ لا بوّابة");
 check(gate.calls.length === 2, `① عدد الحوارات = 2 (المتجاوزان فقط) — جاء ${gate.calls.length}`);
 for (const m of gate.calls) {

@@ -108,6 +108,10 @@ jobs:
         run: node tests/perf/inv-stale-merge.mjs --broken
       - name: G-STALE (سلامة المدخل) — رفع المستودع يحمّل الفروع · الموحّد المبتور يوقف المطابقة (لا أرقام صامتة)
         run: node tests/perf/inv-stale-merge.mjs
+      - name: Self-check — حارس G-GATE يرسب بإعادة أساس البوّابة الإجماليّ
+        run: node tests/perf/inv-branch-gate.mjs --broken
+      - name: G-GATE (دفعة ١ب) — بوّابة الانكماش تقارن الفرع بمرجعه هو لا بالإجمالي (لا إنذار كاذب)
+        run: node tests/perf/inv-branch-gate.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)
