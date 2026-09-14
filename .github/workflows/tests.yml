@@ -104,6 +104,10 @@ jobs:
         run: node tests/perf/inv-branch-through.mjs --broken
       - name: G-THROUGH (دفعة ١أ) — المخزن الموحّد نفسه ⇒ المخرج نفسه (كمية مجموعة · سعر أقدم فرع · فرع≡فرعان)
         run: node tests/perf/inv-branch-through.mjs
+      - name: Self-check — حارس G-STALE يرسب بإزالة إعادة التحميل ＋ تعطيل الحارس البنيوي
+        run: node tests/perf/inv-stale-merge.mjs --broken
+      - name: G-STALE (سلامة المدخل) — رفع المستودع يحمّل الفروع · الموحّد المبتور يوقف المطابقة (لا أرقام صامتة)
+        run: node tests/perf/inv-stale-merge.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)

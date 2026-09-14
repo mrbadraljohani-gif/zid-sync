@@ -1681,7 +1681,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "0a27637";
+const APP_VERSION = "1a17ef9";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -3674,8 +3674,11 @@ async function onMergeWh(inp) {
     const whS = document.getElementById("whStatus"); whS.className = "ustatus"; whS.innerHTML = `<span class="ok-txt">✓ ${f.name} — ${mergeWh.length} صنف</span>`;
     const whC = document.getElementById("whCard"); whC.classList.remove("rejected"); whC.classList.add("ok");
     if (dbOnline && sb) {
-      try { const r = await syncInventoryToDB("wh", mergeWh, header, f.name); const sm = document.getElementById("whSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg ok"; sm.innerHTML = `✓ مزامنة المستودع: جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — الإجمالي ${r.total} صنف`; } }
-      catch (e) { const sm = document.getElementById("whSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg fail"; sm.innerHTML = "⚠ تعذّرت مزامنة المستودع: " + esc(e.message || String(e)) + " — يُستخدم الملف مباشرة."; } }
+      try {
+        const r = await syncInventoryToDB("wh", mergeWh, header, f.name);
+        const sm = document.getElementById("whSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg ok"; sm.innerHTML = `✓ مزامنة المستودع: جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — الإجمالي ${r.total} صنف`; }
+        await loadInventoryFromDB();   // ← أعِد بناء المستودع ＋ **كل الفروع** من القاعدة، فلا يبقى الموحّد مبتوراً بلا فروع في جلسة لم تُرفع فيها فروع (علّة سابقة لـ١أ)
+      } catch (e) { const sm = document.getElementById("whSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg fail"; sm.innerHTML = "⚠ تعذّرت مزامنة المستودع: " + esc(e.message || String(e)) + " — يُستخدم الملف مباشرة."; } }
     }
     renderInvCards(); renderReadiness();
   } catch (x) { mergeWh = null; document.getElementById("whCard").classList.remove("ok"); showErr("ملف المستودع: " + x.message); }
@@ -3992,6 +3995,20 @@ async function loadInventoryFromDB() {
   resyncNeeded.wh = invPolluted(wh); resyncNeeded.branch = invPolluted(br); renderResyncWarn();   // كشف تلوّث «شامل» فارغ
   return { wh: wh.length, br: br.length, branches: invBranches.length };
 }
+
+// حارس سلامة المدخل (بنيوي، رخيص): القاعدة تحوي مخزون فروع (branch_count>0) بينما الموحّد الحالي بلا أي فرع
+// ⇒ موحّد مبتور. مطابقة طازجة عليه تُنتج أرقاماً واثقة وخاطئة بلا مؤشّر. مستقلّ عن الاتصال (يعتمد invMeta المحمّل بالإقلاع).
+function invMergeIncomplete() {
+  return !!(mergeWh && invMeta && Number(invMeta.branch_count) > 0 && mergeBranches.length === 0);
+}
+function showInvIncomplete() {
+  showErr("");
+  const n = (invMeta && invMeta.branch_count) || 0;
+  const vm = document.getElementById("verifyMsg");
+  if (vm) { vm.className = "verify-fail"; vm.style.display = "block"; vm.textContent = `⚠ الموحّد ناقص: القاعدة تحوي فروعاً (${n} صنف) لم تُحمَّل في هذه الجلسة. أوقفتُ المطابقة والتنزيل تفادياً لأرقام خاطئة. اضغط «طابق وأنشئ» من الرئيسية أو حدّث الصفحة لإعادة التحميل من القاعدة.`; }
+  ["dlQty", "dlPrice"].forEach(id => { const el = document.getElementById(id); if (el) { el.removeAttribute("href"); el.classList.add("disabled"); } });   // عطّل التنزيل صراحةً (لا يبقى مفعّلاً من تشغيل سابق)
+  const res = document.getElementById("result"); if (res) res.style.display = "block";
+}
 // زر الرئيسية «طابق وأنشئ»: يضمن تحميل المخزن (قاعدة أو رفع) ثم يبني الموحّد ويطابق
 async function runFromDB() {
   showErr("");
@@ -4111,6 +4128,8 @@ function run(reprocess) {
     if (zidDbAvailable()) { useZidFromDB(); return; }
     showErr("لا توجد بيانات زد للمطابقة — حدّث القاعدة من صفحة «🔄 تحديث قاعدة البيانات» (أو ارفع تصدير زد)."); return;
   }
+  // ⚠ سلامة المدخل قبل أي مطابقة: لا مطابقة صامتة على موحّد مبتور (فروع القاعدة غير محمّلة) — توقّف وتحذير.
+  if (invMergeIncomplete()) { showInvIncomplete(); setBusy("result", false); setBusy("runBtn", false); return; }
   try {
     const whIndex = {};
     for (const r of whRows) {
@@ -4468,7 +4487,7 @@ function run(reprocess) {
     const vm = document.getElementById("verifyMsg");
     const wireDl = (id, ok, aoa, count, reason) => {
       const el = document.getElementById(id);
-      if (ok && count > 0 && dbOnline) {   // بلا اتصال ⇒ لا تنزيل (الدفعة أ)
+      if (ok && count > 0 && dbOnline && !invMergeIncomplete()) {   // بلا اتصال أو موحّد مبتور ⇒ لا تنزيل (الدفعة أ ＋ حماية الموحّد الناقص)
         el.href = URL.createObjectURL(mkBlob(aoa)); el.classList.remove("disabled");
         el.onclick = ev => {
           if (id === "dlQty" && !zeroGateOk(lastZeroRatio)) { ev.preventDefault(); return false; }   // ② الصمّام: يوقف التنزيل فعلاً
