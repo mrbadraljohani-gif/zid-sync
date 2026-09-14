@@ -70,7 +70,7 @@ for (const fn of ["runFromDB", "downloadSelected", "downloadOne", "downloadMerge
 }
 check(/id="offlineBar"/.test(html), "عنصر بانر عدم الاتصال #offlineBar موجود");
 check(/function\s+setOfflineGate\b/.test(script), "setOfflineGate معرّفة");
-check(/if\s*\(\s*ok\s*&&\s*count\s*>\s*0\s*&&\s*dbOnline\b/.test(script), "wireDl يشترط dbOnline لتفعيل التنزيل (يقبل شروطاً إضافية بعده مثل !invMergeIncomplete())");
+check(/if\s*\(\s*ok\s*&&\s*count\s*>\s*0\s*&&\s*dbOnline\s*&&\s*!invMergeIncomplete\(\)/.test(script), "wireDl يشترط dbOnline ＋ !invMergeIncomplete() معاً لتفعيل التنزيل (شرطا الأمان: اتصال ＋ موحّد كامل)");
 
 // (6) exportConfig/saveToRepo لا يكتبان ملفات القرارات الخمسة
 for (const fn of ["exportConfig", "saveToRepo"]) {
