@@ -88,6 +88,10 @@ jobs:
         run: node tests/perf/upload-reject.mjs --broken
       - name: حماية الرفع (G2) — عمود جوهري مفقود ⇒ رفض غنيّ في البطاقة بلا اعتماد
         run: node tests/perf/upload-reject.mjs
+      - name: Self-check — حارس المسار الكامل يرسب بتعطيل قبول «الباركورد» كوداً
+        run: node tests/perf/inv-upload-fullpath.mjs --broken
+      - name: المسار الكامل للرفع — الكود والسعر (القيمة) يصلان bulkUpsert بالرؤوس الحقيقية
+        run: node tests/perf/inv-upload-fullpath.mjs
       - name: Self-check — حارس عزل حذف الفرع يرسب بإعادة حذف الفرع
         run: node tests/perf/inv-branch-additive.mjs --broken
       - name: G0 (دفعة صفرية) — رفع فرع أصغر لا ينقص صفوف branch_items (المستودع يبقى يحذف)

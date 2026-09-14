@@ -1668,7 +1668,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "eaa09ce";
+const APP_VERSION = "25d2259";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -3567,7 +3567,7 @@ const HEAD_PATTERNS = {
   barcode: x => x.includes("باركود") || x.includes("باركور"),   // «باركور» يعالج خطأ «الباركورد» الشائع
 };
 const INV_HEAD_ACCEPTED = {   // للعرض في رسالة الرفض
-  الكود: "رقم الصنف · كود · SKU",
+  الكود: "رقم الصنف · كود · SKU · الباركورد/باركود (إن كان عمود الكود)",
   الكمية: "الكمية · الكميه · quantity",
   السعر: "السعر · السعر شامل الضريبة · شامل الضريبة · شامل · price (أو قبل الضريبة · excl)",
 };
@@ -3576,7 +3576,11 @@ function detectInvCols(first) {
   const h = first.map(normHead);
   const find = key => h.findIndex(HEAD_PATTERNS[key]);
   let ci = find("code"), ni = find("name"), qi = find("qty");
-  const ii = find("incl"), ei = find("excl"), bi = find("barcode");
+  const ii = find("incl"), ei = find("excl");
+  let bi = find("barcode");
+  // بعض الأنظمة تسمّي عمود الكود «الباركورد»/«باركود». الأولوية للكود الأساسي (كود/رقم صنف/code/sku)؛
+  // فإن غاب واستُعمل عمود الباركود كوداً — فهو كود لا باركود (bi=-1، فلا يُنسَخ الكود في خانة الباركود).
+  if (ci < 0 && bi >= 0) { ci = bi; bi = -1; }
   const found = { code: ci >= 0, name: ni >= 0, qty: qi >= 0, incl: ii >= 0, excl: ei >= 0, barcode: bi >= 0 };
   const head = { code: ci >= 0 ? first[ci] : null, qty: qi >= 0 ? first[qi] : null, incl: ii >= 0 ? first[ii] : null, excl: ei >= 0 ? first[ei] : null, barcode: bi >= 0 ? first[bi] : null };
   if (ci < 0) ci = 0; if (ni < 0) ni = 1; if (qi < 0) qi = 2;   // fallback موضعي — للملف بلا رأس فقط؛ الرأس الموجود يُحرَس في invColError
