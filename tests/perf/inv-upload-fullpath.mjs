@@ -31,7 +31,12 @@ const res = await p.evaluate(async () => {
     try { dbOnline = true; } catch (e) {}
     try { sb = { from: () => ({ select: () => ({}) }) }; } catch (e) {}
     db.activity = { insert: async () => {} };
-    db.inventory = Object.assign({}, db.inventory, { getAllCodes: async () => [], bulkUpsert: async (t, rows) => { captured = rows; }, removeCodes: async () => {}, setMeta: async () => {} });
+    db.inventory = Object.assign({}, db.inventory, { getAll: async () => [], getAllCodes: async () => [], bulkUpsert: async (t, rows) => { captured = rows; }, removeCodes: async () => {}, setMeta: async () => {} });
+    // فرع مختار ＋ سجلّ فروع (دفعة ١أ: onMergeBranch يتطلّب branchId من #brSelect)
+    const BR = [{ id: "br1", name: "العزيزية", item_count: 0 }];
+    try { invBranches = BR; } catch (e) {}
+    db.branches = { getAll: async () => BR, setMeta: async () => {}, create: async () => {} };
+    const sel = document.getElementById("brSelect"); if (sel) { sel.innerHTML = '<option value="br1">العزيزية</option>'; sel.value = "br1"; }
     try { invMeta = { id: 1 }; } catch (e) {}
     try { mergeWh = null; mergeBranches = []; } catch (e) {}
     await handler({ files: [{ name: fileName }], value: "" });

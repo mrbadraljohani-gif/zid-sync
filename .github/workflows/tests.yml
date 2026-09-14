@@ -26,6 +26,10 @@ jobs:
         run: node tests/crlf-safe.mjs
       - name: Batch (أ) storage/offline invariants
         run: node tests/batch-a-invariants.mjs
+      - name: Self-check — حارس مخطّط الفروع (G5) يرسب بإزالة on delete cascade
+        run: node tests/inv-branch-schema.mjs --broken
+      - name: "G5 (دفعة ١أ) — ضمانات مخطّط الفروع: FK cascade · مفتاح مركّب · not null (لا صفوف يتيمة)"
+        run: node tests/inv-branch-schema.mjs
       - name: Batch (ب-٢) unified-list static guards
         run: node tests/b2-invariants.mjs
       - name: Batch (ب-٢) analyzeBatch count separation (mechanical)
@@ -92,10 +96,14 @@ jobs:
         run: node tests/perf/inv-upload-fullpath.mjs --broken
       - name: المسار الكامل للرفع — الكود والسعر (القيمة) يصلان bulkUpsert بالرؤوس الحقيقية
         run: node tests/perf/inv-upload-fullpath.mjs
-      - name: Self-check — حارس عزل حذف الفرع يرسب بإعادة حذف الفرع
-        run: node tests/perf/inv-branch-additive.mjs --broken
-      - name: G0 (دفعة صفرية) — رفع فرع أصغر لا ينقص صفوف branch_items (المستودع يبقى يحذف)
-        run: node tests/perf/inv-branch-additive.mjs
+      - name: Self-check — حارس عزل الفرع (G1) يرسب بإزالة تحجيم الحذف
+        run: node tests/perf/inv-branch-isolation.mjs --broken
+      - name: G1 (دفعة ١أ) — رفع فرع يحذف داخل نطاقه فقط ولا يمسّ فرعاً آخر (عزل)
+        run: node tests/perf/inv-branch-isolation.mjs
+      - name: Self-check — حارس النفاذ (G-THROUGH) يرسب بعكس ترتيب الفروع
+        run: node tests/perf/inv-branch-through.mjs --broken
+      - name: G-THROUGH (دفعة ١أ) — المخزن الموحّد نفسه ⇒ المخرج نفسه (كمية مجموعة · سعر أقدم فرع · فرع≡فرعان)
+        run: node tests/perf/inv-branch-through.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)

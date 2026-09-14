@@ -557,6 +557,13 @@
   .zid-age-head b { color: var(--text); font-weight: 800; }
   .vm-stale { color: var(--gold-2); font-weight: 800; }
   .opt-badge { color: var(--muted-2); font-weight: 600; font-size: 12px; }
+  /* قائمة اختيار الفرع (دفعة ١أ) — فوق بطاقة رفع الفرع، مستقلّة عن label الرفع */
+  .br-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .br-col .upload { flex: 1; }
+  .br-picker { display: flex; gap: 8px; align-items: stretch; }
+  .br-picker select { flex: 1; min-width: 0; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font: inherit; font-size: 13px; }
+  .br-picker select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .br-picker .mini-btn { white-space: nowrap; }
   .step {
     width: 30px; height: 30px; border-radius: 50%; color: #0a1622;
     background: linear-gradient(135deg, var(--gold-2), var(--gold));
@@ -1493,13 +1500,19 @@
           <div class="ustatus" id="whStatus">اضغط لاختيار الملف</div>
           <div class="inv-meta umeta" id="whMetaLine"></div>
         </label>
-        <label class="upload" id="brCard">
-          <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeBranch(this)">
-          <div class="utitle"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="7" r="2.2"/><path d="M6 8.2v7.6"/><path d="M18 9.2c0 4-3 5-6 5"/></svg> ملف الفرع <span class="opt-badge">(اختياري)</span></div>
-          <div class="hint">بنفس الأعمدة — كامل أو مختصر (كود · اسم · كمية)</div>
-          <div class="ustatus" id="brStatus">اضغط لاختيار الملف</div>
-          <div class="inv-meta umeta" id="brMetaLine"></div>
-        </label>
+        <div class="br-col">
+          <div class="br-picker">
+            <select id="brSelect" aria-label="اختر الفرع لرفع ملفه"><option value="">— لا فروع بعد —</option></select>
+            <button type="button" class="mini-btn" onclick="addBranch()" title="أنشئ فرعاً جديداً"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> فرع</button>
+          </div>
+          <label class="upload" id="brCard">
+            <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeBranch(this)">
+            <div class="utitle"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="7" r="2.2"/><path d="M6 8.2v7.6"/><path d="M18 9.2c0 4-3 5-6 5"/></svg> ملف الفرع <span class="opt-badge">(اختياري)</span></div>
+            <div class="hint">اختر الفرع أعلاه ثم ارفع ملفه — بنفس الأعمدة، كامل أو مختصر (كود · اسم · كمية)</div>
+            <div class="ustatus" id="brStatus">اضغط لاختيار الملف</div>
+            <div class="inv-meta umeta" id="brMetaLine"></div>
+          </label>
+        </div>
       </div>
       <div id="whSyncMsg" class="zid-sync-msg" style="display:none"></div>
       <div id="brSyncMsg" class="zid-sync-msg" style="display:none"></div>
@@ -1668,7 +1681,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "25d2259";
+const APP_VERSION = "0a27637";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1810,17 +1823,18 @@ const db = {
     async getAll(table) {
       const out = [], page = 1000; let from = 0;
       for (;;) {
-        const { data, error } = await sb.from(table).select("code,name,barcode,qty,price_incl,price_excl,row_order").order("row_order", { ascending: true }).range(from, from + page - 1);
+        const { data, error } = await sb.from(table).select(table === "branch_items" ? "code,name,barcode,qty,price_incl,price_excl,row_order,branch_id" : "code,name,barcode,qty,price_incl,price_excl,row_order").order("row_order", { ascending: true }).range(from, from + page - 1);
         if (error) throw error;
         out.push(...(data || []));
         if (!data || data.length < page) break; from += page;
       }
       return out;
     },
-    async getAllCodes(table) {
+    async getAllCodes(table, branchId) {
       const out = [], page = 1000; let from = 0;
       for (;;) {
-        const { data, error } = await sb.from(table).select("code").range(from, from + page - 1);
+        let q = sb.from(table).select("code"); if (branchId) q = q.eq("branch_id", branchId);
+        const { data, error } = await q.range(from, from + page - 1);
         if (error) throw error;
         out.push(...(data || []).map(r => r.code));
         if (!data || data.length < page) break; from += page;
@@ -1829,19 +1843,27 @@ const db = {
     },
     async bulkUpsert(table, rows, onProgress) {
       for (let i = 0; i < rows.length; i += 500) {
-        const { error } = await sb.from(table).upsert(rows.slice(i, i + 500), { onConflict: "code" });
+        const { error } = await sb.from(table).upsert(rows.slice(i, i + 500), { onConflict: table === "branch_items" ? "branch_id,code" : "code" });
         if (error) throw error;
         if (onProgress) onProgress(Math.min(i + 500, rows.length), rows.length);
       }
     },
-    async removeCodes(table, codes) {
+    async removeCodes(table, codes, branchId) {
       for (let i = 0; i < codes.length; i += 200) {
-        const { error } = await sb.from(table).delete().in("code", codes.slice(i, i + 200).map(String));
+        let q = sb.from(table).delete(); if (branchId) q = q.eq("branch_id", branchId);
+        const { error } = await q.in("code", codes.slice(i, i + 200).map(String));
         if (error) throw error;
       }
     },
     async getMeta() { const { data, error } = await sb.from("inventory_sync_meta").select("*").eq("id", 1).maybeSingle(); if (error) throw error; return data || null; },
     async setMeta(patch) { const { error } = await sb.from("inventory_sync_meta").upsert(Object.assign({ id: 1 }, patch), { onConflict: "id" }); if (error) throw error; },
+  },
+  branches: {   // سجلّ الفروع (معرّف uuid مستقلّ + اسم للعرض + ميتا لكل فرع) — دفعة ١أ
+    async getAll() { const { data, error } = await sb.from("branches").select("id,name,item_count,file_name,synced_at,created_at").order("created_at", { ascending: true }); if (error) throw error; return data || []; },
+    async create(id, name) { const { error } = await sb.from("branches").insert({ id, name }); if (error) throw error; },
+    async rename(id, name) { const { error } = await sb.from("branches").update({ name }).eq("id", id); if (error) throw error; },
+    async remove(id) { const { error } = await sb.from("branches").delete().eq("id", id); if (error) throw error; },   // FK on delete cascade يمسح صفوف branch_items لهذا الفرع (لا يتامى)
+    async setMeta(id, patch) { const { error } = await sb.from("branches").update(patch).eq("id", id); if (error) throw error; },
   }
 };
 // تسجيل نشاط — غير حاجب (fire-and-forget): فشله لا يعطّل العملية إطلاقاً
@@ -2026,7 +2048,7 @@ function goPage(id, fromHash) {
     if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");   // حالة التنقّل تُعلَن
   });
   if (id === "home") renderReadiness();
-  if (id === "db") renderInvCards();
+  if (id === "db") { renderInvCards(); renderBranchSelect(); }
   if (id === "inventory") { renderInventoryPage(); renderActivityTable(); }
   if (id === "options" && typeof renderOffsetsList === "function") renderOffsetsList();
   closeSidebar();
@@ -3548,6 +3570,7 @@ function checkReady() {
 
 /* ========== دمج المستودع مع الفروع (اتحاد كامل بجمع الكميات — مرحلة أولى) ========== */
 let mergeWh = null, mergeBranches = [];   // مصفوفة فروع (قابلة للتوسّع لأكثر من فرع)
+let invBranches = [];   // سجلّ الفروع من القاعدة (id · name · item_count …) مرتّباً بالأقدميّة — للواجهة وترتيب أولوية السعر (دفعة ١أ)
 // قارئ مرن: يكتشف الأعمدة بالاسم (رأس موجود) أو بالموضع (بلا رأس)، كامل (5) أو مختصر (3)
 // تطبيع رأس العمود قبل المطابقة: إزالة التشكيل/المسافات/الرموز، توحيد الألف والتاء المربوطة، و ش⇒س (يعالج «سامل» بدل «شامل»)
 function normHead(s) {
@@ -3660,6 +3683,9 @@ async function onMergeWh(inp) {
 }
 async function onMergeBranch(inp) {
   const f = inp.files[0]; if (!f) return; showErr("");
+  const sel = document.getElementById("brSelect"), branchId = (sel && sel.value) || "";
+  if (!branchId) { showUploadReject("brStatus", "brCard", "اختر فرعاً من القائمة (أو أنشئ واحداً بزرّ «＋ فرع») قبل رفع ملفه."); inp.value = ""; return; }
+  const brName = (invBranches.find(b => b.id === branchId) || {}).name || "فرع";
   try {
     const { list, header, headers, colMap } = await readInvFileFull(f);
     if (header && header.length) { const err = invColError(colMap, headers, f.name, "الفرع"); if (err) { showUploadReject("brStatus", "brCard", err); inp.value = ""; return; } }
@@ -3667,17 +3693,49 @@ async function onMergeBranch(inp) {
     invHeaderDbg.branch = { headers, colMap };   // للتشخيص ?debug
     const agg = aggregateInv(list, "branch");
     if (!invShrinkCheck("branch", agg.length)) { showToast("أُلغي الرفع — الفرع السابق كما هو."); inp.value = ""; return; }
-    mergeBranches = [agg];
     whWasUploaded = true;                 // رفع ملف فرع فعلي ⇒ يُفعّل عدّ missed_rounds في خطاف الرفع
-    const brS = document.getElementById("brStatus"); brS.className = "ustatus"; brS.innerHTML = `<span class="ok-txt">✓ ${f.name} — ${agg.length} صنف</span>`;
-    const brC = document.getElementById("brCard"); brC.classList.remove("rejected"); brC.classList.add("ok");
     if (dbOnline && sb) {
-      try { const r = await syncInventoryToDB("branch", agg, header, f.name); const sm = document.getElementById("brSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg ok"; sm.innerHTML = `✓ مزامنة الفرع: جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — الإجمالي ${r.total} صنف`; } }
-      catch (e) { const sm = document.getElementById("brSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg fail"; sm.innerHTML = "⚠ تعذّرت مزامنة الفرع: " + esc(e.message || String(e)) + " — يُستخدم الملف مباشرة."; } }
+      try {
+        const r = await syncInventoryToDB("branch", agg, header, f.name, branchId);   // ← محصور بـbranch_id (لا يمسّ فرعاً آخر)
+        const sm = document.getElementById("brSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg ok"; sm.innerHTML = `✓ مزامنة فرع «${esc(brName)}»: جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — الإجمالي ${r.total} صنف`; }
+        await loadInventoryFromDB();   // أعِد بناء **كل** الفروع من القاعدة (اتحاد حقيقي عبر mergeInventory)
+      } catch (e) {
+        const sm = document.getElementById("brSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg fail"; sm.innerHTML = "⚠ تعذّرت مزامنة الفرع: " + esc(e.message || String(e)); }
+        inp.value = ""; return;   // فشل الكتابة ⇒ لا تعتمد ملفاً لم يُخزَّن
+      }
+    } else {
+      mergeBranches = [agg];   // offline: الفرع المرفوع محليّاً فقط (بلا بنية فروع متعدّدة بلا قاعدة)
     }
-    renderInvCards(); renderReadiness();
-  } catch (x) { mergeBranches = []; document.getElementById("brCard").classList.remove("ok"); showErr("ملف الفرع: " + x.message); }
+    const brS = document.getElementById("brStatus"); brS.className = "ustatus"; brS.innerHTML = `<span class="ok-txt">✓ ${f.name} — ${agg.length} صنف · فرع «${esc(brName)}»</span>`;
+    const brC = document.getElementById("brCard"); brC.classList.remove("rejected"); brC.classList.add("ok");
+    renderInvCards(); renderReadiness(); renderBranchSelect();
+  } catch (x) { document.getElementById("brCard").classList.remove("ok"); showErr("ملف الفرع: " + x.message); }
   inp.value = ""; autoAdopt();   // إضافة/تغيير الفرع ⇒ إعادة دمج تلقائي
+}
+
+// إنشاء فرع جديد (اسم للعرض ＋ uuid مستقلّ) — دفعة ١أ
+async function addBranch() {
+  if (!dbOnline || !sb) { showToast("يتطلّب اتصالاً بالقاعدة."); return; }
+  const name = (prompt("اسم الفرع الجديد (مثل: الخضرة):") || "").trim();
+  if (!name) return;
+  const id = (crypto.randomUUID ? crypto.randomUUID() : ("" + Date.now() + Math.random()).replace(/\D/g, ""));
+  try {
+    await db.branches.create(id, name);
+    invBranches = await db.branches.getAll();
+    renderBranchSelect(id);   // اجعله المختار
+    showToast(`أُنشئ فرع «${name}» — ارفع ملفه الآن.`);
+  } catch (e) { showToast("تعذّر الإنشاء: " + (e.message || e)); }
+}
+
+// عمارة قائمة اختيار الفرع (تُبنى من invBranches؛ تُبقي المختار)
+function renderBranchSelect(keepId) {
+  const sel = document.getElementById("brSelect"); if (!sel) return;
+  const cur = keepId || sel.value || "";
+  if (!invBranches.length) { sel.innerHTML = `<option value="">— لا فروع بعد —</option>`; sel.value = ""; }
+  else {
+    sel.innerHTML = invBranches.map(b => `<option value="${esc(b.id)}">${esc(b.name)}${b.item_count ? " (" + b.item_count + ")" : ""}</option>`).join("");
+    sel.value = invBranches.some(b => b.id === cur) ? cur : invBranches[0].id;
+  }
 }
 const hasVal = v => v !== "" && v != null;
 // دالة الدمج النقية: اتحاد كامل بجمع الكميات عبر المستودع + كل الفروع (تقبل مصفوفة فروع)
@@ -3824,9 +3882,9 @@ function aggregateInv(list, mode) {
   return [...map.values()];
 }
 function numOrNull(v) { if (v === "" || v == null) return null; const n = Number(String(v).replace(/[^\d.\-]/g, "")); return Number.isFinite(n) ? n : null; }
-function buildInvDbRows(aggList) {
+function buildInvDbRows(aggList, branchId) {
   const nowIso = new Date().toISOString();
-  return aggList.map((r, i) => ({ code: String(r.code), name: r.name || null, barcode: r.bar || null, qty: numOrNull(r.qty), price_incl: numOrNull(r.incl), price_excl: numOrNull(r.excl), row_order: i, imported_at: nowIso }));
+  return aggList.map((r, i) => { const row = { code: String(r.code), name: r.name || null, barcode: r.bar || null, qty: numOrNull(r.qty), price_incl: numOrNull(r.incl), price_excl: numOrNull(r.excl), row_order: i, imported_at: nowIso }; if (branchId) row.branch_id = branchId; return row; });
 }
 const invRowToMerge = r => ({ code: r.code, name: r.name || "", qty: r.qty, incl: r.price_incl, excl: r.price_excl, bar: r.barcode || "" });
 // مزامنة كاملة لجدول (مستودع/فرع): upsert دفعات + حذف الغائب + تحديث الميتا + سجل نشاط
@@ -3877,43 +3935,47 @@ function invShrinkCheck(kind, newCount) {
   const pct = Math.round(exact * 10) / 10;      // والتدوير للعرض فقط
   if (exact <= INV_SHRINK_PCT) return true;
   const label = kind === "wh" ? "المستودع" : "الفرع";
-  // النتيجة تختلف بالمصدر: المستودع يحذف الناقص (مصدر واحد)؛ الفرع لا يحذف (دفعة صفرية) — النصّ يقول الحقيقة الجديدة لكلٍّ.
-  const consequence = kind === "wh"
-    ? `كل كود ناقص يصير «غائباً عن المخزن»، فتُصدَّر كميته صفراً ويُخفى من المتجر.\nإن كان الملف ناقصاً أو عموده مفقوداً فألغِ الآن وأعِد تصديره كاملاً.`
-    : `الأكواد الناقصة تبقى محفوظة — لا حذف (الرفعة تضيف وتحدّث فقط، حتى دعم الفروع المتعدّدة).\nلكن ملفاً أصغر من المتوقّع قد يعني نقصاً أو عموداً مفقوداً — تحقّق قبل المتابعة.`;
+  // كلا المصدرين يحذف الناقص داخل نطاقه (المستودع مصدر واحد · الفرع داخل branch_id الخاصّ به) ⇒ الكود الناقص يغيب فيُصفَّر ويُخفى.
   return confirm(
     `توقّف: ملف ${label} الجديد أصغر من السابق.\n\n` +
     `الرفعة السابقة: ${before} كوداً\n` +
     `الرفعة الجديدة: ${newCount} كوداً\n` +
     `النقص: ${drop} كوداً (${pct}%)\n\n` +
-    consequence + `\n\nمتابعة؟`
+    `كل كود ناقص يصير «غائباً عن المخزن»، فتُصدَّر كميته صفراً ويُخفى من المتجر.\n` +
+    `إن كان الملف ناقصاً أو عموده مفقوداً فألغِ الآن وأعِد تصديره كاملاً.\n\nمتابعة؟`
   );
 }
-async function syncInventoryToDB(kind, aggList, header, fileName) {
-  const table = INV_TABLE[kind], rows = buildInvDbRows(aggList);
+async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
+  const isBr = kind === "branch", scope = isBr ? branchId : null;
+  const table = INV_TABLE[kind], rows = buildInvDbRows(aggList, scope);
   const newCodes = rows.map(r => r.code), newSet = new Set(newCodes);
-  const existing = (await db.inventory.getAllCodes(table)).map(String), existSet = new Set(existing);
-  // دفعة صفرية: الفرع لا يحذف (يضيف ويحدّث فقط) — يمنع محو أكواد الفروع الأخرى من الخانة المشتركة حتى دعم الفروع المتعدّدة (دفعة ١). المستودع مصدر واحد فحذفه سليم.
-  const toDelete = kind === "wh" ? existing.filter(c => !newSet.has(c)) : [];
+  const existing = (await db.inventory.getAllCodes(table, scope)).map(String), existSet = new Set(existing);
+  // الحذف محصور بنطاقه: المستودع مصدر واحد؛ الفرع **داخل branch_id الخاصّ به فقط** (رفع فرع لا يمسّ صفّاً من فرع آخر — دفعة ١أ).
+  const toDelete = existing.filter(c => !newSet.has(c));
   const added = newCodes.filter(c => !existSet.has(c)).length, updated = newCodes.length - added;
   const setMsg = (id, cls, t) => { const el = document.getElementById(id); if (el) { el.style.display = "block"; el.className = "zid-sync-msg" + (cls ? " " + cls : ""); el.innerHTML = t; } };
-  const msgId = kind === "wh" ? "whSyncMsg" : "brSyncMsg";
+  const msgId = isBr ? "brSyncMsg" : "whSyncMsg";
   setBusy(msgId, true);
   try {
     setMsg(msgId, "", `⏳ مزامنة القاعدة… 0 / ${rows.length}`);
     await db.inventory.bulkUpsert(table, rows, (d, t) => setMsg(msgId, "", `⏳ مزامنة القاعدة… ${d} / ${t} صنف`));
-    if (toDelete.length) { setMsg(msgId, "", `⏳ حذف ${toDelete.length} صنف غائب…`); await db.inventory.removeCodes(table, toDelete); }
-    const patch = kind === "wh"
-      ? { wh_header: header || null, wh_count: newCodes.length, wh_file_name: fileName || null, wh_synced_at: new Date().toISOString() }
-      : { branch_header: header || null, branch_count: newCodes.length, branch_file_name: fileName || null, branch_synced_at: new Date().toISOString() };
-    await db.inventory.setMeta(patch);
-    invMeta = Object.assign(invMeta || { id: 1 }, patch);
+    if (toDelete.length) { setMsg(msgId, "", `⏳ حذف ${toDelete.length} صنف غائب…`); await db.inventory.removeCodes(table, toDelete, scope); }
+    if (isBr) {
+      // سجلّ الفرع نفسه ＋ مرآة إجماليّة في invMeta.branch_* (ليبقى العرض القديم عاملاً حتى تحويل القرّاء في ١ب)
+      await db.branches.setMeta(branchId, { item_count: newCodes.length, file_name: fileName || null, synced_at: new Date().toISOString() });
+      const brs = await db.branches.getAll(); const totalBr = brs.reduce((s, b) => s + (b.item_count || 0), 0);
+      const mirror = { branch_count: totalBr, branch_file_name: fileName || null, branch_synced_at: new Date().toISOString() };
+      await db.inventory.setMeta(mirror); invMeta = Object.assign(invMeta || { id: 1 }, mirror);
+    } else {
+      const patch = { wh_header: header || null, wh_count: newCodes.length, wh_file_name: fileName || null, wh_synced_at: new Date().toISOString() };
+      await db.inventory.setMeta(patch); invMeta = Object.assign(invMeta || { id: 1 }, patch);
+    }
     resyncNeeded[kind] = invPolluted(rows); renderResyncWarn();   // الملف الجديد (بالرأس المُلتقط) يُصفّي التلوّث إن حواه شامل
-    logActivity(kind === "wh" ? "warehouse_sync_full" : "branch_sync_full", null, { added, updated, deleted: toDelete.length, total: newCodes.length, file: fileName || "" });
+    logActivity(isBr ? "branch_sync_full" : "warehouse_sync_full", null, { added, updated, deleted: toDelete.length, total: newCodes.length, file: fileName || "" });
     return { added, updated, deleted: toDelete.length, total: newCodes.length };
   } finally { setBusy(msgId, false); }
 }
-async function loadInventoryMeta() { if (!sb) return; try { invMeta = await db.inventory.getMeta(); } catch (e) { console.warn("inv meta:", e); } renderReadiness(); checkReady(); }
+async function loadInventoryMeta() { if (!sb) return; try { invMeta = await db.inventory.getMeta(); } catch (e) { console.warn("inv meta:", e); } try { invBranches = await db.branches.getAll(); renderBranchSelect(); } catch (e) { console.warn("branches:", e); } renderReadiness(); checkReady(); }
 function invDbAvailable() { return !!(dbOnline && sb && invMeta && invMeta.wh_count > 0); }
 function invAge(ms) { return ms != null ? ageText(ms) : ""; }
 // جلب الجدولين من القاعدة وإعادة بناء mergeWh/mergeBranches (المخزّن مجمّع مسبقاً ⇒ الدمج يعطي نفس النتيجة)
@@ -3921,10 +3983,14 @@ let invLoading = false;
 async function loadInventoryFromDB() {
   const wh = await db.inventory.getAll(INV_TABLE.wh);
   const br = await db.inventory.getAll(INV_TABLE.branch);
+  invBranches = await db.branches.getAll();   // مرتّبة بالأقدميّة (created_at) — ترتيب أولوية السعر: المستودع ثم أقدم فرع
   mergeWh = wh.map(invRowToMerge);
-  mergeBranches = br.length ? [br.map(invRowToMerge)] : [];
+  // تجميع صفوف الفروع بـbranch_id إلى قوائم منفصلة (بترتيب أقدميّة الإنشاء) ⇒ mergeInventory يجمع الكميات عبرها فعليّاً (اتحاد حقيقي لا آخر-غالب)
+  const byBr = new Map();
+  for (const r of br) { const id = r.branch_id; if (!byBr.has(id)) byBr.set(id, []); byBr.get(id).push(r); }
+  mergeBranches = invBranches.map(b => (byBr.get(b.id) || []).map(invRowToMerge)).filter(list => list.length);
   resyncNeeded.wh = invPolluted(wh); resyncNeeded.branch = invPolluted(br); renderResyncWarn();   // كشف تلوّث «شامل» فارغ
-  return { wh: wh.length, br: br.length };
+  return { wh: wh.length, br: br.length, branches: invBranches.length };
 }
 // زر الرئيسية «طابق وأنشئ»: يضمن تحميل المخزن (قاعدة أو رفع) ثم يبني الموحّد ويطابق
 async function runFromDB() {
