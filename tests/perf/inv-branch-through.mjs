@@ -16,9 +16,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const BROKEN = process.argv.includes("--broken");
 let html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 if (BROKEN) {
-  const SRC = "mergeBranches = invBranches.map(b => (byBr.get(b.id) || []).map(invRowToMerge)).filter(list => list.length);";
+  const SRC = "mergeBranches = invBranches.map(b =>";   // مرساة مقتضبة تصمد أمام تغيّر داخل .map (مثل وسم bid)
   if (!html.includes(SRC)) { console.error("✗ (--broken) لم أجد بناء mergeBranches لعكسه"); process.exit(2); }
-  html = html.replace(SRC, "mergeBranches = invBranches.slice().reverse().map(b => (byBr.get(b.id) || []).map(invRowToMerge)).filter(list => list.length);");
+  html = html.replace(SRC, "mergeBranches = invBranches.slice().reverse().map(b =>");
 }
 function findChrome(){const c=["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",process.env.CHROME_PATH||"","/usr/bin/google-chrome-stable","/usr/bin/google-chrome"];for(const x of c)if(x&&existsSync(x))return x;for(const n of ["google-chrome-stable","google-chrome","chromium"])try{return execFileSync("bash",["-lc","command -v "+n]).toString().trim();}catch{}return"";}
 const b = await puppeteer.launch({ executablePath: findChrome(), headless: "new", args: ["--no-sandbox"] });
