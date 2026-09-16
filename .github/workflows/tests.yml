@@ -120,6 +120,10 @@ jobs:
         run: node tests/perf/upd-filter.mjs --broken
       - name: G-FILT — فلتر «تم تحديثه» (شمول واستبعاد · عرض محض · فلتر×بحث)
         run: node tests/perf/upd-filter.mjs
+      - name: Self-check — حارس G-SRC يرسب بجمع الفروع في مصدر واحد
+        run: node tests/perf/query-sources.mjs --broken
+      - name: G-SRC — تفصيل مصادر الاستعلام لكل فرع (عرض محض · الموحّد ثابت)
+        run: node tests/perf/query-sources.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)

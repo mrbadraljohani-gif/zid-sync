@@ -1155,6 +1155,7 @@
   .q-chip.src-wh { color: var(--gold-2); border-color: color-mix(in srgb, var(--gold) 45%, transparent); background: color-mix(in srgb, var(--gold) 10%, transparent); }
   .q-chip.src-br { color: var(--info); border-color: color-mix(in srgb, var(--info) 45%, transparent); background: color-mix(in srgb, var(--info) 10%, transparent); }
   .q-chip.src-both { color: var(--green-2); border-color: color-mix(in srgb, var(--green) 45%, transparent); background: color-mix(in srgb, var(--green) 10%, transparent); }
+  .q-src-px { color: var(--muted); font-weight: 600; }   /* سعر المصدر (عند اختلاف الأسعار) — ثانويّ */
   .q-chip.pub-yes { color: var(--green); border-color: color-mix(in srgb, var(--green) 45%, transparent); background: color-mix(in srgb, var(--green) 10%, transparent); }
   .q-chip.pub-no { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); background: color-mix(in srgb, var(--danger) 10%, transparent); }
   .q-chip.parent { color: var(--info); border-color: color-mix(in srgb, var(--info) 45%, transparent); background: color-mix(in srgb, var(--info) 10%, transparent); }
@@ -1697,7 +1698,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "4cb579d";
+const APP_VERSION = "c1ae75f";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -4034,7 +4035,7 @@ async function loadInventoryFromDB() {
   // تجميع صفوف الفروع بـbranch_id إلى قوائم منفصلة (بترتيب أقدميّة الإنشاء) ⇒ mergeInventory يجمع الكميات عبرها فعليّاً (اتحاد حقيقي لا آخر-غالب)
   const byBr = new Map();
   for (const r of br) { const id = r.branch_id; if (!byBr.has(id)) byBr.set(id, []); byBr.get(id).push(r); }
-  mergeBranches = invBranches.map(b => (byBr.get(b.id) || []).map(invRowToMerge)).filter(list => list.length);
+  mergeBranches = invBranches.map(b => (byBr.get(b.id) || []).map(r => { const m = invRowToMerge(r); m.bid = b.id; return m; })).filter(list => list.length);   // bid: يعرف الصفّ فرعه (لتفصيل المصادر في الاستعلام)؛ mergeInventory يتجاهله ⇒ لا أثر على المخرج
   resyncNeeded.wh = invPolluted(wh); resyncNeeded.branch = invPolluted(br); renderResyncWarn();   // كشف تلوّث «شامل» فارغ
   return { wh: wh.length, br: br.length, branches: invBranches.length };
 }
@@ -5309,6 +5310,21 @@ let qTimers = {};   // عرض جميع النتائج بلا حدّ — التم
 function qDebounce(which) { clearTimeout(qTimers[which]); qTimers[which] = setTimeout(() => (which === "wh" ? runWhQuery() : runZdQuery()), 180); }
 
 // --- العمود الأيمن: بحث في المخزن الموحّد (ناتج الدمج) ---
+// تفصيل مصادر كود المخزن (دالّة موحّدة — يستعملها الاستعلام وبطاقة المطابقة لاحقاً). عرضٌ محض من mergeWh/mergeBranches.
+// تُرجع { total, sources:[{name, qty, price}] } بترتيب المستودع ثم الفروع (أقدميّة). الأسماء من invBranches (جدول branches).
+function sourceBreakdown(code) {
+  const key = String(code).trim();
+  const nameById = {}; (invBranches || []).forEach(b => { nameById[b.id] = b.name; });
+  const qnum = v => { const q = Number(String(v).replace(/[^\d.\-]/g, "")); return Number.isFinite(q) ? q : 0; };
+  const priceOf = it => (it.incl != null && it.incl !== "") ? priceInt(it.incl) : ((it.excl != null && it.excl !== "") ? priceInt(it.excl) : null);
+  const acc = new Map();   // مفتاح المصدر ⇒ {name, qty, price, order}
+  const add = (skey, name, order, it) => { let e = acc.get(skey); if (!e) { e = { name, qty: 0, price: null, order }; acc.set(skey, e); } e.qty += qnum(it.qty); if (e.price == null) { const p = priceOf(it); if (p != null) e.price = p; } };
+  (mergeWh || []).forEach(it => { if (String(it.code).trim() === key) add("__wh", "المستودع", 0, it); });
+  (mergeBranches || []).forEach(list => (list || []).forEach(it => { if (String(it.code).trim() === key) add(it.bid || ("?" + it.code), nameById[it.bid] || "فرع", 1, it); }));
+  const sources = [...acc.values()].sort((a, b) => a.order - b.order);
+  return { total: sources.reduce((s, x) => s + x.qty, 0), sources };
+}
+
 function runWhQuery() {
   const inp = document.getElementById("whQuery"); if (!inp) return;
   const box = document.getElementById("whQResults"), cnt = document.getElementById("whQCount");
@@ -5335,15 +5351,21 @@ function runWhQuery() {
   if (cnt) cnt.textContent = hits.length ? `${hits.length} نتيجة` : "";
   if (!hits.length) { box.innerHTML = '<div class="q-empty">لا نتائج مطابقة في المخزن.</div>'; return; }
   box.innerHTML = hits.map(w => {
-    const whq = Number(w.whQty) || 0, brq = Number(w.brQty) || 0;
-    const price = (w.incl != null && w.incl !== "") ? priceInt(w.incl) : ((w.excl != null && w.excl !== "") ? priceInt(w.excl) : null);
+    const bd = sourceBreakdown(w.code);
+    const nz = bd.sources.filter(s => s.qty > 0);   // المصادر بكمية فقط (الصفر يُخفى ليقصر السطر)
+    const prices = [...new Set(nz.map(s => s.price).filter(p => p != null))];
+    const uniform = prices.length <= 1;   // سعر موحّد ⇒ يُعرض مرّة؛ مختلف ⇒ مع كل مصدر (يكشف أخطاء الإدخال)
     let qtyBadges;
-    if (w.srcKind === "both") qtyBadges = `<span class="q-chip src src-wh">مستودع: ${whq}</span><span class="q-chip src src-br">فرع: ${brq}</span><span class="q-chip ${(whq + brq) > 0 ? "qty-in" : "qty-out"}">إجمالي: ${whq + brq}</span>`;
-    else if (w.srcKind === "br") qtyBadges = `<span class="q-chip src src-br">فرع: ${brq}</span>`;
-    else qtyBadges = `<span class="q-chip src src-wh">مستودع: ${whq}</span>`;
+    if (!nz.length) {
+      qtyBadges = `<span class="q-chip qty-out">غائب عن كل المصادر</span>`;   // بدل سطر فارغ
+    } else {
+      const totalChip = `<span class="q-chip ${bd.total > 0 ? "qty-in" : "qty-out"}">إجمالي: ${bd.total}</span>`;
+      const srcChips = nz.map(s => `<span class="q-chip src ${s.name === "المستودع" ? "src-wh" : "src-br"}">${esc(s.name)}: ${s.qty}${(!uniform && s.price != null) ? ` <span class="q-src-px">(${s.price} ر.س)</span>` : ""}</span>`).join("");
+      qtyBadges = totalChip + srcChips;
+    }
+    const priceChip = uniform && prices.length === 1 ? `<span class="q-chip price">${prices[0]} ر.س</span>` : "";   // موحّد ⇒ مرّة واحدة
     return `<div class="q-card"><div class="q-card-top"><span class="q-code" dir="ltr">${esc(String(w.code))}</span><span class="q-name">${esc(w.name) || "—"}</span></div>`
-      + `<div class="q-meta">${qtyBadges}`
-      + (price != null ? `<span class="q-chip price">${price} ر.س</span>` : "")
+      + `<div class="q-meta">${qtyBadges}${priceChip}`
       + (w.bar ? `<span class="q-chip bar" dir="ltr" title="باركود">${esc(String(w.bar))}</span>` : "")
       + `</div></div>`;
   }).join("");
