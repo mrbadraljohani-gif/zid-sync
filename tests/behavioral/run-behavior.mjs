@@ -135,6 +135,24 @@ function parentQtyCfg() {
   };
 }
 
+// ٥أ G-SHARE: كود مستودعيّ كميته 7 يطابقه 3 متغيّرات (بالنقطة، بلا أب) ⇒ يُوزَّع 3+2+2 (الباقي للأول). المجموع == 7 (لا مخزون وهميّ ولا مبخّر).
+function shareCfg() {
+  return {
+    stData: { sheetName: "P", header: HEADER, rows: [HEADER, Z("80151.1", "0", "100"), Z("80151.2", "0", "100"), Z("80151.3", "0", "100")] },
+    whRows: [WH("80151", 7, 100)], lastMerge: merge(["80151"]), manualMap: {},
+    waiting: [], history: [], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: false, callHook: false,
+  };
+}
+// ٥أ G-OFFSET: متغيّر بزيادة 180 على سعر مستودع 100 (سعر زد الحالي 100) ⇒ السعر المُصدَّر 280. A1 ضابط بلا زيادة.
+function offsetCfg() {
+  return {
+    stData: { sheetName: "P", header: HEADER, rows: [HEADER, Z("A1", "5", "100"), Z("80151.1", "5", "100")] },
+    whRows: [WH("A1", 9, 100), WH("80151.1", 9, 100)], lastMerge: merge(["A1", "80151.1"]), manualMap: {},
+    priceOffsets: { "80151.1": 180 },
+    waiting: [], history: [], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: false, callHook: false,
+  };
+}
+
 // دالّة داخل الصفحة: تهيّئ الحالة، تستدعي الخطاف+run (＋قرار اختياري)، وتُعيد القراءات (دفاعية للنسخ القديمة)
 async function inpage(cfg) {
   const mk = () => { const c = { select() { return c; }, upsert: async () => ({ error: null }), delete() { return c; }, insert: async () => ({ error: null }), eq: async () => ({ error: null }), in: async () => ({ error: null }), order() { return c; }, range: async () => ({ data: [], error: null }) }; return c; };
@@ -147,7 +165,7 @@ async function inpage(cfg) {
   waitingSet = new Set((cfg.waiting || []).map(w => w.skuN));
   try { waitingMeta = new Map((cfg.waiting || []).map(w => [w.skuN, { sku: w.sku, name: "", missed: 0, lastSeen: null }])); } catch (e) {}
   matchedHistory = new Set(cfg.history || []);
-  try { priceOffsets = {}; } catch (e) {}
+  try { priceOffsets = cfg.priceOffsets || {}; } catch (e) {}
   try { opts = Object.assign(opts, cfg.opts || {}); } catch (e) {}
   try { whWasUploaded = cfg.uploaded === undefined ? true : cfg.uploaded; } catch (e) {}
   let err = null;
@@ -182,6 +200,7 @@ async function inpage(cfg) {
     qtyOf: (() => { const m = {}; qr.slice(1).forEach(r => { m[String(r[0])] = r[3]; }); return m; })(),
     priceRows: pr,
     priceSkus: pr.slice(1).map(r => String(r[iSku])),
+    priceOf: (() => { const m = {}; pr.slice(1).forEach(r => { m[String(r[iSku])] = r[iPrice]; }); return m; })(),   // sku ⇒ price المُصدَّر (لفحص offset)
     parentHidden: pr.slice(1).filter(r => iPub >= 0 && String(r[iPub]).toLowerCase() === "no" && (r[iPrice] === "" || r[iPrice] == null)).map(r => String(r[iSku])),
     updated: (lastUpdated || []).map(u => ({ sku: String(u.sku), newQty: u.newQty, reappeared: !!u.reappeared })),
     unmatched: (lastUnmatchedRaw || []).map(u => ({ sku: String(u.sku), reappeared: !!u.reappeared, waiting: !!u.waiting })),
@@ -369,8 +388,30 @@ try {
   const oldW1Reap = OLD.unmatched.some(u => u.sku === "W1" && u.reappeared);
   if (!oldW1Updated || oldW1Reap) fails.push(`أسنان ج-٣: على 917989d توقّعنا W1 في «تم تحديثه» بلا reappeared (السلوك القديم)، فوجدنا updated=${oldW1Updated} reappeared=${oldW1Reap} — الاختبار بلا أسنان`);
   notes.push(`أسنان ج-٣ (917989d): W1 في updated=${oldW1Updated} · unmatched-reappeared=${oldW1Reap} (يؤكّد اختلاف السلوك عن الحالي)`);
+
+  // ===== ٥أ G-SHARE: توزيع الكمية على المتغيّرات (القيمة: 7 ⇒ 3+2+2، المجموع == 7) =====
+  const SH = await bootRead(browser, curHtml, shareCfg());
+  if (SH.err) fails.push("G-SHARE رمى: " + SH.err);
+  const s1 = Number(SH.qtyOf["80151.1"]), s2 = Number(SH.qtyOf["80151.2"]), s3 = Number(SH.qtyOf["80151.3"]);
+  if (!(s1 === 3 && s2 === 2 && s3 === 2)) fails.push(`G-SHARE: توزيع 7 على 3 = [${s1},${s2},${s3}] (متوقّع 3,2,2 — الباقي للأول)`);
+  if (s1 + s2 + s3 !== 7) fails.push(`G-SHARE: مجموع الحصص ${s1 + s2 + s3} ≠ 7 (مخزون وهميّ أو مبخّر يصل زد)`);
+  notes.push(`٥أ G-SHARE: [${s1},${s2},${s3}] مجموعها ${s1 + s2 + s3}`);
+  // أسنان G-SHARE: إسقاط الباقي ⇒ 2+2+2=6 ≠ 7
+  const shMut = curHtml.replace("shareByRaw.set(rk, base + (idx === 0 ? rem : 0))", "shareByRaw.set(rk, base)");
+  if (shMut === curHtml) fails.push("أسنان G-SHARE: تعذّر تطبيق الطفرة (لم يُطابَق سطر التوزيع)");
+  else { const SHT = await bootRead(browser, shMut, shareCfg()); const t = Number(SHT.qtyOf["80151.1"]) + Number(SHT.qtyOf["80151.2"]) + Number(SHT.qtyOf["80151.3"]); if (t === 7) fails.push("أسنان G-SHARE: بإسقاط الباقي بقي المجموع 7 — بلا أسنان"); else notes.push(`أسنان G-SHARE (بإسقاط الباقي): [${SHT.qtyOf["80151.1"]},${SHT.qtyOf["80151.2"]},${SHT.qtyOf["80151.3"]}] مجموعها ${t} (≠7 = العطل)`); }
+
+  // ===== ٥أ G-OFFSET: زيادة المتغيّر في السعر (القيمة: 100 + 180 = 280) =====
+  const OF = await bootRead(browser, curHtml, offsetCfg());
+  if (OF.err) fails.push("G-OFFSET رمى: " + OF.err);
+  if (Number(OF.priceOf["80151.1"]) !== 280) fails.push(`G-OFFSET: سعر المتغيّر المُصدَّر ${OF.priceOf["80151.1"]} (متوقّع 280 = 100 + زيادة 180)`);
+  notes.push(`٥أ G-OFFSET: price(80151.1)=${OF.priceOf["80151.1"]}`);
+  // أسنان G-OFFSET: إسقاط الزيادة ⇒ 100 = سعر زد ⇒ لا يدخل ملف الأسعار (أو 100)
+  const ofMut = curHtml.replace("const finalP = whBase + offset;", "const finalP = whBase;");
+  if (ofMut === curHtml) fails.push("أسنان G-OFFSET: تعذّر تطبيق الطفرة (لم يُطابَق سطر finalP)");
+  else { const OFT = await bootRead(browser, ofMut, offsetCfg()); if (Number(OFT.priceOf["80151.1"]) === 280) fails.push("أسنان G-OFFSET: بإسقاط الزيادة بقي السعر 280 — بلا أسنان"); else notes.push(`أسنان G-OFFSET (بإسقاط الزيادة): price(80151.1)=${OFT.priceOf["80151.1"] === undefined ? "غائب عن ملف الأسعار (100=سعر زد)" : OFT.priceOf["80151.1"]} (≠280 = العطل)`); }
 } finally { await browser.close(); }
 
 console.log(notes.map(n => "  · " + n).join("\n"));
 if (fails.length) { console.error("\n✗ فشل المشغّل السلوكي:\n" + fails.map(f => "  ✗ " + f).join("\n")); process.exit(1); }
-console.log("\n✅ المشغّل السلوكي: كل الادّعاءات (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام التخفيض · ٣+١ العودة) مثبتة سلوكياً، وأسنان ج-٣ مؤكَّدة على 917989d.");
+console.log("\n✅ المشغّل السلوكي: كل الادّعاءات (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام التخفيض · ٣+١ العودة · ٥أ توزيع 3+2+2 · offset 280) مثبتة سلوكياً بالقيمة، وأسنان كلٍّ مؤكَّدة على الطفرة.");
