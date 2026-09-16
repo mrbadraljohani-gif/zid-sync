@@ -26,6 +26,10 @@ jobs:
         run: node tests/crlf-safe.mjs
       - name: Batch (أ) storage/offline invariants
         run: node tests/batch-a-invariants.mjs
+      - name: Self-check — حارس version-sync يرسب على انحراف version.txt
+        run: node tests/version-sync.mjs --broken
+      - name: version-sync — version.txt == APP_VERSION (شريط النسخة يعرض القيمة الصحيحة)
+        run: node tests/version-sync.mjs
       - name: Self-check — حارس مخطّط الفروع (G5) يرسب بإزالة on delete cascade
         run: node tests/inv-branch-schema.mjs --broken
       - name: "G5 (دفعة ١أ) — ضمانات مخطّط الفروع: FK cascade · مفتاح مركّب · not null (لا صفوف يتيمة)"
@@ -124,6 +128,10 @@ jobs:
         run: node tests/perf/query-sources.mjs --broken
       - name: G-SRC — تفصيل مصادر الاستعلام لكل فرع (عرض محض · الموحّد ثابت)
         run: node tests/perf/query-sources.mjs
+      - name: Self-check — حارس G-CARDSRC يرسب بإزالة أرقام المصادر
+        run: node tests/perf/card-sources.mjs --broken
+      - name: G-CARDSRC — تفصيل المصادر في بطاقة المطابقة بالقيمة (العزيزية 6 · الخضرة 11)
+        run: node tests/perf/card-sources.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)

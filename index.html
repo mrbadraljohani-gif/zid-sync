@@ -707,6 +707,12 @@
   .migrate-bar { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 11px 18px; background: linear-gradient(120deg, color-mix(in srgb, var(--gold) 16%, transparent), color-mix(in srgb, var(--gold) 8%, transparent)); border-bottom: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); color: var(--gold); font-weight: 700; font-size: 13.5px; }
   .migrate-bar .mig-head { width: 100%; text-align: center; }
   .offline-bar { padding: 8px 16px; margin-bottom: 12px; border-radius: 10px; text-align: center; background: color-mix(in srgb, var(--danger) 8%, transparent); border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent); color: var(--danger); font-weight: 700; font-size: 12.5px; line-height: 1.6; }   /* حضور أخفت — الشدّة في النصّ لا الخلفية */
+  /* شريط «نسخة جديدة متاحة» (فشل جلب صامت · إغلاق للجلسة فقط) */
+  .version-bar { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 9px 18px; background: color-mix(in srgb, var(--info) 12%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--info) 40%, transparent); color: var(--info); font-weight: 700; font-size: 13px; }
+  .version-bar .vb-ver { font-family: var(--mono); color: var(--text); }
+  .version-bar .vb-close { background: none; border: 1px solid color-mix(in srgb, var(--info) 40%, transparent); color: var(--info); border-radius: 8px; cursor: pointer; padding: 2px 9px; font: inherit; font-size: 12px; }
+  .version-bar .vb-close:hover { background: color-mix(in srgb, var(--info) 14%, transparent); }
+  .version-bar .vb-close:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   body.db-offline #runBtn { opacity: .5; pointer-events: none; }
   body.db-offline .btn-dl { opacity: .5; pointer-events: none; }
   .batch-inline { border: 1px solid var(--border-strong); border-radius: 14px; overflow: visible; background: var(--panel); }
@@ -810,6 +816,11 @@
   .mc-sku { font-size: 12px; color: var(--muted); margin-top: 3px; text-align: start; }
   .mc-sku span { font-family: ui-monospace, Consolas, monospace; }
   .mc-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  /* تفصيل المصادر المختصر في بطاقة المطابقة — الأسماء دائماً، الأسعار المختلفة بالأرقام */
+  .mc-src { font-size: 12px; color: var(--muted); margin-top: 3px; overflow-wrap: anywhere; }
+  .mc-src-list { color: var(--text); }
+  .mc-src-warn { color: var(--amber); font-weight: 700; white-space: nowrap; }
+  .mc-src.out { color: var(--muted-2); }
   .mc-auto { display: inline-block; margin-inline-start: 6px; padding: 1px 7px; border-radius: 20px; font-size: 10px; font-weight: 800; background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); border: 1px solid color-mix(in srgb, var(--info) 40%, transparent); font-family: var(--sans); direction: rtl; }
   .mc-mid { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 0 6px; border-inline: 1px dashed var(--border); }
   .mc-mid .simbadge { margin: 0; font-size: 14px; padding: 3px 12px; }
@@ -1313,6 +1324,7 @@
 
   <div id="offlineBar" class="offline-bar" style="display:none" role="alert"><span class="sdot bad" style="margin-inline-end:7px"></span>غير متصل بالقاعدة السحابية — الأداة تتطلّب الاتصال. الإجراءات وتنزيل الملفات و«طابق وأنشئ» معطّلة حتى يعود الاتصال (سجّل الدخول / تحقّق من الشبكة).</div>
   <div id="migrateBar" class="migrate-bar" style="display:none"></div>
+  <div id="versionBar" class="version-bar" style="display:none" role="status"></div>
 
   <main class="page-wrap">
 
@@ -1698,7 +1710,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "c1ae75f";
+const APP_VERSION = "2c33853";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -3034,7 +3046,19 @@ function batchWhInner(r) {
   if (!c) return `<div class="mc-none">لا مرشّح — ابحث بالأسفل لاختيار صنف من المستودع</div>`;
   return `<div class="mc-name">${esc(c.name) || "—"}</div>` +
     `<div class="mc-sku">باركود المستودع: <span dir="ltr">${esc(String(c.code))}</span></div>` +
-    `<div class="mc-sub">سعر المستودع: ${priceInt(c.price) ?? "—"} ر.س · الكمية: <b>${esc(String(c.qty ?? "—"))}</b></div>`;
+    `<div class="mc-sub">سعر المستودع: ${priceInt(c.price) ?? "—"} ر.س · الكمية: <b>${esc(String(c.qty ?? "—"))}</b></div>` +
+    srcLineCompact(c.code);
+}
+// سطر تفصيل المصادر المختصر لبطاقة المطابقة (يستعمل sourceBreakdown نفسها — صفر تكرار منطق).
+// يظهر عند مصدرين فأكثر بكمية فقط؛ الأسعار المختلفة بالأرقام (بلا أسماء فروع — يقصر السطر)؛ الأسماء تبقى في شاشة الاستعلام.
+function srcLineCompact(code) {
+  const nz = sourceBreakdown(code).sources.filter(s => s.qty > 0);
+  if (!nz.length) return `<div class="mc-src out">غائب عن كل المصادر</div>`;
+  if (nz.length === 1) return "";   // مصدر واحد ⇒ الإجمالي يكفي (لا سطر زائد)
+  const prices = [...new Set(nz.map(s => s.price).filter(p => p != null))];
+  let priceHtml = "";
+  if (prices.length > 1) priceHtml = prices.length > 3 ? ` <span class="mc-src-warn">⚠ ${prices.length} أسعار مختلفة</span>` : ` <span class="mc-src-warn">⚠ أسعار مختلفة: ${prices.join(" / ")}</span>`;
+  return `<div class="mc-src">المصادر: <span class="mc-src-list">${nz.map(s => `${esc(s.name)} ${s.qty}`).join(" · ")}</span>${priceHtml}</div>`;
 }
 // صفّ «نسبة المطابقة» — درجة الثقة ＋ أسبابها بأرقام حقيقية (مقاس/سعر/تشابه اسم)، ظاهرة لا في tooltip.
 const CONF_LBL = { "bt-g": ["مطابقة مؤكدة", "cf-g"], "bt-y": ["مطابقة محتملة", "cf-y"], "bt-rd": ["بلا مرشّح موثوق", "cf-r"] };
@@ -5495,7 +5519,24 @@ routeFromHash();               // الإقلاع: افتح صفحة الـhash (
   // مؤشر أخضر فقط عند وجود رمز محفوظ (بدون نص)، وإلا كهرماني
   const hasToken = !!localStorage.getItem(TOKEN_KEY);
   repoStatus(hasToken ? "ok" : "warn", "");
+  checkAppVersion();   // شريط «نسخة جديدة» (فشل الجلب صامت)
 })();
+
+// يجلب version.txt غير مخبّأ ويقارنه بـAPP_VERSION المحمّل — نسخة مخبّأة قديمة ⇒ شريط. فشل الجلب ⇒ صامت.
+let vbDismissed = false;   // إغلاق للجلسة فقط (لا تخزين دائم — لو نسي التحديث يعود الشريط في الفتحة التالية)
+function checkAppVersion() {
+  fetch("version.txt?t=" + Date.now(), { cache: "no-store" })
+    .then(r => r.ok ? r.text() : Promise.reject())
+    .then(t => {
+      const latest = String(t).trim().split(/\s+/)[0];   // أول رمز (يتجاوز أي سطر إضافي)
+      if (!latest || latest === APP_VERSION || vbDismissed) return;
+      const bar = document.getElementById("versionBar"); if (!bar) return;
+      bar.innerHTML = `نسخة جديدة متاحة — لديك <span class="vb-ver">${esc(APP_VERSION)}</span> · المتاح <span class="vb-ver">${esc(latest)}</span> — حدّث الصفحة (Cmd+Shift+R) <button type="button" class="vb-close" onclick="dismissVersionBar()" aria-label="إخفاء للجلسة">✕</button>`;
+      bar.style.display = "flex";
+    })
+    .catch(() => {});   // فشل صامت مقبول
+}
+function dismissVersionBar() { vbDismissed = true; const bar = document.getElementById("versionBar"); if (bar) { bar.style.display = "none"; bar.innerHTML = ""; } }
 </script>
 </body>
 </html>
