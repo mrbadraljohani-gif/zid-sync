@@ -116,6 +116,10 @@ jobs:
         run: node tests/perf/inv-nav-stay.mjs --broken
       - name: G-NAV (دفعة ٢) — بعد الرفع تبقى الصفحة كما هي والمطابقة تُعاد في الخلفية (لا انتقال تلقائي)
         run: node tests/perf/inv-nav-stay.mjs
+      - name: Self-check — حارس G-FILT يرسب بإسقاط republish من عدّاد السعر
+        run: node tests/perf/upd-filter.mjs --broken
+      - name: G-FILT — فلتر «تم تحديثه» (شمول واستبعاد · عرض محض · فلتر×بحث)
+        run: node tests/perf/upd-filter.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)
