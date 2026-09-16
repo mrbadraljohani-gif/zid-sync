@@ -537,6 +537,12 @@
   .mr-cell.nop { border-style: dashed; } .mr-cell.nop .mr-num { color: var(--muted-2); }
   .mr-dl { display: inline-flex; align-items: center; gap: 4px; align-self: center; margin-inline-start: auto; padding: 6px 11px; font-size: 12px; font-weight: 700; color: var(--gold-2); cursor: pointer; border-radius: 9px; white-space: nowrap; }
   .mr-dl:hover { background: color-mix(in srgb, var(--gold) 14%, transparent); }
+  /* تفكيك مساهمة الفروع (دفعة ٢): شرائح ملتفّة لا تمرير أفقي */
+  .mr-breakdown { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+  .mr-bd-lbl b { color: var(--text); }
+  .mr-brchip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); }
+  .mr-brchip b { color: var(--text); }
+  .mr-plus { color: var(--muted-2); }
   /* المرحلة 3: لوحة بيانات زد من القاعدة */
   .zid-db { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 11px;
     padding: 11px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--green) 40%, transparent);
@@ -557,13 +563,16 @@
   .zid-age-head b { color: var(--text); font-weight: 800; }
   .vm-stale { color: var(--gold-2); font-weight: 800; }
   .opt-badge { color: var(--muted-2); font-weight: 600; font-size: 12px; }
-  /* قائمة اختيار الفرع (دفعة ١أ) — فوق بطاقة رفع الفرع، مستقلّة عن label الرفع */
-  .br-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-  .br-col .upload { flex: 1; }
-  .br-picker { display: flex; gap: 8px; align-items: stretch; }
-  .br-picker select { flex: 1; min-width: 0; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font: inherit; font-size: 13px; }
-  .br-picker select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-  .br-picker .mini-btn { white-space: nowrap; }
+  /* بطاقات المخزن (دفعة ٢): المستودع ＋ بطاقة لكلّ فرع ＋ «＋ فرع» — لفّ الأسطر لا التمرير الأفقي */
+  .inv-cards { display: flex; flex-wrap: wrap; gap: 14px; }
+  .inv-cards .upload { flex: 1 1 240px; min-width: 0; }   /* تتساوى وتلتفّ؛ min-width:0 يمنع تجاوز RTL */
+  .branch-card .utitle { display: flex; align-items: center; gap: 6px; }
+  /* بطاقة «＋ فرع»: نفس هيئة الرفع لكن زرّ متمركز منقّط */
+  .add-branch-card { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 1.5px dashed var(--border-strong); background: rgba(255,255,255,.02); color: var(--muted); cursor: pointer; font: inherit; }
+  .add-branch-card:hover { color: var(--text); border-color: var(--gold); }
+  .add-branch-card .ico { width: 26px; height: 26px; }
+  .add-branch-card .abc-txt { font-weight: 600; font-size: 13px; }
+  .add-branch-card:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   .step {
     width: 30px; height: 30px; border-radius: 50%; color: #0a1622;
     background: linear-gradient(135deg, var(--gold-2), var(--gold));
@@ -1492,30 +1501,22 @@
 
     <div class="card stage-card">
       <div class="stage-head"><span class="stage-n">١</span><b>المستودع والفرع</b><span class="stage-sub">جدولان مستقلان — حدّث كلاً على حدة؛ يُوحّدان عند المطابقة (اتحاد بجمع الكميات)</span></div>
-      <div class="grid2">
+      <!-- بطاقات ديناميكية: المستودع ＋ بطاقة لكلّ فرع (من invBranches) ＋ زرّ «＋ فرع» — لفّ الأسطر لا التمرير -->
+      <div class="inv-cards" id="invCardsRow">
         <label class="upload" id="whCard">
           <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeWh(this)">
           <div class="utitle"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V8.5L12 4l9 4.5V21"/><path d="M2 21h20"/><rect x="7" y="12" width="4" height="9"/><rect x="13" y="12" width="4" height="9"/></svg> ملف المستودع</div>
           <div class="hint">رقم الصنف · الاسم · الكمية · الأسعار — رفعه يزامن جدول المستودع بالكامل</div>
           <div class="ustatus" id="whStatus">اضغط لاختيار الملف</div>
           <div class="inv-meta umeta" id="whMetaLine"></div>
+          <div id="whSyncMsg" class="zid-sync-msg" style="display:none"></div>
         </label>
-        <div class="br-col">
-          <div class="br-picker">
-            <select id="brSelect" aria-label="اختر الفرع لرفع ملفه"><option value="">— لا فروع بعد —</option></select>
-            <button type="button" class="mini-btn" onclick="addBranch()" title="أنشئ فرعاً جديداً"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> فرع</button>
-          </div>
-          <label class="upload" id="brCard">
-            <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeBranch(this)">
-            <div class="utitle"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="7" r="2.2"/><path d="M6 8.2v7.6"/><path d="M18 9.2c0 4-3 5-6 5"/></svg> ملف الفرع <span class="opt-badge">(اختياري)</span></div>
-            <div class="hint">اختر الفرع أعلاه ثم ارفع ملفه — بنفس الأعمدة، كامل أو مختصر (كود · اسم · كمية)</div>
-            <div class="ustatus" id="brStatus">اضغط لاختيار الملف</div>
-            <div class="inv-meta umeta" id="brMetaLine"></div>
-          </label>
-        </div>
+        <span id="branchCards" style="display:contents"></span>
+        <button type="button" class="upload add-branch-card" onclick="addBranch()" title="أنشئ فرعاً جديداً">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          <span class="abc-txt">فرع جديد</span>
+        </button>
       </div>
-      <div id="whSyncMsg" class="zid-sync-msg" style="display:none"></div>
-      <div id="brSyncMsg" class="zid-sync-msg" style="display:none"></div>
       <div class="flow-arrow"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20.5h14"/></svg> يوحَّدان عند المطابقة — النتيجة في «المخزون» <svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20.5h14"/></svg></div>
       <div id="mergeWarn" class="fp-warn" style="display:none"></div>
     </div>
@@ -1681,7 +1682,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "1ce5edf";
+const APP_VERSION = "3491408";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2048,7 +2049,7 @@ function goPage(id, fromHash) {
     if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");   // حالة التنقّل تُعلَن
   });
   if (id === "home") renderReadiness();
-  if (id === "db") { renderInvCards(); renderBranchSelect(); }
+  if (id === "db") { renderInvCards(); renderBranchCards(); }
   if (id === "inventory") { renderInventoryPage(); renderActivityTable(); }
   if (id === "options" && typeof renderOffsetsList === "function") renderOffsetsList();
   closeSidebar();
@@ -3686,12 +3687,14 @@ async function onMergeWh(inp) {
 }
 async function onMergeBranch(inp) {
   const f = inp.files[0]; if (!f) return; showErr("");
-  const sel = document.getElementById("brSelect"), branchId = (sel && sel.value) || "";
-  if (!branchId) { showUploadReject("brStatus", "brCard", "اختر فرعاً من القائمة (أو أنشئ واحداً بزرّ «＋ فرع») قبل رفع ملفه."); inp.value = ""; return; }
+  const card = inp.closest(".branch-card"), branchId = card ? card.dataset.branch : "";
+  const stEl = card ? card.querySelector(".ustatus") : null, syncEl = card ? card.querySelector(".zid-sync-msg") : null;
+  const reject = msg => { if (stEl) { stEl.className = "ustatus rejected"; stEl.textContent = msg; } if (card) { card.classList.remove("ok"); card.classList.add("rejected"); } inp.value = ""; };
+  if (!branchId) { reject("تعذّر تحديد الفرع — أعِد تحميل الصفحة."); return; }
   const brName = (invBranches.find(b => b.id === branchId) || {}).name || "فرع";
   try {
     const { list, header, headers, colMap } = await readInvFileFull(f);
-    if (header && header.length) { const err = invColError(colMap, headers, f.name, "الفرع"); if (err) { showUploadReject("brStatus", "brCard", err); inp.value = ""; return; } }
+    if (header && header.length) { const err = invColError(colMap, headers, f.name, `الفرع «${brName}»`); if (err) { reject(err); return; } }
     if (!list.length) throw new Error("لا أصناف صالحة في الملف");
     invHeaderDbg.branch = { headers, colMap };   // للتشخيص ?debug
     const agg = aggregateInv(list, "branch");
@@ -3700,19 +3703,19 @@ async function onMergeBranch(inp) {
     if (dbOnline && sb) {
       try {
         const r = await syncInventoryToDB("branch", agg, header, f.name, branchId);   // ← محصور بـbranch_id (لا يمسّ فرعاً آخر)
-        const sm = document.getElementById("brSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg ok"; sm.innerHTML = `✓ مزامنة فرع «${esc(brName)}»: جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — الإجمالي ${r.total} صنف`; }
+        if (syncEl) { syncEl.style.display = "block"; syncEl.className = "zid-sync-msg ok"; syncEl.innerHTML = `✓ جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — ${r.total} صنف`; }
         await loadInventoryFromDB();   // أعِد بناء **كل** الفروع من القاعدة (اتحاد حقيقي عبر mergeInventory)
       } catch (e) {
-        const sm = document.getElementById("brSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg fail"; sm.innerHTML = "⚠ تعذّرت مزامنة الفرع: " + esc(e.message || String(e)); }
+        if (syncEl) { syncEl.style.display = "block"; syncEl.className = "zid-sync-msg fail"; syncEl.innerHTML = "⚠ تعذّرت المزامنة: " + esc(e.message || String(e)); }
         inp.value = ""; return;   // فشل الكتابة ⇒ لا تعتمد ملفاً لم يُخزَّن
       }
     } else {
       mergeBranches = [agg];   // offline: الفرع المرفوع محليّاً فقط (بلا بنية فروع متعدّدة بلا قاعدة)
     }
-    const brS = document.getElementById("brStatus"); brS.className = "ustatus"; brS.innerHTML = `<span class="ok-txt">✓ ${f.name} — ${agg.length} صنف · فرع «${esc(brName)}»</span>`;
-    const brC = document.getElementById("brCard"); brC.classList.remove("rejected"); brC.classList.add("ok");
-    renderInvCards(); renderReadiness(); renderBranchSelect();
-  } catch (x) { document.getElementById("brCard").classList.remove("ok"); showErr("ملف الفرع: " + x.message); }
+    if (stEl) { stEl.className = "ustatus"; stEl.innerHTML = `<span class="ok-txt">✓ ${esc(f.name)} — ${agg.length} صنف</span>`; }
+    if (card) { card.classList.remove("rejected"); card.classList.add("ok"); }
+    renderInvCards(); renderReadiness();   // لا نُعيد بناء البطاقات هنا (يُبقي شارتَي ✓ والمزامنة على البطاقة)
+  } catch (x) { if (card) card.classList.remove("ok"); showErr(`ملف الفرع «${brName}»: ` + x.message); }
   inp.value = ""; autoAdopt();   // إضافة/تغيير الفرع ⇒ إعادة دمج تلقائي
 }
 
@@ -3725,20 +3728,26 @@ async function addBranch() {
   try {
     await db.branches.create(id, name);
     invBranches = await db.branches.getAll();
-    renderBranchSelect(id);   // اجعله المختار
-    showToast(`أُنشئ فرع «${name}» — ارفع ملفه الآن.`);
+    renderBranchCards();   // تظهر بطاقة الفرع الجديد تلقائياً
+    showToast(`أُنشئ فرع «${name}» — ارفع ملفه من بطاقته.`);
   } catch (e) { showToast("تعذّر الإنشاء: " + (e.message || e)); }
 }
 
-// عمارة قائمة اختيار الفرع (تُبنى من invBranches؛ تُبقي المختار)
-function renderBranchSelect(keepId) {
-  const sel = document.getElementById("brSelect"); if (!sel) return;
-  const cur = keepId || sel.value || "";
-  if (!invBranches.length) { sel.innerHTML = `<option value="">— لا فروع بعد —</option>`; sel.value = ""; }
-  else {
-    sel.innerHTML = invBranches.map(b => `<option value="${esc(b.id)}">${esc(b.name)}${b.item_count ? " (" + b.item_count + ")" : ""}</option>`).join("");
-    sel.value = invBranches.some(b => b.id === cur) ? cur : invBranches[0].id;
-  }
+// بطاقات الفروع (دفعة ٢): بطاقة لكلّ فرع من invBranches — تُبنى ديناميكياً فيظهر أيّ فرع أُضيف في القاعدة تلقائياً
+function renderBranchCards() {
+  const host = document.getElementById("branchCards"); if (!host) return;
+  const svg = `<svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="7" r="2.2"/><path d="M6 8.2v7.6"/><path d="M18 9.2c0 4-3 5-6 5"/></svg>`;
+  host.innerHTML = (invBranches || []).map(b => {
+    const ms = b.synced_at ? Date.parse(b.synced_at) : null;
+    const meta = b.item_count ? `القاعدة: <b>${b.item_count}</b> صنف · ${invAge(ms)}` + (b.file_name ? ` · ملف: ${esc(b.file_name)}` : "") : "اضغط لاختيار الملف";
+    return `<label class="upload branch-card" data-branch="${esc(b.id)}">
+      <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeBranch(this)">
+      <div class="utitle">${svg} ${esc(b.name)}</div>
+      <div class="hint">ارفع ملف هذا الفرع — بنفس الأعمدة (كود · اسم · كمية · أسعار)</div>
+      <div class="ustatus">${meta}</div>
+      <div class="zid-sync-msg" id="brSync-${esc(b.id)}" style="display:none"></div>
+    </label>`;
+  }).join("");
 }
 const hasVal = v => v !== "" && v != null;
 // دالة الدمج النقية: اتحاد كامل بجمع الكميات عبر المستودع + كل الفروع (تقبل مصفوفة فروع)
@@ -3794,8 +3803,16 @@ function renderMergeBar() {
   if (hasBr) cells += cell(res.both, "مشترك", "shared") + cell(res.whOnly, "مستودع فقط", "whonly") + cell(res.brOnly, "فرع فقط", "bronly");
   else cells += cell("ملف المستودع", "المصدر", "src");
   if (res.noPrice.length) cells += cell(res.noPrice.length, "بلا سعر", "nop");
+  // سطر تفكيك مساهمة كل فرع (شرائح ملتفّة، لا تمرير) — مجموع أصناف الفروع = Σ item_count
+  let breakdown = "";
+  const brs = (invBranches || []).filter(b => b.item_count);
+  if (brs.length) {
+    const totalBr = brs.reduce((s, b) => s + (Number(b.item_count) || 0), 0);
+    const chips = brs.map(b => `<span class="mr-brchip">${esc(b.name)} <b>${b.item_count}</b></span>`).join(`<span class="mr-plus">＋</span>`);
+    breakdown = `<div class="mr-breakdown"><span class="mr-bd-lbl">أصناف الفروع <b>${totalBr}</b> =</span> ${chips}</div>`;
+  }
   bar.style.display = "block"; bar.className = "merge-result ok";
-  bar.innerHTML = `<div class="mr-grid">${cells}<a class="mr-dl" onclick="downloadMerge()" title="تنزيل الملف الموحّد للفحص اليدوي"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20.5h14"/></svg> الملف الموحّد</a></div>`;
+  bar.innerHTML = `<div class="mr-grid">${cells}<a class="mr-dl" onclick="downloadMerge()" title="تنزيل الملف الموحّد للفحص اليدوي"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20.5h14"/></svg> الملف الموحّد</a></div>${breakdown}`;
 }
 // هل صفحة المخزون معروضة؟ (حارس: تحديث الحالة دائماً، والرسم عند العرض فقط)
 function invVisible() { const s = document.getElementById("page-inventory"); return !!s && s.classList.contains("active"); }
@@ -3960,7 +3977,7 @@ async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
   const toDelete = existing.filter(c => !newSet.has(c));
   const added = newCodes.filter(c => !existSet.has(c)).length, updated = newCodes.length - added;
   const setMsg = (id, cls, t) => { const el = document.getElementById(id); if (el) { el.style.display = "block"; el.className = "zid-sync-msg" + (cls ? " " + cls : ""); el.innerHTML = t; } };
-  const msgId = isBr ? "brSyncMsg" : "whSyncMsg";
+  const msgId = isBr ? ("brSync-" + branchId) : "whSyncMsg";   // تقدّم مزامنة الفرع داخل بطاقته (معرّف مركّب لكلّ فرع)
   setBusy(msgId, true);
   try {
     setMsg(msgId, "", `⏳ مزامنة القاعدة… 0 / ${rows.length}`);
@@ -3981,7 +3998,7 @@ async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
     return { added, updated, deleted: toDelete.length, total: newCodes.length };
   } finally { setBusy(msgId, false); }
 }
-async function loadInventoryMeta() { if (!sb) return; try { invMeta = await db.inventory.getMeta(); } catch (e) { console.warn("inv meta:", e); } try { invBranches = await db.branches.getAll(); renderBranchSelect(); } catch (e) { console.warn("branches:", e); } renderReadiness(); checkReady(); }
+async function loadInventoryMeta() { if (!sb) return; try { invMeta = await db.inventory.getMeta(); } catch (e) { console.warn("inv meta:", e); } try { invBranches = await db.branches.getAll(); renderBranchCards(); } catch (e) { console.warn("branches:", e); } renderReadiness(); checkReady(); }
 function invDbAvailable() { return !!(dbOnline && sb && invMeta && invMeta.wh_count > 0); }
 function invAge(ms) { return ms != null ? ageText(ms) : ""; }
 // جلب الجدولين من القاعدة وإعادة بناء mergeWh/mergeBranches (المخزّن مجمّع مسبقاً ⇒ الدمج يعطي نفس النتيجة)
@@ -4051,12 +4068,10 @@ function invHeaderDbgLine(kind) {
   const H = d.headers || [], m = d.colMap, cell = i => (i != null && i >= 0 && H[i] != null) ? `"${H[i]}"` : "—";
   return `\n${label}: كود=${cell(m.ci)} · اسم=${cell(m.ni)} · كمية=${cell(m.qi)} · شامل=${cell(m.ii)} · قبل=${cell(m.ei)} · باركود=${cell(m.bi)}`;
 }
-// سطرا الميتا تحت بطاقتي الرفع في صفحة التحديث (حالة كل جدول في القاعدة)
+// سطر ميتا المستودع تحت بطاقة رفعه (حالته في القاعدة). ميتا الفروع صارت **داخل بطاقة كلّ فرع** (renderBranchCards).
 function renderInvCards() {
   const fmt = (cnt, ms, file) => cnt ? `القاعدة: <b>${cnt}</b> صنف · ${invAge(ms)}` + (file ? ` · ملف: ${esc(file)}` : "") : "القاعدة: — لم يُزامَن بعد";
   const wl = document.getElementById("whMetaLine"); if (wl) wl.innerHTML = fmt(invMeta && invMeta.wh_count, invMeta && invMeta.wh_synced_at ? Date.parse(invMeta.wh_synced_at) : null, invMeta && invMeta.wh_file_name);
-  const bl = document.getElementById("brMetaLine");
-  if (bl) { const k = (invBranches || []).length; const pre = k > 1 ? `<b>${k}</b> فروع · ` : ""; bl.innerHTML = pre + fmt(invMeta && invMeta.branch_count, invMeta && invMeta.branch_synced_at ? Date.parse(invMeta.branch_synced_at) : null, invMeta && invMeta.branch_file_name); }
 }
 function renderReadiness() {
   const el = document.getElementById("readyBar"); if (!el) return;
@@ -4514,7 +4529,7 @@ function run(reprocess) {
     const okEl = invLine || vm;   // هدف سطر النجاح: المخزون إن وُجد، وإلا الرئيسية (احتياط)
     if (vq.ok && vp.ok) {
       okEl.className = "verify-ok"; okEl.style.display = "block";
-      okEl.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + ` · مصفَّر: ${lastZeroRatio.zero} من ${lastZeroRatio.total} (${lastZeroRatio.pct}%)` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + ((lastAutoUnpubSimple.length || lastAutoUnpubParents.length) ? (() => { const au = k => lastAutoUnpubSimple.filter(x => x.src === k).length; return ` · إخفاء تلقائي: ${lastAutoUnpubSimple.length + lastAutoUnpubParents.length} — بسيط ${lastAutoUnpubSimple.length} (رخص ${au("low")} · مطابَق٠ ${au("matched0")} · ⏳ ${au("waiting")} · غائب ${au("absent")}) · آباء ${lastAutoUnpubParents.length}`; })() : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
+      okEl.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + ` · مصفَّر: ${lastZeroRatio.zero} من ${lastZeroRatio.total} (${lastZeroRatio.pct}% — الحدّ ${ZERO_GATE_PCT}%)` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + ((lastAutoUnpubSimple.length || lastAutoUnpubParents.length) ? (() => { const au = k => lastAutoUnpubSimple.filter(x => x.src === k).length; return ` · إخفاء تلقائي: ${lastAutoUnpubSimple.length + lastAutoUnpubParents.length} — بسيط ${lastAutoUnpubSimple.length} (رخص ${au("low")} · مطابَق٠ ${au("matched0")} · ⏳ ${au("waiting")} · غائب ${au("absent")}) · آباء ${lastAutoUnpubParents.length}`; })() : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
       vm.className = ""; vm.style.display = "none"; vm.textContent = "";   // الرئيسية: لا سطر أخضر عند النجاح (نُقل للمخزون)
     } else {
       vm.className = "verify-fail"; vm.style.display = "block";

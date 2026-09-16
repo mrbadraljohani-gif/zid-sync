@@ -36,10 +36,11 @@ const res = await p.evaluate(async () => {
     const BR = [{ id: "br1", name: "العزيزية", item_count: 0 }];
     try { invBranches = BR; } catch (e) {}
     db.branches = { getAll: async () => BR, setMeta: async () => {}, create: async () => {} };
-    const sel = document.getElementById("brSelect"); if (sel) { sel.innerHTML = '<option value="br1">العزيزية</option>'; sel.value = "br1"; }
     try { invMeta = { id: 1 }; } catch (e) {}
     try { mergeWh = null; mergeBranches = []; } catch (e) {}
-    await handler({ files: [{ name: fileName }], value: "" });
+    // دفعة ٢: onMergeBranch يقرأ branchId من بطاقة الفرع (data-branch) لا من قائمة — نحاكي closest
+    const fakeCard = { dataset: { branch: "br1" }, querySelector: () => null, classList: { add() {}, remove() {} } };
+    await handler({ files: [{ name: fileName }], value: "", closest: () => fakeCard });
     return captured;
   };
   // رؤوس المستخدم الحرفية (الكود = «الباركورد»)
