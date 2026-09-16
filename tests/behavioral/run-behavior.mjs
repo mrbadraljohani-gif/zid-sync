@@ -153,6 +153,31 @@ function offsetCfg() {
   };
 }
 
+// ٥ب G-LOWVAL: LV سعر 300(<400)/كمية 2(≤3) ⇒ يُصفَّر (qty=0) · HV سعر 500(≥400) ⇒ لا يُصفَّر (qty=2). lowzero مفعّل.
+function lowValCfg() {
+  return {
+    stData: { sheetName: "P", header: HEADER, rows: [HEADER, Z("LV", "5", "300"), Z("HV", "5", "500")] },
+    whRows: [WH("LV", 2, 300), WH("HV", 2, 500)], lastMerge: merge(["LV", "HV"]), manualMap: {},
+    waiting: [], history: [], opts: { price: "incl", absent: "keep", lowzero: "on", split: "equal", lowPrice: 400, lowQty: 3 }, uploaded: false, callHook: false,
+  };
+}
+// ٥ب G-REPUB: RP بسيط published=No عاد له مخزون (9>0) ⇒ يُقلب Yes في ملف الأسعار. RY منشور أصلاً ⇒ لا قلب.
+function repubCfg() {
+  return {
+    stData: { sheetName: "P", header: HEADER, rows: [HEADER, Z("RP", "5", "100", { pub: "No" }), Z("RY", "5", "100", { pub: "Yes" })] },
+    whRows: [WH("RP", 9, 100), WH("RY", 9, 100)], lastMerge: merge(["RP", "RY"]), manualMap: {},
+    waiting: [], history: [], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: false, callHook: false,
+  };
+}
+// ٥ب G-INF: INFV كميته «infinite» مطابَقة ⇒ تُستبدَل بالعدد الحقيقي 9 (لا تبقى «infinite» ⇒ لا بيع زائد). A1 ضابط.
+function infValCfg() {
+  return {
+    stData: { sheetName: "P", header: HEADER, rows: [HEADER, Z("A1", "5", "100"), Z("INFV", "infinite", "50")] },
+    whRows: [WH("A1", 9, 100), WH("INFV", 9, 50)], lastMerge: merge(["A1", "INFV"]), manualMap: {},
+    waiting: [], history: [], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: false, callHook: false,
+  };
+}
+
 // دالّة داخل الصفحة: تهيّئ الحالة، تستدعي الخطاف+run (＋قرار اختياري)، وتُعيد القراءات (دفاعية للنسخ القديمة)
 async function inpage(cfg) {
   const mk = () => { const c = { select() { return c; }, upsert: async () => ({ error: null }), delete() { return c; }, insert: async () => ({ error: null }), eq: async () => ({ error: null }), in: async () => ({ error: null }), order() { return c; }, range: async () => ({ data: [], error: null }) }; return c; };
@@ -410,8 +435,36 @@ try {
   const ofMut = curHtml.replace("const finalP = whBase + offset;", "const finalP = whBase;");
   if (ofMut === curHtml) fails.push("أسنان G-OFFSET: تعذّر تطبيق الطفرة (لم يُطابَق سطر finalP)");
   else { const OFT = await bootRead(browser, ofMut, offsetCfg()); if (Number(OFT.priceOf["80151.1"]) === 280) fails.push("أسنان G-OFFSET: بإسقاط الزيادة بقي السعر 280 — بلا أسنان"); else notes.push(`أسنان G-OFFSET (بإسقاط الزيادة): price(80151.1)=${OFT.priceOf["80151.1"] === undefined ? "غائب عن ملف الأسعار (100=سعر زد)" : OFT.priceOf["80151.1"]} (≠280 = العطل)`); }
+
+  // ===== ٥ب G-LOWVAL: تصفير القيمة المنخفضة (القيمة: 300/2 ⇒ qty=0 · 500/2 ⇒ qty=2) =====
+  const LZ = await bootRead(browser, curHtml, lowValCfg());
+  if (LZ.err) fails.push("G-LOWVAL رمى: " + LZ.err);
+  if (Number(LZ.qtyOf["LV"]) !== 0) fails.push(`G-LOWVAL: LV (سعر 300<400 · كمية 2≤3) qty=${LZ.qtyOf["LV"]} (متوقّع 0)`);
+  if (Number(LZ.qtyOf["HV"]) !== 2) fails.push(`G-LOWVAL: HV (سعر 500≥400) qty=${LZ.qtyOf["HV"]} (متوقّع 2 — لا يُصفَّر)`);
+  notes.push(`٥ب G-LOWVAL: LV=${LZ.qtyOf["LV"]} · HV=${LZ.qtyOf["HV"]}`);
+  const lzMut = curHtml.replace("valForRule < (opts.lowPrice || 400)", "valForRule < 0");   // القاعدة لا تفعّل أبداً
+  if (lzMut === curHtml) fails.push("أسنان G-LOWVAL: تعذّر تطبيق الطفرة");
+  else { const LZT = await bootRead(browser, lzMut, lowValCfg()); if (Number(LZT.qtyOf["LV"]) === 0) fails.push("أسنان G-LOWVAL: بتعطيل القاعدة بقي LV مصفّراً — بلا أسنان"); else notes.push(`أسنان G-LOWVAL (بتعطيل القاعدة): LV=${LZT.qtyOf["LV"]} (≠0 = العطل: الرخيص شبه الفارغ يُباع)`); }
+
+  // ===== ٥ب G-REPUB: إعادة النشر No→Yes (القيمة: published=Yes للبسيط العائد له مخزون) =====
+  const RP = await bootRead(browser, curHtml, repubCfg());
+  if (RP.err) fails.push("G-REPUB رمى: " + RP.err);
+  if (String(RP.pubOf["RP"]).toLowerCase() !== "yes") fails.push(`G-REPUB: RP (بسيط No + مخزون 9) published=${RP.pubOf["RP"]} (متوقّع Yes — وإلا بقي مخفيّاً)`);
+  notes.push(`٥ب G-REPUB: RP published=${RP.pubOf["RP"]}`);
+  const rpMut = curHtml.replace('else if (simpleRepublish) pr[iPublished] = "Yes";', 'else if (simpleRepublish) pr[iPublished] = "No";');
+  if (rpMut === curHtml) fails.push("أسنان G-REPUB: تعذّر تطبيق الطفرة");
+  else { const RPT = await bootRead(browser, rpMut, repubCfg()); if (String(RPT.pubOf["RP"]).toLowerCase() === "yes") fails.push("أسنان G-REPUB: بكسر القلب بقي RP=Yes — بلا أسنان"); else notes.push(`أسنان G-REPUB (بكسر القلب): RP published=${RPT.pubOf["RP"]} (≠Yes = العطل: يبقى مخفيّاً رغم المخزون)`); }
+
+  // ===== ٥ب G-INF: تحويل غير المحدود لعدد حقيقيّ (القيمة: infinite مطابَقة ⇒ qty=9، لا «infinite») =====
+  const IV = await bootRead(browser, curHtml, infValCfg());
+  if (IV.err) fails.push("G-INF رمى: " + IV.err);
+  if (Number(IV.qtyOf["INFV"]) !== 9) fails.push(`G-INF: INFV (زد «infinite» · مستودع 9) qty=${IV.qtyOf["INFV"]} (متوقّع 9 عدداً — لا «infinite»)`);
+  notes.push(`٥ب G-INF: INFV qty=${IV.qtyOf["INFV"]}`);
+  const ivMut = curHtml.replace("const newQty = lowValZero ? 0 : whQtyReal;", "const newQty = lowValZero ? 0 : (isInf ? orig[iQty] : whQtyReal);");   // يعطّل التحويل
+  if (ivMut === curHtml) fails.push("أسنان G-INF: تعذّر تطبيق الطفرة");
+  else { const IVT = await bootRead(browser, ivMut, infValCfg()); if (Number(IVT.qtyOf["INFV"]) === 9) fails.push("أسنان G-INF: بتعطيل التحويل بقي INFV=9 — بلا أسنان"); else notes.push(`أسنان G-INF (بتعطيل التحويل): INFV qty=${IVT.qtyOf["INFV"]} (≠9 = العطل: يبقى «غير محدود» ⇒ بيع زائد)`); }
 } finally { await browser.close(); }
 
 console.log(notes.map(n => "  · " + n).join("\n"));
 if (fails.length) { console.error("\n✗ فشل المشغّل السلوكي:\n" + fails.map(f => "  ✗ " + f).join("\n")); process.exit(1); }
-console.log("\n✅ المشغّل السلوكي: كل الادّعاءات (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام التخفيض · ٣+١ العودة · ٥أ توزيع 3+2+2 · offset 280) مثبتة سلوكياً بالقيمة، وأسنان كلٍّ مؤكَّدة على الطفرة.");
+console.log("\n✅ المشغّل السلوكي: كل الادّعاءات (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام التخفيض · ٣+١ العودة · ٥أ توزيع 3+2+2 · offset 280 · ٥ب lowVal 0 · republish Yes · inf 9) مثبتة سلوكياً بالقيمة، وأسنان كلٍّ مؤكَّدة على الطفرة.");
