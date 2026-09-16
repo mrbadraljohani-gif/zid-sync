@@ -1682,7 +1682,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "3491408";
+const APP_VERSION = "e3d59e5";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -3491,9 +3491,16 @@ function zidDbAvailable() { return !!(dbOnline && sb && zidDbMeta && zidDbMeta.p
 function launchMatchIfReady() {
   checkReady();
   if (!whRows) return;
-  if (stData) { if (typeof goPage === "function") goPage("home"); run(); return; }
-  // الرئيسية: المخزن جاهز وبيانات زد في القاعدة ولم تُعتمد بعد ⇒ اعتمدها تلقائياً ثم طابق
-  if (zidDbAvailable()) { if (typeof goPage === "function") goPage("home"); showToast("⏳ جلب بيانات زد من القاعدة ثم المطابقة…"); useZidFromDB(); }
+  // 🚫 لا انتقال تلقائي إلى الرئيسية بعد الرفع (قرار المستخدم): المطابقة تُعاد **في الخلفية** فالنتيجة تبقى
+  // حيّة وجاهزة، والمستخدم يبقى في مكانه ليرفع بقيّة الملفات. النجاح يُرى في البطاقة نفسها ＋ توست حين لا يكون في الرئيسية.
+  if (stData) {
+    run();   // تُعاد المطابقة على المدخل الكامل (loadInventoryFromDB سبق autoAdopt) — لا مدخل ناقص
+    const onHome = (document.querySelector(".page.active") || {}).id === "page-home";
+    if (!onHome) showToast("✓ حُدّثت المطابقة — النتيجة جاهزة في «الرئيسية».");
+    return;
+  }
+  // المخزن جاهز وبيانات زد في القاعدة ولم تُعتمد بعد ⇒ اعتمدها تلقائياً ثم طابق (بلا انتقال)
+  if (zidDbAvailable()) { showToast("⏳ جلب بيانات زد من القاعدة ثم المطابقة…"); useZidFromDB(); }
 }
 
 // اعتماد بيانات زد من القاعدة كمصدر للمطابقة (بلا رفع ملف) — يعيد بناء stData من raw + الرأس
