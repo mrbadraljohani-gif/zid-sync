@@ -132,6 +132,14 @@ jobs:
         run: node tests/perf/card-sources.mjs --broken
       - name: G-CARDSRC — تفصيل المصادر في بطاقة المطابقة بالقيمة (العزيزية 6 · الخضرة 11)
         run: node tests/perf/card-sources.mjs
+      - name: Self-check — حارس G-TOTALS يرسب على المطابقة الجزئية (includes)
+        run: node tests/totals-filter.mjs --broken
+      - name: G-TOTALS — تجاهل صفوف المجاميع بمطابقة تامّة (الأصناف الحقيقية تبقى)
+        run: node tests/totals-filter.mjs
+      - name: Self-check — حارس G-VALVE يرسب بإسقاط شرط updated==0
+        run: node tests/valve-absent.mjs --broken
+      - name: G-VALVE — صمّام updated=0 ＋ تصفير غيابيّ (الحالات الثلاث تفصل بوضوح)
+        run: node tests/valve-absent.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)

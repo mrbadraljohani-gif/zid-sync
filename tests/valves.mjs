@@ -113,7 +113,9 @@ const wired = await page.evaluate(() => {
   const src = [...document.querySelectorAll("script")].map(s => s.textContent).join("\n");
   const i = src.indexOf("const wireDl =");
   const seg = src.slice(i, i + 700);
-  return { hasGate: seg.includes("zeroGateOk(lastZeroRatio)"), hasPrevent: seg.includes("preventDefault"), onlyQty: seg.includes('id === "dlQty" && !zeroGateOk') };
+  // الصمّام مربوط بـdlQty حصراً (لا dlPrice)، ويستدعي zeroGateOk (＋ absentZeroGateOk المنقّح)
+  const gateLine = (seg.match(/if \(id === "dlQty"[^\n]*/) || [""])[0];
+  return { hasGate: seg.includes("zeroGateOk(lastZeroRatio)"), hasPrevent: seg.includes("preventDefault"), onlyQty: gateLine.includes("zeroGateOk(lastZeroRatio)") && !gateLine.includes("dlPrice") };
 });
 check(wired.hasGate && wired.hasPrevent, "② زرّ الكميات يستدعي الصمّام ويمنع التنزيل فعلاً (preventDefault)");
 check(wired.onlyQty, "② الصمّام على ملف الكميات فقط (الأسعار لا يُصفِّر كميات)");

@@ -563,6 +563,7 @@
   .zid-age-head b { color: var(--text); font-weight: 800; }
   .vm-stale { color: var(--gold-2); font-weight: 800; }
   .opt-badge { color: var(--muted-2); font-weight: 600; font-size: 12px; }
+  .totals-note { color: var(--amber); font-weight: 600; font-size: 12px; }   /* تنبيه «تُجوهل صفوف مجاميع» */
   /* بطاقات المخزن (دفعة ٢): المستودع ＋ بطاقة لكلّ فرع ＋ «＋ فرع» — لفّ الأسطر لا التمرير الأفقي */
   .inv-cards { display: flex; flex-wrap: wrap; gap: 14px; }
   .inv-cards .upload { flex: 1 1 240px; min-width: 0; }   /* تتساوى وتلتفّ؛ min-width:0 يمنع تجاوز RTL */
@@ -1710,7 +1711,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "2c33853";
+const APP_VERSION = "dc9acf0";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -3688,17 +3689,24 @@ function parseInvRows(aoa) {
   if (looksHeader) { start = 1; const m = detectInvCols(first); ci = m.ci; ni = m.ni; qi = m.qi; ii = m.ii; ei = m.ei; bi = m.bi; }
   else if ((aoa[0] || []).length >= 5) { ii = 3; ei = 4; }   // مختصر بلا رأس وكامل ⇒ موضعي
   const out = [];
+  let totalsSkipped = 0;   // صفوف مجاميع مُستبعَدة (تنبيه في سطر الاستيراد)
   for (let r = start; r < aoa.length; r++) {
     const row = aoa[r] || []; const code = String(row[ci] == null ? "" : row[ci]).trim();
     if (!code) continue;
+    const name = (ni >= 0 && row[ni] != null) ? String(row[ni]).trim() : "";
+    // تجاهل صفّ المجاميع بمطابقة **الاسم تامّةً** (لا includes — «مجموعة سكاكين» صنف حقيقي): المجموع/الإجمالي/Total
+    if (name && INV_TOTALS_NAMES.has(normHead(name))) { totalsSkipped++; continue; }
     out.push({
-      code, name: (ni >= 0 && row[ni] != null) ? String(row[ni]).trim() : "",
+      code, name,
       qty: qi >= 0 ? row[qi] : "", incl: ii >= 0 ? row[ii] : "", excl: ei >= 0 ? row[ei] : "",
       bar: (bi >= 0 && row[bi] != null) ? String(row[bi]).trim() : ""
     });
   }
+  out.totalsSkipped = totalsSkipped;   // يُقرأ في onMergeWh/onMergeBranch للتنبيه
   return out;
 }
+// أسماء صفوف المجاميع (بعد normHead): مطابقة تامّة حصراً. «الاجمالى» بالمقصورة يُطبَّع إلى «الاجمالي» (ى→ي) لكن نُدرجها احتياطاً.
+const INV_TOTALS_NAMES = new Set(["المجموع", "الاجمالي", "الاجمالى", "total"]);
 async function readInvFileFull(f) {
   const wb = await readWB(f);
   const aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
@@ -3720,7 +3728,8 @@ async function onMergeWh(inp) {
     if (!invShrinkCheck("wh", aggWh.length)) { showToast("أُلغي الرفع — المخزن السابق كما هو."); inp.value = ""; return; }
     mergeWh = aggWh;
     whWasUploaded = true;                 // رفع ملف فعلي ⇒ يُفعّل عدّ missed_rounds في خطاف الرفع
-    const whS = document.getElementById("whStatus"); whS.className = "ustatus"; whS.innerHTML = `<span class="ok-txt">✓ ${f.name} — ${mergeWh.length} صنف</span>`;
+    const whTot = list.totalsSkipped ? ` <span class="totals-note">· تُجوهل صفوف مجاميع: ${list.totalsSkipped}</span>` : "";
+    const whS = document.getElementById("whStatus"); whS.className = "ustatus"; whS.innerHTML = `<span class="ok-txt">✓ ${f.name} — ${mergeWh.length} صنف${whTot}</span>`;
     const whC = document.getElementById("whCard"); whC.classList.remove("rejected"); whC.classList.add("ok");
     if (dbOnline && sb) {
       try {
@@ -3760,7 +3769,8 @@ async function onMergeBranch(inp) {
     } else {
       mergeBranches = [agg];   // offline: الفرع المرفوع محليّاً فقط (بلا بنية فروع متعدّدة بلا قاعدة)
     }
-    if (stEl) { stEl.className = "ustatus"; stEl.innerHTML = `<span class="ok-txt">✓ ${esc(f.name)} — ${agg.length} صنف</span>`; }
+    const brTot = list.totalsSkipped ? ` <span class="totals-note">· تُجوهل صفوف مجاميع: ${list.totalsSkipped}</span>` : "";
+    if (stEl) { stEl.className = "ustatus"; stEl.innerHTML = `<span class="ok-txt">✓ ${esc(f.name)} — ${agg.length} صنف${brTot}</span>`; }
     if (card) { card.classList.remove("rejected"); card.classList.add("ok"); }
     renderInvCards(); renderReadiness();   // لا نُعيد بناء البطاقات هنا (يُبقي شارتَي ✓ والمزامنة على البطاقة)
   } catch (x) { if (card) card.classList.remove("ok"); showErr(`ملف الفرع «${brName}»: ` + x.message); }
@@ -3988,6 +3998,20 @@ function zeroGateOk(z) {
 ` +
     `تنزيل الملف رغم ذلك؟`
   );
+}
+// ===== ②-ب صمّام «updated=0 ＋ تصفير غيابيّ» (النسخة المنقّحة) =====
+// حادثة 852 (كل الملف أصفار · تم تحديثه 0) نسبتها 36% < 60% فمرّت من zeroGateOk.
+// المعيار الحاسم: **لا تحديث حقيقيّ إطلاقاً (updatedCount==0) بينما تصفيرٌ غيابيّ بكثرة (absentZeros≥20)**.
+// يفصل الثلاث بوضوح: اليوم 954≠0 يمرّ · حادثة 852 (0 ∧ 852) يوقف · 0/0/0 (0 ∧ 0) يمرّ. لا يمسّ الحساب.
+const ABSENT_ZERO_MIN = 20;
+function absentZeroGateOk(z) {
+  if (!(z && z.updatedCount === 0 && (z.absentZeros || 0) >= ABSENT_ZERO_MIN)) return true;
+  return confirm(
+    `توقّف: تم تحديثه 0، ومع ذلك سيُصفَّر ${z.absentZeros} صنفاً غائباً عن المخزن.\n\n` +
+    `هذا يقع عادةً حين يفشل قراءة عمود في ملف المخزون (فتصير مئات الأصناف «غائبة»).\n` +
+    `راجع أعمدة ملفك قبل المتابعة — استيراد هذا الملف يُصفّر كميات هذه الأصناف في زد ويُخفي البسيط منها.\n\n` +
+    `تنزيل الملف رغم ذلك؟`
+  );   // «إلغاء» هو الافتراضي (confirm يعيد false عند الإلغاء)
 }
 
 // ===== ① بوّابة الرفع: انكماش المخزن (الدفعة ٤) =====
@@ -4550,6 +4574,8 @@ function run(reprocess) {
     lastQtyRows = qtyRows; lastPriceRows = priceRows; lastPriceOrig = priceOrig;   // للتنزيل التجريبي (صف واحد أو المحدد) مع التحقق
     const mkBlob = aoa => { const ws = XLSX.utils.aoa_to_sheet(aoa); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1"); return new Blob([XLSX.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }); };
     lastZeroRatio = zeroRatio(qtyRows, rows0.length - 1);   // يُقاس كل تشغيل ويُعرض دائماً (فالمستخدم يعرف نطاقه الطبيعي)
+    lastZeroRatio.updatedCount = updatedList.length;        // للصمّام ②-ب (updated==0 ∧ absentZeros≥20) — قراءة محضة
+    lastZeroRatio.absentZeros = Object.values(zeroDoor).filter(v => v === "absent").length;   // المصفَّر الغيابيّ حصراً (لا ⏳ ولا رخص)
     const vq = verifyQuantities(qtyRows);
     const vp = verifyPrices(priceRows, priceOrig, H, autoUnpub);   // يمرّر Yes→No للإخفاء الآلي (بسيط/آباء عبر كل الأبواب)
     const vm = document.getElementById("verifyMsg");
@@ -4558,7 +4584,7 @@ function run(reprocess) {
       if (ok && count > 0 && dbOnline && !invMergeIncomplete()) {   // بلا اتصال أو موحّد مبتور ⇒ لا تنزيل (الدفعة أ ＋ حماية الموحّد الناقص)
         el.href = URL.createObjectURL(mkBlob(aoa)); el.classList.remove("disabled");
         el.onclick = ev => {
-          if (id === "dlQty" && !zeroGateOk(lastZeroRatio)) { ev.preventDefault(); return false; }   // ② الصمّام: يوقف التنزيل فعلاً
+          if (id === "dlQty" && (!absentZeroGateOk(lastZeroRatio) || !zeroGateOk(lastZeroRatio))) { ev.preventDefault(); return false; }   // ②-ب (updated=0 ∧ غيابيّ) ثم ② (نسبة 60%) — أيّهما يوقف يمنع
           logActivity("file_generated", null, { kind: id === "dlQty" ? "quantities" : "prices", count });
           saveToRepo(reason);
         };
