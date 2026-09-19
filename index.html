@@ -1711,7 +1711,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "f18e080";
+const APP_VERSION = "9f48c0b";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1953,7 +1953,18 @@ async function dbSetMapping(sku, code, source) { requireOnline(); requireOwner()
 async function dbSetMappings(pairs, source) { requireOnline(); requireOwner(); const rows = pairs.map(p => ({ zid_sku: String(p.sku), warehouse_code: normCode(p.code), source: source || "manual" })); await db.mappings.bulkUpsert(rows); for (const p of pairs) manualMap[String(p.sku)] = normCode(p.code); updateDbBadge(); logActivity("link_added", pairs.length === 1 ? pairs[0].sku : null, { count: pairs.length, source: source || "manual" }); }
 // إلغاء الربط: unlinkedSet تستثنيه من قاعدة «الغائب»، وboundSet يُخفيه من «يحتاج ربط»
 // عبر okItem — بلا حذفه منها يعود الصنف إلى القائمة **غير مرئي**.
-async function dbDelMapping(sku) { requireOnline(); requireOwner(); await db.mappings.remove(sku); delete manualMap[String(sku)]; unlinkedSet.add(normCode(sku)); boundSet.delete(String(sku)); updateDbBadge(); logActivity("link_removed", sku, null); }
+async function dbDelMapping(sku) {
+  requireOnline(); requireOwner();
+  await db.mappings.remove(sku);
+  const raw = String(sku), sk = normCode(sku);
+  delete manualMap[raw]; unlinkedSet.add(sk); boundSet.delete(raw);
+  // دوام (علّة التصميم): unlinkedSet للجلسة فقط، فإعادة التحميل كانت تُعيد الصنف «غائباً»⇒صفر (matchedHistory يذكره).
+  // الحلّ الدائم: احذفه من matchedHistory ⇒ لا «تاريخ مطابقة» ⇒ «يحتاج ربط» بعد أي إعادة تحميل (لا تصفير).
+  if (matchedHistory.has(sk)) { matchedHistory.delete(sk); saveMatchedHistory(); }
+  // نظّف بذرة الترحيل في الذاكرة فلا يعرض migrateBar إعادة استيراد المحذوف (نقرة تُبطل التنظيف). MAP_KEY المحلي (بذرة قديمة) يُمسح مرّةً يدوياً — لا نكتبه (عقد الدفعة أ: القرارات في القاعدة).
+  if (bootLocalMap && raw in bootLocalMap) delete bootLocalMap[raw];
+  updateDbBadge(); logActivity("link_removed", sku, null);
+}
 
 function initSupabase() {
   if (!window.supabase) { setDbBadge(false, "تعذّر تحميل مكتبة Supabase"); return; }
