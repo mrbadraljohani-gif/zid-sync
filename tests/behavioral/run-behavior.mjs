@@ -178,6 +178,17 @@ function infValCfg() {
   };
 }
 
+// G-LOWVAL2: الحكم بإجمالي الكود لا الحصة. كود «V» إجماله 8 على 4 متغيّرات منقّطة (حصة 2≤3) رخيصة (100<400)
+//   ⇒ تنجو (qty=2 لكلٍّ) لأن إجمالي الكود 8>3. الضابط SGL مفرد إجماله 2 (dist=null ⇒ codeTotal=2≤3) ⇒ يُصفَّر (كما كان).
+function lowVal2Cfg() {
+  return {
+    stData: { sheetName: "P", header: HEADER, rows: [HEADER,
+      Z("V.1", "5", "100"), Z("V.2", "5", "100"), Z("V.3", "5", "100"), Z("V.4", "5", "100"), Z("SGL", "5", "100")] },
+    whRows: [WH("V", 8, 100), WH("SGL", 2, 100)], lastMerge: merge(["V", "SGL"]), manualMap: {},
+    waiting: [], history: [], opts: { price: "incl", absent: "keep", lowzero: "on", split: "equal", lowPrice: 400, lowQty: 3 }, uploaded: false, callHook: false,
+  };
+}
+
 // دالّة داخل الصفحة: تهيّئ الحالة، تستدعي الخطاف+run (＋قرار اختياري)، وتُعيد القراءات (دفاعية للنسخ القديمة)
 async function inpage(cfg) {
   const mk = () => { const c = { select() { return c; }, upsert: async () => ({ error: null }), delete() { return c; }, insert: async () => ({ error: null }), eq: async () => ({ error: null }), in: async () => ({ error: null }), order() { return c; }, range: async () => ({ data: [], error: null }) }; return c; };
@@ -446,6 +457,16 @@ try {
   if (lzMut === curHtml) fails.push("أسنان G-LOWVAL: تعذّر تطبيق الطفرة");
   else { const LZT = await bootRead(browser, lzMut, lowValCfg()); if (Number(LZT.qtyOf["LV"]) === 0) fails.push("أسنان G-LOWVAL: بتعطيل القاعدة بقي LV مصفّراً — بلا أسنان"); else notes.push(`أسنان G-LOWVAL (بتعطيل القاعدة): LV=${LZT.qtyOf["LV"]} (≠0 = العطل: الرخيص شبه الفارغ يُباع)`); }
 
+  // ===== G-LOWVAL2: الحكم بإجمالي الكود لا الحصة (كود 8 على 4 متغيّرات حصة 2≤3 رخيصة ⇒ تنجو · مفرد 2 ⇒ يُصفَّر كما كان) =====
+  const L2 = await bootRead(browser, curHtml, lowVal2Cfg());
+  if (L2.err) fails.push("G-LOWVAL2 رمى: " + L2.err);
+  for (const v of ["V.1", "V.2", "V.3", "V.4"]) if (Number(L2.qtyOf[v]) !== 2) fails.push(`G-LOWVAL2: ${v} (إجمالي الكود 8>3 · حصة 2) qty=${L2.qtyOf[v]} (متوقّع 2 — تنجو بالحكم على الإجمالي)`);
+  if (Number(L2.qtyOf["SGL"]) !== 0) fails.push(`G-LOWVAL2: SGL (مفرد إجماله 2≤3) qty=${L2.qtyOf["SGL"]} (متوقّع 0 — المفرد كما كان)`);
+  notes.push(`G-LOWVAL2: V.1..4=[${["V.1", "V.2", "V.3", "V.4"].map(v => L2.qtyOf[v]).join(",")}] · SGL=${L2.qtyOf["SGL"]}`);
+  const l2Mut = curHtml.replace("codeTotalQty <= lowQtyLim", "whQtyReal <= lowQtyLim");   // العودة للحكم بالحصة = العطل قبل الإصلاح
+  if (l2Mut === curHtml) fails.push("أسنان G-LOWVAL2: تعذّر تطبيق الطفرة (لم أجد codeTotalQty <= lowQtyLim)");
+  else { const L2T = await bootRead(browser, l2Mut, lowVal2Cfg()); if (Number(L2T.qtyOf["V.1"]) === 2) fails.push("أسنان G-LOWVAL2: بالعودة للحصة بقيت V.1=2 — بلا أسنان"); else notes.push(`أسنان G-LOWVAL2 (بالعودة للحصة): V.1=${L2T.qtyOf["V.1"]} (≠2 = العطل: كود 8 حقيقيّ يُصفَّر لأن حصصه ≤3)`); }
+
   // ===== ٥ب G-REPUB: إعادة النشر No→Yes (القيمة: published=Yes للبسيط العائد له مخزون) =====
   const RP = await bootRead(browser, curHtml, repubCfg());
   if (RP.err) fails.push("G-REPUB رمى: " + RP.err);
@@ -467,4 +488,4 @@ try {
 
 console.log(notes.map(n => "  · " + n).join("\n"));
 if (fails.length) { console.error("\n✗ فشل المشغّل السلوكي:\n" + fails.map(f => "  ✗ " + f).join("\n")); process.exit(1); }
-console.log("\n✅ المشغّل السلوكي: كل الادّعاءات (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام التخفيض · ٣+١ العودة · ٥أ توزيع 3+2+2 · offset 280 · ٥ب lowVal 0 · republish Yes · inf 9) مثبتة سلوكياً بالقيمة، وأسنان كلٍّ مؤكَّدة على الطفرة.");
+console.log("\n✅ المشغّل السلوكي: كل الادّعاءات (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام التخفيض · ٣+١ العودة · ٥أ توزيع 3+2+2 · offset 280 · ٥ب lowVal 0 · lowVal2 إجمالي-الكود · republish Yes · inf 9) مثبتة سلوكياً بالقيمة، وأسنان كلٍّ مؤكَّدة على الطفرة.");

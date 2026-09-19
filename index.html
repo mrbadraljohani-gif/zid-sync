@@ -1711,7 +1711,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "fbd4119";
+const APP_VERSION = "013155c";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -4478,7 +4478,10 @@ function run(reprocess) {
       const valBase = opts.price === "excl" ? wh.excl : (opts.price === "incl" ? wh.incl : (wh.incl != null ? wh.incl : wh.excl));
       const lowQtyLim = opts.lowQty != null ? opts.lowQty : 3;
       const valForRule = valBase != null ? Math.round(Number(valBase)) + offset : null;
-      const lowValZero = opts.lowzero !== "off" && valForRule != null && valForRule < (opts.lowPrice || 400) && whQtyReal <= lowQtyLim;
+      // ⚠ الحكم بإجمالي كود المستودع لا بحصة المتغيّر: كود إجماله>العتبة مخزون حقيقيّ لا يُصفَّر ولو رقّق التوزيع حصصه (الفروة 33 على 20).
+      // المفرد/وضع «الكمية الكاملة» ⇒ dist=null ⇒ codeTotalQty = whQtyReal (السلوك كما كان تماماً). السعر بلا مساس، والعتبتان من opts.
+      const codeTotalQty = dist ? dist.total : whQtyReal;
+      const lowValZero = opts.lowzero !== "off" && valForRule != null && valForRule < (opts.lowPrice || 400) && codeTotalQty <= lowQtyLim;
       const newQty = lowValZero ? 0 : whQtyReal;                     // الكمية الفعلية المُصدَّرة
       finalQtyByRaw[rawKey] = newQty;                                // للإجماع على إخفاء الأب
       // تشخيص ?debug: عيّنة من مرشّحي القيمة المنخفضة (كمية ≤ الحد) — خام · بعد القاعدة · كمية زد · القرار
