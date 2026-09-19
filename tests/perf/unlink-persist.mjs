@@ -31,34 +31,36 @@ const res = await p.evaluate(async () => {
   sb = { from: () => ({ delete() { return this; }, eq: async () => ({ error: null }), select() { return this; }, order() { return this; }, range: async () => ({ data: [], error: null }) }) };
   dbOnline = true; myRole = "owner";
   db.mappings = { remove: async () => ({}) }; db.activity = { insert: async () => {} };
-  // صنف W مربوط يدوياً بكود غائب، وفي matchedHistory ＋ بذرة الترحيل المحلية
+  // صنف W مربوط يدوياً بكود غائب، وفي matchedHistory ＋ بذرة الترحيل المحلية ＋ HIST_KEY المحلي
   manualMap = { "W": "MISSINGCODE" };
   matchedHistory = new Set(["W"]);
   bootLocalMap = { "W": "MISSINGCODE" };
+  localStorage.setItem(HIST_KEY, JSON.stringify(["W", "KEEP1"]));
   dbMappings = []; unlinkedSet = new Set();
-  let saved = false; saveMatchedHistory = () => { saved = true; };   // نتأكّد أنّ الحذف يُحفَظ (دوام عبر HIST_KEY)
   await dbDelMapping("W");
   const inHistAfter = matchedHistory.has("W");
+  const localAfter = JSON.parse(localStorage.getItem(HIST_KEY) || "[]");   // هل HIST_KEY المحلي نُظّف فعلاً؟ (لا وسم مزيّف)
+  const inLocalAfter = localAfter.includes("W");
   const inSeedAfter = !!(bootLocalMap && bootLocalMap["W"]);
-  const histSaved = saved;
-  // حاكِ إعادة التحميل: unlinkedSet يضيع، manualMap يُعاد بناؤه من القاعدة (فارغة)
-  unlinkedSet = new Set(); manualMap = {};
-  // القرار الحاسم (سطر 4416): hasHistory = (manualMap||matchedHistory) && !unlinkedSet
-  const hasHistoryAfterReload = (!!manualMap["W"] || matchedHistory.has("W")) && !unlinkedSet.has("W");
-  // migrateBar بعد الحذف: bootLocalMap فارغ ⇒ لا ترحيل
+  // محاكاة إعادة التحميل الحقيقية = loadSet: matchedHistory = **ملف الريبو ∪ HIST_KEY** (سطر 2584)
+  const reloadUnion = repoFile => new Set([...(repoFile || []), ...JSON.parse(localStorage.getItem(HIST_KEY) || "[]")].map(x => normCode(x)));
+  const wAfterReload_cleanSeed = reloadUnion([]).has(normCode("W"));       // بذرة الريبو نُظّفت ⇒ W خارج
+  const wAfterReload_staleSeed = reloadUnion(["W"]).has(normCode("W"));    // بذرة الريبو لم تُنظَّف ⇒ W يعود (التبعية الحاسمة)
   const migMapPending = (typeof migPending === "function") ? migPending().some(x => x.type === "map") : (Object.keys(bootLocalMap || {}).length > 0);
-  return { inHistAfter, inSeedAfter, histSaved, hasHistoryAfterReload, migMapPending };
+  return { inHistAfter, inLocalAfter, inSeedAfter, wAfterReload_cleanSeed, wAfterReload_staleSeed, migMapPending };
 });
 await b.close(); server.close();
 const fails = [];
-if (res.inHistAfter !== false) fails.push("لم يُحذف من matchedHistory ⇒ سيعود «غائباً» بعد إعادة التحميل");
-if (res.histSaved !== true) fails.push("لم يُستدعَ saveMatchedHistory ⇒ الحذف لا يدوم عبر إعادة التحميل");
+if (res.inHistAfter !== false) fails.push("لم يُحذف من matchedHistory في الذاكرة");
+if (res.inLocalAfter !== false) fails.push("لم يُنظَّف HIST_KEY المحلي (saveMatchedHistory لم يُطبَّق فعلاً)");
 if (res.inSeedAfter !== false) fails.push("لم يُحذف من bootLocalMap ⇒ migrateBar يعرضه");
-if (res.hasHistoryAfterReload !== false) fails.push("🚨 بعد إعادة التحميل: hasHistory=true ⇒ يُصنَّف «غائباً» ⇒ تصفير (العلّة الأصل)");
+// ★ الحقيقة (اتحاد loadSet): مع بذرة ريبو نظيفة ⇒ W خارج بعد إعادة التحميل؛ مع بذرة قديمة ⇒ يعود.
+if (res.wAfterReload_cleanSeed !== false) fails.push("مع بذرة ريبو نظيفة، W عاد بعد إعادة التحميل — الحذف المحلي لم يُطبَّق");
+if (res.wAfterReload_staleSeed !== true) fails.push("التبعية غير مثبتة: بذرة ريبو قديمة يجب أن تُعيد W (يوثّق ضرورة تنظيف الملف / ترحيل matchedHistory للقاعدة)");
 if (res.migMapPending !== false) fails.push("migrateBar يعرض إعادة استيراد المحذوف");
 if (BROKEN) {
   if (fails.length) { console.log("✅ (--broken) G-UNLINK-PERSIST مسك العلّة: " + fails[0]); process.exit(0); }
   console.error("✗ (--broken) لم يرسب بعد تعطيل حذف matchedHistory — لا أسنان."); process.exit(1);
 }
 if (fails.length) { console.error("✗ G-UNLINK-PERSIST:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ G-UNLINK-PERSIST: الإلغاء يحذف من matchedHistory (＋يحفظ) ＋ bootLocalMap ⇒ بعد إعادة التحميل «يحتاج ربط» لا «غائب»، وبلا بانر ترحيل.");
+console.log("✅ G-UNLINK-PERSIST: dbDelMapping ينظّف matchedHistory ＋ HIST_KEY ＋ bootLocalMap؛ وإعادة التحميل (اتحاد loadSet) تُبقي W خارجاً **إن نُظّفت بذرة الريبو** (وإلا تُعيده — تبعية موثّقة: ترحيل matchedHistory للقاعدة هو الحلّ الدائم).");
