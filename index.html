@@ -1711,7 +1711,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "013155c";
+const APP_VERSION = "0bc95da";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -4401,9 +4401,9 @@ function run(reprocess) {
     let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0, noChangeDropped = 0;
     const cls = { matched: 0, unmatched: 0, collided: 0, absent: 0, parent: 0 };   // §دفعة٢: تصنيف كل منتج مرّة واحدة (التقاط بحت للرسم الدائري)
     const unmatched = [], updatedList = [], absentList = [], saleConflicts = [], lowValDbg = [];   // العودة من الانتظار انتقلت إلى خطاف الرفع (البند ٣) — لا reactivated هنا
-    // قياس lowValZero (?debug فقط، صفر تغيير سلوك): كم صُفّر · كم سينجو لو حكمنا بإجمالي كود المستودع لا بحصة المتغيّر · كم قطعة تتحرّر
-    // lowZeroTotal = كل قرارات lowValZero (صفوف متغيّرات) · lowZeroInFile = منها ما زد قيمته≠0 (يدخل الملف فعلاً = zeroLowCount) · Survive/InFileSurvive = ما إجمالي كوده>العتبة
-    let lowZeroTotal = 0, lowZeroInFile = 0, lowZeroSurvive = 0, lowZeroInFileSurvive = 0, lowZeroRelease = 0; const lowZeroDbg = [];
+    // قياس أثر قاعدة lowValZero (?debug فقط، صفر تغيير سلوك): الفرق بين الحكم الحالي (بإجمالي الكود) والقديم (بالحصة) — يبقى نافعاً للمقارنة التاريخية بعد تطبيق الإصلاح.
+    // lowZeroNow = صُفّر حالياً (بالإجمالي) · NowInFile = منها زد≠0 · Saved = أنقذه الإصلاح (كان يُصفَّر بالحصة، نجا بالإجمالي) · SavedInFile · SavedPieces (قطع محرّرة).
+    let lowZeroNow = 0, lowZeroNowInFile = 0, lowZeroSaved = 0, lowZeroSavedInFile = 0, lowZeroSavedPieces = 0; const lowZeroDbg = [];
     const parentsToPublish = new Map();   // كود الأب ⇒ {sku, name, variants[]} — نشر يُنقَل من المتغيّرات إلى صف الأب
     const finalQtyByRaw = {};             // كمية كل صنف زد النهائية بعد كل القواعد (لإجماع إخفاء الأب + الإخفاء الموحّد)
     const zeroDoor = {};                  // rawKey ⇒ باب التصفير غير المطابِق: "waiting"(⏳) / "absent"(غائب-صفر) — لتوحيد الإخفاء التلقائي عبر كل الأبواب
@@ -4487,13 +4487,15 @@ function run(reprocess) {
       // تشخيص ?debug: عيّنة من مرشّحي القيمة المنخفضة (كمية ≤ الحد) — خام · بعد القاعدة · كمية زد · القرار
       if (whQtyReal <= lowQtyLim && lowValDbg.length < 40) lowValDbg.push({ sku: String(rawSku), raw: whQtyReal, price: valForRule, after: newQty, zid: normZidQty(oldQty), zeroed: lowValZero });
       // قياس محاكاة: الحكم بإجمالي كود المستودع (dist.total) لا حصة المتغيّر (whQtyReal) — الفروة 33 (>3) يجب أن تنجو رغم صغر الحصص
-      if (lowValZero) {
-        lowZeroTotal++;
-        const _ct = dist ? dist.total : whQtyReal, _vc = dist ? dist.count : 1;
-        const _inFile = normZidQty(oldQty) !== 0;   // زد≠0 ⇒ التصفير تغيير فعليّ ⇒ يدخل الملف (كـzeroLowCount)؛ زد=0 أصلاً ⇒ يُسقطه strip
-        if (_inFile) lowZeroInFile++;
-        if (_ct > lowQtyLim) { lowZeroSurvive++; lowZeroRelease += whQtyReal; if (_inFile) lowZeroInFileSurvive++; }   // سينجو لو حكمنا بالإجمالي ⇒ تتحرّر حصّته
-        if (lowZeroDbg.length < 400) lowZeroDbg.push({ code: whCode, total: _ct, vars: _vc, now: newQty, after: _ct > lowQtyLim ? whQtyReal : 0, price: valForRule, inFile: _inFile });
+      {
+        const _cheap = opts.lowzero !== "off" && valForRule != null && valForRule < (opts.lowPrice || 400);
+        const _oldWouldZero = _cheap && whQtyReal <= lowQtyLim;   // القاعدة القديمة (بالحصة)
+        const _inFile = normZidQty(oldQty) !== 0;                 // زد≠0 ⇒ التصفير تغيير فعليّ يدخل الملف
+        if (lowValZero) { lowZeroNow++; if (_inFile) lowZeroNowInFile++; }
+        if (_oldWouldZero && !lowValZero) {   // أنقذه الإصلاح: كان يُصفَّر بالحصة، نجا بالحكم على إجمالي الكود
+          lowZeroSaved++; lowZeroSavedPieces += whQtyReal; if (_inFile) lowZeroSavedInFile++;
+          if (lowZeroDbg.length < 400) lowZeroDbg.push({ code: whCode, total: dist ? dist.total : whQtyReal, vars: dist ? dist.count : 1, share: whQtyReal, price: valForRule, inFile: _inFile });
+        }
       }
       const qtyChanged = String(oldQty) !== String(newQty);          // "Infinite" ≠ رقم ⇒ يُستبدل دائماً
       // قاعدة الأسعار: السعر النهائي = تقريب سعر المستودع + زيادة المتغير (إن وجدت)، وتجاهل فرق < 1 ريال مقابل سعر زد
@@ -4687,21 +4689,26 @@ function run(reprocess) {
         + `\nقاعدة القيمة المنخفضة (عتبة ≤${opts.lowQty != null ? opts.lowQty : 3} · <${opts.lowPrice || 400}) — عيّنة [خام→بعد · سعرنهائي · زد · قرار]:\n  `
         + (lowValDbg.length ? lowValDbg.map(d => `${d.sku}[${d.raw}→${d.after} · ${d.price == null ? "—" : d.price} · ${Number.isFinite(d.zid) ? d.zid : "∞/فارغ"} · ${d.zeroed ? "صُفّر" : "كما هو"}]`).join("  ") : "لا مرشّحين")
         + (() => {
-            // تجميع على مستوى الكود (لا تكرار): المُصدَّر الآن = مجموع النهائي لأعضائه · بعد = مجموع الحصص (=الإجمالي)
-            const codes = [...new Set(lowZeroDbg.filter(d => d.total > lowQtyLim).map(d => d.code))];
+            // أثر القاعدة (الحكم بالإجمالي مقابل القديم بالحصة) — يبقى نافعاً بعد التطبيق للمقارنة التاريخية.
+            const codes = [...new Set(lowZeroDbg.map(d => d.code))];   // الأكواد التي أنقذها الإصلاح
             const rows = codes.map(code => {
               const members = (whMembers.get(code) || []);
               const total = whIndex[code] ? Math.round(whIndex[code].qty) : (lowZeroDbg.find(d => d.code === code) || {}).total || 0;
-              const nowSum = members.reduce((s, rk) => s + (Number(finalQtyByRaw[rk]) || 0), 0);   // مُصدَّر الآن (مجموع نهائي الأعضاء)
-              const afterSum = members.reduce((s, rk) => s + (shareByRaw.get(rk) || 0), 0);          // بعد الإصلاح (مجموع الحصص = الإجمالي)
-              return { code, total, vars: members.length, now: nowSum, after: afterSum };
+              const nowSum = members.reduce((s, rk) => s + (Number(finalQtyByRaw[rk]) || 0), 0);   // المُصدَّر الآن (مجموع نهائي الأعضاء — بعد الإصلاح)
+              const oldSum = members.reduce((s, rk) => { const sh = shareByRaw.get(rk) || 0; return s + (sh <= lowQtyLim ? 0 : sh); }, 0);   // لو حُكم بالحصة (القديم): كل حصة≤العتبة تُصفَّر
+              return { code, total, vars: members.length, now: nowSum, old: oldSum };
             }).sort((a, b) => b.total - a.total).slice(0, 5);
-            // أعلى ٥ بالسعر من الناجين (صفوف متغيّرات، مرتّبة تنازلياً بالسعر النهائي)
-            const byPrice = lowZeroDbg.filter(d => d.total > lowQtyLim).sort((a, b) => (b.price || 0) - (a.price || 0)).slice(0, 5);
-            return `\n\n⟪قياس lowValZero (محاكاة، بلا تغيير) — الحكم بإجمالي الكود لا الحصة⟫`
-              + `\nصُفّر (كل القرارات) ${lowZeroTotal} · منها في ملف الكميات ${lowZeroInFile} (زد≠0) · سينجو بالإصلاح ${lowZeroSurvive} (منها في الملف ${lowZeroInFileSurvive}) · يتحرّر ${lowZeroRelease} قطعة`
-              + (rows.length ? `\nأكبر ٥ أكواد [الكود · الإجمالي · متغيّرات · المُصدَّر الآن · بعد]:\n  ` + rows.map(r => `${r.code} · ${r.total} · ${r.vars} · ${r.now} · ${r.after}`).join("\n  ") : `\n(لا كود يتحرّر — كل المصفَّر إجمالي كوده ≤ ${lowQtyLim})`)
-              + (byPrice.length ? `\nأعلى ٥ بالسعر من الناجين [الكود · السعر · حصة · إجمالي]:\n  ` + byPrice.map(d => `${d.code} · ${d.price == null ? "—" : d.price} · ${d.after} · ${d.total}`).join("\n  ") : "");
+            const byPrice = lowZeroDbg.slice().sort((a, b) => (b.price || 0) - (a.price || 0)).slice(0, 5);   // أعلى ٥ بالسعر من التي أنقذها الإصلاح
+            // تفكيك أصفار ملف الكميات حسب الباب (يفسّر فرق «مصفَّر» عن «صُفّر لانخفاض القيمة»)
+            const zeroRows = qtyRows.slice(1).filter(r => Number(r[3]) === 0);
+            const doorW = zeroRows.filter(r => zeroDoor[String(r[0])] === "waiting").length;
+            const doorA = zeroRows.filter(r => zeroDoor[String(r[0])] === "absent").length;
+            const doorOther = zeroRows.length - doorW - doorA;   // قاعدة القيمة المنخفضة + حصص صفرية في التوزيع + مطابَق٠
+            return `\n\n⟪أثر قاعدة lowValZero — الحكم بإجمالي الكود مقابل القديم (بالحصة)⟫`
+              + `\nصُفّر حالياً (بالإجمالي) ${lowZeroNow} (منها في الملف ${lowZeroNowInFile}) · أنقذه الإصلاح ${lowZeroSaved} (منها في الملف ${lowZeroSavedInFile}) · قطع محرّرة ${lowZeroSavedPieces}`
+              + `\nأصفار ملف الكميات حسب الباب: انتظار⏳ ${doorW} · غائب ${doorA} · قاعدة/حصّة ${doorOther}  (المجموع ${zeroRows.length} = «مصفَّر»)`
+              + (rows.length ? `\nأكبر ٥ أكواد أنقذها الإصلاح [الكود · الإجمالي · متغيّرات · الآن · لو بالحصة]:\n  ` + rows.map(r => `${r.code} · ${r.total} · ${r.vars} · ${r.now} · ${r.old}`).join("\n  ") : `\n(لا كود أنقذه الإصلاح هذا التشغيل)`)
+              + (byPrice.length ? `\nأعلى ٥ بالسعر ممّا أنقذه الإصلاح [الكود · السعر · حصة · إجمالي]:\n  ` + byPrice.map(d => `${d.code} · ${d.price == null ? "—" : d.price} · ${d.share} · ${d.total}`).join("\n  ") : "");
           })()
         + `\n\n⟪رؤوس ملفات المخزن المُلتقطة⟫` + invHeaderDbgLine("wh") + invHeaderDbgLine("branch")
         + `\n\n⟪إخفاء تلقائي (قيمة/كمية 0)⟫`
@@ -4738,14 +4745,19 @@ function run(reprocess) {
         const wi = whIndex[tc], lim = opts.lowQty != null ? opts.lowQty : 3, lowP = opts.lowPrice || 400;
         const related = [];
         for (let i = 1; i < rows0.length; i++) { const rs = rows0[i][iSku]; if (rs == null || rs === "") continue; const rk = String(rs); if (resolveWhCode(rs, normCode(rs)) === tc) related.push(rk); }
+        const codeTotal = wi ? Math.round(wi.qty) : null;   // إجمالي كود المستودع (أساس القرار الفعليّ)
         const lines = related.map(rk => {
           const isParent = parentRaws.has(rk);
           const share = shareByRaw.has(rk) ? shareByRaw.get(rk) : (wi ? Math.max(0, Math.round(wi.qty)) : "?");
           const fin = finalQtyByRaw[rk], off = priceOffsets[normCode(rk)] || 0;
           const base = opts.price === "excl" ? (wi && wi.excl) : (opts.price === "incl" ? (wi && wi.incl) : (wi ? (wi.incl != null ? wi.incl : wi.excl) : null));
           const pr = base != null ? Math.round(Number(base)) + off : null;
-          const wouldZero = !isParent && pr != null && pr < lowP && typeof share === "number" && share <= lim;
-          return `  ${rk} · حصة=${share} · نهائي=${fin === undefined ? "—" : fin} · سعر=${pr == null ? "—" : pr}${isParent ? " · ⛔ أب مستبعد" : ""}${wouldZero ? " · صُفّر(حصة≤" + lim + " وسعر<" + lowP + ")" : ""}`;
+          // ⚠ الوسم يعكس **القرار الفعليّ** (الحكم بإجمالي الكود) لا الشرط الملغى (الحصة) — وسمٌ يقرأ شرطاً ملغى يكذب على قارئه.
+          const cheap = pr != null && pr < lowP;
+          const zeroedNow = !isParent && cheap && codeTotal != null && codeTotal <= lim;   // مطابقٌ لقاعدة run الفعلية
+          const savedByTotal = !isParent && cheap && typeof share === "number" && share <= lim && codeTotal != null && codeTotal > lim;
+          const tag = isParent ? " · ⛔ أب مستبعد" : (zeroedNow ? ` · صُفّر (قيمة منخفضة · إجمالي الكود ${codeTotal}≤${lim})` : (savedByTotal ? ` · نجا (إجمالي الكود ${codeTotal} > ${lim})` : ""));
+          return `  ${rk} · حصة=${share} · نهائي=${fin === undefined ? "—" : fin} · سعر=${pr == null ? "—" : pr}${tag}`;
         });
         vm.textContent += `\n\n⟪تتبّع الكود ${tc}⟫`
           + `\nإجمالي المخزون: ${wi ? wi.qty : "— (لا كود في المخزن الموحّد!)"} · شامل=${wi ? wi.incl : "—"} · قبل=${wi ? wi.excl : "—"}`
