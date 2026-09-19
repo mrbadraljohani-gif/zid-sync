@@ -1711,7 +1711,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "c978d91";
+const APP_VERSION = "eea2c6a";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2744,6 +2744,16 @@ function normalizeName(name) {
   s = s.replace(/[^\p{L}\p{N}\s]/gu, " ").toLowerCase();              // رموز (- / _ …)
   return s.split(/\s+/).map(w => w.replace(/^ال/, "")).filter(Boolean).join(" ").trim();   // أل التعريف
 }
+// تطبيع صارم للمطابقة التامّة (T1): يُبقي **الأرقام والمقاسات** (بخلاف normalizeName الذي يُسقط المقاس)،
+// يوحّد الحالة/التشكيل/الهمزات/ة/ى ويزيل غير الأبجدي-الرقمي — فالتطابق «حرفاً بحرف» على الجوهر.
+function normNameStrict(name) {
+  return String(name == null ? "" : name).toLowerCase()
+    .replace(/[ً-ْٰـ]/g, "").replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/[ؤئ]/g, "")
+    .replace(/[^\p{L}\p{N}]/gu, "");   // يزيل المسافات والرموز — يبقى الحروف والأرقام
+}
+// الأرقام المميِّزة (≥رقمين): موديلات/أحجام (BP162→162 · 1400ML→1400 · 83989). لكشف تعارض الموديل/الحجم.
+function sigNums(name) { const m = String(name || "").match(/\d{2,}/g); return new Set(m || []); }
+function numConflict(a, b) { const A = sigNums(a), B = sigNums(b); if (!A.size || !B.size) return false; for (const x of A) if (B.has(x)) return false; return true; }   // مجموعتان غير فارغتين بلا مشترك ⇒ تعارض
 function batchBigrams(s) { const b = new Map(); for (let i = 0; i < s.length - 1; i++) { const g = s.slice(i, i + 2); b.set(g, (b.get(g) || 0) + 1); } return b; }
 // تشابه Dice على ثنائيات الحروف بعد التطبيع (0-1)
 function nameSimilarity(a, b) {
@@ -2768,14 +2778,15 @@ function scoreCandidate(z, wh) {
   const sizeM = !!(zS && wS && zS === wS), priceM = priceMatch(z.price, wh.price), sim = nameSimilarity(z.name, wh.name);
   const aliasHit = batchAliases.has(nameRoot(z.name) + "|||" + nameRoot(wh.name));
   let score = 0; if (sizeM) score += 50; if (priceM) score += 30; if (sim >= 0.5) score += Math.round(20 * sim); if (aliasHit) score += 40;
-  return { code: wh.code, name: wh.name, price: wh.price, qty: wh.qty, size: wS, sizeM, priceM, sim: +sim.toFixed(2), aliasHit, score };
+  const exactName = normNameStrict(z.name) === normNameStrict(wh.name);   // تطابق تامّ (T1): الطريق الوحيد للأخضر
+  const numConf = numConflict(z.name, wh.name);                            // تعارض موديل/حجم (BP162≠BP164) — للترتيب والسبب
+  return { code: wh.code, name: wh.name, price: wh.price, qty: wh.qty, size: wS, sizeM, priceM, sim: +sim.toFixed(2), aliasHit, exactName, numConf, score };
 }
-// تصنيف أفضل مرشح: 🟢 مؤكد (مقاس+سعر، أو ≥80 وفارق ≥20) · 🟡 محتمل (40-79 أو مؤكد بمنافس قريب) · 🔴 (<40)
-function classifyBatch(best, second) {
-  if (!best || best.score < 40) return "red";
-  const margin = best.score - (second ? second.score : 0);
-  const confirmed = (best.sizeM && best.priceM) || (best.score >= 80 && margin >= 20);
-  return (confirmed && margin >= 20) ? "green" : "yellow";
+// تصنيف أفضل مرشح (T1): 🟢 **تطابق اسم تامّ لمرشّح وحيد فقط** (لا سعر/تشابه/alias يرفع لأخضر) · 🟡 ما عداه (مقاس/سعر/تشابه) · 🔴 بلا مرشّح موثوق (<40)
+function classifyBatch(r) {
+  if (r.exactUnique) return "green";               // اسم تامّ وحيد ⇒ أخضر مهما كانت الدرجة (الاسم أقوى إشارة؛ فرق السعر تحديثٌ حقيقيّ)
+  if (!r.best || r.best.score < 40) return "red";
+  return "yellow";
 }
 
 // محرك الترشيح لكل صنف في «جديد يحتاج قراراً» + حلّ التنازع + التصنيف
@@ -2798,7 +2809,8 @@ function analyzeBatch() {
     const zSize = extractSize(z.name), cand = new Set();
     if (zSize && bySize.has(zSize)) for (const w of bySize.get(zSize)) cand.add(w);
     for (const t of coreTokens(nameTokens(z.name))) { const a = byTok.get(t); if (a) for (const w of a) cand.add(w); }
-    const scored = [...cand].map(w => scoreCandidate(z, w)).filter(s => s.score > 0).sort((a, b) => b.score - a.score);
+    const scored = [...cand].map(w => scoreCandidate(z, w)).filter(s => s.score > 0)
+      .sort((a, b) => (b.exactName - a.exactName) || (a.numConf - b.numConf) || (b.score - a.score));   // اسم تامّ أولاً ← غير متعارض ← درجة
     // «سبق ربطه» (رابط يدوي ضائع) = غائب عن الملف الحالي **رغم وجود كود سابق محفوظ يدوياً** (لا matchedHistory المتشبّع).
     const isAbsent = absSet.has(String(z.sku));
     const wasLinked = isAbsent && !!manualMap[String(z.sku)];
@@ -2819,9 +2831,13 @@ function analyzeBatch() {
       r.second = r.scored.filter(s => r.best && s.code !== r.best.code)[0] || null;
     }
   }
+  // قطعية الاسم التامّ: أخضر فقط إن طابق مرشّحاً **وحيداً** في المخزون (الاسم المكرّر ⇒ أصفر). يُحسب بعد الحلّ (r.best نهائيّ).
+  const whStrictCount = new Map();
+  for (const w of lastWhList) { const k = normNameStrict(w.name); if (k) whStrictCount.set(k, (whStrictCount.get(k) || 0) + 1); }
   const green = [], yellow = [], red = [];
   for (const r of results) {
-    let cls = classifyBatch(r.best, r.second);
+    r.exactUnique = !!(r.best && r.best.exactName && whStrictCount.get(normNameStrict(r.z.name)) === 1);
+    let cls = classifyBatch(r);
     if (r.demoted && cls === "green") cls = "yellow";
     r.cls = cls;
     (cls === "green" ? green : cls === "yellow" ? yellow : red).push(r);
@@ -2848,9 +2864,12 @@ async function batchApply(pairs, tag) {
   for (const { sku, code } of pairs) {
     boundSet.add(String(sku));
     excludedSet.delete(normCode(sku));
-    const z = lastUnmatchedRaw.find(u => String(u.sku) === String(sku));
-    const w = lastWhList.find(x => normCode(x.code) === normCode(code));
-    if (z && w) { const zr = nameRoot(z.name), wr = nameRoot(w.name); if (zr && wr) { const p = zr + "|||" + wr; if (!batchAliases.has(p)) newAliases.push(p); } }
+    // التعلّم من الأخضر فقط (auto-confirmed): نظام يتعلّم من اعتماداته يضاعف أخطاءه — لا نتعلّم من auto-approved/يدوي
+    if (tag === "auto-confirmed") {
+      const z = lastUnmatchedRaw.find(u => String(u.sku) === String(sku));
+      const w = lastWhList.find(x => normCode(x.code) === normCode(code));
+      if (z && w) { const zr = nameRoot(z.name), wr = nameRoot(w.name); if (zr && wr) { const p = zr + "|||" + wr; if (!batchAliases.has(p)) newAliases.push(p); } }
+    }
   }
   lastBatchUndo = { entries: undo, count: pairs.length, tag };
   // تعلُّم aliases: القاعدة أولاً (bulk)، وعند النجاح فقط تُضاف للذاكرة (بأفضل جهد — لا يُفشل الاعتماد)
@@ -2927,7 +2946,7 @@ const unlinkTag = r => {
 };
 const lostTag = r => (r.reappeared ? `<span class="lost-tag" title="عاد كوده للمخزن بعد أن كان «غير متوفر» — أُزيل من الانتظار وينتظر قرارك (بلا مطابقة تلقائية)">↩ توفّر</span>` : "") + (r.isAbsent ? `<span class="cat-badge cat-abs" title="غائب عن ملف المستودع الحالي — قد يكون في فرع آخر (المرحلة 1)">${ic("inbox","ico-warn")} غائب</span>` : "") + (r.wasLinked ? `<span class="lost-tag" title="غائب رغم كود سابق محفوظ يدوياً — رابط يدوي ضائع، أولوية إعادة ربط">${ic("link2","ico-info")} سبق ربطه</span>` : "");
 const priceCell = (z, w) => `<span dir="ltr">${priceInt(z) ?? "—"} / ${priceInt(w) ?? "—"}</span>${priceBadge(z, w)}`;
-const reasonText = b => [b.sizeM ? "مقاس✓" : "", b.priceM ? "سعر✓" : "", b.sim >= 0.5 ? "اسم " + Math.round(b.sim * 100) + "٪" : "", b.aliasHit ? "زوج معروف" : ""].filter(Boolean).join(" · ");
+const reasonText = b => b.exactName ? "اسم مطابق تماماً" : [b.sizeM ? "مقاس✓" : "", b.priceM ? "سعر✓" : "", b.sim >= 0.5 ? "اسم " + Math.round(b.sim * 100) + "٪" : "", b.aliasHit ? "زوج معروف" : "", b.numConf ? "⚠ موديل/حجم مختلف" : ""].filter(Boolean).join(" · ");
 
 // غلاف حافظ للموضع — بطاقات التحليل تُبنى داخل #detailTable نفسه (القاعدة الوقائية العامة)
 
@@ -3093,7 +3112,7 @@ function batchCardHTML(r, chkCls, famAttr) {
     ? `<button class="mc-btn wait" disabled aria-disabled="true">${ic("hourglass","ico-warn")} غير متوفر</button><div class="wait-note">${esc(noop)}</div>`
     : `<button class="mc-btn wait" onclick="batchExclude('${uid}','wait')" title="سجّله «غير متوفر حالياً» (⏳)">${ic("hourglass","ico-warn")} غير متوفر</button>`;
   const actions = `<div class="mc-actions">
-      <label class="bt-card-chk"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${c ? "checked" : ""}><span>اعتماد الربط</span></label>
+      <label class="bt-card-chk"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${chkCls === "bt-g" ? "checked" : ""}><span>اعتماد الربط</span></label>
       ${waitBtn}
     </div>`;
   const search = esc(normText(String(r.z.sku) + " " + (r.z.name || "") + " " + (c ? String(c.code) + " " + (c.name || "") : "")));
@@ -5134,6 +5153,7 @@ function updatedTableHTML(list) {
   return sessBar + chipBar + `<div class="test-bar">
       <button class="btn-run sm" onclick="downloadSelected()"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20.5h14"/></svg> نزّل المحدّد للتجربة (كميات ＋ أسعار) (<span id="testN">${testSelected.size}</span>)</button>
       <button class="mini-btn" onclick="toggleAllTest()">تحديد/إلغاء المعروض</button>
+      <button class="mini-btn danger" onclick="bulkUnlink()" title="إلغاء الربط اليدويّ للأصناف المحدّدة دفعةً — تعود «يحتاج ربط» بلا إخفاء ولا تصفير">${ic("link2")} إلغاء ربط المحدّد (<span id="bulkUnlinkN">${testSelected.size}</span>)</button>
       <span class="hint" style="margin:0">ينزل ملفان معاً: <b>test_quantities</b> (زد: استيراد ← تحديث الكميات فقط) و<b>test_prices</b> (زد: استيراد ← تحديث المنتجات ← حدّد حقلَي السعر ومنشور ← تجاهل الفراغات). إن لم يكن في المحدد تغيّر سعر/نشر يُنزَّل ملف الكميات فقط.</span>
     </div>
     <table class="upd-table" aria-label="الأصناف التي تم تحديثها">
@@ -5146,6 +5166,19 @@ function toggleTest(sku, on) {
   const k = String(sku);   // نستخدم SKU الخام (فريد لكل صف) لا الكود المُطبَّع
   if (on) testSelected.add(k); else testSelected.delete(k);
   const n = document.getElementById("testN"); if (n) n.textContent = testSelected.size;
+  const bn = document.getElementById("bulkUnlinkN"); if (bn) bn.textContent = testSelected.size;
+}
+// إلغاء ربط دفعيّ للأصناف المحدّدة (على المحدّد لا الكل) — تعود «يحتاج ربط» بلا تصفير (unlinkedSet)، تشغيل واحد في النهاية
+async function bulkUnlink() {
+  if (blockedOffline()) return;
+  const sel = [...testSelected].filter(s => manualMap[String(s)]);   // المحدّد الذي له رابط يدويّ فقط
+  if (!sel.length) { showToast("حدّد أصنافاً لها روابط أولاً (بصناديق التحديد في الجدول)."); return; }
+  if (!confirm(`سيُلغى ربط ${sel.length} صنفاً — تعود «يحتاج ربط»، بلا إخفاء من المتجر ولا تصفير كميتها. (تصحيح لا إخفاء.)`)) return;
+  let done = 0;
+  for (const s of sel) { try { await dbDelMapping(s); testSelected.delete(String(s)); done++; } catch (e) { break; } }   // فشل صلاحية/اتصال ⇒ توقّف (كـdelMap)
+  renderPills();
+  run(true);   // تشغيل واحد يعكس كل الإلغاءات في القائمة والملفّين
+  showToast(`↩ أُلغي ربط ${done} صنفاً — راجعها في «يحتاج ربط».`);
 }
 function toggleAllTest() {
   const chks = [...document.querySelectorAll("#unBody input.test-chk")].filter(c => { const tr = c.closest("tr"); return tr && tr.style.display !== "none"; });
