@@ -1,0 +1,31 @@
+# نسخة Supabase الاحتياطية اليومية — تُوضَع في .github/workflows/ داخل الريبو **الخاصّ** فقط.
+# سبع نسخ+ دائماً (استبقاء 8 أيام ⇒ لا يوم بلا نسخة)، إشعار عند الفشل (بريد GitHub + تشغيل أحمر).
+name: نسخة Supabase الاحتياطية اليومية
+on:
+  schedule:
+    - cron: "0 2 * * *"   # يومياً 02:00 UTC
+  workflow_dispatch: {}    # تشغيل يدويّ عند الحاجة
+permissions:
+  contents: read
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: أنشئ النسخة (تسجيل دخول viewer ⇒ قراءة كل الجداول ⇒ gzip)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          BACKUP_EMAIL: ${{ secrets.BACKUP_EMAIL }}
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: node backup.mjs
+      - name: ارفع الأرشيف (استبقاء 8 أيام ⇒ 7+ نسخ دائماً · حذف الأقدم تلقائيّ)
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ github.run_id }}
+          path: backup-*/
+          retention-days: 8
+          if-no-files-found: error   # لا أرشيف ⇒ فشل (لا نجاح كاذب)
