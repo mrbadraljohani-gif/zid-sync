@@ -1711,7 +1711,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "eea2c6a";
+const APP_VERSION = "ae39203";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1769,6 +1769,7 @@ let lastHasVarYes = new Set(), lastHvWouldEnter = [];   // أكواد زد has_v
 // فحص نهائي حاسم: يحذف أي صف كوده منتج أب (has_variants=Yes) من أي مصفوفة صفوف كميات قبل الكتابة (يحافظ على صف الرأس)
 function stripHasVar(rows) { return (!lastHasVarYes || !lastHasVarYes.size) ? rows : rows.filter((r, i) => i === 0 || !lastHasVarYes.has(String(r[0]))); }
 let testSelected = new Set();                   // أصناف محدّدة لتنزيل ملف اختبار جماعي
+let expSelected = new Set();                     // أصناف محدّدة في المستكشف لإلغاء الربط الدفعيّ (رابط محفوظ فقط)
 try { opts = Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || "{}")); } catch {}
 
 /* ================= Supabase — المرحلة 1: قاعدة الروابط (mappings) هي المصدر الأساسي ================= */
@@ -4687,7 +4688,7 @@ function run(reprocess) {
     // === تصنيف الأصناف بدون ربط + بيانات الفلاتر ===
     lastWhList = whList;
     lastWhTokenIndex = buildWhTokenIndex(whList);
-    if (!reprocess) { suggCache = new Map(); testSelected = new Set(); excludedSet = new Set(); }   // بيانات جديدة ⇒ أعِد بناء الذاكرة والتحديد وصفّر الاستبعاد المؤقت
+    if (!reprocess) { suggCache = new Map(); testSelected = new Set(); expSelected = new Set(); excludedSet = new Set(); }   // بيانات جديدة ⇒ أعِد بناء الذاكرة والتحديد وصفّر الاستبعاد المؤقت
     lastUnmatchedRaw = unmatched;
     lastUpdated = updatedList;
     lastAbsent = absentList;
@@ -4981,11 +4982,12 @@ function buildExplorerRows() {
     const qn = Number(qv);
     const qtyKind = isInf ? "inf" : ((Number.isFinite(qn) && qn > 0) ? "pos" : "zero");
     const qtyDisplay = isInf ? "∞" : (Number.isFinite(qn) ? String(qn) : (qv == null || qv === "" ? "0" : String(qv)));
-    const linked = !!manualMap[raw] || whSet.has(skuN) || whSet.has(normCode(baseOf(raw)));
+    const saved = !!manualMap[raw];   // رابط محفوظ في mappings (الـ22) — لا مجرّد مطابَق بالكود
+    const linked = saved || whSet.has(skuN) || whSet.has(normCode(baseOf(raw)));
     const admin = [];
     if (waitingSet.has(skuN)) admin.push(qtyKind === "zero" ? "managed" : "waiting");
     if (absentSet.has(skuN)) admin.push("absent");
-    out.push({ sku: raw, name, pub, type, qtyKind, qtyDisplay, linked, admin, isParent, search: normText(raw + " " + name + " " + bar) });
+    out.push({ sku: raw, name, pub, type, qtyKind, qtyDisplay, linked, saved, admin, isParent, search: normText(raw + " " + name + " " + bar) });
   }
   return out;
 }
@@ -4995,7 +4997,10 @@ function explorerCompute() {
   const f = expFilters, q = expSearch;
   const shown = rows.filter(r => {
     if (q && !r.search.includes(q)) return false;
-    if (f.link.size && !f.link.has(r.linked ? "linked" : "unlinked")) return false;
+    if (f.link.size) {   // تعدّد داخل بُعد الربط (OR): مربوط/يحتاج ربط/رابط محفوظ
+      const ok = (f.link.has("linked") && r.linked) || (f.link.has("unlinked") && !r.linked) || (f.link.has("saved") && r.saved);
+      if (!ok) return false;
+    }
     if (f.pub.size && !f.pub.has(r.pub ? "pub" : "unpub")) return false;
     if (f.type.size && !f.type.has(r.type)) return false;
     if (f.qty.size && !f.qty.has(r.qtyKind)) return false;
@@ -5012,7 +5017,9 @@ function expBadges(r) {
 function explorerBodyHTML(shown) {
   return shown.slice(0, 500).map(r => {
     const typeLbl = r.type === "parent" ? "أب" : (r.type === "variant" ? "متغيّر" : "بسيط");
-    return `<tr><td class="mono">${esc(r.sku)}</td><td>${esc(r.name) || "—"}</td>`
+    // صندوق تحديد للروابط المحفوظة فقط (القابلة للإلغاء)؛ حالته من expSelected فتصمد عبر البحث/الفلترة
+    const chkCell = r.saved ? `<input type="checkbox" class="exp-chk" data-sku="${esc(r.sku)}" ${expSelected.has(String(r.sku)) ? "checked" : ""} aria-label="تحديد ${esc(r.sku)} لإلغاء الربط" onchange="toggleExpSel('${esc(r.sku)}', this.checked)">` : "";
+    return `<tr><td class="chk-cell">${chkCell}</td><td class="mono">${esc(r.sku)}</td><td>${esc(r.name) || "—"}</td>`
       + `<td>${typeLbl}</td>`
       + `<td class="mono">${r.qtyKind === "inf" ? "∞" : esc(r.qtyDisplay)}</td>`
       + `<td><span class="q-chip ${r.pub ? "pub-yes" : "pub-no"}">${r.pub ? DOT_OK : DOT_BAD}</span></td>`
@@ -5024,13 +5031,14 @@ function renderExplorer(wrap) {
   const c = explorerCompute();
   if (!c) { wrap.innerHTML = `<div class="q-warn" style="margin:12px">لا توجد بيانات زد محمّلة — استخدم «متجر زد» في صفحة التحديث أو ارفع تصدير زد، ثم شغّل «طابق وأنشئ».</div>`; return; }
   const { rows, shown } = c, f = expFilters;
+  const savedCount = rows.filter(r => r.saved).length;   // عدد الروابط المحفوظة (الـ22) — للشريحة
   // كل فلتر زرّ تبديل: aria-pressed يعلن حالته، وaria-label يعطي اسماً للأزرار الأيقونية (∞/⏳/🚫)
   const grp = (dim, label, opts) => `<div class="exp-grp" role="group" aria-label="${label}"><span class="exp-grp-lbl">${label}</span>`
     + opts.map(([k, t, a]) => { const on = f[dim].has(k); const nm = `${label}: ${a || t}`;
         return `<button class="exp-chip${on ? " on" : ""}" aria-pressed="${on}" aria-label="${nm}" title="${nm}" onclick="toggleExpFilter('${dim}','${k}')">${t}</button>`; }).join("") + `</div>`;
   const bar = `<div class="exp-bar">
     <input type="text" id="expSearch" class="exp-search" aria-label="ابحث في المستكشف بالـSKU أو الاسم أو الباركود" placeholder="ابحث بالـSKU أو الاسم أو الباركود…" value="${esc(expSearchRaw)}" oninput="onExpSearch(this.value)">
-    ${grp("link", "الربط", [["linked", "مربوط"], ["unlinked", "يحتاج ربط"]])}
+    ${grp("link", "الربط", [["linked", "مربوط"], ["unlinked", "يحتاج ربط"], ["saved", "رابط محفوظ (" + savedCount + ")"]])}
     ${grp("pub", "النشر", [["pub", "منشور"], ["unpub", "غير منشور"]])}
     ${grp("type", "النوع", [["parent", "أب"], ["variant", "متغيّر"], ["simple", "بسيط"]])}
     ${grp("qty", "الكمية", [["zero", "صفر"], ["pos", ">0", "أكبر من صفر"], ["inf", "∞", "غير محدود"]])}
@@ -5038,13 +5046,15 @@ function renderExplorer(wrap) {
     <div class="exp-actions">
       <span class="exp-count" id="expCount">يعرض <b>${shown.length}</b> من ${rows.length}</span>
       <button class="exp-chip" onclick="clearExpFilters()">مسح الفلاتر</button>
+      <button class="mini-btn" onclick="toggleAllExpSaved()" title="تحديد/إلغاء كل الروابط المحفوظة المعروضة">تحديد المحفوظ المعروض</button>
+      <button class="mini-btn danger" onclick="bulkUnlinkExplorer()" title="إلغاء ربط الأصناف المحدّدة دفعةً — تعود «يحتاج ربط» بلا إخفاء ولا تصفير">${ic("link2")} إلغاء ربط المحدّد (<span id="expUnlinkN">${expSelected.size}</span>)</button>
       <button class="btn-run sm" onclick="exportExplorer()"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20.5h14"/></svg> تصدير المعروض</button>
     </div>
   </div>
   <div class="hint" id="expCapNote" style="margin:6px 4px;display:${shown.length > 500 ? "block" : "none"}">تُعرض أول ٥٠٠ صف فقط — ضيّق الفلاتر أو استخدم «تصدير المعروض» لرؤية الكل.</div>`;
   wrap.innerHTML = bar + `<table class="exp-table" aria-label="مستكشف منتجات زد">
-    <colgroup><col class="c-sku"><col><col style="width:70px"><col style="width:62px"><col style="width:58px"><col style="width:88px"><col style="width:170px"></colgroup>
-    <thead><tr><th scope="col">SKU</th><th scope="col">الاسم</th><th scope="col">النوع</th><th scope="col">الكمية</th><th scope="col">النشر</th><th scope="col">الربط</th><th scope="col">الحالة</th></tr></thead>
+    <colgroup><col style="width:34px"><col class="c-sku"><col><col style="width:70px"><col style="width:62px"><col style="width:58px"><col style="width:88px"><col style="width:170px"></colgroup>
+    <thead><tr><th scope="col"><span class="sr-only">تحديد</span></th><th scope="col">SKU</th><th scope="col">الاسم</th><th scope="col">النوع</th><th scope="col">الكمية</th><th scope="col">النشر</th><th scope="col">الربط</th><th scope="col">الحالة</th></tr></thead>
     <tbody id="expTbody">${explorerBodyHTML(shown)}</tbody></table>`;
 }
 function applyExpSearch() {
@@ -5178,6 +5188,32 @@ async function bulkUnlink() {
   for (const s of sel) { try { await dbDelMapping(s); testSelected.delete(String(s)); done++; } catch (e) { break; } }   // فشل صلاحية/اتصال ⇒ توقّف (كـdelMap)
   renderPills();
   run(true);   // تشغيل واحد يعكس كل الإلغاءات في القائمة والملفّين
+  showToast(`↩ أُلغي ربط ${done} صنفاً — راجعها في «يحتاج ربط».`);
+}
+// المستكشف: تحديد صنف لإلغاء الربط (يصمد عبر البحث/الفلترة — expSelected مرجعيّ)
+function toggleExpSel(sku, on) {
+  const k = String(sku); if (on) expSelected.add(k); else expSelected.delete(k);
+  const n = document.getElementById("expUnlinkN"); if (n) n.textContent = expSelected.size;
+}
+// تحديد/إلغاء كل الروابط المحفوظة المعروضة (بعد الفلترة)
+function toggleAllExpSaved() {
+  const savedShown = (lastExplorerShown || []).filter(r => r.saved).map(r => String(r.sku));
+  if (!savedShown.length) { showToast("لا روابط محفوظة معروضة — فعّل شريحة «رابط محفوظ»."); return; }
+  const allOn = savedShown.every(s => expSelected.has(s));
+  savedShown.forEach(s => { if (allOn) expSelected.delete(s); else expSelected.add(s); });
+  applyExpSearch();   // يعيد بناء الجدول من expSelected
+  const n = document.getElementById("expUnlinkN"); if (n) n.textContent = expSelected.size;
+}
+// إلغاء ربط دفعيّ من المستكشف — نفس مسار «تم تحديثه» (dbDelMapping ＋ unlinkedSet ⇒ «يحتاج ربط» بلا تصفير)
+async function bulkUnlinkExplorer() {
+  if (blockedOffline()) return;
+  const sel = [...expSelected].filter(s => manualMap[String(s)]);   // المحدّد الذي له رابط محفوظ فقط
+  if (!sel.length) { showToast("حدّد أصنافاً لها رابط محفوظ أولاً (شريحة «رابط محفوظ»)."); return; }
+  if (!confirm(`سيُلغى ربط ${sel.length} صنفاً — تعود «يحتاج ربط»، بلا إخفاء من المتجر ولا تصفير كميتها. (تصحيح لا إخفاء.)`)) return;
+  let done = 0;
+  for (const s of sel) { try { await dbDelMapping(s); expSelected.delete(String(s)); done++; } catch (e) { break; } }
+  renderPills();
+  run(true);   // تشغيل واحد يعكس الكلّ (المستكشف يُعاد رسمه فتختفي من «رابط محفوظ»)
   showToast(`↩ أُلغي ربط ${done} صنفاً — راجعها في «يحتاج ربط».`);
 }
 function toggleAllTest() {

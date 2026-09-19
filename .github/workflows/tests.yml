@@ -136,6 +136,10 @@ jobs:
         run: node tests/perf/match-tighten.mjs --broken
       - name: G-TIGHTEN (T1) — أخضر=تطابق اسم تامّ وحيد فقط (BP162/BP164+alias لا يصير أخضر)
         run: node tests/perf/match-tighten.mjs
+      - name: Self-check — حارس G-EXPUNLINK يرسب بخلط «رابط محفوظ» بالمطابَق بالكود
+        run: node tests/perf/explorer-unlink.mjs --broken
+      - name: G-EXPUNLINK — المستكشف يعزل الرابط المحفوظ (mappings) للإلغاء الدفعيّ
+        run: node tests/perf/explorer-unlink.mjs
       - name: Self-check — حارس G-TOTALS يرسب على المطابقة الجزئية (includes)
         run: node tests/totals-filter.mjs --broken
       - name: G-TOTALS — تجاهل صفوف المجاميع بمطابقة تامّة (الأصناف الحقيقية تبقى)
