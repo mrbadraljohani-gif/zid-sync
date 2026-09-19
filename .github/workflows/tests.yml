@@ -144,6 +144,10 @@ jobs:
         run: node tests/perf/unlink-persist.mjs --broken
       - name: G-UNLINK-PERSIST — إلغاء الربط دائم عبر إعادة التحميل (لا يعود «غائباً»⇒صفر · لا بانر ترحيل)
         run: node tests/perf/unlink-persist.mjs
+      - name: Self-check — حارس G-HIST-SOURCE يرسب بإعادة اتحاد HIST_KEY في loadConfig
+        run: node tests/perf/hist-source.mjs --broken
+      - name: G-HIST-SOURCE — تاريخ المطابقة مصدره القاعدة وحدها (loadConfig لا يقرأ ملف/localStorage · histIncomplete عند الفشل)
+        run: node tests/perf/hist-source.mjs
       - name: Self-check — حارس G-TOTALS يرسب على المطابقة الجزئية (includes)
         run: node tests/totals-filter.mjs --broken
       - name: G-TOTALS — تجاهل صفوف المجاميع بمطابقة تامّة (الأصناف الحقيقية تبقى)

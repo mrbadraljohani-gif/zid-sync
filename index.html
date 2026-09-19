@@ -1711,7 +1711,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "9f48c0b";
+const APP_VERSION = "f2a93e3";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1731,6 +1731,7 @@ let waitingMeta = new Map();      // normCode(skuN) ⇒ {sku الخام, name, m
 let whWasUploaded = false;        // رُفع ملف مخزن فعلاً هذه الدورة (لا تحميل من القاعدة) — يُفعّل عدّ missed_rounds؛ يُستهلك في خطاف الرفع
 let reappearedSet = new Set();     // skuN لأصناف انتظار عاد كودها للمخزن هذا الدور ⇒ «يحتاج قرار» بوسم «توفّر» بلا مطابقة تلقائية (خطاف الرفع — البند ٣)
 let baseHistSet = new Set(), baseWaitSet = new Set();
+let histIncomplete = false;   // H1: فشل جلب تاريخ المطابقة الأوّلي من القاعدة ⇒ نحجب التصنيف «غائب» والتنزيل (لا نصفّر بلا تاريخ موثوق). انقطاعٌ لاحق لا يقلبه (نُكمل على المجلوب).
 let lastAbsent = [], lastReactivated = [];   // الغائبون عن الملف + من عاد للتوفر هذه المطابقة
 let lastParentOf = {};   // خريطة المتغيّر→أبيه (تُبنى في run)
 let lastSaleConflicts = [];   // أصناف تخفيضها المخزَّن ≥ سعرها الجديد ⇒ مُستبعَدة من ملف الأسعار (تُعالَج يدوياً في زد)
@@ -1800,6 +1801,22 @@ const db = {
     async bumpMeta(rows) { if (!rows.length) return; const { error } = await sb.from("waiting_items").upsert(rows, { onConflict: "zid_sku" }); if (error) throw error; },   // تحديث missed_rounds/last_seen_at لصفوف قائمة (لا يمسّ name/kind)
     async remove(zid_sku) { const { error } = await sb.from("waiting_items").delete().eq("zid_sku", String(zid_sku)); if (error) throw error; },
     async bulkRemove(skus) { if (!skus.length) return; const { error } = await sb.from("waiting_items").delete().in("zid_sku", skus.map(String)); if (error) throw error; },
+  },
+  // تاريخ المطابقة (matched_history) — المصدر الوحيد لـmatchedHistory (لا ملف/localStorage بعد H1). نمط waiting.
+  matchedHistory: {
+    async getAll() {   // مُصفَّح (حدّ سوپابيس 1000/طلب) — تاريخ كامل قد يتجاوز الألف
+      const out = [], page = 1000; let from = 0;
+      for (;;) {
+        const { data, error } = await sb.from("matched_history").select("zid_sku").range(from, from + page - 1);
+        if (error) throw error;
+        out.push(...(data || []).map(r => r.zid_sku));
+        if (!data || data.length < page) break; from += page;
+      }
+      return out;
+    },
+    async bulkUpsert(skus) { for (let i = 0; i < skus.length; i += 500) { const { error } = await sb.from("matched_history").upsert(skus.slice(i, i + 500).map(s => ({ zid_sku: String(s) })), { onConflict: "zid_sku" }); if (error) throw error; } },
+    async remove(zid_sku) { const { error } = await sb.from("matched_history").delete().eq("zid_sku", String(zid_sku)); if (error) throw error; },
+    async bulkRemove(skus) { if (!skus.length) return; for (let i = 0; i < skus.length; i += 200) { const { error } = await sb.from("matched_history").delete().in("zid_sku", skus.slice(i, i + 200).map(String)); if (error) throw error; } },
   },
   // المرحلة 3: منتجات زد (مرآة تصدير زد) — القاعدة مصدر بيانات زد بدل رفع الملف كل دورة
   zidProducts: {
@@ -1936,6 +1953,13 @@ async function loadAliasesFromDB() {
   try { const pairs = await db.aliases.getAll(); dbAliasesCount = pairs.length; if (pairs.length) batchAliases = new Set(pairs.map(String)); }
   catch (e) { console.warn("aliases DB load failed:", e); }
 }
+// H1: تاريخ المطابقة من القاعدة — المصدر الوحيد (يستبدل الذاكرة كليّاً، لا اتحاد مع ملف/localStorage).
+// فشل الجلب الأوّلي ⇒ histIncomplete=true (يحجب run والتنزيل تفادياً لتصفير بلا تاريخ). النجاح — ولو بصفر صفوف (بداية نظيفة) — ⇒ false.
+async function loadMatchedHistoryFromDB() {
+  if (!sb) return;
+  try { const skus = await db.matchedHistory.getAll(); matchedHistory = new Set(skus.map(normCode).filter(Boolean)); histIncomplete = false; }
+  catch (e) { histIncomplete = true; console.warn("matched_history DB load failed:", e); }
+}
 function requireOnline() { if (!dbOnline) { showToast("🔴 غير متصل بالقاعدة — الكتابة معطّلة لمنع تشعّب البيانات."); throw new Error("db-offline"); } }
 // حجب عدم الاتصال (الدفعة أ): بلا اتصال ⇒ الإجراءات والتنزيل و«طابق وأنشئ» معطّلة + بانر ظاهر
 function setOfflineGate() {
@@ -1958,9 +1982,9 @@ async function dbDelMapping(sku) {
   await db.mappings.remove(sku);
   const raw = String(sku), sk = normCode(sku);
   delete manualMap[raw]; unlinkedSet.add(sk); boundSet.delete(raw);
-  // دوام (علّة التصميم): unlinkedSet للجلسة فقط، فإعادة التحميل كانت تُعيد الصنف «غائباً»⇒صفر (matchedHistory يذكره).
-  // الحلّ الدائم: احذفه من matchedHistory ⇒ لا «تاريخ مطابقة» ⇒ «يحتاج ربط» بعد أي إعادة تحميل (لا تصفير).
-  if (matchedHistory.has(sk)) { matchedHistory.delete(sk); saveMatchedHistory(); }
+  // دوام (H1): matchedHistory في القاعدة، فحذفه منها هو الحلّ الدائم — إعادة التحميل (loadMatchedHistoryFromDB) لن تُعيده
+  // ⇒ «يحتاج ربط» لا تصفير. الحذف بأفضل جهد: فشله لا يُفشل إلغاء الربط (الرابط أُزيل أصلاً)، وunlinkedSet يغطّي الجلسة.
+  if (matchedHistory.has(sk)) { matchedHistory.delete(sk); try { await db.matchedHistory.remove(sk); } catch (e) { console.warn("matched_history remove:", e); } }
   // نظّف بذرة الترحيل في الذاكرة فلا يعرض migrateBar إعادة استيراد المحذوف (نقرة تُبطل التنظيف). MAP_KEY المحلي (بذرة قديمة) يُمسح مرّةً يدوياً — لا نكتبه (عقد الدفعة أ: القرارات في القاعدة).
   if (bootLocalMap && raw in bootLocalMap) delete bootLocalMap[raw];
   updateDbBadge(); logActivity("link_removed", sku, null);
@@ -2500,6 +2524,7 @@ async function loadMappingsFromDB() {
     // القاعدة فارغة ⇒ **لا نمسح المحلي** (يبقى ما حمّله loadConfig مصدراً للترحيل) ونعرض شريط الترحيل.
     await loadAliasesFromDB();   // aliases المتعلَّمة من القاعدة
     await loadWaitingFromDB();   // قائمة الانتظار من القاعدة (تستبدل الذاكرة) — تتزامن بين الأجهزة
+    await loadMatchedHistoryFromDB();   // H1: تاريخ المطابقة — المصدر الوحيد (يستبدل الذاكرة؛ فشل ⇒ histIncomplete)
     renderPills(); setDbBadge(true); checkMigration();
     setOfflineGate();            // تفعيل/رفع حجب عدم الاتصال بعد معرفة الحالة
     await loadZidMeta();         // ميتا منتجات زد (المرحلة 3): العدد + آخر مزامنة لعرض لوحة القاعدة
@@ -2566,26 +2591,14 @@ async function doMigration(type) {
   }
 }
 
-// تحميل mapping.json عبر fetch، ودمجه مع localStorage (يتعامل مع 404 بهدوء)
+// H1: القرارات كلها من القاعدة مصدراً وحيداً — الروابط/تاريخ المطابقة/الانتظار/aliases لا تُقرأ من ملف/localStorage بعد اليوم
+// (تُملأ في loadMappingsFromDB بعد الدخول). لا اتحاد ولا بذرة ترحيل. يبقى محليّاً: زيادات الأسعار (price-offsets — تُرحَّل في H2) والخيارات (OPT_KEY تفضيلات جهاز).
 async function loadConfig() {
-  let fileMap = {};
-  try { const r = await fetch("mapping.json", { cache: "no-store" }); if (r.ok) fileMap = await r.json(); } catch {}
-  let localMap = {};
-  try { localMap = JSON.parse(localStorage.getItem(MAP_KEY) || "{}"); } catch {}
-  baseMap = (fileMap && typeof fileMap === "object") ? fileMap : {};                 // نسخة الملف (للتشخيص)
-  manualMap = Object.assign({}, baseMap, localMap);
-  // تاريخ المطابقة + قائمة الانتظار (نفس منظومة الإعدادات: ملف الريبو + localStorage)
-  const loadSet = async (path, key, setBase) => {
-    let file = [], loc = [];
-    try { const r = await fetch(path, { cache: "no-store" }); if (r.ok) file = await r.json(); } catch {}
-    try { loc = JSON.parse(localStorage.getItem(key) || "[]"); } catch {}
-    const base = new Set((Array.isArray(file) ? file : []).map(normCode).filter(Boolean));
-    setBase(base);
-    return new Set([...(Array.isArray(file) ? file : []), ...(Array.isArray(loc) ? loc : [])].map(normCode).filter(Boolean));
-  };
-  matchedHistory = await loadSet("matched-history.json", HIST_KEY, s => baseHistSet = s);
-  waitingSet = await loadSet("waiting.json", WAIT_KEY, s => baseWaitSet = s);
-  // زيادات أسعار المتغيرات (price-offsets.json + localStorage) — المفاتيح تُطبَّع بـ normCode
+  manualMap = {}; baseMap = {};                          // الروابط من القاعدة (loadMappingsFromDB)
+  matchedHistory = new Set(); baseHistSet = new Set();   // تاريخ المطابقة من القاعدة (loadMatchedHistoryFromDB) — لا ملف/localStorage
+  waitingSet = new Set(); baseWaitSet = new Set();       // الانتظار من القاعدة (loadWaitingFromDB)
+  batchAliases = new Set();                              // aliases من القاعدة (loadAliasesFromDB)
+  // زيادات أسعار المتغيرات (price-offsets.json + localStorage) — المفاتيح تُطبَّع بـ normCode (يبقى محلياً حتى H2)
   let baseOff = {}, localOff = {};
   try { const r = await fetch("price-offsets.json", { cache: "no-store" }); if (r.ok) baseOff = await r.json(); } catch {}
   try { localOff = JSON.parse(localStorage.getItem(OFF_KEY) || "{}"); } catch {}
@@ -2593,15 +2606,10 @@ async function loadConfig() {
   for (const src of [baseOff, localOff]) {
     if (src && typeof src === "object") for (const k in src) { const v = Number(src[k]); if (Number.isFinite(v) && v !== 0) priceOffsets[normCode(k)] = Math.round(v); }
   }
-  // aliases: تُقرأ محلياً (aliases.json + localStorage) **كبذرة ترحيل فقط**؛ القاعدة تستبدلها بعد الدخول (loadAliasesFromDB).
-  // link-tags أُسقط نهائياً (يُشتقّ الوسم من mappings.source).
-  batchAliases = new Set();
-  try { const r = await fetch("aliases.json", { cache: "no-store" }); if (r.ok) { const a = await r.json(); if (Array.isArray(a)) a.forEach(k => batchAliases.add(String(k))); } } catch {}
-  try { const loc = JSON.parse(localStorage.getItem(ALIAS_KEY) || "[]"); if (Array.isArray(loc)) loc.forEach(k => batchAliases.add(String(k))); } catch {}
 }
 // الدفعة أ: أُزيلت saveWaiting/saveAliases/saveLinkTags — القرارات تُكتب في القاعدة أولاً بلا localStorage.
 function saveOffsets() { localStorage.setItem(OFF_KEY, JSON.stringify(priceOffsets)); }        // priceOffsets يبقى محلياً (خارج نطاق الدفعة أ)
-function saveMatchedHistory() { localStorage.setItem(HIST_KEY, JSON.stringify([...matchedHistory])); }   // matchedHistory يبقى محلياً (الدفعة د لاحقاً)
+// H1: أُزيلت saveMatchedHistory (localStorage) — تاريخ المطابقة يُكتب في القاعدة: تراكماً في نهاية run() (bulkUpsert) وحذفاً في dbDelMapping (remove).
 // ترحيل mapping.json من المفاتيح المطبَّعة القديمة إلى مفاتيح SKU الخام (يعتمد الأصفار كما في زد)
 function migrateMapping(rawByNorm, rawSet) {
   let changed = false;
@@ -3259,8 +3267,7 @@ function download(name, text) {
 }
 // الدفعة أ: القرارات الستة صارت في القاعدة حصراً؛ التصدير المحلي يقتصر على ما بقي محلياً (خارج نطاق الدفعة أ)
 function exportConfig() {
-  download("price-offsets.json", JSON.stringify(priceOffsets, null, 2));
-  download("matched-history.json", JSON.stringify([...matchedHistory].sort(), null, 2));
+  download("price-offsets.json", JSON.stringify(priceOffsets, null, 2));   // H1: تاريخ المطابقة في القاعدة — لم يعد يُصدَّر ملفّاً
 }
 
 /* ---------- الحفظ المباشر في الريبو عبر GitHub API ---------- */
@@ -3354,19 +3361,16 @@ async function putFileToRepo(path, content, token, message) {
 async function saveToRepo(reason) {
   const token = localStorage.getItem(TOKEN_KEY);
   if (!token) { repoStatus("warn", "⚠ لم تُدخل رمز GitHub بعد — الروابط محفوظة محلياً فقط. أدخل الرمز للحفظ في الريبو."); return; }
-  // الدفعة أ: القرارات (روابط/انتظار/aliases) في القاعدة حصراً؛ الريبو يحفظ ما بقي محلياً فقط.
+  // H1: القرارات كلها (روابط/انتظار/aliases/تاريخ المطابقة) في القاعدة حصراً؛ الريبو يحفظ زيادات الأسعار فقط (تُرحَّل في H2 ثم يُزال هذا الزرّ والرمز).
   const offsets = JSON.stringify(priceOffsets, null, 2);
-  const history = JSON.stringify([...matchedHistory].sort(), null, 2);
-  const sig = offsets + " " + history;
+  const sig = offsets;
   if (sig === lastSavedSig) { repoStatus("ok", "✓ لا تغييرات جديدة — الريبو محدّث بالفعل."); return; }
   repoStatus("", "⏳ جاري الحفظ في الريبو…");
   try {
     await putFileToRepo("price-offsets.json", offsets, token, `تحديث زيادات الأسعار (${reason})`);
-    await putFileToRepo("matched-history.json", history, token, `تحديث تاريخ المطابقة (${reason})`);
     lastSavedSig = sig;
-    baseHistSet = new Set(matchedHistory);
     renderFingerprint();
-    repoStatus("ok", `✓ حُفظ محلياً في الريبو (${Object.keys(priceOffsets).length} زيادة سعر · ${matchedHistory.size} تاريخ مطابقة). القرارات (روابط/تجاهل/انتظار) في القاعدة السحابية مباشرةً.`);
+    repoStatus("ok", `✓ حُفظت زيادات الأسعار في الريبو (${Object.keys(priceOffsets).length}). بقية القرارات (روابط/انتظار/aliases/تاريخ المطابقة) في القاعدة السحابية مباشرةً.`);
   } catch (e) {
     repoStatus("fail", "✗ فشل الحفظ في الريبو: " + e.message + " — تحقّق من الرمز وصلاحياته.");
     openGhMenu();   // افتح القائمة ليتمكّن من إصلاح الرمز
@@ -4132,6 +4136,14 @@ function showInvIncomplete() {
   ["dlQty", "dlPrice"].forEach(id => { const el = document.getElementById(id); if (el) { el.removeAttribute("href"); el.classList.add("disabled"); } });   // عطّل التنزيل صراحةً (لا يبقى مفعّلاً من تشغيل سابق)
   const res = document.getElementById("result"); if (res) res.style.display = "block";
 }
+// H1: تاريخ المطابقة لم يُجلَب من القاعدة ⇒ نحجب المطابقة والتنزيل (بلا تاريخ موثوق قد نصنّف مربوطاً سابقاً «يحتاج ربط» أو نصفّر خطأً). حدّث الصفحة.
+function showHistIncomplete() {
+  showErr("");
+  const vm = document.getElementById("verifyMsg");
+  if (vm) { vm.className = "verify-fail"; vm.style.display = "block"; vm.textContent = `⚠ تعذّر جلب «تاريخ المطابقة» من القاعدة في هذه الجلسة. أوقفتُ المطابقة والتنزيل تفادياً لتصنيف/تصفير خاطئ. حدّث الصفحة (Cmd+Shift+R) لإعادة الجلب من القاعدة.`; }
+  ["dlQty", "dlPrice"].forEach(id => { const el = document.getElementById(id); if (el) { el.removeAttribute("href"); el.classList.add("disabled"); } });
+  const res = document.getElementById("result"); if (res) res.style.display = "block";
+}
 // زر الرئيسية «طابق وأنشئ»: يضمن تحميل المخزن (قاعدة أو رفع) ثم يبني الموحّد ويطابق
 async function runFromDB() {
   showErr("");
@@ -4253,6 +4265,8 @@ function run(reprocess) {
   }
   // ⚠ سلامة المدخل قبل أي مطابقة: لا مطابقة صامتة على موحّد مبتور (فروع القاعدة غير محمّلة) — توقّف وتحذير.
   if (invMergeIncomplete()) { showInvIncomplete(); setBusy("result", false); setBusy("runBtn", false); return; }
+  // ⚠ H1: تاريخ المطابقة لم يُجلَب من القاعدة (فشل الجلب الأوّلي) ⇒ لا نصنّف «غائباً» ولا نصفّر بلا تاريخ موثوق — توقّف وحدّث.
+  if (histIncomplete) { showHistIncomplete(); setBusy("result", false); setBusy("runBtn", false); return; }
   try {
     const whIndex = {};
     for (const r of whRows) {
@@ -4393,7 +4407,7 @@ function run(reprocess) {
     const autoUnpub = new Set();          // أصناف (خام) يُلغى نشرها آلياً (بسيط بكمية 0 عبر أي باب + آباء بإجماع)
     const lastAutoUnpubSimple = [], lastAutoUnpubParents = [], autoUnpubSurvivors = [];
     const matchedWhCodes = new Set();     // أكواد المستودع المأخوذة (لاستبعادها من مرشّحي الربط الدفعي)
-    let histChanged = false;
+    const histAdded = [];   // skuN مطابَقة بالكود جديدة هذا التشغيل (تُكتب دفعةً للقاعدة في النهاية — H1)
     // ملف الكميات: 4 أعمدة بالترتيب والتسميات الحرفية المطلوبة
     let qtyRows = [["sku", "name_ar", "name_en", ZID_QTY_COL]];
     // ملف الأسعار: نفس بنية تصدير زد كاملة (رأس + الصفوف المتغيّر سعرها فقط)
@@ -4450,7 +4464,7 @@ function run(reprocess) {
       }
       // مطابقة ناجحة: سجّلها في تاريخ المطابقة (العودة من الانتظار تُعالَج في خطاف الرفع لا هنا — البند ٣: لا مطابقة تلقائية للعائد غير المربوط)
       matchedWhCodes.add(normCode(whCode)); cls.matched++;   // كود المستودع صار مأخوذاً (يُستبعد من مرشّحي الربط الدفعي)
-      if (!matchedHistory.has(skuN)) { matchedHistory.add(skuN); histChanged = true; }
+      if (!matchedHistory.has(skuN)) { matchedHistory.add(skuN); histAdded.push(skuN); }
       const oldQty = orig[iQty], oldPrice = orig[iPrice];
       // الكمية الفعلية = حصة المتغيّر بعد توزيع كمية الكود (أو الكمية الكاملة إن كان الكود لمتغيّر واحد/وضع «الكمية الكاملة»)
       const whQtyReal = shareByRaw.has(rawKey) ? shareByRaw.get(rawKey) : Math.max(0, Math.round(Number(wh.qty) || 0));
@@ -4612,7 +4626,7 @@ function run(reprocess) {
     const vm = document.getElementById("verifyMsg");
     const wireDl = (id, ok, aoa, count, reason) => {
       const el = document.getElementById(id);
-      if (ok && count > 0 && dbOnline && !invMergeIncomplete()) {   // بلا اتصال أو موحّد مبتور ⇒ لا تنزيل (الدفعة أ ＋ حماية الموحّد الناقص)
+      if (ok && count > 0 && dbOnline && !invMergeIncomplete() && !histIncomplete) {   // بلا اتصال · موحّد مبتور · تاريخ ناقص ⇒ لا تنزيل (الدفعة أ ＋ الموحّد الناقص ＋ H1)
         el.href = URL.createObjectURL(mkBlob(aoa)); el.classList.remove("disabled");
         el.onclick = ev => {
           if (id === "dlQty" && (!absentZeroGateOk(lastZeroRatio) || !zeroGateOk(lastZeroRatio))) { ev.preventDefault(); return false; }   // ②-ب (updated=0 ∧ غيابيّ) ثم ② (نسبة 60%) — أيّهما يوقف يمنع
@@ -4686,8 +4700,9 @@ function run(reprocess) {
       } catch (e) { vm.textContent += `\n⟪قياس تشديد المطابقة: تعذّر — ${e.message}⟫`; }
     }
 
-    // matchedHistory يبقى محلياً (الدفعة د لاحقاً)؛ قائمة الانتظار مصدرها القاعدة فقط (بلا localStorage)
-    if (histChanged) saveMatchedHistory();
+    // H1: تاريخ المطابقة يُكتب في القاعدة (المصدر الوحيد) — دفعةً للجديد فقط، بأفضل جهد (upsert idempotent فيُعاد التشغيل التالي إن فشل).
+    // غير حاجب: النتيجة والملفّان جاهزان بلا انتظار الشبكة. الحذف يتمّ في dbDelMapping لا هنا.
+    if (histAdded.length && dbOnline && sb) db.matchedHistory.bulkUpsert(histAdded).catch(e => console.warn("matched_history upsert:", e));
     // (العودة من الانتظار + حذفها من القاعدة انتقلا إلى processWaitingOnUpload — البند ٣)
 
     // بطاقة «بدون ربط» تجمع كل أصناف زد بلا ربط (جديد + ⏳ + مُدار)؛ تفكيكها في updateUnmatchedCard.
@@ -5611,21 +5626,20 @@ async function delMap(s) { try { await dbDelMapping(s); } catch { return; } rend
 // بصمة الجلسة: تشخيص اختلاف النتائج بين الأجهزة (ملف مقابل محلي غير مصدَّر)
 function renderFingerprint() {
   const el = document.getElementById("fingerprint"); if (!el) return;
-  // الدفعة أ: الروابط/الانتظار مصدرها القاعدة مباشرةً (لا «محلي غير مصدَّر»). matchedHistory وحده يبقى محلياً.
-  const localHistExtra = [...matchedHistory].filter(k => !baseHistSet.has(k)).length;
+  // H1: كل القرارات (روابط/انتظار/تاريخ المطابقة) مصدرها القاعدة — لا «محلي غير مصدَّر». تاريخ ناقص ⇒ تنبيه واضح.
   const zid = stData ? (stData.rows.length - 1) : 0;
   const wh = whRows ? whRows.length : 0;
   el.innerHTML = `🔎 بصمة الجلسة · ` +
     `الروابط: ${Object.keys(manualMap).length} (قاعدة) · ` +
     `الانتظار: ${waitingSet.size} (قاعدة) · ` +
-    `تاريخ المطابقة: ${matchedHistory.size}` + (localHistExtra ? ` <b>(+${localHistExtra} غير مصدَّر)</b>` : ``) + ` · ` +
+    `تاريخ المطابقة: ${matchedHistory.size} (قاعدة)` + (histIncomplete ? ` <b>(⚠ لم يُجلَب)</b>` : ``) + ` · ` +
     `صفوف زد: ${zid} · صفوف المستودع: ${wh} · ` +
     `النسخة: <span class="mono">${APP_VERSION}</span>`;
   const warn = document.getElementById("fpWarn");
   if (warn) {
-    if (localHistExtra) {
+    if (histIncomplete) {
       warn.style.display = "block";
-      warn.innerHTML = `⚠ لديك ${localHistExtra} من تاريخ المطابقة غير محفوظ في الريبو — احفظه بزر «☁ الحفظ في الريبو».`;
+      warn.innerHTML = `⚠ تعذّر جلب تاريخ المطابقة من القاعدة — المطابقة والتنزيل محجوبان. حدّث الصفحة (Cmd+Shift+R).`;
     } else { warn.style.display = "none"; warn.innerHTML = ""; }
   }
 }
@@ -5644,7 +5658,7 @@ routeFromHash();               // الإقلاع: افتح صفحة الـhash (
   renderOffsetsList();
   initSupabase();   // بعد تحميل المحلي: أنشئ عميل القاعدة، وعند وجود جلسة اعتمد الروابط من القاعدة مصدراً للحقيقة
   // الحالة المحمّلة من الريبو هي المرجع الحالي — لا نعيد حفظها ما لم تتغيّر
-  lastSavedSig = JSON.stringify(priceOffsets, null, 2) + " " + JSON.stringify([...matchedHistory].sort(), null, 2);   // الدفعة أ: الريبو يحفظ ما بقي محلياً فقط
+  lastSavedSig = JSON.stringify(priceOffsets, null, 2);   // H1: الريبو يحفظ زيادات الأسعار فقط (تاريخ المطابقة صار في القاعدة)
   // مؤشر أخضر فقط عند وجود رمز محفوظ (بدون نص)، وإلا كهرماني
   const hasToken = !!localStorage.getItem(TOKEN_KEY);
   repoStatus(hasToken ? "ok" : "warn", "");

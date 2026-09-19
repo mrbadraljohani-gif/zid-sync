@@ -24,9 +24,9 @@ const BROKEN = process.argv.includes("--broken");
 const BROKEN2 = process.argv.includes("--broken-unlink");
 if (BROKEN) html = html.replace('#unBody input[data-uid="${uid}"]', '#batchBody input[data-uid="${uid}"]');
 
-// إسقاط **حاميَي** إلغاء الربط معاً: استثناء unlinkedSet (الجلسة) ＋ حذف matchedHistory (الدوام) — وإلا حماهُ الثاني
+// إسقاط **حاميَي** إلغاء الربط معاً: استثناء unlinkedSet (الجلسة) ＋ حذف matchedHistory من القاعدة (الدوام، H1) — وإلا حماهُ الثاني
 if (BROKEN2) html = html.replace("&& !unlinkedSet.has(skuN);", ";")
-  .replace("if (matchedHistory.has(sk)) { matchedHistory.delete(sk); saveMatchedHistory(); }", "/* حذف matchedHistory مُعطّل (المعطوب) */");
+  .replace("if (matchedHistory.has(sk)) { matchedHistory.delete(sk); try { await db.matchedHistory.remove(sk); } catch (e) { console.warn(\"matched_history remove:\", e); } }", "/* حذف matchedHistory مُعطّل (المعطوب) */");
 
 function findChrome() {
   const c = ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", process.env.CHROME_PATH || "", "/usr/bin/google-chrome-stable"];
