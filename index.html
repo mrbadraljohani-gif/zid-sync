@@ -1711,7 +1711,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "dc9acf0";
+const APP_VERSION = "c978d91";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -4634,6 +4634,25 @@ function run(reprocess) {
         + `\nعمود مرجع الأب: ${lastParentCol || "—"} · إجمالي علاقات الأبوة: ${Object.keys(parentOf).length}`
         + `\nشواذّ (Yes عومل كابن): ${lastVariantAnomalies.length}` + (lastVariantAnomalies.length ? " — " + lastVariantAnomalies.slice(0, 15).map(a => `${a.sku}→${a.parent}`).join(" · ") : "")
         + `\nتعارض موضعي/parent_sku (اعتُمدت الموضعية): ${lastParentConflicts.length}` + lastParentConflicts.slice(0, 15).map(c => `\n  ${c.sku}: موضعي=${c.pos} · parent_sku=${c.pref}`).join("");
+      // ⟪قياس أثر تشديد المطابقة (T1) — قراءة محضة، لا يغيّر التصنيف الحالي إطلاقاً⟫
+      // القاعدة الجديدة (محاكاة فقط): أخضر = تطابق الاسم التامّ (normNameStrict: يُبقي الأرقام/المقاسات) لمرشّح **وحيد** في المخزون.
+      try {
+        const strictN = s => String(s == null ? "" : s).toLowerCase().replace(/[ً-ْٰـ]/g, "").replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/\s+/g, " ").trim();
+        const whNameCount = new Map();   // تكرار الاسم التامّ في المخزون (للقطعية: أخضر فقط إن وحيد)
+        (lastWhList || []).forEach(w => { const k = strictN(w.name); if (k) whNameCount.set(k, (whNameCount.get(k) || 0) + 1); });
+        const bd = (typeof batchData !== "undefined" && batchData) ? batchData : analyzeBatch();
+        const all = [...(bd.green || []), ...(bd.yellow || []), ...(bd.red || [])];
+        const greenNew = r => { if (!r.best) return false; const zk = strictN(r.z.name); return zk && zk === strictN(r.best.name) && whNameCount.get(zk) === 1; };
+        const curGreen = (bd.green || []);
+        const downgrades = curGreen.filter(r => !greenNew(r));
+        const newGreens = all.filter(r => r.cls !== "green" && greenNew(r));
+        const yNew = all.filter(greenNew).length;
+        const ex = downgrades.slice(0, 5).map(r => { const b = r.best || {}; return `«${(r.z.name || "").slice(0, 40)}» → «${(b.name || "").slice(0, 40)}» [مقاس${b.sizeM ? "✓" : "✗"} سعر${b.priceM ? "✓" : "✗"} اسم${Math.round((b.sim || 0) * 100)}% alias${b.aliasHit ? "✓" : "✗"} =${b.score}]`; });
+        vm.textContent += `\n\n⟪قياس تشديد المطابقة (محاكاة، بلا تغيير)⟫`
+          + `\nأخضر حالياً: ${curGreen.length} · بالقاعدة الجديدة (اسم تامّ وحيد): ${yNew}`
+          + `\nهبوط (أخضر→أصفر): ${downgrades.length} · صعود جديد (أصفر→أخضر): ${newGreens.length}`
+          + (ex.length ? `\nعيّنة الهبوط:\n  ${ex.join("\n  ")}` : `\n(لا هبوط)`);
+      } catch (e) { vm.textContent += `\n⟪قياس تشديد المطابقة: تعذّر — ${e.message}⟫`; }
     }
 
     // matchedHistory يبقى محلياً (الدفعة د لاحقاً)؛ قائمة الانتظار مصدرها القاعدة فقط (بلا localStorage)
