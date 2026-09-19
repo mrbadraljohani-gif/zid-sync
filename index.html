@@ -1711,7 +1711,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "ae39203";
+const APP_VERSION = "f18e080";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -4517,7 +4517,7 @@ function run(reprocess) {
       }
       // جدول العرض للتحقق البصري (يشمل المستبعد بمظهر باهت — لا يتغيّر تصنيفه)
       if (qtyChanged || priceChanged || republish) {
-        updatedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "", whName: wh.name || "", whCode, whBarcode: wh.barcode || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), whBase, offset, oldQty, newQty, whQtyReal, zeroedLowValue: lowValZero, dist, oldPrice, newPrice, img: imgOf(orig), excluded: isExc, republish, qtyChanged, priceChanged, reappeared: reappearedSet.has(skuN) });   // qtyChanged/priceChanged يُخزَّنان لفلتر الجدول (عرض محض، بلا إعادة حساب)
+        updatedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "", whName: wh.name || "", whCode, whBarcode: wh.barcode || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), whBase, offset, oldQty, newQty, whQtyReal, zeroedLowValue: lowValZero, dist, oldPrice, newPrice, img: imgOf(orig), excluded: isExc, republish, qtyChanged, priceChanged, pubChanged: !!(republish || autoUnpubSimple), reappeared: reappearedSet.has(skuN) });   // qtyChanged/priceChanged/pubChanged يُخزَّن لفلتر الجدول (عرض محض): النشر = republish (No→Yes) أو autoUnpub (Yes→No)
       }
     }
 
@@ -5141,25 +5141,26 @@ function updatedTableHTML(list) {
       ? `<button class="mini-btn" onclick="restoreExcluded('${esc(u.skuN)}')" title="أعِد هذا الصنف إلى ملفي التنزيل">↩ استعادة</button>`
       : `${offBtn}<button class="mini-btn unlink" onclick="unlinkRow('${esc(String(u.sku))}')" title="الربط خاطئ؟ ألغِه ليعود الصنف إلى «يحتاج ربط» — لا يُخفي المنتج ولا يُصفّره">${ic("link2")} إلغاء الربط</button><button class="mini-btn" onclick="downloadOne('${esc(u.skuN)}')" title="نزّل ملف اختبار يحوي هذا المنتج وحده لتجرّبه في زد قبل الاستيراد الكامل"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3v6.2L4.8 17a2 2 0 0 0 1.7 3h11a2 2 0 0 0 1.7-3l-4.7-7.8V3"/><path d="M8.5 3h7"/><path d="M7.2 14h9.6"/></svg> جرّب</button><button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="استبعاد مؤقت من ملفي التنزيل في هذه الجلسة (لا يُحفظ)">✕ شيلها</button>`;
     const chkCell = u.excluded ? `` : `<input type="checkbox" class="test-chk" data-sku="${esc(u.sku)}" ${chk} aria-label="تحديد ${esc(u.sku)} للتنزيل التجريبي" onchange="toggleTest('${esc(u.sku)}', this.checked)">`;
-    const pxCh = !!(u.priceChanged || u.republish);   // أثّر في ملف الأسعار
-    const chg = (u.qtyChanged && pxCh) ? "b" : (u.qtyChanged ? "q" : "p");   // فئة التغيير للفلتر (كل صفّ ∈ كمية∪سعر)
-    return `<tr class="${warn ? "row-warn " : ""}${u.excluded ? "row-excluded" : ""}" data-chg="${chg}" data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
+    // أعلام مستقلّة للفلتر (التداخل مقصود): كمية · سعر (priceChanged فقط) · نشر (republish/autoUnpub). خلية السعر تُبرَز على أيّهما (سعر أو نشر).
+    const pxHi = !!(u.priceChanged || u.pubChanged);
+    return `<tr class="${warn ? "row-warn " : ""}${u.excluded ? "row-excluded" : ""}" data-q="${u.qtyChanged ? 1 : 0}" data-p="${u.priceChanged ? 1 : 0}" data-pub="${u.pubChanged ? 1 : 0}" data-search="${esc(normText(u.sku + " " + u.name + " " + (u.whName || "")))}">` +
       `<td class="chk-cell">${chkCell}</td>` +
       `<td class="upd-nm"><div class="prodcell">${thumb(u.img)}<div class="pc-txt"><div class="pc-name">${esc(u.name) || "—"}${flag}${excFlag}${pubFlag}${zeroFlag}${reapFlag}</div><div class="pc-sku mono" dir="ltr">${esc(u.sku)}</div></div></div></td>` +
       `<td class="wh-name">${esc(u.whName) || "—"}${(u.whBarcode || u.whCode) ? `<div class="wh-bar">باركود المستودع: <span dir="ltr">${esc(u.whBarcode || u.whCode)}</span></div>` : ""}</td>` +
       `<td class="mono">${zp != null ? fmtPrice(zp) : "—"}</td>` +
-      `<td class="mono${pxCh ? " chg-hi" : ""}">${priceCell}</td>` +
+      `<td class="mono${pxHi ? " chg-hi" : ""}">${priceCell}</td>` +
       `<td class="qty-cell${u.qtyChanged ? " chg-hi" : ""}">${chgCell(u.oldQty, u.newQty)}${u.dist ? ` <span class="dist-tag" title="كمية الكود (${esc(String(u.dist.total))}) موزّعة على ${esc(String(u.dist.count))} متغيّراً — حصة هذا المتغيّر: ${esc(String(u.whQtyReal))}">${ic("shuffle","ico-info")}</span>` : ""}${u.zeroedLowValue ? `<div class="off-line">المستودع: <span dir="ltr">${esc(String(u.whQtyReal))} ← 0</span></div>` : ""}</td>` +
       `<td class="act-cell">${actCell}</td></tr>`;
   }).join("");
   const excCount = list.filter(u => u.excluded).length;
   const sessBar = excCount ? `<div class="sess-bar">${ic("pause")} مستبعد من هذه الجلسة: <b>${excCount}</b> — <button class="mini-btn" onclick="restoreAllExcluded()">استعادة الكل</button></div>` : "";
   // شرائح فلترة (عرض محض): الكمية/السعر/الاثنان — التداخل مقصود (المجموع ≠ الكل)، والصفر يُعطَّل لا يُخفى
-  const pxCount = list.filter(u => u.priceChanged || u.republish).length;
   const qCount = list.filter(u => u.qtyChanged).length;
-  const bCount = list.filter(u => u.qtyChanged && (u.priceChanged || u.republish)).length;
+  const pCount = list.filter(u => u.priceChanged).length;                        // السعر = تغيّر السعر فقط (لا النشر)
+  const pubCount = list.filter(u => u.pubChanged).length;                        // النشر = تغيّرت حالة النشر (republish/autoUnpub)
+  const bCount = list.filter(u => u.qtyChanged && u.priceChanged).length;        // الاثنان = كمية ＋ سعر (تقاطع، كما اتُّفق)
   const chip = (v, lbl, n) => `<button type="button" class="upd-chip${updChgFilter === v ? " on" : ""}${n === 0 && v !== "all" ? " disabled" : ""}" ${n === 0 && v !== "all" ? "disabled" : ""} onclick="setUpdFilter('${v}')" aria-pressed="${updChgFilter === v}">${lbl} <b>${n}</b></button>`;
-  const chipBar = `<div class="upd-filter">${chip("all", "الكل", list.length)}${chip("qty", "الكمية", qCount)}${chip("price", "السعر", pxCount)}${chip("both", "الاثنان", bCount)}</div>`;
+  const chipBar = `<div class="upd-filter">${chip("all", "الكل", list.length)}${chip("qty", "الكمية", qCount)}${chip("price", "السعر", pCount)}${chip("pub", "النشر", pubCount)}${chip("both", "الاثنان", bCount)}</div>`;
   return sessBar + chipBar + `<div class="test-bar">
       <button class="btn-run sm" onclick="downloadSelected()"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20.5h14"/></svg> نزّل المحدّد للتجربة (كميات ＋ أسعار) (<span id="testN">${testSelected.size}</span>)</button>
       <button class="mini-btn" onclick="toggleAllTest()">تحديد/إلغاء المعروض</button>
@@ -5423,7 +5424,10 @@ function filterUnmatched() {
     const hay = el.getAttribute("data-search") || "";
     const searchOk = !q || hay.includes(q);
     let chipOk = true;
-    if (chipOn) { const c = el.getAttribute("data-chg"); chipOk = updChgFilter === "both" ? c === "b" : updChgFilter === "qty" ? (c === "q" || c === "b") : (c === "p" || c === "b"); }
+    if (chipOn) {
+      const q = el.getAttribute("data-q") === "1", pr = el.getAttribute("data-p") === "1", pub = el.getAttribute("data-pub") === "1";
+      chipOk = updChgFilter === "qty" ? q : updChgFilter === "price" ? pr : updChgFilter === "pub" ? pub : updChgFilter === "both" ? (q && pr) : true;
+    }
     el.style.display = (searchOk && chipOk) ? "" : "none";   // العرض دالّةُ الاثنين معاً — لا يلغي أحدهما الآخر
   });
 }
