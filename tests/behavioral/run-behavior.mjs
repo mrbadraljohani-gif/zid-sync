@@ -189,6 +189,20 @@ function lowVal2Cfg() {
   };
 }
 
+// G-ABSENT-ONCE: قاعدة الغائب ذاتيّة التصحيح (قياس حالة زد لا علَم محفوظ):
+//   ABSA غائب زد كمية=5/منشور ⇒ يُصدَّر 0 ＋ published=No (أوّل مرّة). ABSB غائب زد كمية=0/غير منشور ⇒ **لا يُصدَّر إطلاقاً**
+//   (strip يُسقط 0=0 · الإخفاء يتخطّى published≠yes). RET عاد باركوده للمخزن ⇒ مطابَق ⇒ يُصدَّر بكميته (7).
+function absentOnceCfg() {
+  return {
+    stData: { sheetName: "P", header: HEADER, rows: [HEADER,
+      Z("CTL", "5", "100"), Z("ABSA", "5", "100", { pub: "Yes" }), Z("ABSB", "0", "100", { pub: "No" }), Z("RET", "3", "100")] },
+    whRows: [WH("CTL", 9, 100), WH("RET", 7, 100)],   // ABSA/ABSB غائبان عن المخزن · CTL ضابط (updated≠0) · RET عاد
+    lastMerge: merge(["CTL", "RET"]), manualMap: {},
+    waiting: [], history: ["ABSA", "ABSB", "RET"], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" },
+    uploaded: true, callHook: false,
+  };
+}
+
 // دالّة داخل الصفحة: تهيّئ الحالة، تستدعي الخطاف+run (＋قرار اختياري)، وتُعيد القراءات (دفاعية للنسخ القديمة)
 async function inpage(cfg) {
   const mk = () => { const c = { select() { return c; }, upsert: async () => ({ error: null }), delete() { return c; }, insert: async () => ({ error: null }), eq: async () => ({ error: null }), in: async () => ({ error: null }), order() { return c; }, range: async () => ({ data: [], error: null }) }; return c; };
@@ -467,6 +481,19 @@ try {
   if (l2Mut === curHtml) fails.push("أسنان G-LOWVAL2: تعذّر تطبيق الطفرة (لم أجد codeTotalQty <= lowQtyLim)");
   else { const L2T = await bootRead(browser, l2Mut, lowVal2Cfg()); if (Number(L2T.qtyOf["V.1"]) === 2) fails.push("أسنان G-LOWVAL2: بالعودة للحصة بقيت V.1=2 — بلا أسنان"); else notes.push(`أسنان G-LOWVAL2 (بالعودة للحصة): V.1=${L2T.qtyOf["V.1"]} (≠2 = العطل: كود 8 حقيقيّ يُصفَّر لأن حصصه ≤3)`); }
 
+  // ===== G-ABSENT-ONCE: قاعدة الغائب ذاتيّة التصحيح (قياس حالة زد) — قفل بلا تغيير منطق =====
+  const AO = await bootRead(browser, curHtml, absentOnceCfg());
+  if (AO.err) fails.push("G-ABSENT-ONCE رمى: " + AO.err);
+  if (Number(AO.qtyOf["ABSA"]) !== 0) fails.push(`G-ABSENT-ONCE: ABSA (غائب زد كمية=5) qty=${AO.qtyOf["ABSA"]} (متوقّع 0 — أوّل مرّة)`);
+  if (String(AO.pubOf["ABSA"]).toLowerCase() !== "no") fails.push(`G-ABSENT-ONCE: ABSA published=${AO.pubOf["ABSA"]} (متوقّع No — يُخفى أوّل مرّة)`);
+  if ("ABSB" in AO.qtyOf) fails.push(`G-ABSENT-ONCE: ABSB (غائب زد 0/غير منشور) في ملف الكميات (=${AO.qtyOf["ABSB"]}) — يجب ألّا يُصدَّر (strip يُسقطه)`);
+  if (AO.priceSkus.includes("ABSB")) fails.push("G-ABSENT-ONCE: ABSB في ملف الأسعار — يجب ألّا يُعاد إخفاؤه (published≠yes)");
+  if (Number(AO.qtyOf["RET"]) !== 7) fails.push(`G-ABSENT-ONCE: RET (عاد باركوده · مخزون 7) qty=${AO.qtyOf["RET"]} (متوقّع 7 — يُصدَّر بكميته)`);
+  notes.push(`G-ABSENT-ONCE: ABSA=[qty ${AO.qtyOf["ABSA"]}·pub ${AO.pubOf["ABSA"]}] · ABSB=[كميات:${"ABSB" in AO.qtyOf ? AO.qtyOf["ABSB"] : "خارج"}·أسعار:${AO.priceSkus.includes("ABSB") ? "داخل" : "خارج"}] · RET qty=${AO.qtyOf["RET"]}`);
+  const aoMut = curHtml.replace("cur === newQ) { dropped++; continue; }", "cur === newQ) { dropped++; }");   // كسر strip: لا يُسقط المطابق ⇒ ABSB يدخل الملف
+  if (aoMut === curHtml) fails.push("أسنان G-ABSENT-ONCE: تعذّر تطبيق الطفرة (لم أجد سطر strip)");
+  else { const AOT = await bootRead(browser, aoMut, absentOnceCfg()); if (!("ABSB" in AOT.qtyOf)) fails.push("أسنان G-ABSENT-ONCE: بكسر strip بقي ABSB خارج الملف — بلا أسنان"); else notes.push(`أسنان G-ABSENT-ONCE (بكسر strip): ABSB=${AOT.qtyOf["ABSB"]} (دخل الملف = العطل: يُعاد تصدير المصفَّر أصلاً ⇒ حشو)`); }
+
   // ===== ٥ب G-REPUB: إعادة النشر No→Yes (القيمة: published=Yes للبسيط العائد له مخزون) =====
   const RP = await bootRead(browser, curHtml, repubCfg());
   if (RP.err) fails.push("G-REPUB رمى: " + RP.err);
@@ -488,4 +515,4 @@ try {
 
 console.log(notes.map(n => "  · " + n).join("\n"));
 if (fails.length) { console.error("\n✗ فشل المشغّل السلوكي:\n" + fails.map(f => "  ✗ " + f).join("\n")); process.exit(1); }
-console.log("\n✅ المشغّل السلوكي: كل الادّعاءات (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام التخفيض · ٣+١ العودة · ٥أ توزيع 3+2+2 · offset 280 · ٥ب lowVal 0 · lowVal2 إجمالي-الكود · republish Yes · inf 9) مثبتة سلوكياً بالقيمة، وأسنان كلٍّ مؤكَّدة على الطفرة.");
+console.log("\n✅ المشغّل السلوكي: كل الادّعاءات (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام التخفيض · ٣+١ العودة · ٥أ توزيع 3+2+2 · offset 280 · ٥ب lowVal 0 · lowVal2 إجمالي-الكود · absent-once ذاتيّ التصحيح · republish Yes · inf 9) مثبتة سلوكياً بالقيمة، وأسنان كلٍّ مؤكَّدة على الطفرة.");

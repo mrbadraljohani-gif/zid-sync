@@ -1711,7 +1711,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "0bc95da";
+const APP_VERSION = "927c5dd";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -4830,7 +4830,12 @@ function renderZidFreshness() {
   // (١-ب) أُزيل بانر «⚠ بيانات زد قديمة» المستقلّ من الرئيسية — التحذير يبقى مدمجاً في سطر الملخّص (.vm-stale أدناه)
   // كرِّر التحذير في سطر الملخّص الأخضر (نُقل إلى المخزون #invSummaryLine)
   const vm = document.getElementById("invSummaryLine");
-  if (vm && /verify-ok/.test(vm.className) && vm.style.display !== "none" && zidIsStale()) vm.innerHTML = esc(vm.textContent) + ` <span class="vm-stale">· ⚠ بيانات زد قديمة (${ageText(zidSyncedAt)})</span>`;
+  if (vm && /verify-ok/.test(vm.className) && vm.style.display !== "none" && zidIsStale()) {
+    // تقوية التحذير: قاعدة الغائب تُقيَّم على مرآة زد؛ فمرآة قديمة قد تُصفّر/تُخفي أصنافاً أُعيد تخزينها/نشرها خارجنا. تحذير لا حجب.
+    const nAbs = (typeof lastAbsent !== "undefined" && lastAbsent) ? lastAbsent.length : 0;
+    const absNote = nAbs ? ` — ${nAbs} «غائب» مُقيَّم على هذه المرآة؛ حدّث زد قبل التنزيل لئلّا يُصفَّر/يُخفى ما عاد خارجنا` : "";
+    vm.innerHTML = esc(vm.textContent) + ` <span class="vm-stale">· ⚠ بيانات زد قديمة (${ageText(zidSyncedAt)})${absNote}</span>`;
+  }
 }
 function renderCollisionWarn() {
   const el = document.getElementById("collisionWarn");
