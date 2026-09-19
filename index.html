@@ -1711,7 +1711,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "3f0cd93";
+const APP_VERSION = "73549f6";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -4666,9 +4666,10 @@ function run(reprocess) {
     }
     // كتلة تشخيص اختيارية: تظهر فقط عند إضافة ?debug إلى الرابط (تُلحَق بالعنصر النشط: سطر المخزون عند النجاح، الرئيسية عند الفشل)
     const dbgEl = (vq.ok && vp.ok) ? okEl : vm;
-    if (/[?&]debug\b/.test(location.search)) {
+    if (/[?&]debug\b/.test(location.search)) try {   // كتلة تشخيص محمية — أيّ خطأ فيها لا يُجهض المطابقة (لا نكرّر علّة lowQtyLim)
       dbgEl.style.whiteSpace = "pre-wrap";
       const vm = dbgEl;   // بقيّة الكتلة تكتب في vm — وجّهها للعنصر النشط
+      const lowQtyLim = opts.lowQty != null ? opts.lowQty : 3;   // نطاق الكتلة (const داخل حلقة run خارج المدى هنا)
       const dbgGroups = [...whMembers.entries()].filter(([, m]) => m.length > 1).slice(0, 8).map(([wc, m]) => `${wc}(${whIndex[wc].qty})→[${m.map(x => shareByRaw.get(x)).join(",")}]`);
       vm.textContent += "\n\n⟪debug⟫"
         + `\nأصناف has_variants=Yes (آباء) مُستبعَدة كليّاً من ملفات الكميات: ${lastHasVarYes.size}`
@@ -4710,7 +4711,7 @@ function run(reprocess) {
           + `\nهبوط (أخضر→أصفر): ${downgrades.length} · صعود جديد (أصفر→أخضر): ${newGreens.length}`
           + (ex.length ? `\nعيّنة الهبوط:\n  ${ex.join("\n  ")}` : `\n(لا هبوط)`);
       } catch (e) { vm.textContent += `\n⟪قياس تشديد المطابقة: تعذّر — ${e.message}⟫`; }
-    }
+    } catch (dbgErr) { console.warn("debug block:", dbgErr); }
 
     // H1: تاريخ المطابقة يُكتب في القاعدة (المصدر الوحيد) — دفعةً للجديد فقط، بأفضل جهد (upsert idempotent فيُعاد التشغيل التالي إن فشل).
     // غير حاجب: النتيجة والملفّان جاهزان بلا انتظار الشبكة. الحذف يتمّ في dbDelMapping لا هنا.
@@ -4746,8 +4747,18 @@ function run(reprocess) {
     renderZidFreshness();   // المرحلة 3: طابع طزاجة بيانات زد + تحذير التقادم (>24س)
     document.getElementById("result").style.display = "block";
     if (!reprocess) document.getElementById("result").scrollIntoView({ behavior: "smooth" });
-  } catch (x) { showErr("خطأ أثناء المعالجة: " + x.message); }
+  } catch (x) { showErr("خطأ أثناء المعالجة: " + x.message); clearRunOutput(); }
   finally { setBusy("result", false); setBusy("runBtn", false); }
+}
+// عند فشل run(): لا نترك أرقاماً معروضة (قد تكون بقايا تشغيل سابق) — نمسح الملخّص ونعطّل التنزيل ونُبطل lastRunSummary.
+// (علّة «مدخل ناقص» بصورة أخرى: خطأ يقع والشاشة تعرض أرقاماً كأنها طازجة.)
+function clearRunOutput() {
+  ["sUpd", "sUn", "sTot"].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
+  const sub = document.getElementById("sUnSub"); if (sub) sub.textContent = "";
+  ["dlQty", "dlPrice"].forEach(id => { const el = document.getElementById(id); if (el) { el.removeAttribute("href"); el.classList.add("disabled"); } });
+  const res = document.getElementById("result"); if (res) res.style.display = "none";   // لا يُعرض جدول/قائمة من تشغيل سابق
+  lastRunSummary = null; lastQtyRows = null; lastPriceRows = null;   // صفحة المخزون/أزرار التجربة لا تقرأ بقايا
+  if (typeof renderInventoryPage === "function") renderInventoryPage();
 }
 // طابع طزاجة بيانات زد: في رأس النتيجة دائماً، وتحذير أصفر بارز ＋ تكرار في سطر التأكيد عند تجاوز 24 ساعة
 function renderZidFreshness() {
