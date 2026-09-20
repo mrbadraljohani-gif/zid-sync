@@ -215,9 +215,23 @@ function excludeCfg(on) {
   return cfg;
 }
 
+// G-POSEXCEPT: PC أبٌ موضعيّ (has_variants=Yes) كوده في المخزن · C1 ابنٌ موضعيّ (has_variants فارغ) بلا كود خاصّ ⇒ يرث كود PC (door-4).
+//   except ⇒ C1 يُحذف من parentOf ⇒ standalone ⇒ «يحتاج ربط». unlink ⇒ ينفّذ unlinkPositional (يحذف من matched_history فلا يصير «غائباً»).
+function posExceptCfg(except, unlink) {
+  const cfg = {
+    stData: { sheetName: "P", header: HEADER, rows: [HEADER, Z("PC", "5", "100", { hv: "Yes" }), Z("C1", "5", "100", { hv: "" })] },
+    whRows: [WH("PC", 9, 100)], lastMerge: merge(["PC"]), manualMap: {},
+    waiting: [], history: unlink ? ["C1"] : [], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: true, callHook: false,
+  };
+  if (except) cfg.posExcept = ["C1"];
+  if (unlink) cfg.posUnlink = unlink;
+  return cfg;
+}
+
 // دالّة داخل الصفحة: تهيّئ الحالة، تستدعي الخطاف+run (＋قرار اختياري)، وتُعيد القراءات (دفاعية للنسخ القديمة)
 async function inpage(cfg) {
   const mk = () => { const c = { select() { return c; }, upsert: async () => ({ error: null }), delete() { return c; }, insert: async () => ({ error: null }), eq: async () => ({ error: null }), in: async () => ({ error: null }), order() { return c; }, range: async () => ({ data: [], error: null }) }; return c; };
+  try { window.confirm = () => true; } catch (e) {}   // أيّ confirm في التدفّق المُختبَر (unlinkPositional…) يُقبَل تلقائياً فلا يعلّق evaluate
   try { sb = { from: mk, auth: { getSession: async () => ({ data: { session: null } }) } }; } catch (e) {}
   try { dbOnline = true; myRole = "owner"; } catch (e) {}
   // SheetJS محجوب (CDN) — بديل وهمي فقط لتوليد Blob في wireDl (نقارن الصفوف لا البايتات؛ بدونه يرمي wireDl فيُجهِض run قبل ضبط lastUpdated/lastUnmatchedRaw)
@@ -230,6 +244,7 @@ async function inpage(cfg) {
   // G-EXCLUDE: طبّق الاستبعاد عبر نقطة الاختناق الحقيقية (applyExclusions) — stDataFull ثمّ stData المُصفّى
   if (cfg.exclude) { try { excludedSkus = new Set(cfg.exclude.skus || []); excludedRules = (cfg.exclude.rules || []).map(p => ({ prefix: String(p).toUpperCase() })); stDataFull = cfg.stData; applyExclusions(); } catch (e) {} }
   else { try { excludedSkus = new Set(); excludedRules = []; stDataFull = null; } catch (e) {} }
+  try { posExceptions = new Set(cfg.posExcept || []); } catch (e) {}   // G-POSEXCEPT: استثناءات النسب الموضعيّ (buildFamilyIndex يقرأها)
   try { priceOffsets = cfg.priceOffsets || {}; } catch (e) {}
   try { opts = Object.assign(opts, cfg.opts || {}); } catch (e) {}
   try { whWasUploaded = cfg.uploaded === undefined ? true : cfg.uploaded; } catch (e) {}
@@ -239,6 +254,9 @@ async function inpage(cfg) {
   try { run(false); snap = { upd: (lastUpdated || []).length, unm: (lastUnmatchedRaw || []).length, reap: (typeof reappearedSet !== "undefined" && reappearedSet ? reappearedSet.size : -1) }; } catch (e) { err = (err ? err + " | " : "") + "run:" + e; }
   if (cfg.decision && cfg.decision.type === "wait") {
     try { await applyDecision(() => markWaiting(cfg.decision.raw, cfg.decision.skuN, "")); } catch (e) { err = (err ? err + " | " : "") + "dec:" + e; }
+  }
+  if (cfg.posUnlink) {
+    try { await unlinkPositional(cfg.posUnlink); } catch (e) { err = (err ? err + " | " : "") + "posunlink:" + e; }
   }
   if (cfg.decision && cfg.decision.type === "delmap") {
     try { await delMap(cfg.decision.sku); } catch (e) { err = (err ? err + " | " : "") + "delmap:" + e; }
@@ -268,6 +286,7 @@ async function inpage(cfg) {
     priceOf: (() => { const m = {}; pr.slice(1).forEach(r => { m[String(r[iSku])] = r[iPrice]; }); return m; })(),   // sku ⇒ price المُصدَّر (لفحص offset)
     parentHidden: pr.slice(1).filter(r => iPub >= 0 && String(r[iPub]).toLowerCase() === "no" && (r[iPrice] === "" || r[iPrice] == null)).map(r => String(r[iSku])),
     updated: (lastUpdated || []).map(u => ({ sku: String(u.sku), newQty: u.newQty, reappeared: !!u.reappeared })),
+    posOf: (() => { const m = {}; (lastUpdated || []).forEach(u => { m[String(u.sku)] = !!u.posMatched; }); return m; })(),   // G-POSEXCEPT: هل طوبِق عبر الأب الموضعيّ
     unmatched: (lastUnmatchedRaw || []).map(u => ({ sku: String(u.sku), reappeared: !!u.reappeared, waiting: !!u.waiting })),
     saleConflicts: (typeof lastSaleConflicts !== "undefined" && lastSaleConflicts ? lastSaleConflicts : []).map(s => String(s.sku)),
     reappearedSet: (typeof reappearedSet !== "undefined" && reappearedSet ? [...reappearedSet] : []),
@@ -525,6 +544,30 @@ try {
   if (exMut === curHtml) fails.push("أسنان G-EXCLUDE②: تعذّر تطبيق الطفرة");
   else { const EXM = await bootRead(browser, exMut, excludeCfg(true)); if (!EXM.unmatched.some(u => u.sku === "KSA.1.2.3")) fails.push("أسنان G-EXCLUDE②: بتعطيل applyExclusions لم يظهر KSA.1.2.3 — بلا أسنان"); else notes.push("أسنان G-EXCLUDE② (بتعطيل الفلترة): KSA.1.2.3 ظهر (= العطل)"); }
 
+  // ===== G-POSEXCEPT: فكّ النسب الموضعيّ (C1 يرث كود PC ⇒ استثناؤه ⇒ «يحتاج ربط» لا «غائب») =====
+  const PB = await bootRead(browser, curHtml, posExceptCfg(false, false));   // baseline: door-4 يطابق C1
+  if (PB.err) fails.push("G-POSEXCEPT رمى: " + PB.err);
+  if (!PB.updated.some(u => u.sku === "C1")) fails.push("G-POSEXCEPT baseline: C1 لم يُطابَق عبر الأب (door-4)");
+  if (!(PB.posOf && PB.posOf["C1"])) fails.push("G-POSEXCEPT: C1 ليس posMatched (لا يظهر زرّ الفكّ)");
+  const PE = await bootRead(browser, curHtml, posExceptCfg(true, false));    // استثناء أوّليّ ⇒ standalone
+  if (PE.updated.some(u => u.sku === "C1")) fails.push("G-POSEXCEPT: C1 المستثنى ما زال مطابَقاً");
+  if (!PE.unmatched.some(u => u.sku === "C1")) fails.push("G-POSEXCEPT: C1 المستثنى ليس «يحتاج ربط»");
+  if (PE.absent && PE.absent.includes("C1")) fails.push("G-POSEXCEPT: C1 المستثنى صار «غائباً» (خطر التصفير)");
+  const PA = await bootRead(browser, curHtml, posExceptCfg(false, "C1"));    // الإجراء: history=[C1] ثمّ فكّ ⇒ يُحذف من matched_history
+  if (PA.err) fails.push("G-POSEXCEPT action رمى: " + PA.err);
+  if (PA.updated.some(u => u.sku === "C1")) fails.push("G-POSEXCEPT action: C1 ما زال مطابَقاً بعد الفكّ");
+  if (PA.absent && PA.absent.includes("C1")) fails.push("G-POSEXCEPT action: C1 صار «غائباً» بعد الفكّ — لم يُحذف من matched_history (خطر التصفير — #4)");
+  if (!PA.unmatched.some(u => u.sku === "C1")) fails.push("G-POSEXCEPT action: C1 ليس «يحتاج ربط» بعد الفكّ");
+  notes.push(`G-POSEXCEPT: baseline C1 posMatched=${PB.posOf ? PB.posOf["C1"] : "?"} · استثناء⇒unmatched=${PE.unmatched.some(u => u.sku === "C1")} · فكّ⇒absent=${PA.absent && PA.absent.includes("C1")}`);
+  // أسنان ①: بلا حذف من parentOf ⇒ C1 يبقى مطابَقاً رغم الاستثناء
+  const p1 = curHtml.replace("if (typeof posExceptions !== \"undefined\" && posExceptions.size) for (const rk in parentOf) if (posExceptions.has(rk)) delete parentOf[rk];", "/* حذف الاستثناء مُعطّل (المعطوب) */");
+  if (p1 === curHtml) fails.push("أسنان G-POSEXCEPT①: تعذّر تطبيق الطفرة");
+  else { const PET = await bootRead(browser, p1, posExceptCfg(true, false)); if (!PET.updated.some(u => u.sku === "C1")) fails.push("أسنان G-POSEXCEPT①: بلا حذف من parentOf بقي C1 غير مطابَق — بلا أسنان"); else notes.push("أسنان G-POSEXCEPT① (بلا حذف parentOf): C1 ما زال يرث كود الأب"); }
+  // أسنان ②: بلا حذف من matched_history في unlinkPositional ⇒ C1 يصير «غائباً» بعد الفكّ
+  const p2 = curHtml.replace("  await removeFromMatchedHistory(s);   // ⚠ حاسم: وإلّا صنّفه run «غائباً» (له تاريخ) ⇒ صُفّر ＋ أُخفي", "  /* removeFromMatchedHistory مُعطّل (المعطوب) */");
+  if (p2 === curHtml) fails.push("أسنان G-POSEXCEPT②: تعذّر تطبيق الطفرة");
+  else { const PAT = await bootRead(browser, p2, posExceptCfg(false, "C1")); if (!(PAT.absent && PAT.absent.includes("C1"))) fails.push("أسنان G-POSEXCEPT②: بلا حذف matched_history لم يصر C1 «غائباً» — بلا أسنان"); else notes.push("أسنان G-POSEXCEPT② (بلا حذف matched_history): C1 صار «غائباً» (= خطر التصفير #4)"); }
+
   // ===== ٥ب G-REPUB: إعادة النشر No→Yes (القيمة: published=Yes للبسيط العائد له مخزون) =====
   const RP = await bootRead(browser, curHtml, repubCfg());
   if (RP.err) fails.push("G-REPUB رمى: " + RP.err);
@@ -546,4 +589,4 @@ try {
 
 console.log(notes.map(n => "  · " + n).join("\n"));
 if (fails.length) { console.error("\n✗ فشل المشغّل السلوكي:\n" + fails.map(f => "  ✗ " + f).join("\n")); process.exit(1); }
-console.log("\n✅ المشغّل السلوكي: كل الادّعاءات (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام التخفيض · ٣+١ العودة · ٥أ توزيع 3+2+2 · offset 280 · ٥ب lowVal 0 · lowVal2 إجمالي-الكود · absent-once ذاتيّ التصحيح · exclude تامّ · republish Yes · inf 9) مثبتة سلوكياً بالقيمة، وأسنان كلٍّ مؤكَّدة على الطفرة.");
+console.log("\n✅ المشغّل السلوكي: كل الادّعاءات (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام التخفيض · ٣+١ العودة · ٥أ توزيع 3+2+2 · offset 280 · ٥ب lowVal 0 · lowVal2 إجمالي-الكود · absent-once ذاتيّ التصحيح · exclude تامّ · pos-except فكّ النسب · republish Yes · inf 9) مثبتة سلوكياً بالقيمة، وأسنان كلٍّ مؤكَّدة على الطفرة.");

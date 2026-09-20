@@ -1509,6 +1509,8 @@
 
     <!-- إدارة المنتجات المستبعَدة من المطابقة (excluded_skus + excluded_rules) — يملؤها renderExcludedCard -->
     <div class="card" id="excludedCard" style="margin-top:14px"></div>
+    <!-- استثناءات النسب الموضعيّ (positional_exceptions) — يملؤها renderPosExceptCard -->
+    <div class="card" id="posExceptCard" style="margin-top:14px"></div>
   </section>
 
   <!-- ============ الصفحة: تحديث قاعدة البيانات ============ -->
@@ -1699,7 +1701,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "974d37b";
+const APP_VERSION = "c88095e";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -1743,6 +1745,8 @@ let excludedRules = [];                // قواعد بادئة: [{prefix (upper
 let excludedSkuMeta = new Map();       // sku ⇒ {note, at} للعرض
 let stDataFull = null, lastExcludedRows = [];   // stDataFull = تصدير زد الخام؛ stData = المُصفّى (بعد applyExclusions)؛ lastExcludedRows = المُستبعَدون للبطاقة
 let exclPreview = null;                // معاينة قاعدة مفتوحة: {prefix, items:[{sku,name,qty,published,checked}], stale, age}
+let posExceptions = new Set();         // SKU خام مستثنى من النسب الموضعيّ (لا يرث كود الأب — يصير «يحتاج ربط») — المصدر: القاعدة positional_exceptions
+let lastPosMatch = { active: 0, excepted: 0 };   // للسطر الملخّص: مطابقات موضعية نشطة · مفكوكة
 let boundSet = new Set();
 let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [];
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
@@ -1832,6 +1836,12 @@ const db = {
     async getRules() { const { data, error } = await sb.from("excluded_rules").select("prefix,note,created_at"); if (error) throw error; return data || []; },
     async addRule(prefix, note) { const { error } = await sb.from("excluded_rules").insert({ prefix: String(prefix).toUpperCase(), note: note || null }); if (error) throw error; },
     async removeRule(prefix) { const { error } = await sb.from("excluded_rules").delete().eq("prefix", String(prefix).toUpperCase()); if (error) throw error; },
+  },
+  // استثناءات النسب الموضعيّ (positional_exceptions) — SKU لا يرث كود الأب ⇒ «يحتاج ربط»
+  posExcept: {
+    async getAll() { const { data, error } = await sb.from("positional_exceptions").select("sku,note,created_at"); if (error) throw error; return data || []; },
+    async add(sku, note) { const { error } = await sb.from("positional_exceptions").upsert({ sku: String(sku), note: note || null }, { onConflict: "sku" }); if (error) throw error; },
+    async remove(sku) { const { error } = await sb.from("positional_exceptions").delete().eq("sku", String(sku)); if (error) throw error; },
   },
   // المرحلة 3: منتجات زد (مرآة تصدير زد) — القاعدة مصدر بيانات زد بدل رفع الملف كل دورة
   zidProducts: {
@@ -2008,6 +2018,53 @@ async function loadExclusionsFromDB() {
     const rules = await db.excluded.getRules();
     excludedRules = rules.map(r => ({ prefix: String(r.prefix).toUpperCase(), note: r.note || "", at: r.created_at || null }));
   } catch (e) { console.warn("excluded DB load failed:", e); }
+  try { posExceptions = new Set((await db.posExcept.getAll()).map(r => String(r.sku))); } catch (e) { console.warn("posExcept DB load failed:", e); }
+}
+// فكّ النسب الموضعيّ: القاعدة أوّلاً ثمّ الذاكرة، ＋حذف من matched_history (وإلّا صار «غائباً»⇒صفر لا «يحتاج ربط»)، ثمّ إعادة بناء الفهرس والمطابقة.
+async function unlinkPositional(rawSku) {
+  const s = String(rawSku == null ? "" : rawSku).trim(); if (!s) return;
+  if (posExceptions.has(s)) { showToast(`«${s}» مفكوك سلفاً.`); return; }
+  const parent = famIndex ? famIndex.parentOfSku(s) : null;
+  const nm = (() => { if (!stDataFull) return ""; const iSku = stDataFull.header.indexOf("sku"), iName = stDataFull.header.indexOf("name_ar"); const row = stDataFull.rows.find(r => String(r[iSku]) === s); return row && iName >= 0 ? String(row[iName] || "") : ""; })();
+  if (!confirm(`«${s}»${nm ? ` «${nm}»` : ""} سيُفكّ عن الأب الموضعيّ${parent ? ` ${parent}` : ""} ويصير «يحتاج ربط» — لن يُصدَّر ولا يُصفَّر حتى تربطه يدوياً بالكود الصحيح.\n\nأتأكّد؟`)) return;
+  try { requireOnline(); } catch { return; }
+  try { await db.posExcept.add(s); } catch (e) { dbFail(e); return; }
+  posExceptions.add(s);
+  await removeFromMatchedHistory(s);   // ⚠ حاسم: وإلّا صنّفه run «غائباً» (له تاريخ) ⇒ صُفّر ＋ أُخفي
+  logActivity("positional_unlinked", s, { parent: parent || null });
+  showToast(`✓ فُكّ «${s}» — صار «يحتاج ربط».`);
+  if (typeof rebuildFamilyIndex === "function") rebuildFamilyIndex();
+  renderPosExceptCard();
+  if (document.getElementById("result") && document.getElementById("result").style.display === "block" && whRows && stData) run(true);
+  else if (typeof renderInventoryPage === "function") renderInventoryPage();
+}
+async function relinkPositional(rawSku) {
+  const s = String(rawSku);
+  try { requireOnline(); } catch { return; }
+  try { await db.posExcept.remove(s); } catch (e) { dbFail(e); return; }
+  posExceptions.delete(s);
+  logActivity("positional_relinked", s, null);
+  showToast(`✓ أُعيد نسب «${s}» — يرث كود الأب من جديد.`);
+  if (typeof rebuildFamilyIndex === "function") rebuildFamilyIndex();
+  renderPosExceptCard();
+  if (document.getElementById("result") && document.getElementById("result").style.display === "block" && whRows && stData) run(true);
+  else if (typeof renderInventoryPage === "function") renderInventoryPage();
+}
+function addPosExceptFromInput() { const el = document.getElementById("posExcInput"); if (!el) return; const v = el.value; if (String(v).trim()) unlinkPositional(v).then(() => { el.value = ""; }); }
+// بطاقة استثناءات النسب الموضعيّ (المخزون)
+function renderPosExceptCard() {
+  const el = document.getElementById("posExceptCard"); if (!el) return;
+  const list = [...posExceptions];
+  const rowsHtml = list.length
+    ? `<div class="twrap"><table class="upd-table"><thead><tr><th>SKU</th><th></th></tr></thead><tbody>`
+      + list.map(s => `<tr><td class="mono" dir="ltr">${esc(s)}</td><td><button class="mini-btn" onclick="relinkPositional('${esc(s)}')" title="أعِد النسب — يرث كود الأب">↩ إعادة النسب</button></td></tr>`).join("")
+      + `</tbody></table></div>`
+    : `<p class="muted-2" style="padding:8px 2px">لا استثناءات. استعمل زرّ «فكّ نسب الأب» في «تم تحديثه»/المستكشف، أو أضِف SKU أدناه.</p>`;
+  el.innerHTML =
+    `<div class="section-head" style="margin:2px 2px 10px"><h2>استثناءات النسب الموضعيّ (${list.length})</h2><span class="line"></span></div>`
+    + `<p class="muted-2" style="font-size:13px;margin:0 2px 10px">SKU لا يرث كود أبٍ موضعيّ (أخطأ ترتيبُ تصدير زد) — يصير «يحتاج ربط» ليُربَط يدوياً بالكود الصحيح. ≠ الاستبعاد.</p>`
+    + rowsHtml
+    + `<div class="maprow" style="margin-top:12px;gap:8px;flex-wrap:wrap"><input id="posExcInput" placeholder="فكّ نسب SKU بعينه" dir="ltr" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')addPosExceptFromInput()"><button class="btn-run sm" onclick="addPosExceptFromInput()">فكّ النسب</button></div>`;
 }
 // سبب استبعاد SKU خام: {manual, rule} أو null. البادئة غير حسّاسة للحالة · بادئة فقط (startsWith).
 function exclusionOf(rawSku) {
@@ -2582,6 +2639,7 @@ function renderInventoryPage() {
   renderInvKPIs();
   if (typeof loadActivityInto === "function") loadActivityInto("activityMini", "", 5);   // «آخر ٥» المصغّر (صفّ ٢)
   if (typeof renderExcludedCard === "function") renderExcludedCard();   // بطاقة المستبعَدين من المطابقة
+  if (typeof renderPosExceptCard === "function") renderPosExceptCard();   // بطاقة استثناءات النسب الموضعيّ
   if (typeof renderFingerprint === "function") renderFingerprint();
 }
 // KPI اللوحة «أين أنا الآن» — كلها من مصادر حيّة، وتُظهر «—» قبل توفّر مصدرها (لا رقم ملفَّق قبل المطابقة)
@@ -4458,6 +4516,8 @@ function buildFamilyIndex(rows0, H) {
   const parentOf = {}; for (const k in posParentOf) parentOf[k] = posParentOf[k];
   const conflicts = [];
   if (parentCol >= 0) for (let i = 1; i < rows0.length; i++) { const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue; const rk = String(rs), v = rows0[i][parentCol]; if (v === "" || v == null) continue; const vs = String(v).trim(), p = hasVarYes.has(vs) ? vs : parentSkuByNorm[normCode(vs)]; if (!p || p === rk) continue; if (rk in parentOf) { if (parentOf[rk] !== p) conflicts.push({ sku: rk, pos: parentOf[rk], pref: p }); } else parentOf[rk] = p; }
+  // استثناءات النسب الموضعيّ: احذف المستثنى من parentOf ⇒ يصير standalone (لا يرث كود الأب في door-4 ولا يُعامَل متغيّراً)
+  if (typeof posExceptions !== "undefined" && posExceptions.size) for (const rk in parentOf) if (posExceptions.has(rk)) delete parentOf[rk];
   const childrenOf = {}; for (const k in parentOf) { const p = parentOf[k]; (childrenOf[p] || (childrenOf[p] = [])).push(k); }
   const parentSet = new Set(Object.keys(childrenOf));
   return {
@@ -4612,7 +4672,7 @@ function run(reprocess) {
     }
     const distItemCount = distByRaw.size, distGroupCount = [...whMembers.values()].filter(m => m.length > 1).length;
 
-    let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0, noChangeDropped = 0;
+    let qtyCount = 0, priceCount = 0, infConverted = 0, republishCount = 0, zeroLowCount = 0, noChangeDropped = 0, posMatchCount = 0;
     const cls = { matched: 0, unmatched: 0, collided: 0, absent: 0, parent: 0 };   // §دفعة٢: تصنيف كل منتج مرّة واحدة (التقاط بحت للرسم الدائري)
     const unmatched = [], updatedList = [], absentList = [], saleConflicts = [], lowValDbg = [];   // العودة من الانتظار انتقلت إلى خطاف الرفع (البند ٣) — لا reactivated هنا
     // قياس أثر قاعدة lowValZero (?debug فقط، صفر تغيير سلوك): الفرق بين الحكم الحالي (بإجمالي الكود) والقديم (بالحصة) — يبقى نافعاً للمقارنة التاريخية بعد تطبيق الإصلاح.
@@ -4650,6 +4710,9 @@ function run(reprocess) {
         continue;
       }
       const whCode = resolveWhCode(rawSku, skuN);   // نفس دالة تمريرة التوزيع بالضبط — لا اختلاف
+      // door-4 (ورث كود الأب الموضعيّ): طوبِق بكود، لكن ليس بربط يدويّ ولا كوده/أساسه المباشر ⇒ عبر parentOf
+      const posMatched = !!(whCode && !mapped && !whIndex[skuN] && !whIndex[baseOf(rawSku)] && parentOf[rawKey]);
+      if (posMatched) posMatchCount++;
       const wh = whCode ? whIndex[whCode] : null;
       if (!wh) {
         // بلا مطابقة في الملف الحالي: نميّز الغائب (له تاريخ) عن الجديد فعلاً
@@ -4773,7 +4836,7 @@ function run(reprocess) {
       }
       // جدول العرض للتحقق البصري (يشمل المستبعد بمظهر باهت — لا يتغيّر تصنيفه)
       if (qtyChanged || priceChanged || republish) {
-        updatedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "", whName: wh.name || "", whCode, whBarcode: wh.barcode || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), whBase, offset, oldQty, newQty, whQtyReal, zeroedLowValue: lowValZero, dist, oldPrice, newPrice, img: imgOf(orig), excluded: isExc, republish, qtyChanged, priceChanged, pubChanged: !!(republish || autoUnpubSimple), reappeared: reappearedSet.has(skuN) });   // qtyChanged/priceChanged/pubChanged يُخزَّن لفلتر الجدول (عرض محض): النشر = republish (No→Yes) أو autoUnpub (Yes→No)
+        updatedList.push({ sku: String(rawSku), skuN, name: orig[iName] || "", whName: wh.name || "", whCode, whBarcode: wh.barcode || "", whPrice: (cand != null ? cand : (wh.incl != null ? wh.incl : wh.excl)), whBase, offset, oldQty, newQty, whQtyReal, zeroedLowValue: lowValZero, dist, oldPrice, newPrice, img: imgOf(orig), excluded: isExc, republish, qtyChanged, priceChanged, pubChanged: !!(republish || autoUnpubSimple), reappeared: reappearedSet.has(skuN), posMatched });   // qtyChanged/priceChanged/pubChanged يُخزَّن لفلتر الجدول (عرض محض): النشر = republish (No→Yes) أو autoUnpub (Yes→No)؛ posMatched = ورث كود الأب الموضعيّ (لزرّ فكّ النسب)
       }
     }
 
@@ -4877,9 +4940,10 @@ function run(reprocess) {
     // سطر الملخّص الأخضر (النجاح) نُقل إلى صفحة المخزون (#invSummaryLine)؛ الرئيسية تحتفظ بفرع الفشل فقط (صمام ملاصق لزرّي التنزيل)
     const invLine = document.getElementById("invSummaryLine");
     const okEl = invLine || vm;   // هدف سطر النجاح: المخزون إن وُجد، وإلا الرئيسية (احتياط)
+    lastPosMatch = { active: posMatchCount, excepted: posExceptions.size };   // للعرض بلا debug
     if (vq.ok && vp.ok) {
       okEl.className = "verify-ok"; okEl.style.display = "block";
-      okEl.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + ` · مصفَّر: ${lastZeroRatio.zero} من ${lastZeroRatio.total} (${lastZeroRatio.pct}% — الحدّ ${ZERO_GATE_PCT}%)` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + ((lastAutoUnpubSimple.length || lastAutoUnpubParents.length) ? (() => { const au = k => lastAutoUnpubSimple.filter(x => x.src === k).length; return ` · إخفاء تلقائي: ${lastAutoUnpubSimple.length + lastAutoUnpubParents.length} — بسيط ${lastAutoUnpubSimple.length} (رخص ${au("low")} · مطابَق٠ ${au("matched0")} · ⏳ ${au("waiting")} · غائب ${au("absent")}) · آباء ${lastAutoUnpubParents.length}`; })() : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
+      okEl.textContent = `✓ ملف الكميات: ${qtyCount} صنف` + ` · مصفَّر: ${lastZeroRatio.zero} من ${lastZeroRatio.total} (${lastZeroRatio.pct}% — الحدّ ${ZERO_GATE_PCT}%)` + (infConverted ? ` (منها ${infConverted} «غير محدود» حُوّل لكمية حقيقية)` : "") + ` · ملف الأسعار: ${priceCount} صنف` + (republishCount ? ` · إعادة نشر: ${republishCount} صنف` : "") + (zeroLowCount ? ` · صُفّر لانخفاض القيمة: ${zeroLowCount} صنف` : "") + (distItemCount ? ` · موزّع الكمية: ${distItemCount} متغيّر في ${distGroupCount} كود` : "") + ((posMatchCount || posExceptions.size) ? ` · مطابقات موضعية: ${posMatchCount}${posExceptions.size ? ` (منها ${posExceptions.size} مفكوكة)` : ""}` : "") + ((lastAutoUnpubSimple.length || lastAutoUnpubParents.length) ? (() => { const au = k => lastAutoUnpubSimple.filter(x => x.src === k).length; return ` · إخفاء تلقائي: ${lastAutoUnpubSimple.length + lastAutoUnpubParents.length} — بسيط ${lastAutoUnpubSimple.length} (رخص ${au("low")} · مطابَق٠ ${au("matched0")} · ⏳ ${au("waiting")} · غائب ${au("absent")}) · آباء ${lastAutoUnpubParents.length}`; })() : "") + (noChangeDropped ? ` · استُبعد بلا تغيير: ${noChangeDropped} صنف` : "");
       vm.className = ""; vm.style.display = "none"; vm.textContent = "";   // الرئيسية: لا سطر أخضر عند النجاح (نُقل للمخزون)
     } else {
       vm.className = "verify-fail"; vm.style.display = "block";
@@ -5369,7 +5433,7 @@ function explorerBodyHTML(shown) {
       + `<td class="mono">${r.qtyKind === "inf" ? "∞" : esc(r.qtyDisplay)}</td>`
       + `<td><span class="q-chip ${r.pub ? "pub-yes" : "pub-no"}">${r.pub ? DOT_OK : DOT_BAD}</span></td>`
       + `<td><span class="cat-badge ${r.linked ? "cat-upd" : "cat-new"}">${r.linked ? "مربوط" : "بلا ربط"}</span></td>`
-      + `<td>${expBadges(r) || "—"}</td></tr>`;
+      + `<td>${expBadges(r) || "—"}${(famIndex && famIndex.parentOfSku(r.sku)) ? ` <button class="mini-btn unlink" onclick="unlinkPositional('${esc(String(r.sku))}')" title="متغيّر موضعيّ ورث كود الأب — فُكّه ليصير «يحتاج ربط»">${ic("shuffle")} فكّ النسب</button>` : ""}</td></tr>`;
   }).join("");
 }
 function renderExplorer(wrap) {
@@ -5484,7 +5548,7 @@ function updatedTableHTML(list) {
     // المستبعد: صف باهت بزر «استعادة» فقط (لا تحديد ولا تنزيل تجريبي). غيره: أزرار العمل المعتادة
     const actCell = u.excluded
       ? `<button class="mini-btn" onclick="restoreExcluded('${esc(u.skuN)}')" title="أعِد هذا الصنف إلى ملفي التنزيل">↩ استعادة</button>`
-      : `${offBtn}<button class="mini-btn unlink" onclick="unlinkRow('${esc(String(u.sku))}')" title="الربط خاطئ؟ ألغِه ليعود الصنف إلى «يحتاج ربط» — لا يُخفي المنتج ولا يُصفّره">${ic("link2")} إلغاء الربط</button><button class="mini-btn" onclick="downloadOne('${esc(u.skuN)}')" title="نزّل ملف اختبار يحوي هذا المنتج وحده لتجرّبه في زد قبل الاستيراد الكامل"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3v6.2L4.8 17a2 2 0 0 0 1.7 3h11a2 2 0 0 0 1.7-3l-4.7-7.8V3"/><path d="M8.5 3h7"/><path d="M7.2 14h9.6"/></svg> جرّب</button><button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="استبعاد مؤقت من ملفي التنزيل في هذه الجلسة (لا يُحفظ)">✕ شيلها</button>`;
+      : `${offBtn}${u.posMatched ? `<button class="mini-btn unlink" onclick="unlinkPositional('${esc(String(u.sku))}')" title="ورث كود أبٍ موضعيّ خطأً (منتج مختلف)؟ فُكّه ليصير «يحتاج ربط» وتربطه يدوياً بالكود الصحيح">${ic("shuffle")} فكّ نسب الأب</button>` : ""}<button class="mini-btn unlink" onclick="unlinkRow('${esc(String(u.sku))}')" title="الربط خاطئ؟ ألغِه ليعود الصنف إلى «يحتاج ربط» — لا يُخفي المنتج ولا يُصفّره">${ic("link2")} إلغاء الربط</button><button class="mini-btn" onclick="downloadOne('${esc(u.skuN)}')" title="نزّل ملف اختبار يحوي هذا المنتج وحده لتجرّبه في زد قبل الاستيراد الكامل"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3v6.2L4.8 17a2 2 0 0 0 1.7 3h11a2 2 0 0 0 1.7-3l-4.7-7.8V3"/><path d="M8.5 3h7"/><path d="M7.2 14h9.6"/></svg> جرّب</button><button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="استبعاد مؤقت من ملفي التنزيل في هذه الجلسة (لا يُحفظ)">✕ شيلها</button>`;
     const chkCell = u.excluded ? `` : `<input type="checkbox" class="test-chk" data-sku="${esc(u.sku)}" ${chk} aria-label="تحديد ${esc(u.sku)} للتنزيل التجريبي" onchange="toggleTest('${esc(u.sku)}', this.checked)">`;
     // أعلام مستقلّة للفلتر (التداخل مقصود): كمية · سعر (priceChanged فقط) · نشر (republish/autoUnpub). خلية السعر تُبرَز على أيّهما (سعر أو نشر).
     const pxHi = !!(u.priceChanged || u.pubChanged);
