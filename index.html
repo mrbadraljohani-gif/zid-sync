@@ -1506,6 +1506,9 @@
       <!-- جدول نحيف من activity_log: الوقت · النوع · SKU زد · الطريقة · الحالة (الحالة مشتقّة من event_type) -->
       <div id="invActTable" class="stc-empty">…</div>
     </div>
+
+    <!-- إدارة المنتجات المستبعَدة من المطابقة (excluded_skus + excluded_rules) — يملؤها renderExcludedCard -->
+    <div class="card" id="excludedCard" style="margin-top:14px"></div>
   </section>
 
   <!-- ============ الصفحة: تحديث قاعدة البيانات ============ -->
@@ -1696,7 +1699,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "09a37de";
+const APP_VERSION = "b6457cd";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1731,6 +1734,11 @@ let batchRowByUid = {}, btUidSeq = 0;  // سجل uid⇒صف (يفصل عمليا
 let lastParentPublish = [], lastParentCol = "";   // آباء نُقل إليهم النشر من متغيّراتهم + اسم عمود مرجع الأب (تشخيص)
 let priceOffsets = {};                  // زيادة سعر المتغيرات: skuN ⇒ قيمة الزيادة (ر.س)
 let excludedSet = new Set();           // استبعاد مؤقت للجلسة فقط (in-memory): يُستثنى الصنف من ملفي التنزيل — لا يُحفظ ويُصفَّر عند إعادة التحميل أو مطابقة جديدة
+// ⚠ مختلف تماماً عن «الاستبعاد من المطابقة» أدناه (excludedSkus/excludedRules): ذاك تامّ ودائم (القاعدة)، وهذا جزئيّ للجلسة («✕ شيلها»).
+let excludedSkus = new Set();          // استبعاد من المطابقة — SKU خام فرديّ (المصدر: القاعدة excluded_skus)
+let excludedRules = [];                // قواعد بادئة: [{prefix (uppercase), note, at}] (المصدر: القاعدة excluded_rules) — أيّ SKU يبدأ بها يُستبعد
+let excludedSkuMeta = new Map();       // sku ⇒ {note, at} للعرض
+let stDataFull = null, lastExcludedRows = [];   // stDataFull = تصدير زد الخام؛ stData = المُصفّى (بعد applyExclusions)؛ lastExcludedRows = المُستبعَدون للبطاقة
 let boundSet = new Set();
 let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [];
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
@@ -1810,6 +1818,15 @@ const db = {
     async upsert(sku, value) { const { error } = await sb.from("price_offsets").upsert({ sku: String(sku), value: Math.round(Number(value)) }, { onConflict: "sku" }); if (error) throw error; },
     async remove(sku) { const { error } = await sb.from("price_offsets").delete().eq("sku", String(sku)); if (error) throw error; },
     async bulkUpsert(rows) { if (!rows.length) return; const { error } = await sb.from("price_offsets").upsert(rows.map(r => ({ sku: String(r.sku), value: Math.round(Number(r.value)) })), { onConflict: "sku" }); if (error) throw error; },
+  },
+  // استبعاد من المطابقة (excluded_skus فرديّ + excluded_rules بادئات) — المصدر الوحيد، RLS owner+admin
+  excluded: {
+    async getSkus() { const { data, error } = await sb.from("excluded_skus").select("sku,note,created_at"); if (error) throw error; return data || []; },
+    async addSku(sku, note) { const { error } = await sb.from("excluded_skus").upsert({ sku: String(sku), note: note || null }, { onConflict: "sku" }); if (error) throw error; },
+    async removeSku(sku) { const { error } = await sb.from("excluded_skus").delete().eq("sku", String(sku)); if (error) throw error; },
+    async getRules() { const { data, error } = await sb.from("excluded_rules").select("prefix,note,created_at"); if (error) throw error; return data || []; },
+    async addRule(prefix, note) { const { error } = await sb.from("excluded_rules").insert({ prefix: String(prefix).toUpperCase(), note: note || null }); if (error) throw error; },
+    async removeRule(prefix) { const { error } = await sb.from("excluded_rules").delete().eq("prefix", String(prefix).toUpperCase()); if (error) throw error; },
   },
   // المرحلة 3: منتجات زد (مرآة تصدير زد) — القاعدة مصدر بيانات زد بدل رفع الملف كل دورة
   zidProducts: {
@@ -1975,6 +1992,169 @@ async function dbSaveOffset(skuN, value) {
     else { await db.priceOffsets.remove(skuN); delete priceOffsets[skuN]; }
   } catch (e) { dbFail(e); }
   logActivity(value > 0 ? "offset_set" : "offset_removed", skuN, value > 0 ? { value: Math.round(value) } : null);
+}
+// ===== استبعاد منتجات من المطابقة (نقطة اختناق واحدة على stData) =====
+async function loadExclusionsFromDB() {
+  if (!sb) return;
+  try {
+    const skus = await db.excluded.getSkus();
+    excludedSkus = new Set(skus.map(r => String(r.sku)));
+    excludedSkuMeta = new Map(skus.map(r => [String(r.sku), { note: r.note || "", at: r.created_at || null }]));
+    const rules = await db.excluded.getRules();
+    excludedRules = rules.map(r => ({ prefix: String(r.prefix).toUpperCase(), note: r.note || "", at: r.created_at || null }));
+  } catch (e) { console.warn("excluded DB load failed:", e); }
+}
+// سبب استبعاد SKU خام: {manual, rule} أو null. البادئة غير حسّاسة للحالة · بادئة فقط (startsWith).
+function exclusionOf(rawSku) {
+  const s = String(rawSku == null ? "" : rawSku);
+  if (!s) return null;
+  const manual = excludedSkus.has(s);
+  let rule = null; const up = s.toUpperCase();
+  for (const r of excludedRules) { if (r.prefix && up.startsWith(r.prefix)) { rule = r.prefix; break; } }
+  return (manual || rule) ? { manual, rule } : null;
+}
+// نقطة الاختناق: يعيد بناء stData (المُصفّى) من stDataFull ويملأ lastExcludedRows — كل ما بعده يرى المُصفّى «كأن المستبعَد غير موجود».
+function applyExclusions() {
+  if (!stDataFull) { stData = stDataFull; lastExcludedRows = []; return; }
+  const H = stDataFull.header, iSku = H.indexOf("sku"), iName = H.indexOf("name_ar");
+  if (iSku < 0) { stData = stDataFull; lastExcludedRows = []; return; }
+  const keep = [stDataFull.rows[0]], excl = [];
+  for (let i = 1; i < stDataFull.rows.length; i++) {
+    const r = stDataFull.rows[i], sku = r[iSku];
+    const ex = exclusionOf(sku);
+    if (ex) excl.push({ sku: String(sku == null ? "" : sku), name: iName >= 0 ? String(r[iName] || "") : "", manual: ex.manual, rule: ex.rule });
+    else keep.push(r);
+  }
+  stData = { ...stDataFull, rows: keep };
+  lastExcludedRows = excl;
+}
+function setStData(obj) { stDataFull = obj; applyExclusions(); }   // كل من يبني stData يمرّ هنا فيُطبَّق الاستبعاد حتماً
+// SKUات مُلتقَطة حالياً ببادئة (من الخام) — لحذفها من matched_history وللمعاينة
+function currentlyCaughtByRule(prefix) {
+  const p = String(prefix).toUpperCase(), out = [];
+  if (!stDataFull) return out;
+  const H = stDataFull.header, iSku = H.indexOf("sku"); if (iSku < 0) return out;
+  for (let i = 1; i < stDataFull.rows.length; i++) { const s = String(stDataFull.rows[i][iSku] || ""); if (s && s.toUpperCase().startsWith(p)) out.push(s); }
+  return out;
+}
+async function removeFromMatchedHistory(rawSku) {
+  const sk = normCode(rawSku);
+  if (matchedHistory.has(sk)) { matchedHistory.delete(sk); try { await db.matchedHistory.remove(sk); } catch (e) { console.warn("hist remove (exclude):", e); } }
+}
+async function removeManyFromMatchedHistory(rawList) {
+  const sks = [...new Set(rawList.map(normCode))].filter(x => matchedHistory.has(x));
+  if (!sks.length) return;
+  sks.forEach(x => matchedHistory.delete(x));
+  try { await db.matchedHistory.bulkRemove(sks); } catch (e) { console.warn("hist bulkRemove (exclude):", e); }
+}
+// بعد أيّ تغيير استبعاد: أعِد الفلترة ＋ فهرس العائلة ＋ البطاقة، وأعِد المطابقة إن كانت النتيجة معروضة
+function afterExclusionChange() {
+  applyExclusions(); zidIndexCache = null;
+  if (typeof rebuildFamilyIndex === "function" && stData) rebuildFamilyIndex();
+  if (typeof renderExcludedCard === "function") renderExcludedCard();
+  const res = document.getElementById("result");
+  if (res && res.style.display === "block" && whRows && stData) run(true);
+  else if (typeof renderInventoryPage === "function") renderInventoryPage();
+}
+// إجراءات الاستبعاد — القاعدة أوّلاً ثمّ الذاكرة (RLS تحكم owner/admin)، ＋ حذف من matched_history ＋ activity_log
+async function excludeSkuManual(rawSku, note) {
+  const s = String(rawSku == null ? "" : rawSku).trim();
+  if (!s) { showToast("أدخل SKU أوّلاً."); return; }
+  const ex = exclusionOf(s);
+  if (ex && ex.rule && !ex.manual) { showToast(`«${s}» مستبعَد أصلاً بقاعدة ${ex.rule} — لا داعي لإضافته يدوياً.`); return; }   // تعارض ①: مرفوض، لا تسجيل مزدوج
+  if (excludedSkus.has(s)) { showToast(`«${s}» مُضاف يدوياً سلفاً.`); return; }
+  try { requireOnline(); } catch { return; }
+  // تنبيه الأب (تبسيط الدفعة ١): لا نجمع المتغيّرات تلقائياً — البادئة أنسب للعائلات
+  try {
+    const H = stDataFull && stDataFull.header, iSku = H ? H.indexOf("sku") : -1, iHV = H ? H.indexOf("has_variants") : -1;
+    if (iHV >= 0 && iSku >= 0) { const row = stDataFull.rows.find(r => String(r[iSku]) === s); if (row && String(row[iHV]).trim().toLowerCase() === "yes" && !confirm(`«${s}» منتج أب (has_variants=Yes). سيُستبعد وحده — متغيّراته لا تُستبعد تلقائياً؛ لاستبعاد العائلة استعمل «قاعدة بادئة» بكوده.\n\nأستبعد الأب وحده الآن؟`)) return; }
+  } catch {}
+  try { await db.excluded.addSku(s, note); } catch (e) { dbFail(e); return; }
+  excludedSkus.add(s); excludedSkuMeta.set(s, { note: note || "", at: new Date().toISOString() });
+  await removeFromMatchedHistory(s);
+  logActivity("excluded_added", s, { source: "manual" });
+  showToast(`✓ استُبعد «${s}» من المطابقة.`);
+  afterExclusionChange();
+}
+async function unexcludeSku(rawSku) {
+  const s = String(rawSku);
+  try { requireOnline(); } catch { return; }
+  try { await db.excluded.removeSku(s); } catch (e) { dbFail(e); return; }
+  excludedSkus.delete(s); excludedSkuMeta.delete(s);
+  logActivity("excluded_removed", s, { source: "manual" });
+  const stillRule = exclusionOf(s);   // قد تبقيه قاعدة مستبعَداً
+  showToast(stillRule && stillRule.rule ? `أُزيل الاستبعاد اليدويّ، لكن «${s}» ما زال مستبعَداً بقاعدة ${stillRule.rule}.` : `✓ عاد «${s}» إلى المطابقة.`);
+  afterExclusionChange();
+}
+// معاينة قاعدة قبل الحفظ (شرط القبول الحاسم): ماذا ستلتقط ＋ تنبيه عمر البيانات
+function previewExcludeRule(prefix) {
+  const p = String(prefix == null ? "" : prefix).trim().toUpperCase();
+  if (p.length < 2) return { error: "البادئة يجب ألّا تقلّ عن حرفين." };
+  if (!stDataFull) return { error: "لا بيانات زد محمّلة للمعاينة — اعتمد زد أوّلاً." };
+  const H = stDataFull.header, iSku = H.indexOf("sku"), iName = H.indexOf("name_ar");
+  const items = [];
+  for (let i = 1; i < stDataFull.rows.length; i++) { const s = String(stDataFull.rows[i][iSku] || ""); if (s && s.toUpperCase().startsWith(p)) items.push({ sku: s, name: iName >= 0 ? String(stDataFull.rows[i][iName] || "") : "" }); }
+  return { prefix: p, count: items.length, items, stale: (typeof zidIsStale === "function" && zidIsStale()), age: (typeof ageText === "function" ? ageText(zidSyncedAt) : "") };
+}
+async function addExcludeRuleFlow(prefix) {
+  const pv = previewExcludeRule(prefix);
+  if (pv.error) { showToast(pv.error); return; }
+  if (excludedRules.some(r => r.prefix === pv.prefix)) { showToast(`قاعدة «${pv.prefix}» موجودة سلفاً.`); return; }
+  const sample = pv.items.slice(0, 40).map(it => `• ${it.sku} — ${it.name || "؟"}`).join("\n");
+  const staleLine = pv.stale ? `\n\n⚠ المعاينة على بيانات زد عمرها ${pv.age} — قد تفوت منتجات أحدث.` : "";
+  const more = pv.count > 40 ? `\n… و${pv.count - 40} غيرها` : "";
+  if (!confirm(`قاعدة «${pv.prefix}» ستستبعد ${pv.count} منتجاً:\n\n${sample}${more}${staleLine}\n\nأتأكّد الإضافة؟`)) return;
+  try { requireOnline(); } catch { return; }
+  try { await db.excluded.addRule(pv.prefix); } catch (e) { dbFail(e); return; }
+  excludedRules.push({ prefix: pv.prefix, note: "", at: new Date().toISOString() });
+  await removeManyFromMatchedHistory(currentlyCaughtByRule(pv.prefix));   // احذف المُلتقَطين حالياً من التاريخ
+  logActivity("rule_added", null, { prefix: pv.prefix, caught: pv.count });
+  showToast(`✓ أُضيفت قاعدة «${pv.prefix}» — استبعدت ${pv.count} منتجاً.`);
+  afterExclusionChange();
+}
+async function removeExcludeRuleFlow(prefix) {
+  const p = String(prefix).toUpperCase();
+  const n = currentlyCaughtByRule(p).length;
+  if (!confirm(`إلغاء قاعدة «${p}» سيعيد ${n} منتجاً إلى المطابقة (تُعاد معالجتها). أتأكّد؟`)) return;
+  try { requireOnline(); } catch { return; }
+  try { await db.excluded.removeRule(p); } catch (e) { dbFail(e); return; }
+  excludedRules = excludedRules.filter(r => r.prefix !== p);
+  logActivity("rule_removed", null, { prefix: p });
+  showToast(`✓ أُلغيت قاعدة «${p}» — عاد ${n} منتجاً للمطابقة.`);
+  afterExclusionChange();
+}
+// مُدخلات البطاقة
+function addExcludedSkuFromInput() { const el = document.getElementById("exclSkuInput"); if (!el) return; const v = el.value; if (String(v).trim()) { excludeSkuManual(v).then(() => { el.value = ""; }); } }
+function addExcludeRuleFromInput() { const el = document.getElementById("exclRuleInput"); if (!el) return; const v = el.value; if (String(v).trim().length >= 2) addExcludeRuleFlow(v).then(() => { el.value = ""; }); else showToast("البادئة يجب ألّا تقلّ عن حرفين."); }
+// بطاقة إدارة المستبعَدين (صفحة المخزون) — توكنات الثيم حصراً
+function renderExcludedCard() {
+  const el = document.getElementById("excludedCard"); if (!el) return;
+  const manualRows = [...excludedSkus].map(s => { const m = excludedSkuMeta.get(s) || {}; const alsoRule = (exclusionOf(s) || {}).rule; return { sku: s, name: "", reason: "يدوي" + (alsoRule ? ` ＋ قاعدة ${alsoRule}` : ""), at: m.at }; });
+  // المُلتقَطون بقاعدة (من آخر تصفية) غير المُضافين يدوياً
+  const ruleRows = (lastExcludedRows || []).filter(r => r.rule && !r.manual).map(r => ({ sku: r.sku, name: r.name, reason: `قاعدة ${r.rule}`, at: null }));
+  // أكمل أسماء اليدويّ من lastExcludedRows إن توفّرت
+  const nameBySku = new Map((lastExcludedRows || []).map(r => [r.sku, r.name]));
+  manualRows.forEach(r => { if (!r.name) r.name = nameBySku.get(r.sku) || ""; });
+  const all = [...manualRows, ...ruleRows];
+  const relTime = t => t ? (typeof ageText === "function" ? ageText(Date.parse(t)) : String(t).slice(0, 10)) : "—";
+  const listHtml = all.length
+    ? `<div class="twrap"><table class="upd-table"><thead><tr><th>SKU</th><th>الاسم</th><th>السبب</th><th>التاريخ</th><th></th></tr></thead><tbody>`
+      + all.map(r => `<tr><td class="mono" dir="ltr">${esc(r.sku)}</td><td>${esc(r.name) || "—"}</td><td>${esc(r.reason)}</td><td><bdi>${esc(relTime(r.at))}</bdi></td><td>`
+        + (excludedSkus.has(r.sku) ? `<button class="mini-btn" onclick="unexcludeSku('${esc(r.sku)}')" title="أعِد هذا الصنف إلى المطابقة">↩ إلغاء</button>` : `<span class="muted-2" style="font-size:12px">بقاعدة</span>`)
+        + `</td></tr>`).join("")
+      + `</tbody></table></div>`
+    : `<p class="muted-2" style="padding:10px 2px">لا منتجات مستبعَدة. أضِف SKU بعينه أو قاعدة بادئة أدناه.</p>`;
+  const rulesHtml = excludedRules.length
+    ? excludedRules.map(r => `<span class="col-pill"><b dir="ltr">${esc(r.prefix)}</b> — ${currentlyCaughtByRule(r.prefix).length} منتجاً <button class="mini-btn danger" style="margin-inline-start:6px" onclick="removeExcludeRuleFlow('${esc(r.prefix)}')" title="إلغاء القاعدة">✕</button></span>`).join(" ")
+    : `<span class="muted-2" style="font-size:13px">لا قواعد بعد.</span>`;
+  el.innerHTML =
+    `<div class="section-head" style="margin:2px 2px 12px"><h2>المستبعَدون من المطابقة</h2><span class="line"></span><span class="mono" style="font-size:13px;color:var(--muted)">${all.length}</span></div>`
+    + `<p class="muted-2" style="font-size:13px;margin:0 2px 12px">لا تُطابَق ولا تُصنَّف ولا تُصدَّر ولا تُعدّ — كأنها غير موجودة في تصدير زد. تبقى في القاعدة (فلتر عرض).</p>`
+    + listHtml
+    + `<div class="maprow" style="margin-top:14px;gap:8px;flex-wrap:wrap"><input id="exclSkuInput" placeholder="استبعاد SKU بعينه (مثل 0523)" dir="ltr" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')addExcludedSkuFromInput()"><button class="btn-run sm" onclick="addExcludedSkuFromInput()">استبعاد SKU</button></div>`
+    + `<div class="section-head" style="margin:18px 2px 10px"><h2 style="font-size:16px">قواعد البادئة</h2><span class="line"></span></div>`
+    + `<div class="un-chips" style="margin-bottom:10px">${rulesHtml}</div>`
+    + `<div class="maprow" style="gap:8px;flex-wrap:wrap"><input id="exclRuleInput" placeholder="بادئة (مثل KSA) — حرفان فأكثر" dir="ltr" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')addExcludeRuleFromInput()"><button class="btn-run sm" onclick="addExcludeRuleFromInput()">معاينة ثمّ إضافة</button></div>`;
 }
 function requireOnline() { if (!dbOnline) { showToast("🔴 غير متصل بالقاعدة — الكتابة معطّلة لمنع تشعّب البيانات."); throw new Error("db-offline"); } }
 // حجب عدم الاتصال (الدفعة أ): بلا اتصال ⇒ الإجراءات والتنزيل و«طابق وأنشئ» معطّلة + بانر ظاهر
@@ -2356,6 +2536,7 @@ function renderInventoryPage() {
   const em = document.getElementById("mergeEmpty"); if (em) em.style.display = lastMerge ? "none" : "block";
   renderInvKPIs();
   if (typeof loadActivityInto === "function") loadActivityInto("activityMini", "", 5);   // «آخر ٥» المصغّر (صفّ ٢)
+  if (typeof renderExcludedCard === "function") renderExcludedCard();   // بطاقة المستبعَدين من المطابقة
   if (typeof renderFingerprint === "function") renderFingerprint();
 }
 // KPI اللوحة «أين أنا الآن» — كلها من مصادر حيّة، وتُظهر «—» قبل توفّر مصدرها (لا رقم ملفَّق قبل المطابقة)
@@ -2542,6 +2723,8 @@ async function loadMappingsFromDB() {
     await loadWaitingFromDB();   // قائمة الانتظار من القاعدة (تستبدل الذاكرة) — تتزامن بين الأجهزة
     await loadMatchedHistoryFromDB();   // H1: تاريخ المطابقة — المصدر الوحيد (يستبدل الذاكرة؛ فشل ⇒ histIncomplete)
     await loadPriceOffsetsFromDB();     // H2: زيادات الأسعار — المصدر الوحيد (يستبدل الذاكرة؛ يرحّل البذرة إن كانت القاعدة فارغة)
+    await loadExclusionsFromDB();        // الاستبعاد من المطابقة — من القاعدة؛ ثمّ أعِد فلترة stData إن كان محمّلاً
+    applyExclusions();
     renderOffsetsList();
     renderPills(); setDbBadge(true); checkMigration();
     setOfflineGate();            // تفعيل/رفع حجب عدم الاتصال بعد معرفة الحالة
@@ -3541,7 +3724,7 @@ async function loadZidData() {
   const prods = await db.zidProducts.getAll();
   if (!prods.length) throw new Error("القاعدة لا تحتوي منتجات زد — ارفع ملف تصدير.");
   const header = meta.header.map(h => String(h).trim());
-  stData = { sheetName: "Products", rows: [header, ...prods.map(p => p.raw)], header };
+  setStData({ sheetName: "Products", rows: [header, ...prods.map(p => p.raw)], header });   // يطبّق الاستبعاد على stData
   zidSource = "db"; zidSyncedAt = meta.synced_at ? Date.parse(meta.synced_at) : Date.now(); zidDbMeta = meta;
   zidIndexCache = null; rebuildFamilyIndex();   // فهرس العائلة الموحّد من الترتيب (row_order)
   return prods.length;
@@ -3577,7 +3760,7 @@ async function onStore(inp) {
         `رُفض ملف متجر زد — ${esc(f.name)}\nلم أجد عمود: sku.\nالأعمدة المقروءة: ${shown}\nالاسم المقبول: sku (عمود تصدير المنتجات من زد)\nالملف لم يُحفظ ولم يُستعمل — بيانات زد السابقة كما هي.`);
       inp.value = ""; return;
     }
-    stData = { sheetName, rows, header };
+    setStData({ sheetName, rows, header });   // يطبّق الاستبعاد على stData
     zidSource = "file"; zidSyncedAt = Date.now();   // ملف طازج ⇒ غير قديم
     rebuildFamilyIndex();   // فهرس العائلة الموحّد من ترتيب الملف
     const stS = document.getElementById("stStatus"); stS.className = "ustatus"; stS.innerHTML = `<span class="ok-txt">✓ ${f.name} — ${rows.length - 1} سطر</span>`;

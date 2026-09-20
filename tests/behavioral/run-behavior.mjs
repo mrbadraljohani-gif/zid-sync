@@ -203,6 +203,18 @@ function absentOnceCfg() {
   };
 }
 
+// G-EXCLUDE: استبعاد من المطابقة — قاعدة KSA تلتقط KSA.1.2.3 (بادئة) لا X-KSA-9 (وسط) · يدوي 0523 · CTL ضابط مطابَق
+function excludeCfg(on) {
+  const cfg = {
+    stData: { sheetName: "P", header: HEADER, rows: [HEADER, Z("CTL", "5", "100"), Z("KSA.1.2.3", "5", "100"), Z("X-KSA-9", "5", "100"), Z("0523", "5", "100")] },
+    whRows: [WH("CTL", 9, 100)],   // لا مخزن لغيرها ⇒ لولا الاستبعاد لظهرت في «يحتاج ربط»
+    lastMerge: merge(["CTL"]), manualMap: {},
+    waiting: [], history: [], opts: { price: "incl", absent: "keep", lowzero: "off", split: "equal" }, uploaded: true, callHook: false,
+  };
+  if (on) cfg.exclude = { skus: ["0523"], rules: ["KSA"] };
+  return cfg;
+}
+
 // دالّة داخل الصفحة: تهيّئ الحالة، تستدعي الخطاف+run (＋قرار اختياري)، وتُعيد القراءات (دفاعية للنسخ القديمة)
 async function inpage(cfg) {
   const mk = () => { const c = { select() { return c; }, upsert: async () => ({ error: null }), delete() { return c; }, insert: async () => ({ error: null }), eq: async () => ({ error: null }), in: async () => ({ error: null }), order() { return c; }, range: async () => ({ data: [], error: null }) }; return c; };
@@ -215,6 +227,9 @@ async function inpage(cfg) {
   waitingSet = new Set((cfg.waiting || []).map(w => w.skuN));
   try { waitingMeta = new Map((cfg.waiting || []).map(w => [w.skuN, { sku: w.sku, name: "", missed: 0, lastSeen: null }])); } catch (e) {}
   matchedHistory = new Set(cfg.history || []);
+  // G-EXCLUDE: طبّق الاستبعاد عبر نقطة الاختناق الحقيقية (applyExclusions) — stDataFull ثمّ stData المُصفّى
+  if (cfg.exclude) { try { excludedSkus = new Set(cfg.exclude.skus || []); excludedRules = (cfg.exclude.rules || []).map(p => ({ prefix: String(p).toUpperCase() })); stDataFull = cfg.stData; applyExclusions(); } catch (e) {} }
+  else { try { excludedSkus = new Set(); excludedRules = []; stDataFull = null; } catch (e) {} }
   try { priceOffsets = cfg.priceOffsets || {}; } catch (e) {}
   try { opts = Object.assign(opts, cfg.opts || {}); } catch (e) {}
   try { whWasUploaded = cfg.uploaded === undefined ? true : cfg.uploaded; } catch (e) {}
@@ -494,6 +509,22 @@ try {
   if (aoMut === curHtml) fails.push("أسنان G-ABSENT-ONCE: تعذّر تطبيق الطفرة (لم أجد سطر strip)");
   else { const AOT = await bootRead(browser, aoMut, absentOnceCfg()); if (!("ABSB" in AOT.qtyOf)) fails.push("أسنان G-ABSENT-ONCE: بكسر strip بقي ABSB خارج الملف — بلا أسنان"); else notes.push(`أسنان G-ABSENT-ONCE (بكسر strip): ABSB=${AOT.qtyOf["ABSB"]} (دخل الملف = العطل: يُعاد تصدير المصفَّر أصلاً ⇒ حشو)`); }
 
+  // ===== G-EXCLUDE: الاستبعاد من المطابقة تامّ (لا عدّاد ولا ملف ولا تصنيف) · البادئة بادئةً لا وسطاً · الإلغاء يعيده =====
+  const EX = await bootRead(browser, curHtml, excludeCfg(true));
+  if (EX.err) fails.push("G-EXCLUDE رمى: " + EX.err);
+  const gone = s => !EX.qtySkus.includes(s) && !EX.priceSkus.includes(s) && !EX.unmatched.some(u => u.sku === s) && !EX.absent.includes(s) && !EX.updated.some(u => u.sku === s);
+  if (!gone("KSA.1.2.3")) fails.push("G-EXCLUDE: KSA.1.2.3 (قاعدة) ظهر في مخرجات المطابقة — يجب أن يختفي تماماً");
+  if (!gone("0523")) fails.push("G-EXCLUDE: 0523 (يدوي) ظهر في مخرجات المطابقة — يجب أن يختفي تماماً");
+  if (!EX.unmatched.some(u => u.sku === "X-KSA-9")) fails.push("G-EXCLUDE: X-KSA-9 (KSA وسطاً لا بادئةً) استُبعد خطأً — يجب أن يبقى");
+  if (!(EX.qtyOf["CTL"] === 9 || EX.qtyOf["CTL"] === "9")) fails.push(`G-EXCLUDE: CTL الضابط لم يُطابَق (qty=${EX.qtyOf["CTL"]})`);
+  notes.push(`G-EXCLUDE: KSA.1.2.3 غائب=${gone("KSA.1.2.3")} · 0523 غائب=${gone("0523")} · X-KSA-9 حاضر=${EX.unmatched.some(u => u.sku === "X-KSA-9")} · CTL=${EX.qtyOf["CTL"]}`);
+  const EXoff = await bootRead(browser, curHtml, excludeCfg(false));   // أسنان ①: بلا استبعاد ⇒ KSA.1.2.3 يظهر في «يحتاج ربط»
+  if (!EXoff.unmatched.some(u => u.sku === "KSA.1.2.3")) fails.push("أسنان G-EXCLUDE①: بلا استبعاد لم يظهر KSA.1.2.3 — بلا أسنان");
+  else notes.push("أسنان G-EXCLUDE① (بلا استبعاد): KSA.1.2.3 في «يحتاج ربط» (= يعود عند الإلغاء)");
+  const exMut = curHtml.replace("stData = { ...stDataFull, rows: keep };", "stData = stDataFull;");   // أسنان ②: تعطيل الفلترة
+  if (exMut === curHtml) fails.push("أسنان G-EXCLUDE②: تعذّر تطبيق الطفرة");
+  else { const EXM = await bootRead(browser, exMut, excludeCfg(true)); if (!EXM.unmatched.some(u => u.sku === "KSA.1.2.3")) fails.push("أسنان G-EXCLUDE②: بتعطيل applyExclusions لم يظهر KSA.1.2.3 — بلا أسنان"); else notes.push("أسنان G-EXCLUDE② (بتعطيل الفلترة): KSA.1.2.3 ظهر (= العطل)"); }
+
   // ===== ٥ب G-REPUB: إعادة النشر No→Yes (القيمة: published=Yes للبسيط العائد له مخزون) =====
   const RP = await bootRead(browser, curHtml, repubCfg());
   if (RP.err) fails.push("G-REPUB رمى: " + RP.err);
@@ -515,4 +546,4 @@ try {
 
 console.log(notes.map(n => "  · " + n).join("\n"));
 if (fails.length) { console.error("\n✗ فشل المشغّل السلوكي:\n" + fails.map(f => "  ✗ " + f).join("\n")); process.exit(1); }
-console.log("\n✅ المشغّل السلوكي: كل الادّعاءات (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام التخفيض · ٣+١ العودة · ٥أ توزيع 3+2+2 · offset 280 · ٥ب lowVal 0 · lowVal2 إجمالي-الكود · absent-once ذاتيّ التصحيح · republish Yes · inf 9) مثبتة سلوكياً بالقيمة، وأسنان كلٍّ مؤكَّدة على الطفرة.");
+console.log("\n✅ المشغّل السلوكي: كل الادّعاءات (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام التخفيض · ٣+١ العودة · ٥أ توزيع 3+2+2 · offset 280 · ٥ب lowVal 0 · lowVal2 إجمالي-الكود · absent-once ذاتيّ التصحيح · exclude تامّ · republish Yes · inf 9) مثبتة سلوكياً بالقيمة، وأسنان كلٍّ مؤكَّدة على الطفرة.");
