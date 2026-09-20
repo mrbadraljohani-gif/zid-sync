@@ -160,6 +160,8 @@ jobs:
         run: node tests/valve-absent.mjs --broken
       - name: G-VALVE — صمّام updated=0 ＋ تصفير غيابيّ (الحالات الثلاث تفصل بوضوح)
         run: node tests/valve-absent.mjs
+      - name: G-TAX — ضريبة 15% على أسعار المخزن (100⇒115 · لا تراكم · كشف الشامل · المستودع+الفروع)
+        run: node tests/perf/vat.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)

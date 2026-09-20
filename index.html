@@ -1699,9 +1699,12 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "6df1bb7";
+const APP_VERSION = "2baf074";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
+// ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
+// مصدر واحد للنسبة (لا رقم متكرّر). لا تمسّ أسعار زد ولا offsets. التقريب منزلتان.
+const VAT_RATE = 0.15;
 const MAP_KEY = "zid-manual-mapping-v1";
 const OFF_KEY = "zid-offsets-v1";
 const HIST_KEY = "zid-matched-history-v1";   // أكواد سبق أن طوبقت (لتمييز «الغائب» عن «الجديد»)
@@ -3936,6 +3939,8 @@ async function onMergeWh(inp) {
     if (!list.length) throw new Error("لا أصناف صالحة في الملف");
     invHeaderDbg.wh = { headers, colMap };   // للتشخيص ?debug
     const aggWh = aggregateInv(list, "wh");   // تجميع بالكود (جمع الكمية) — يطابق منطق الدمج داخل الملف
+    if (!vatDoubleCheck(f.name, colMap, aggWh, "المستودع")) { showToast("أُلغي الرفع — المخزن السابق كما هو."); inp.value = ""; return; }   // كشف مضاعفة الضريبة (اختياريّ يحكم)
+    applyVat(aggWh);   // ＋15% على «قبل الضريبة» ⇒ الشامل (قبل الكتابة والاعتماد)
     // ① بوّابة الرفع: تسبق الاعتماد المحلي **والكتابة** معاً — الإلغاء يترك المخزن السابق كما هو تماماً.
     if (!invShrinkCheck("wh", aggWh.length)) { showToast("أُلغي الرفع — المخزن السابق كما هو."); inp.value = ""; return; }
     mergeWh = aggWh;
@@ -3967,6 +3972,8 @@ async function onMergeBranch(inp) {
     if (!list.length) throw new Error("لا أصناف صالحة في الملف");
     invHeaderDbg.branch = { headers, colMap };   // للتشخيص ?debug
     const agg = aggregateInv(list, "branch");
+    if (!vatDoubleCheck(f.name, colMap, agg, `الفرع «${brName}»`)) { showToast("أُلغي الرفع — الفرع السابق كما هو."); inp.value = ""; return; }   // كشف مضاعفة الضريبة
+    applyVat(agg);   // ＋15% على «قبل الضريبة» ⇒ الشامل (نفس قاعدة المستودع — G-TAX4)
     if (!invShrinkCheck("branch", agg.length, branchId)) { showToast("أُلغي الرفع — الفرع السابق كما هو."); inp.value = ""; return; }
     whWasUploaded = true;                 // رفع ملف فرع فعلي ⇒ يُفعّل عدّ missed_rounds في خطاف الرفع
     if (dbOnline && sb) {
@@ -4172,6 +4179,35 @@ function aggregateInv(list, mode) {
   return [...map.values()];
 }
 function numOrNull(v) { if (v === "" || v == null) return null; const n = Number(String(v).replace(/[^\d.\-]/g, "")); return Number.isFinite(n) ? n : null; }
+const vatRound2 = n => Math.round(n * 100) / 100;   // منزلتان
+// ⚠ الضريبة: المستخدم يرفع «قبل الضريبة»؛ نضيف 15% لنحصل على الشامل. الأساس = «قبل» إن وُجد، وإلّا عمود السعر (يُعامَل قبل-ضريبة).
+// incl = round(base × 1.15, 2) دائماً — يُحسب من الأساس لا من incl سابق ⇒ إعادة رفع الملف نفسه لا تراكم (G-TAX2).
+function applyVat(aggList) {
+  for (const r of aggList || []) {
+    const base = numOrNull(r.excl) != null ? numOrNull(r.excl) : numOrNull(r.incl);
+    if (base == null) continue;
+    r.excl = base;
+    r.incl = vatRound2(base * (1 + VAT_RATE));
+  }
+  return aggList;
+}
+// كشف «مضاعفة الضريبة» (الدفعة ①: إشارتان — اسم الملف · رأس عمود السعر). ثالثة (إحصائيّة) في الدفعة ②.
+// اختياريّ يحكم، الكشف ينبّه فقط: يعرض حواراً بالأرقام ＋ مثالين، والإلغاء افتراضيّ. يُرجع true للمتابعة.
+function vatDoubleCheck(fileName, colMap, aggList, label) {
+  const signals = [];
+  if (/شامل|الضريب/.test(String(fileName || ""))) signals.push("اسم الملف يذكر «شامل/الضريبة»");
+  const priceHead = colMap && colMap.head && (colMap.head.incl || "");
+  if (priceHead && /شامل|ضريب/.test(String(priceHead))) signals.push(`رأس عمود السعر «${priceHead}» يذكر «شامل/الضريبة»`);
+  if (!signals.length) return true;   // لا إشارة ⇒ لا حوار
+  const ex = (aggList || []).filter(r => numOrNull(r.excl) != null || numOrNull(r.incl) != null).slice(0, 2)
+    .map(r => { const b = numOrNull(r.excl) != null ? numOrNull(r.excl) : numOrNull(r.incl); return `• ${r.code}: ${b} ← سيصير ${vatRound2(b * (1 + VAT_RATE))} (＋15%)`; });
+  return confirm(
+    `⚠ تحذير مضاعفة الضريبة — ملف ${label}:\n` + signals.map(s => "• " + s).join("\n") +
+    `\n\nالأداة تضيف 15% معاملةً السعرَ «قبل الضريبة». إن كان ملفك شاملاً للضريبة أصلاً ⇒ ستتضاعف:\n` +
+    ex.join("\n") +
+    `\n\nإن كان السعر قبل الضريبة فتابِع. إن كان شاملاً فألغِ وارفع ملفاً «قبل الضريبة».\n\nأتابع الإضافة؟`
+  );
+}
 function buildInvDbRows(aggList, branchId) {
   const nowIso = new Date().toISOString();
   return aggList.map((r, i) => { const row = { code: String(r.code), name: r.name || null, barcode: r.bar || null, qty: numOrNull(r.qty), price_incl: numOrNull(r.incl), price_excl: numOrNull(r.excl), row_order: i, imported_at: nowIso }; if (branchId) row.branch_id = branchId; return row; });
