@@ -1701,7 +1701,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "c88095e";
+const APP_VERSION = "19e293a";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -5548,7 +5548,7 @@ function updatedTableHTML(list) {
     // المستبعد: صف باهت بزر «استعادة» فقط (لا تحديد ولا تنزيل تجريبي). غيره: أزرار العمل المعتادة
     const actCell = u.excluded
       ? `<button class="mini-btn" onclick="restoreExcluded('${esc(u.skuN)}')" title="أعِد هذا الصنف إلى ملفي التنزيل">↩ استعادة</button>`
-      : `${offBtn}${u.posMatched ? `<button class="mini-btn unlink" onclick="unlinkPositional('${esc(String(u.sku))}')" title="ورث كود أبٍ موضعيّ خطأً (منتج مختلف)؟ فُكّه ليصير «يحتاج ربط» وتربطه يدوياً بالكود الصحيح">${ic("shuffle")} فكّ نسب الأب</button>` : ""}<button class="mini-btn unlink" onclick="unlinkRow('${esc(String(u.sku))}')" title="الربط خاطئ؟ ألغِه ليعود الصنف إلى «يحتاج ربط» — لا يُخفي المنتج ولا يُصفّره">${ic("link2")} إلغاء الربط</button><button class="mini-btn" onclick="downloadOne('${esc(u.skuN)}')" title="نزّل ملف اختبار يحوي هذا المنتج وحده لتجرّبه في زد قبل الاستيراد الكامل"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3v6.2L4.8 17a2 2 0 0 0 1.7 3h11a2 2 0 0 0 1.7-3l-4.7-7.8V3"/><path d="M8.5 3h7"/><path d="M7.2 14h9.6"/></svg> جرّب</button><button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="استبعاد مؤقت من ملفي التنزيل في هذه الجلسة (لا يُحفظ)">✕ شيلها</button>`;
+      : `${offBtn}${(u.posMatched || (famIndex && famIndex.parentOfSku(u.sku))) ? `<button class="mini-btn unlink" onclick="unlinkPositional('${esc(String(u.sku))}')" title="متغيّر موضعيّ (يرث كود أبيه)؟ فُكّه ليصير «يحتاج ربط» وتربطه يدوياً بالكود الصحيح">${ic("shuffle")} فكّ نسب الأب</button>` : ""}<button class="mini-btn unlink" onclick="unlinkRow('${esc(String(u.sku))}')" title="الربط خاطئ؟ ألغِه ليعود الصنف إلى «يحتاج ربط» — لا يُخفي المنتج ولا يُصفّره">${ic("link2")} إلغاء الربط</button><button class="mini-btn" onclick="downloadOne('${esc(u.skuN)}')" title="نزّل ملف اختبار يحوي هذا المنتج وحده لتجرّبه في زد قبل الاستيراد الكامل"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3v6.2L4.8 17a2 2 0 0 0 1.7 3h11a2 2 0 0 0 1.7-3l-4.7-7.8V3"/><path d="M8.5 3h7"/><path d="M7.2 14h9.6"/></svg> جرّب</button><button class="mini-btn danger" onclick="excludeUpdated('${esc(u.skuN)}')" title="استبعاد مؤقت من ملفي التنزيل في هذه الجلسة (لا يُحفظ)">✕ شيلها</button>`;
     const chkCell = u.excluded ? `` : `<input type="checkbox" class="test-chk" data-sku="${esc(u.sku)}" ${chk} aria-label="تحديد ${esc(u.sku)} للتنزيل التجريبي" onchange="toggleTest('${esc(u.sku)}', this.checked)">`;
     // أعلام مستقلّة للفلتر (التداخل مقصود): كمية · سعر (priceChanged فقط) · نشر (republish/autoUnpub). خلية السعر تُبرَز على أيّهما (سعر أو نشر).
     const pxHi = !!(u.priceChanged || u.pubChanged);
