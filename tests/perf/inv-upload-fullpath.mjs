@@ -58,8 +58,8 @@ const chk = (o, label, code, price) => {
   if (String(o.code) !== String(code)) fails.push(`${label}: code=${o.code} ≠ ${code}`);
   if (o.price_incl !== price) fails.push(`${label}: price_incl=${o.price_incl} ≠ ${price} (القيمة لم تصل)`);
 };
-chk(res.wh, "المستودع", 80151, 437);    // 380 «قبل الضريبة» ＋15% ⇒ 437 (applyVat)
-chk(res.br, "الفرع", 210016, 17.25);   // 15 ＋15% ⇒ 17.25
+chk(res.wh, "المستودع", 80151, 437);   // 380 «قبل الضريبة» ＋15% = 437 (عدد صحيح)
+chk(res.br, "الفرع", 210016, 17);      // 15 ＋15% = 17.25 ⇒ 17 (تقريب لأقرب ريال)
 if (BROKEN) {
   if (fails.length) { console.log("✅ (--broken) الحارس مسك العطل: " + fails[0]); process.exit(0); }
   console.error("✗ (--broken) لم يرسب بعد تعطيل قبول الباركود-كوداً — لا أسنان."); process.exit(1);

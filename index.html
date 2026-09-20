@@ -1699,11 +1699,11 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "2baf074";
+const APP_VERSION = "974d37b";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
-// مصدر واحد للنسبة (لا رقم متكرّر). لا تمسّ أسعار زد ولا offsets. التقريب منزلتان.
+// مصدر واحد للنسبة (لا رقم متكرّر). لا تمسّ أسعار زد ولا offsets. الشامل يُقرّب لأقرب ريال (عدد صحيح)؛ price_excl يبقى بكسوره.
 const VAT_RATE = 0.15;
 const MAP_KEY = "zid-manual-mapping-v1";
 const OFF_KEY = "zid-offsets-v1";
@@ -4179,7 +4179,8 @@ function aggregateInv(list, mode) {
   return [...map.values()];
 }
 function numOrNull(v) { if (v === "" || v == null) return null; const n = Number(String(v).replace(/[^\d.\-]/g, "")); return Number.isFinite(n) ? n : null; }
-const vatRound2 = n => Math.round(n * 100) / 100;   // منزلتان
+// التقريب لأقرب ريال (عدد صحيح): toFixed(6) يزيل ضجيج العائم فتقرّب الحالة الحدّية x.5 لأعلى صحيحاً (درس الصمّامين — احذر Math.round(x.x5) الخام).
+const vatRoundInt = n => Math.round(Number(Number(n).toFixed(6)));
 // ⚠ الضريبة: المستخدم يرفع «قبل الضريبة»؛ نضيف 15% لنحصل على الشامل. الأساس = «قبل» إن وُجد، وإلّا عمود السعر (يُعامَل قبل-ضريبة).
 // incl = round(base × 1.15, 2) دائماً — يُحسب من الأساس لا من incl سابق ⇒ إعادة رفع الملف نفسه لا تراكم (G-TAX2).
 function applyVat(aggList) {
@@ -4187,7 +4188,7 @@ function applyVat(aggList) {
     const base = numOrNull(r.excl) != null ? numOrNull(r.excl) : numOrNull(r.incl);
     if (base == null) continue;
     r.excl = base;
-    r.incl = vatRound2(base * (1 + VAT_RATE));
+    r.incl = vatRoundInt(base * (1 + VAT_RATE));   // الشامل عدد صحيح؛ price_excl يبقى بكسوره كما في الملف
   }
   return aggList;
 }
@@ -4200,7 +4201,7 @@ function vatDoubleCheck(fileName, colMap, aggList, label) {
   if (priceHead && /شامل|ضريب/.test(String(priceHead))) signals.push(`رأس عمود السعر «${priceHead}» يذكر «شامل/الضريبة»`);
   if (!signals.length) return true;   // لا إشارة ⇒ لا حوار
   const ex = (aggList || []).filter(r => numOrNull(r.excl) != null || numOrNull(r.incl) != null).slice(0, 2)
-    .map(r => { const b = numOrNull(r.excl) != null ? numOrNull(r.excl) : numOrNull(r.incl); return `• ${r.code}: ${b} ← سيصير ${vatRound2(b * (1 + VAT_RATE))} (＋15%)`; });
+    .map(r => { const b = numOrNull(r.excl) != null ? numOrNull(r.excl) : numOrNull(r.incl); return `• ${r.code}: ${b} ← سيصير ${vatRoundInt(b * (1 + VAT_RATE))} (＋15%)`; });
   return confirm(
     `⚠ تحذير مضاعفة الضريبة — ملف ${label}:\n` + signals.map(s => "• " + s).join("\n") +
     `\n\nالأداة تضيف 15% معاملةً السعرَ «قبل الضريبة». إن كان ملفك شاملاً للضريبة أصلاً ⇒ ستتضاعف:\n` +
