@@ -1696,7 +1696,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "5c2a471";
+const APP_VERSION = "09a37de";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -2617,14 +2617,11 @@ async function loadConfig() {
   waitingSet = new Set(); baseWaitSet = new Set();       // الانتظار من القاعدة (loadWaitingFromDB)
   batchAliases = new Set();                              // aliases من القاعدة (loadAliasesFromDB)
   priceOffsets = {};                                     // زيادات الأسعار من القاعدة (loadPriceOffsetsFromDB) — لا اتحاد
-  // بذرة ترحيل price-offsets فقط (تُقرأ مرّة؛ تُستعمل إن كانت القاعدة فارغة، ثم يُحذف الملف بعد التأكّد)
+  // بذرة ترحيل price-offsets من OFF_KEY المحليّ فقط — price-offsets.json حُذف (لا طلب لملفّ محذوف: ضجيج 404 يخفي أخطاء حقيقية)
   bootLocalOffsets = {};
-  let baseOff = {}, localOff = {};
-  try { const r = await fetch("price-offsets.json", { cache: "no-store" }); if (r.ok) baseOff = await r.json(); } catch {}
+  let localOff = {};
   try { localOff = JSON.parse(localStorage.getItem(OFF_KEY) || "{}"); } catch {}
-  for (const src of [baseOff, localOff]) {
-    if (src && typeof src === "object") for (const k in src) { const v = Number(src[k]); if (Number.isFinite(v) && v !== 0) bootLocalOffsets[normCode(k)] = Math.round(v); }
-  }
+  if (localOff && typeof localOff === "object") for (const k in localOff) { const v = Number(localOff[k]); if (Number.isFinite(v) && v !== 0) bootLocalOffsets[normCode(k)] = Math.round(v); }
 }
 // الدفعة أ: أُزيلت saveWaiting/saveAliases/saveLinkTags. H2: أُزيلت saveOffsets (localStorage) — الزيادات تُكتب في القاعدة عبر dbSaveOffset.
 // H1: أُزيلت saveMatchedHistory (localStorage) — تاريخ المطابقة يُكتب في القاعدة: تراكماً في نهاية run() (bulkUpsert) وحذفاً في dbDelMapping (remove).

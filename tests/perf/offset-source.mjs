@@ -24,7 +24,7 @@ const b = await puppeteer.launch({ executablePath: findChrome(), headless: "new"
 const p = await b.newPage();
 const server = createServer((req, res) => {
   const u = (req.url || "/").split("?")[0];
-  if (u === "/price-offsets.json") { res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify({ "80151.2": 180 })); }
+  // price-offsets.json حُذف من الريبو ⇒ لا نخدمه (loadConfig لم يعد يطلبه؛ البذرة من OFF_KEY فقط)
   if (u === "/version.txt") { res.setHeader("Content-Type", "text/plain"); return res.end("test"); }
   res.setHeader("Content-Type", "text/html; charset=utf-8"); res.end(html);
 });
@@ -37,7 +37,7 @@ const res = await p.evaluate(async () => {
   localStorage.setItem(OFF_KEY, JSON.stringify({ "99": 50 }));
   await loadConfig();
   const liveAfterLoadConfig = { ...priceOffsets };                 // يجب {}
-  const seed = { ...bootLocalOffsets };                            // يجب {80151.2:180, 99:50}
+  const seed = { ...bootLocalOffsets };                            // يجب {99:50} — من OFF_KEY فقط (لا ملفّ محذوف)
 
   // (٢) القاعدة مصدر الحقيقة: تستبدل الذاكرة
   sb = {};
@@ -57,7 +57,7 @@ await b.close(); server.close();
 const fails = [];
 const eq = (a, b2) => JSON.stringify(a) === JSON.stringify(b2);
 if (Object.keys(res.liveAfterLoadConfig).length !== 0) fails.push("loadConfig سرّب زيادات للحيّ: " + JSON.stringify(res.liveAfterLoadConfig) + " (يجب {} — المصدر القاعدة)");
-if (!(res.seed["80151.2"] === 180 && res.seed["99"] === 50)) fails.push("bootLocalOffsets لا يحمل البذرة (ملف ∪ localStorage): " + JSON.stringify(res.seed));
+if (!(res.seed["99"] === 50 && Object.keys(res.seed).length === 1)) fails.push("bootLocalOffsets لا يحمل بذرة OFF_KEY وحدها {99:50}: " + JSON.stringify(res.seed));
 if (!eq(res.afterDb, { "77": 30 })) fails.push("loadPriceOffsetsFromDB لم يستبدل الذاكرة بصفوف القاعدة: " + JSON.stringify(res.afterDb));
 if (res.upsertedN !== 2) fails.push("الترحيل التلقائيّ لم يرفع البذرة (bulkUpsert=" + res.upsertedN + " ≠ 2)");
 if (!eq(res.afterMigrate, { "80151.2": 180, "99": 50 })) fails.push("بعد الترحيل الذاكرة ≠ البذرة: " + JSON.stringify(res.afterMigrate));
