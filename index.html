@@ -1699,7 +1699,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "8e9777a";
+const APP_VERSION = "6df1bb7";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -4896,6 +4896,21 @@ function run(reprocess) {
         + `\nعمود مرجع الأب: ${lastParentCol || "—"} · إجمالي علاقات الأبوة: ${Object.keys(parentOf).length}`
         + `\nشواذّ (Yes عومل كابن): ${lastVariantAnomalies.length}` + (lastVariantAnomalies.length ? " — " + lastVariantAnomalies.slice(0, 15).map(a => `${a.sku}→${a.parent}`).join(" · ") : "")
         + `\nتعارض موضعي/parent_sku (اعتُمدت الموضعية): ${lastParentConflicts.length}` + lastParentConflicts.slice(0, 15).map(c => `\n  ${c.sku}: موضعي=${c.pos} · parent_sku=${c.pref}`).join("");
+      // ⟪تدقيق المطابقات الموضعية (الباب ٤)⟫ — SKU زد ورث كود أبٍ موضعيّ (لا exact/base/manual) ⇒ قد يكون خاطئاً (اسم/مقاس مختلف). قراءة محضة.
+      try {
+        const posM = [];
+        for (let i = 1; i < rows0.length; i++) {
+          const rs = rows0[i][iSku]; if (rs === "" || rs == null) continue;
+          const rk = String(rs), skN = normCode(rs); if (parentRaws.has(rk)) continue;
+          const wc = resolveWhCode(rs, skN); if (!wc) continue;
+          const direct = (whIndex[skN] ? skN : null) || (whIndex[baseOf(rs)] ? baseOf(rs) : null);
+          const mp = manualMap[rk], viaManual = mp && (whIndex[mp] || whIndex[normCode(mp)]);
+          if (!direct && !viaManual && parentOf[rk]) posM.push({ zsku: rk, zname: iName >= 0 ? String(rows0[i][iName] || "") : "", parent: parentOf[rk], wc, wname: (whIndex[wc] && whIndex[wc].name) || "" });
+        }
+        vm.textContent += `\n\n⟪تدقيق المطابقات الموضعية (الباب ٤ — ورث كود الأب) — ${posM.length}⟫`
+          + `\n[SKU زد · اسمه · الأب الموضعيّ · كود المستودع · اسمه]\n`
+          + (posM.length ? posM.slice(0, 200).map(m => `  ${m.zsku} · ${(m.zname || "؟").slice(0, 34)} · أب ${m.parent} · ${m.wc} · ${(m.wname || "؟").slice(0, 34)}`).join("\n") + (posM.length > 200 ? `\n  … و${posM.length - 200} غيرها` : "") : "  (لا مطابقة موضعية)");
+      } catch (e) { vm.textContent += `\n⟪تدقيق المطابقات الموضعية: تعذّر — ${e.message}⟫`; }
       // ⟪قياس أثر تشديد المطابقة (T1) — قراءة محضة، لا يغيّر التصنيف الحالي إطلاقاً⟫
       // القاعدة الجديدة (محاكاة فقط): أخضر = تطابق الاسم التامّ (normNameStrict: يُبقي الأرقام/المقاسات) لمرشّح **وحيد** في المخزون.
       try {
