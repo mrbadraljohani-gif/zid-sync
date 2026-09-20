@@ -58,6 +58,7 @@ const res = await p.evaluate(async () => {
   const allCards = cards(), allLights = lights();
   const absDisabled = !!un().querySelector('.uni-chip.abs[disabled]');   // absentN=0 ⇒ معطّلة
   const ncEnabled = !un().querySelector('.uni-chip.nc[disabled]');       // nocand=1 ⇒ فاعلة
+  const bulkPresent = !!un().querySelector(".uni-bulk");                 // Issue 2: زرّ الدفعيّ ظاهر في وضع «الكل»
 
   setBtMode("nocand"); flushUnified && flushUnified();
   const ncCards = cards(), ncLights = lights(), ncActive = activeChip();
@@ -73,9 +74,16 @@ const res = await p.evaluate(async () => {
   setBtMode("nocand"); flushUnified && flushUnified();
   waitingSet = new Set(); bulkRows = null;
   await waitAllShown();
+  // ⑤ Issue 1: #sUn = decisions فقط (يستبعد «غير متوفر» المُقرَّرة)
+  lastUnmatchedRaw = [{ sku: "N1", skuN: "N1", qty: 5 }, { sku: "N2", skuN: "N2", qty: 5 }, { sku: "W1", skuN: "W1", qty: 0 }];
+  boundSet = new Set(); waitingSet = new Set([normCode("W1")]);
+  updateUnmatchedCard();
+  const sUn = (document.getElementById("sUn") || {}).textContent;
+  const sUnSub = (document.getElementById("sUnSub") || {}).textContent || "";
   return {
-    errs: [], allCards, allLights, absDisabled, ncEnabled, ncCards, ncLights, ncActive, ncName,
+    errs: [], allCards, allLights, absDisabled, ncEnabled, bulkPresent, ncCards, ncLights, ncActive, ncName,
     waitCards, waitLights, needCards, bulkCount: bulkRows ? bulkRows.length : 0, bulkSku: bulkRows && bulkRows[0] && bulkRows[0].zid_sku,
+    sUn, sUnSub,
   };
 });
 await b.close(); server.close();
@@ -85,6 +93,9 @@ if (res.allCards !== 2) fails.push("«الكل»: توقّعت بطاقتين، 
 if (res.allLights !== 1) fails.push("«الكل»: توقّعت صفّاً خفيفاً واحداً، وجدت " + res.allLights);
 if (!res.absDisabled) fails.push("② شريحة «غائب» الصفرية غير معطّلة");
 if (!res.ncEnabled) fails.push("② شريحة «بلا مرشّح» غير الصفرية معطّلة خطأً");
+if (!res.bulkPresent) fails.push("② زرّ «غير متوفر للمعروض» غير ظاهر في وضع «الكل» (Issue 2)");
+if (res.sUn !== "2") fails.push("⑤ #sUn ليس 2 (decisions فقط، يستبعد «غير متوفر») — وجد: " + res.sUn);
+if (!res.sUnSub.includes("غير متوفر")) fails.push("⑤ السطر الفرعي لا يفصل «غير متوفر»: " + res.sUnSub);
 if (res.ncCards !== 1) fails.push("③ «بلا مرشّح»: توقّعت بطاقة واحدة (بلا best)، وجدت " + res.ncCards);
 if (res.ncLights !== 0) fails.push("③ «بلا مرشّح» أظهر صفوفاً خفيفة (يجب لا)");
 if (!res.ncName.includes("بلا مرشّح")) fails.push("③ بطاقة «بلا مرشّح» ليست الصنف الصحيح: " + res.ncName);

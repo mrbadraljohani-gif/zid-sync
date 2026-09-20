@@ -85,6 +85,11 @@ check(bar.includes("uni-shown") && bar.includes("يعرض"), "مؤشّر «يع�
 // §شرائح قابلة للنقر (all/need/nocand/absent/waiting) تفلتر القسم عبر setBtMode — لا عدّادات صمّاء
 check(bar.includes('chip("need"') && bar.includes('chip("nocand"') && bar.includes('chip("absent"') && bar.includes('chip("waiting"') && bar.includes('onclick="setBtMode('), "شرائح need/nocand/absent/waiting شرائح فلتر قابلة للنقر (setBtMode)");
 check(/n === 0 && mode !== "all"/.test(bar) && /\$\{dis \? "disabled" : ""\}/.test(bar), "الشريحة الصفرية تُعطَّل لا تُخفى (disabled)");
+// §إجراء «غير متوفر للمعروض» الدفعيّ موجود في الشريط (Issue 2: كان يُظنّ غائباً — cache)
+check(bar.includes("uni-bulk") && bar.includes("waitAllShown()"), "زرّ «غير متوفر للمعروض» الدفعيّ في الشريط");
+// §«يحتاج ربط» (#sUn) = decisions فقط: يستبعد «غير متوفر» المُقرَّرة (Issue 1: كانت 936=786+150)
+const uuc = fnSrc("updateUnmatchedCard");
+check(uuc.includes("un.textContent = newN") && !uuc.includes("un.textContent = raw.length"), "«يحتاج ربط» = decisions فقط (يستبعد «غير متوفر» المُقرَّرة)");
 check(uni.includes("needCards.length + absCards.length"), "shownN = البطاقات المرسومة فعلاً (لا الخام)");
 const tl = fnSrc("toggleLostOnly");
 check(tl.includes("scrollIntoView") && tl.includes("flushUnified"), "تفعيل الفلتر يمرّر لأول نتيجة (وإلا بدا معطّلاً)");
