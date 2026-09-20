@@ -54,8 +54,8 @@ check(/sv\s*>=\s*pv/.test(run), "التخفيض: شرط الاستبعاد sv �
 
 // ④ العدّادات لم تتغيّر
 check(/getElementById\("sUpd"\)\.textContent = updatedList\.length/.test(run), "العدّاد: تم تحديثه = updatedList.length");
-// «يحتاج ربط» = decisions فقط: unmatched يستبعد «غير متوفر» المُقرَّرة (waitingSet) — الفئة مستقلّة لا تُحسب في العدّ الرئيسي
-check(/getElementById\("sUn"\)\.textContent = unmatched\.filter\(u => !waitingSet\.has\(normCode\(u\.skuN\)\)\)\.length/.test(run), "العدّاد: يحتاج ربط = unmatched بلا «غير متوفر»");
+// «يحتاج ربط» = decisions فقط: نفس batchOkItem الذي يبني needN في القائمة (يستبعد الانتظار والآباء والمربوط) — مصدر واحد، لا رقمان
+check(/getElementById\("sUn"\)\.textContent = unmatched\.filter\(batchOkItem\)\.length/.test(run) && /function batchOkItem\(u\)/.test(script), "العدّاد: يحتاج ربط = unmatched.filter(batchOkItem) (مصدر واحد مع القائمة)");
 check(/getElementById\("sTot"\)\.textContent = rows0\.length - 1/.test(run), "العدّاد: إجمالي الأسطر = rows0.length-1");
 
 // §الدفعة٥: «غائب عن المخزن» ⇒ صفر ＋ إخفاء **دائماً** — لا خيار. المنطقة كانت بلا مرساة إطلاقاً.

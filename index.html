@@ -1714,7 +1714,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "831dec7";
+const APP_VERSION = "4a8fcd2";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3124,9 +3124,12 @@ function classifyBatch(r) {
   return "yellow";
 }
 
+// «يحتاج قرارك» = صنف زد بلا ربط ولا انتظار ولا أب (موضعيّ/يتيم). مصدر واحد لعدّاد البطاقة والقائمة معاً
+// (وإلّا اختلف #sUn عن needN: الأول يعدّ الآباء غير القابلين للربط، والثاني يستبعدهم — «رقمان واثقان مختلفان»).
+function batchOkItem(u) { return !boundSet.has(String(u.sku)) && !waitingSet.has(normCode(u.skuN)) && !u.orphanParent && !(famIndex && famIndex.isParent(u.sku)); }
 // محرك الترشيح لكل صنف في «جديد يحتاج قراراً» + حلّ التنازع + التصنيف
 function analyzeBatch() {
-  const okItem = u => !boundSet.has(String(u.sku)) && !waitingSet.has(normCode(u.skuN)) && !u.orphanParent && !(famIndex && famIndex.isParent(u.sku));   // الآباء الموضعيون خارج الترشيح نهائياً
+  const okItem = batchOkItem;   // الآباء الموضعيون/اليتامى خارج الترشيح نهائياً — مصدر واحد مع #sUn
   const unm = lastUnmatchedRaw.filter(okItem);
   // الأصناف الغائبة (في matched-history ولا تُطابَق بالكود الآن) = الروابط اليدوية الضائعة — نُدرجها للترشيح بأولوية
   const seen = new Set(unm.map(u => String(u.sku)));
@@ -3363,9 +3366,9 @@ function unifiedBar(needN, g, y, r, absentN, p, m, shownN, nocandN) {
       ${chip("waiting", "غير متوفر", waitN, "wait")}
       ${lost ? `<button class="uni-chip lost${batchLostOnly ? " on" : ""}" aria-pressed="${batchLostOnly}" onclick="toggleLostOnly()" title="روابط يدوية ضائعة (غائبة رغم كود يدوي محفوظ) — أولى بإعادة الربط">${ic("link2", "ico-info")} سبق ربطه <bdi>${lost}</bdi></button>` : ""}
       ${filtered ? `<span class="uni-shown">يعرض <bdi>${shownN}</bdi> من <bdi>${needN + absentN}</bdi></span>` : ""}
-      ${bulkBtn}
     </div>
     <div class="uni-actions">
+      ${bulkBtn}
       <button class="btn-run sm" data-owner-only ${ownTip} onclick="acceptUnified('all')">${ic("check")} اعتماد العناصر المحددة</button>
       <button class="mc-btn" data-owner-only ${ownTip} onclick="acceptUnified('green')">${ic("spark")} اعتماد المطابقات المؤكدة</button>
       <button class="mc-btn" onclick="undoLastBatch()" ${lastBatchUndo ? "" : "disabled"}>↩ التراجع عن آخر عملية${lastBatchUndo ? ` (${lastBatchUndo.count})` : ""}</button>
@@ -5153,8 +5156,9 @@ function run(reprocess) {
     // بطاقة «بدون ربط» تجمع كل أصناف زد بلا ربط (جديد + ⏳ + مُدار)؛ تفكيكها في updateUnmatchedCard.
     // «الغائب عن الملف» لم يعد بطاقة مستقلة — المُدار انتقل لبطاقة «بدون ربط»، والغائب-له-تاريخ يُرى في المستكشف بفلتر (نفس منطق ⏳/الغائب/العودة).
     document.getElementById("sUpd").textContent = updatedList.length;
-    // «يحتاج ربط» = ما يحتاج قرارك فعلاً (يستبعد «غير متوفر» المُقرَّرة) — الـwaiting فئة مستقلّة في الشريحة/السطر الفرعي، لا تُحسب هنا
-    document.getElementById("sUn").textContent = unmatched.filter(u => !waitingSet.has(normCode(u.skuN))).length;
+    // «يحتاج ربط» = ما يحتاج قرارك فعلاً (نفس batchOkItem الذي يبني needN في القائمة: يستبعد الانتظار والآباء والمربوط)
+    // فالبطاقة == عنوان القائمة == الشريحة، رقمٌ واحد لا ثلاثة. الـwaiting فئة مستقلّة (السطر الفرعي/الشريحة).
+    document.getElementById("sUn").textContent = unmatched.filter(batchOkItem).length;
     document.getElementById("sTot").textContent = rows0.length - 1;
 
     // === تصنيف الأصناف بدون ربط + بيانات الفلاتر ===
@@ -5886,8 +5890,8 @@ function updateUnmatchedCard() {
   const wait = raw.filter(u => waitingSet.has(normCode(u.skuN)));
   const managed = wait.filter(u => curQtyNum(u.qty) === 0).length;
   const pending = wait.length - managed;
-  const newN = raw.filter(u => !boundSet.has(String(u.sku)) && !waitingSet.has(normCode(u.skuN))).length;
-  const un = document.getElementById("sUn"); if (un) un.textContent = newN;   // «يحتاج ربط» = decisions فقط (يستبعد «غير متوفر» المُقرَّرة)
+  const newN = raw.filter(batchOkItem).length;   // نفس مصدر needN في القائمة (batchOkItem) — لا يُحسب أب ولا منتظر ولا مربوط
+  const un = document.getElementById("sUn"); if (un) un.textContent = newN;   // «يحتاج ربط» = decisions فقط، مطابق لعنوان القائمة والشريحة
   const sub = document.getElementById("sUnSub");
   // الـ«غير متوفر» فئة مستقلّة صريحة (خارج العدّ الرئيسي) — تُرى بالفلتر «غير متوفر»؛ لولا التوضيح لظُنّ الرقم ناقصاً
   if (sub) sub.textContent = (pending + managed) ? `＋ ${pending + managed} «غير متوفر» مقرَّرة (خارج العدّ · تُصدَّر بصفر)` : "";
