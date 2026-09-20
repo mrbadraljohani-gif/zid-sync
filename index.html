@@ -1696,7 +1696,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "094eef6";
+const APP_VERSION = "5c2a471";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -4722,6 +4722,12 @@ function run(reprocess) {
           + `\nأعضاء التوزيع (whMembers): ${(whMembers.get(tc) || []).join(" · ") || "لا (كل الأعضاء آباء أو لا أعضاء)"}`
           + `\nصفوف زد المرتبطة (${related.length}):\n${lines.join("\n") || "  (لا صفوف زد كودها يُحلّ إلى " + tc + ")"}`;
       }
+      // ⟪تدقيق localStorage⟫ يميّز الحيّ من الميت — الحيّ الوحيد zid-options-v1؛ أيّ zid-* آخر بقيّة ميتة (تُنظَّف بالإقلاع)
+      try {
+        const keys = Object.keys(localStorage);
+        const cls = k => (k === OPT_KEY) ? "حيّ (تفضيلات)" : (/^sb-|supabase/i.test(k) ? "Supabase (جلسة)" : (/^zid-/.test(k) ? "⚠ ميت (يُنظَّف بالإقلاع — احذفه يدوياً إن بقي)" : "غير متعلّق"));
+        vm.textContent += `\n\n⟪تدقيق localStorage (${keys.length} مفتاحاً)⟫\n  ` + keys.map(k => `${k} — ${cls(k)}`).join("\n  ");
+      } catch (e) { vm.textContent += `\n⟪تدقيق localStorage: تعذّر — ${e.message}⟫`; }
     } catch (dbgErr) { console.warn("debug block:", dbgErr); }
 
     // H1: تاريخ المطابقة يُكتب في القاعدة (المصدر الوحيد) — دفعةً للجديد فقط، بأفضل جهد (upsert idempotent فيُعاد التشغيل التالي إن فشل).
@@ -5693,7 +5699,9 @@ routeFromHash();               // الإقلاع: افتح صفحة الـhash (
   renderPills();
   renderOffsetsList();
   initSupabase();   // بعد تحميل المحلي: أنشئ عميل القاعدة، وعند وجود جلسة اعتمد الروابط والزيادات من القاعدة مصدراً للحقيقة
-  try { localStorage.removeItem("zid-gh-token"); } catch {}   // H2: امسح رمز GitHub تلقائياً — لم يعد له وظيفة (لا كتابة للريبو)
+  // نظافة: امسح المفاتيح الميتة تلقائياً — بياناتها صارت في القاعدة (بقايا تبدو حيّة فتُفسد التشخيص). الحيّ الوحيد: zid-options-v1 (تفضيلات الجهاز).
+  // (يقع **بعد** loadConfig فبذرة الترحيل قُرئت لهذه الجلسة؛ الحذف يطهّر الجلسات القادمة، والقاعدة مصدر مأهول.)
+  ["zid-gh-token", "zid-offsets-v1", "zid-waiting-v1", "zid-matched-history-v1", "zid-theme", "zid-excluded-v1"].forEach(k => { try { localStorage.removeItem(k); } catch {} });
   checkAppVersion();   // شريط «نسخة جديدة» (فشل الجلب صامت)
 })();
 
