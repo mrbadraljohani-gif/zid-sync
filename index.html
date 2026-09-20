@@ -1026,8 +1026,12 @@
   .uni-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; padding: 2px 2px 8px; }
   .uni-head b { font-size: 15px; color: var(--text); }
   .uni-head span { font-size: 12.5px; color: var(--muted); }
-  .uni-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px;
-    border: 1px solid var(--hair); background: color-mix(in srgb, var(--panel-2) 70%, transparent); color: var(--muted); }
+  .uni-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 10px; border-radius: 999px; font: inherit; font-size: 12.5px;
+    border: 1px solid var(--hair); background: color-mix(in srgb, var(--panel-2) 70%, transparent); color: var(--muted); cursor: pointer; transition: all .12s; }
+  .uni-chip:hover:not(:disabled) { border-color: color-mix(in srgb, var(--gold) 40%, transparent); color: var(--text); }
+  .uni-chip:disabled { opacity: .4; cursor: not-allowed; }
+  .uni-chip:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .uni-chip.nc { border-color: color-mix(in srgb, var(--muted) 30%, transparent); color: var(--muted); }
   /* شرائح فلتر جدول «تم تحديثه» (دفعة صغيرة) — عرض محض */
   .upd-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
   .upd-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12.5px; cursor: pointer;
@@ -1051,6 +1055,8 @@
   .mini-btn.unlink:hover:not(:disabled) { border-color: color-mix(in srgb, var(--amber) 55%, transparent); color: var(--amber); }
   .uni-shown { font-size: 12px; font-weight: 700; color: var(--amber); margin-inline-start: 4px; }
   .uni-chip.wait { border-color: color-mix(in srgb, var(--muted) 28%, transparent); }
+  .uni-chip.on { background: var(--gold); border-color: var(--gold); color: #0a1622; }
+  .uni-chip.on b, .uni-chip.on bdi { color: #0a1622; }
   /* §دفعة٣: نسبة المطابقة ظاهرة داخل البطاقة (لا tooltip — الجوال بلا تحويم) */
   .mc-match:empty { display: none; }
   .mc-match { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 11.5px; }
@@ -1701,7 +1707,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "2238e24";
+const APP_VERSION = "eeb0c84";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -1735,6 +1741,7 @@ let batchAliases = new Set();          // (aliases) مجموعة «جذر زد||
 let lastBatchUndo = null;              // {entries:[{sku,prev}], count, tag} — للتراجع عن آخر اعتماد دفعي
 let batchData = null;                  // نتائج آخر تحليل دفعي {green,yellow,red}
 let batchLostOnly = false;             // فلتر «سبق ربطه فقط» (الروابط اليدوية الضائعة)
+let btMode = "all";                    // §فلتر شرائح «يحتاج ربط»: all/need/nocand/absent/waiting — أيّ قسم يُعرض
 let batchRowByUid = {}, btUidSeq = 0;  // سجل uid⇒صف (يفصل عمليات الصف عن فهارس fi/ri — يصمد أمام الفلترة)
 let lastParentPublish = [], lastParentCol = "";   // آباء نُقل إليهم النشر من متغيّراتهم + اسم عمود مرجع الأب (تشخيص)
 let priceOffsets = {};                  // زيادة سعر المتغيرات: skuN ⇒ قيمة الزيادة (ر.س)
@@ -3235,6 +3242,35 @@ function toggleLostOnly() {
     if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 }
+// §شرائح الفلتر القابلة للنقر: تبديل قسم العرض (all/need/nocand/absent/waiting). نقر النشطة يعيد «الكل».
+function setBtMode(m) {
+  btMode = (btMode === m && m !== "all") ? "all" : m;
+  renderDetail();
+  requestAnimationFrame(() => {
+    flushUnified();
+    const first = document.querySelector("#unBody .batch-card, #unBody .uni-light");
+    if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}
+// §«غير متوفر للمعروض» — يضع كل بطاقات «يحتاج ربط» المعروضة تحت الفلتر الحالي في الانتظار دفعةً واحدة.
+async function waitAllShown() {
+  try { requireOnline(); requireOwner(); } catch (e) { return; }
+  if (!batchData) batchData = analyzeBatch();
+  // البطاقات المعروضة = «يحتاج قرار» (غير الغائب) وفق الفلتر الحالي (نفس منطق btFilter + nocand)
+  let need = [...btFilter(batchData.green), ...btFilter(batchData.yellow), ...btFilter(batchData.red)].filter(x => !x.isAbsent);
+  if (btMode === "nocand") need = need.filter(x => !x.best);
+  const items = need.filter(x => !waitingSet.has(normCode(x.z.skuN)));
+  if (!items.length) { showToast("لا شيء يُوضع «غير متوفر» في العرض الحالي."); return; }
+  if (!confirm(`سأضع ${items.length} صنفاً «غير متوفر» دفعةً واحدة.\nيخرجون من «يحتاج ربط» ويُصدَّرون بكمية 0 وغير منشورين.\nأتأكّد؟`)) return;
+  const nowISO = new Date().toISOString();
+  try {
+    await db.waiting.bulkUpsert(items.map(x => ({ zid_sku: x.z.sku, name: x.z.name || "", kind: "wait", last_seen_at: nowISO, missed_rounds: 0 })));
+  } catch (e) { dbFail(e); return; }
+  for (const x of items) { const k = normCode(x.z.skuN); waitingSet.add(k); waitingMeta.set(k, { sku: x.z.sku, name: x.z.name || "", missed: 0, lastSeen: nowISO }); }
+  logActivity("waiting_added", null, { count: items.length, source: "bulk" });
+  showToast(`⏳ وُضع ${items.length} صنفاً «غير متوفر» — حُفظ في القاعدة.`);
+  run(true);
+}
 // تطبيق فلتر «سبق ربطه فقط» على قائمة تبويب
 function btFilter(list) { return batchLostOnly ? list.filter(r => r.wasLinked) : list; }
 // طلب ٣: شارة حالة النشر في زد (المصدر = عمود published نفسه الذي يقرأه run). منشور=--green · غير منشور=--muted (لا --danger). أيقونة SVG. تُظهر الحالة الحالية، و«← سيُخفى» إن كان سيُصدَّر published=No.
@@ -3294,23 +3330,35 @@ function unifiedLightRow(u, status) {
 async function undoWaitDecision(rawSku, skuN) { await applyDecision(() => unmarkWaiting(rawSku, skuN)); }
 
 // شريط الحالة (لاصق ومعتم): عدّادات الحالة + ثقة «يحتاج قرار» + فلتر «سبق ربطه» + اعتماد جماعي
-function unifiedBar(needN, g, y, r, absentN, p, m, shownN) {
+function unifiedBar(needN, g, y, r, absentN, p, m, shownN, nocandN) {
   const lost = batchData.lostCount || 0;
-  const ownTip = isOwner() ? "" : 'title="الربط صلاحية المالك"';   // إعلان بصري؛ الحاجز الفعلي requireOwner ＋ RLS   // «سبق ربطه» = روابط يدوية ضائعة (غائب + كود يدوي محفوظ) — صار مقيّداً ومعقولاً
+  const waitN = p + m;
+  const ownTip = isOwner() ? "" : 'title="الربط صلاحية المالك"';   // إعلان بصري؛ الحاجز الفعلي requireOwner ＋ RLS
+  // فلتر مفعّل يقصر البطاقات (لا «الكل» ولا «غير متوفر» الذي هو قسمه الكامل) ⇒ أظهر «يعرض X من Y»
+  const filtered = (btMode !== "all" && btMode !== "waiting") || batchLostOnly;
+  // شريحة فلتر قابلة للنقر: النشطة تُبرَز (.on) والصفرية تُعطَّل لا تُخفى (عدا «الكل»)
+  const chip = (mode, label, n, cls) => {
+    const on = btMode === mode;
+    const dis = n === 0 && mode !== "all";
+    return `<button class="uni-chip ${cls}${on ? " on" : ""}" aria-pressed="${on}" ${dis ? "disabled" : ""} onclick="setBtMode('${mode}')" title="${label}"><b>${label}</b> <bdi>${n}</bdi></button>`;
+  };
+  // «غير متوفر للمعروض» — يظهر حين الفلتر يقصر على «يحتاج ربط» (all/need/nocand) وفيه بطاقات
+  const bulkN = btMode === "nocand" ? nocandN : (btMode === "need" || btMode === "all") ? needN : 0;
+  const bulkBtn = bulkN ? `<button class="mc-btn wait" data-owner-only ${ownTip} onclick="waitAllShown()">${ic("hourglass", "ico-warn")} غير متوفر للمعروض (<bdi>${bulkN}</bdi>)</button>` : "";
   return `<div class="uni-head"><b>يحتاج ربط</b><span><bdi>${needN}</bdi> منتجاً يحتاج قرارك</span></div>
   <div class="uni-bar">
     <div class="uni-counts">
-      <span class="uni-chip need"><b>يحتاج ربط</b> <bdi>${needN}</bdi></span>
-      <span class="uni-chip abs"><b>غائب عن المخزن</b> <bdi>${absentN}</bdi></span>
-      <span class="uni-chip wait"><b>غير متوفر</b> <bdi>${p + m}</bdi></span>
-    </div>
-    <div class="uni-filter">
       <span class="uni-flabel">فلترة:</span>
-      <button class="exp-chip${batchLostOnly ? "" : " on"}" aria-pressed="${!batchLostOnly}" onclick="${batchLostOnly ? "toggleLostOnly()" : ""}" title="كل البطاقات (يحتاج ربط ＋ غائب)">الكل <bdi>${needN + absentN}</bdi></button>
-      ${lost ? `<button class="exp-chip${batchLostOnly ? " on" : ""}" aria-pressed="${batchLostOnly}" onclick="toggleLostOnly()" title="روابط يدوية ضائعة (غائبة رغم كود يدوي محفوظ) — أولى بإعادة الربط">${ic("link2", "ico-info")} سبق ربطه ${lost}</button>` : ""}
-      ${batchLostOnly ? `<span class="uni-shown">يعرض <bdi>${shownN}</bdi> من <bdi>${needN + absentN}</bdi></span>` : ""}
+      <button class="uni-chip all${btMode === "all" ? " on" : ""}" aria-pressed="${btMode === "all"}" onclick="setBtMode('all')" title="كل البطاقات (يحتاج ربط ＋ غائب ＋ غير متوفر)">الكل <bdi>${needN + absentN}</bdi></button>
+      ${chip("need", "يحتاج ربط", needN, "need")}
+      ${chip("nocand", "بلا مرشّح", nocandN, "nc")}
+      ${chip("absent", "غائب عن المخزن", absentN, "abs")}
+      ${chip("waiting", "غير متوفر", waitN, "wait")}
+      ${lost ? `<button class="uni-chip lost${batchLostOnly ? " on" : ""}" aria-pressed="${batchLostOnly}" onclick="toggleLostOnly()" title="روابط يدوية ضائعة (غائبة رغم كود يدوي محفوظ) — أولى بإعادة الربط">${ic("link2", "ico-info")} سبق ربطه <bdi>${lost}</bdi></button>` : ""}
+      ${filtered ? `<span class="uni-shown">يعرض <bdi>${shownN}</bdi> من <bdi>${needN + absentN}</bdi></span>` : ""}
     </div>
     <div class="uni-actions">
+      ${bulkBtn}
       <button class="btn-run sm" data-owner-only ${ownTip} onclick="acceptUnified('all')">${ic("check")} اعتماد العناصر المحددة</button>
       <button class="mc-btn" data-owner-only ${ownTip} onclick="acceptUnified('green')">${ic("spark")} اعتماد المطابقات المؤكدة</button>
       <button class="mc-btn" onclick="undoLastBatch()" ${lastBatchUndo ? "" : "disabled"}>↩ التراجع عن آخر عملية${lastBatchUndo ? ` (${lastBatchUndo.count})` : ""}</button>
@@ -3340,20 +3388,25 @@ function renderUnifiedList(title, wrap) {
   // عطل ٢: العدّادات من **غير المُصفّى** دائماً (batchData الخام)؛ btFilter يغيّر **البطاقات المرسومة** فقط.
   const gAll = batchData.green, yAll = batchData.yellow, rAll = batchData.red;
   const g = btFilter(gAll), y = btFilter(yAll), r = btFilter(rAll);   // للبطاقات المرسومة فقط
-  const mk = (arr, cls, absent) => arr.filter(x => !!x.isAbsent === absent).map(x => batchCardHTML(x, cls, ""));
-  const needCards = [...mk(g, "bt-g", false), ...mk(y, "bt-y", false), ...mk(r, "bt-rd", false)];
-  const absCards = [...mk(g, "bt-g", true), ...mk(y, "bt-y", true), ...mk(r, "bt-rd", true)];
+  // §فلتر الشرائح: أيّ قسم يُعرض. «بلا مرشّح» = بطاقات «يحتاج قرار» بلا أي مرشّح (best=null) — أسرع ما يُقرَّر «غير متوفر».
+  const secNeed = btMode === "all" || btMode === "need" || btMode === "nocand";
+  const secAbs = btMode === "all" || btMode === "absent";
+  const secWait = btMode === "all" || btMode === "waiting";
+  const mk = (arr, cls, absent) => (btMode === "nocand" ? arr.filter(x => !x.best) : arr).filter(x => !!x.isAbsent === absent).map(x => batchCardHTML(x, cls, ""));
+  const needCards = secNeed ? [...mk(g, "bt-g", false), ...mk(y, "bt-y", false), ...mk(r, "bt-rd", false)] : [];
+  const absCards = secAbs ? [...mk(g, "bt-g", true), ...mk(y, "bt-y", true), ...mk(r, "bt-rd", true)] : [];
   const notAbs = a => a.filter(x => !x.isAbsent).length, isAbs = a => a.filter(x => x.isAbsent).length;
   const gN = notAbs(gAll), yN = notAbs(yAll), rN = notAbs(rAll);            // عدّادات الثقة من الخام
   const needN = gN + yN + rN, absentN = isAbs(gAll) + isAbs(yAll) + isAbs(rAll);   // «يحتاج قرار»/«غائب» من الخام
+  const nocandN = [...gAll, ...yAll, ...rAll].filter(x => !x.isAbsent && !x.best).length;   // «بلا مرشّح» من الخام
   // (أ) الأصناف «غير المتوفرة» تظهر كصفوف خفيفة (⚠ سيُصفَّر / ✓ مُدار) — تراجع عن خروجها من القائمة، ليبقى التأكيد مرئياً مع تراجع مباشر.
-  const light = [...pending.map(u => unifiedLightRow(u, "pending")), ...managed.map(u => unifiedLightRow(u, "managed"))];
+  const light = secWait ? [...pending.map(u => unifiedLightRow(u, "pending")), ...managed.map(u => unifiedLightRow(u, "managed"))] : [];
   const rows = [...needCards];
   if (absCards.length) { rows.push(`<div class="uni-sec" id="uniAbsentSec">${ic("inbox","ico-warn")} غائب عن المخزن (${batchLostOnly ? `<bdi>${absCards.length}</bdi> من <bdi>${absentN}</bdi>` : `<bdi>${absentN}</bdi>`}) — لها كود سابق وغائبة عن المخزن الموحّد الحالي (قد تكون في فرع آخر)</div>`, ...absCards); }
   if (light.length) { rows.push(`<div class="uni-sec">${ic("hourglass","ico-warn")} غير متوفر (<bdi>${light.length}</bdi>)</div>`, ...light); }
   const allRows = rows;
   const sa = document.getElementById("sAbsent"); if (sa) sa.textContent = batchData.absentCount || 0;   // البطاقة العلوية = نفس مصدر الشريط
-  wrap.innerHTML = unifiedBar(needN, gN, yN, rN, absentN, pending.length, managed.length, needCards.length + absCards.length)
+  wrap.innerHTML = unifiedBar(needN, gN, yN, rN, absentN, pending.length, managed.length, needCards.length + absCards.length, nocandN)
     + `<div class="mcards uni-list" id="unBody"></div>`;
   const host = document.getElementById("unBody");
   cancelAnimationFrame(unifiedRAF); unifiedPending = null;
@@ -5091,7 +5144,7 @@ function run(reprocess) {
     lastSaleConflicts = saleConflicts;
     lastAutoUnpub = autoUnpub;   // طلب ٣: لشارة «منشور ← سيُخفى» في القائمة الموحّدة
     lastMatchedWhCodes = matchedWhCodes;
-    if (!reprocess) { boundSet = new Set(); currentFilter = "unmatched"; updChgFilter = "all"; }   // مطابقة جديدة ⇒ الفلتر يعود «الكل» (لا نتيجة مفلترة تُظنّ الكل)
+    if (!reprocess) { boundSet = new Set(); currentFilter = "unmatched"; updChgFilter = "all"; btMode = "all"; batchLostOnly = false; }   // مطابقة جديدة ⇒ الفلتر يعود «الكل» (لا نتيجة مفلترة تُظنّ الكل)
     refreshUnmatchedUI();
     renderCollisionWarn();
     renderVariantInfo();

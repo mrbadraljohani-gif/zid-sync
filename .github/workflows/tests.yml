@@ -166,6 +166,10 @@ jobs:
         run: node tests/perf/wait-decide.mjs --broken
       - name: G-WAIT-DECIDE — «غير متوفر» قرار فاعل دائماً يُخلي «يحتاج ربط»
         run: node tests/perf/wait-decide.mjs
+      - name: Self-check — حارس شرائح «يحتاج ربط» يرسب بتثبيت btMode="all"
+        run: node tests/perf/uni-filter-chips.mjs --broken
+      - name: G-UNI-CHIPS — شرائح فلتر «يحتاج ربط» قابلة للنقر ＋ «بلا مرشّح» ＋ «غير متوفر للمعروض» دفعيّ
+        run: node tests/perf/uni-filter-chips.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)

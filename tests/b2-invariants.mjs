@@ -82,14 +82,17 @@ check(/const g = btFilter\(gAll\)/.test(uni), "btFilter على البطاقات 
 // أسفل الصفحة. الآن: رقم دقيق بجوار كل خيار ＋ «يعرض X من Y» ＋ تمرير لأول نتيجة.
 check(bar.includes("${needN + absentN}"), "فلتر «الكل» يحمل عدده الدقيق (يحتاج ربط ＋ غائب)");
 check(bar.includes("uni-shown") && bar.includes("يعرض"), "مؤشّر «يعرض X من Y» يظهر عند تفعيل الفلتر");
-check(bar.includes("uni-chip abs"), "شريحة «غائب عن المخزن» في الشريط (كانت في ترويسة القسم وحدها)");
+// §شرائح قابلة للنقر (all/need/nocand/absent/waiting) تفلتر القسم عبر setBtMode — لا عدّادات صمّاء
+check(bar.includes('chip("need"') && bar.includes('chip("nocand"') && bar.includes('chip("absent"') && bar.includes('chip("waiting"') && bar.includes('onclick="setBtMode('), "شرائح need/nocand/absent/waiting شرائح فلتر قابلة للنقر (setBtMode)");
+check(/n === 0 && mode !== "all"/.test(bar) && /\$\{dis \? "disabled" : ""\}/.test(bar), "الشريحة الصفرية تُعطَّل لا تُخفى (disabled)");
 check(uni.includes("needCards.length + absCards.length"), "shownN = البطاقات المرسومة فعلاً (لا الخام)");
 const tl = fnSrc("toggleLostOnly");
 check(tl.includes("scrollIntoView") && tl.includes("flushUnified"), "تفعيل الفلتر يمرّر لأول نتيجة (وإلا بدا معطّلاً)");
 // (عطل ١أ) تعطيل «غير متوفر» للـno-op — نفس شروط run (مصدر واحد)
 const wn = fnSrc("waitNoopReason");
 check(wn.includes("curQtyNum(z.qty)") && wn.includes("famIndex") && wn.includes('=== "yes"'), "waitNoopReason بنفس شروط run (curQtyNum + published + famIndex)");
-check(fnSrc("batchCardHTML").includes("waitNoopReason(r.z)") && fnSrc("batchCardHTML").includes("disabled") && fnSrc("batchCardHTML").includes("wait-note"), "الزرّ يُعطَّل مع سبب دائم (wait-note لا tooltip)");
+// «غير متوفر» قرار تصنيف فاعل دائماً (حتى للـno-op): waitNoopReason صار ملاحظة (wait-note) لا مُعطِّلاً — لا disabled على الزرّ (G-WAIT-DECIDE يثبت الأسنان سلوكياً)
+check(fnSrc("batchCardHTML").includes("waitNoopReason(r.z)") && fnSrc("batchCardHTML").includes("wait-note") && !/class="mc-btn wait"[^>]*\bdisabled\b/.test(fnSrc("batchCardHTML")), "«غير متوفر» فاعل دائماً ＋ ملاحظة wait-note (لا disabled، لا tooltip)");
 // (عطل ١ب) تنبيه المتغيّر عند «غير متوفر»
 check(/النشر يُدار من المنتج الأب/.test(fnSrc("batchExclude")), "تنبيه المتغيّر (النشر من الأب) عند «غير متوفر»");
 // (2ج-ب) خطاف الرفع (missed_rounds): مُوصّل ومحكوم بعَلَم الرفع الفعلي (لا عدّ لتحميل القاعدة)
