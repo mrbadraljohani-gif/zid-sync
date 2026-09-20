@@ -162,6 +162,10 @@ jobs:
         run: node tests/valve-absent.mjs
       - name: G-TAX — ضريبة 15% على أسعار المخزن (100⇒115 · لا تراكم · كشف الشامل · المستودع+الفروع)
         run: node tests/perf/vat.mjs
+      - name: Self-check — حارس G-WAIT-DECIDE يرسب بإعادة تعطيل «غير متوفر»
+        run: node tests/perf/wait-decide.mjs --broken
+      - name: G-WAIT-DECIDE — «غير متوفر» قرار فاعل دائماً يُخلي «يحتاج ربط»
+        run: node tests/perf/wait-decide.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)

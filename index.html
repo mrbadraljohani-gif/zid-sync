@@ -1701,7 +1701,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "19e293a";
+const APP_VERSION = "2238e24";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3428,10 +3428,10 @@ function batchCardHTML(r, chkCls, famAttr) {
       <div class="mc-match" id="m-${uid}">${matchLine(r, chkCls)}</div>
       <div class="bt-combo"><input class="bt-search" id="s-${uid}" aria-label="ابحث في المستودع بالكود أو الاسم لربط هذا الصنف" role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="غيّر/ابحث في المستودع بالكود أو الاسم…" oninput="comboSearch('${uid}')" onfocus="comboOpen('${uid}')" onkeydown="comboKey('${uid}',event)"></div>
     </div>`;
-  const noop = waitNoopReason(r.z);   // عطل ١(أ): سبب تعطيل «غير متوفر» إن كان بلا أثر
-  const waitBtn = noop
-    ? `<button class="mc-btn wait" disabled aria-disabled="true">${ic("hourglass","ico-warn")} غير متوفر</button><div class="wait-note">${esc(noop)}</div>`
-    : `<button class="mc-btn wait" onclick="batchExclude('${uid}','wait')" title="سجّله «غير متوفر حالياً» (⏳)">${ic("hourglass","ico-warn")} غير متوفر</button>`;
+  // «غير متوفر» قرار تصنيف يُخلي الصفّ من «يحتاج ربط» — فاعل **دائماً** حتى لو انعدم أثر التصدير (مصفّر/مخفي أصلاً · متغيّر).
+  // waitNoopReason صار **ملاحظة** لا مانعاً: يُبيّن أنه قرار بلا تغيير تصدير. (لا تمنع المستخدم من القرار بحجّة انعدام الأثر.)
+  const noop = waitNoopReason(r.z);
+  const waitBtn = `<button class="mc-btn wait" onclick="batchExclude('${uid}','wait')" title="${noop ? "قرار: يخرج من «يحتاج ربط» — " + esc(noop) + " (بلا تغيير تصدير)" : "سجّله «غير متوفر حالياً»"}">${ic("hourglass","ico-warn")} غير متوفر</button>` + (noop ? `<div class="wait-note">${esc(noop)} — يُسجَّل قراراً</div>` : "");
   const actions = `<div class="mc-actions">
       <label class="bt-card-chk"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${chkCls === "bt-g" ? "checked" : ""}><span>اعتماد الربط</span></label>
       ${waitBtn}
@@ -3536,7 +3536,8 @@ async function batchExclude(uid, action) {
     const n = (famIndex.childrenOf[String(parent)] || []).length;
     showToast(`⏳ صُفّرت كمية المتغيّر ${r.z.sku}. النشر يُدار من المنتج الأب (${parent}) — سيُخفى الأب تلقائياً حين تصير كل متغيّراته${n ? ` الـ${n}` : ""} صفراً.`);
   } else {
-    showToast(`⏳ نُقل للانتظار: ${r.z.sku} — حُفظ في القاعدة.`);
+    const noop = waitNoopReason(r.z);
+    showToast(noop ? `⏳ سُجّل «غير متوفر»: ${r.z.sku} — ${noop} (قرار، بلا تغيير تصدير). خرج من «يحتاج ربط».` : `⏳ نُقل للانتظار: ${r.z.sku} — حُفظ في القاعدة.`);
   }
 }
 
