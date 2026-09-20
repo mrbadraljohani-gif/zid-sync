@@ -52,8 +52,9 @@ const part1 = await (async () => {
     // جلسة طازجة: الفروع غير محمّلة بعد، لكن invMeta يعرف أنّ القاعدة فيها فرع
     mergeWh = null; mergeBranches = []; lastMerge = null; stData = null;
     invMeta = { id: 1, branch_count: 1, wh_count: 1 };
-    // مولِّدات ملف المستودع الوهمي (كود X كمية 6)
-    window.XLSX = { utils: { sheet_to_json: () => [["رقم الصنف", "اسم الصنف", "الكمية", "شامل", "قبل"], ["X", "صنف", 6, 100, 90]], aoa_to_sheet: () => ({}), book_new: () => ({}), book_append_sheet: () => {} }, read: () => ({}), write: () => new Uint8Array(0) };
+    // مولِّدات ملف المستودع الوهمي (كود X كمية 6) — رأس «قبل الضريبة» (سير العمل الجديد؛ لا يُطلق تحذير مضاعفة الضريبة)
+    window.confirm = () => true;   // دفاعيّ: أيّ حوار (ضريبة/بوّابة) يُقبَل فلا يعلّق الاختبار
+    window.XLSX = { utils: { sheet_to_json: () => [["رقم الصنف", "اسم الصنف", "الكمية", "قبل الضريبة"], ["X", "صنف", 6, 90]], aoa_to_sheet: () => ({}), book_new: () => ({}), book_append_sheet: () => {} }, read: () => ({}), write: () => new Uint8Array(0) };
     try { readWB = async () => ({ SheetNames: ["S"], Sheets: { S: {} } }); } catch (e) {}
     await onMergeWh({ files: [{ name: "wh.xlsx" }], value: "" });
     const x = lastMerge ? [...lastMerge.unified, ...lastMerge.noPrice].find(r => r.code === "X") : null;
