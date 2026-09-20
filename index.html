@@ -1699,7 +1699,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "b6457cd";
+const APP_VERSION = "8e9777a";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 const MAP_KEY = "zid-manual-mapping-v1";
@@ -1739,6 +1739,7 @@ let excludedSkus = new Set();          // استبعاد من المطابقة �
 let excludedRules = [];                // قواعد بادئة: [{prefix (uppercase), note, at}] (المصدر: القاعدة excluded_rules) — أيّ SKU يبدأ بها يُستبعد
 let excludedSkuMeta = new Map();       // sku ⇒ {note, at} للعرض
 let stDataFull = null, lastExcludedRows = [];   // stDataFull = تصدير زد الخام؛ stData = المُصفّى (بعد applyExclusions)؛ lastExcludedRows = المُستبعَدون للبطاقة
+let exclPreview = null;                // معاينة قاعدة مفتوحة: {prefix, items:[{sku,name,qty,published,checked}], stale, age}
 let boundSet = new Set();
 let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [];
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
@@ -1823,6 +1824,7 @@ const db = {
   excluded: {
     async getSkus() { const { data, error } = await sb.from("excluded_skus").select("sku,note,created_at"); if (error) throw error; return data || []; },
     async addSku(sku, note) { const { error } = await sb.from("excluded_skus").upsert({ sku: String(sku), note: note || null }, { onConflict: "sku" }); if (error) throw error; },
+    async bulkAddSku(skus) { if (!skus.length) return; const { error } = await sb.from("excluded_skus").upsert(skus.map(s => ({ sku: String(s) })), { onConflict: "sku" }); if (error) throw error; },
     async removeSku(sku) { const { error } = await sb.from("excluded_skus").delete().eq("sku", String(sku)); if (error) throw error; },
     async getRules() { const { data, error } = await sb.from("excluded_rules").select("prefix,note,created_at"); if (error) throw error; return data || []; },
     async addRule(prefix, note) { const { error } = await sb.from("excluded_rules").insert({ prefix: String(prefix).toUpperCase(), note: note || null }); if (error) throw error; },
@@ -2087,30 +2089,52 @@ async function unexcludeSku(rawSku) {
   afterExclusionChange();
 }
 // معاينة قاعدة قبل الحفظ (شرط القبول الحاسم): ماذا ستلتقط ＋ تنبيه عمر البيانات
-function previewExcludeRule(prefix) {
+// معاينة داخل البطاقة (جدول بتحديد) — لا حوار متصفّح. تحسب الكمية والنشر لكل ملتقَط.
+function previewExcludeRuleUI(prefix) {
   const p = String(prefix == null ? "" : prefix).trim().toUpperCase();
-  if (p.length < 2) return { error: "البادئة يجب ألّا تقلّ عن حرفين." };
-  if (!stDataFull) return { error: "لا بيانات زد محمّلة للمعاينة — اعتمد زد أوّلاً." };
-  const H = stDataFull.header, iSku = H.indexOf("sku"), iName = H.indexOf("name_ar");
+  if (p.length < 2) { showToast("البادئة يجب ألّا تقلّ عن حرفين."); return; }
+  if (!stDataFull) { showToast("لا بيانات زد محمّلة للمعاينة — اعتمد زد أوّلاً."); return; }
+  const H = stDataFull.header, iSku = H.indexOf("sku"), iName = H.indexOf("name_ar"), iQty = H.indexOf("quantity"), iPub = H.indexOf("published");
   const items = [];
-  for (let i = 1; i < stDataFull.rows.length; i++) { const s = String(stDataFull.rows[i][iSku] || ""); if (s && s.toUpperCase().startsWith(p)) items.push({ sku: s, name: iName >= 0 ? String(stDataFull.rows[i][iName] || "") : "" }); }
-  return { prefix: p, count: items.length, items, stale: (typeof zidIsStale === "function" && zidIsStale()), age: (typeof ageText === "function" ? ageText(zidSyncedAt) : "") };
+  for (let i = 1; i < stDataFull.rows.length; i++) {
+    const r = stDataFull.rows[i], s = String(r[iSku] || "");
+    if (s && s.toUpperCase().startsWith(p)) items.push({ sku: s, name: iName >= 0 ? String(r[iName] || "") : "", qty: iQty >= 0 ? String(r[iQty]) : "—", published: iPub >= 0 ? String(r[iPub]) : "—", checked: true });
+  }
+  if (!items.length) { showToast(`لا منتج يبدأ بـ«${p}».`); exclPreview = null; renderExcludedCard(); return; }
+  exclPreview = { prefix: p, items, stale: (typeof zidIsStale === "function" && zidIsStale()), age: (typeof ageText === "function" ? ageText(zidSyncedAt) : "") };
+  renderExcludedCard();
+  const box = document.getElementById("exclPreviewBox"); if (box && box.scrollIntoView) box.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
-async function addExcludeRuleFlow(prefix) {
-  const pv = previewExcludeRule(prefix);
-  if (pv.error) { showToast(pv.error); return; }
-  if (excludedRules.some(r => r.prefix === pv.prefix)) { showToast(`قاعدة «${pv.prefix}» موجودة سلفاً.`); return; }
-  const sample = pv.items.slice(0, 40).map(it => `• ${it.sku} — ${it.name || "؟"}`).join("\n");
-  const staleLine = pv.stale ? `\n\n⚠ المعاينة على بيانات زد عمرها ${pv.age} — قد تفوت منتجات أحدث.` : "";
-  const more = pv.count > 40 ? `\n… و${pv.count - 40} غيرها` : "";
-  if (!confirm(`قاعدة «${pv.prefix}» ستستبعد ${pv.count} منتجاً:\n\n${sample}${more}${staleLine}\n\nأتأكّد الإضافة؟`)) return;
+function exclPreviewCheck(i, v) { if (exclPreview && exclPreview.items[i]) { exclPreview.items[i].checked = !!v; const n = exclPreview.items.filter(it => it.checked).length; const s = document.getElementById("exclSelN"); if (s) s.textContent = n; } }
+function exclPreviewToggleAll(v) { if (!exclPreview) return; exclPreview.items.forEach(it => it.checked = !!v); renderExcludedCard(); }
+function closeExclPreview() { exclPreview = null; renderExcludedCard(); }
+// «استبعاد المحدَّد فردياً» — دقيق، لا يشمل الجديد (excluded_skus)
+async function excludeSelectedIndividual() {
+  if (!exclPreview) return;
+  const chosen = exclPreview.items.filter(it => it.checked).map(it => it.sku).filter(s => !excludedSkus.has(s));
+  if (!chosen.length) { showToast("لا جديد في المحدَّد."); return; }
   try { requireOnline(); } catch { return; }
-  try { await db.excluded.addRule(pv.prefix); } catch (e) { dbFail(e); return; }
-  excludedRules.push({ prefix: pv.prefix, note: "", at: new Date().toISOString() });
-  await removeManyFromMatchedHistory(currentlyCaughtByRule(pv.prefix));   // احذف المُلتقَطين حالياً من التاريخ
-  logActivity("rule_added", null, { prefix: pv.prefix, caught: pv.count });
-  showToast(`✓ أُضيفت قاعدة «${pv.prefix}» — استبعدت ${pv.count} منتجاً.`);
-  afterExclusionChange();
+  try { await db.excluded.bulkAddSku(chosen); } catch (e) { dbFail(e); return; }
+  const now = new Date().toISOString();
+  chosen.forEach(s => { excludedSkus.add(s); excludedSkuMeta.set(s, { note: "", at: now }); });
+  await removeManyFromMatchedHistory(chosen);
+  logActivity("excluded_added", null, { source: "manual", count: chosen.length, prefix: exclPreview.prefix });
+  showToast(`✓ استُبعد ${chosen.length} منتجاً فردياً (لا يشمل الجديد).`);
+  exclPreview = null; afterExclusionChange();
+}
+// «حفظ قاعدة بادئة» — قرار واعٍ: كل ما يبدأ بالبادئة حاضراً ومستقبلاً (حتى غير المحدَّد)
+async function saveExclPrefixRuleFromPreview() {
+  if (!exclPreview) return;
+  const p = exclPreview.prefix, all = exclPreview.items.length;
+  if (excludedRules.some(r => r.prefix === p)) { showToast(`قاعدة «${p}» موجودة سلفاً.`); return; }
+  if (!confirm(`قاعدة «${p}» تستبعد كل ما يبدأ بها — ${all} منتجاً حالياً (حتى غير المحدَّد) ＋ أيّ منتج جديد مستقبلاً.\n\nللاستبعاد الدقيق استعمل «استبعاد المحدَّد فردياً» بدلها.\n\nأتأكّد حفظ القاعدة؟`)) return;
+  try { requireOnline(); } catch { return; }
+  try { await db.excluded.addRule(p); } catch (e) { dbFail(e); return; }
+  excludedRules.push({ prefix: p, note: "", at: new Date().toISOString() });
+  await removeManyFromMatchedHistory(currentlyCaughtByRule(p));
+  logActivity("rule_added", null, { prefix: p, caught: all });
+  showToast(`✓ أُضيفت قاعدة «${p}» — استبعدت ${all} منتجاً حالياً ＋ الجديد مستقبلاً.`);
+  exclPreview = null; afterExclusionChange();
 }
 async function removeExcludeRuleFlow(prefix) {
   const p = String(prefix).toUpperCase();
@@ -2125,7 +2149,7 @@ async function removeExcludeRuleFlow(prefix) {
 }
 // مُدخلات البطاقة
 function addExcludedSkuFromInput() { const el = document.getElementById("exclSkuInput"); if (!el) return; const v = el.value; if (String(v).trim()) { excludeSkuManual(v).then(() => { el.value = ""; }); } }
-function addExcludeRuleFromInput() { const el = document.getElementById("exclRuleInput"); if (!el) return; const v = el.value; if (String(v).trim().length >= 2) addExcludeRuleFlow(v).then(() => { el.value = ""; }); else showToast("البادئة يجب ألّا تقلّ عن حرفين."); }
+function previewExcludeRuleFromInput() { const el = document.getElementById("exclRuleInput"); if (!el) return; previewExcludeRuleUI(el.value); }
 // بطاقة إدارة المستبعَدين (صفحة المخزون) — توكنات الثيم حصراً
 function renderExcludedCard() {
   const el = document.getElementById("excludedCard"); if (!el) return;
@@ -2148,13 +2172,31 @@ function renderExcludedCard() {
     ? excludedRules.map(r => `<span class="col-pill"><b dir="ltr">${esc(r.prefix)}</b> — ${currentlyCaughtByRule(r.prefix).length} منتجاً <button class="mini-btn danger" style="margin-inline-start:6px" onclick="removeExcludeRuleFlow('${esc(r.prefix)}')" title="إلغاء القاعدة">✕</button></span>`).join(" ")
     : `<span class="muted-2" style="font-size:13px">لا قواعد بعد.</span>`;
   el.innerHTML =
-    `<div class="section-head" style="margin:2px 2px 12px"><h2>المستبعَدون من المطابقة</h2><span class="line"></span><span class="mono" style="font-size:13px;color:var(--muted)">${all.length}</span></div>`
+    `<div class="section-head" style="margin:2px 2px 12px"><h2>المستبعَدون من المطابقة (${all.length})</h2><span class="line"></span></div>`
     + `<p class="muted-2" style="font-size:13px;margin:0 2px 12px">لا تُطابَق ولا تُصنَّف ولا تُصدَّر ولا تُعدّ — كأنها غير موجودة في تصدير زد. تبقى في القاعدة (فلتر عرض).</p>`
     + listHtml
     + `<div class="maprow" style="margin-top:14px;gap:8px;flex-wrap:wrap"><input id="exclSkuInput" placeholder="استبعاد SKU بعينه (مثل 0523)" dir="ltr" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')addExcludedSkuFromInput()"><button class="btn-run sm" onclick="addExcludedSkuFromInput()">استبعاد SKU</button></div>`
     + `<div class="section-head" style="margin:18px 2px 10px"><h2 style="font-size:16px">قواعد البادئة</h2><span class="line"></span></div>`
     + `<div class="un-chips" style="margin-bottom:10px">${rulesHtml}</div>`
-    + `<div class="maprow" style="gap:8px;flex-wrap:wrap"><input id="exclRuleInput" placeholder="بادئة (مثل KSA) — حرفان فأكثر" dir="ltr" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')addExcludeRuleFromInput()"><button class="btn-run sm" onclick="addExcludeRuleFromInput()">معاينة ثمّ إضافة</button></div>`;
+    + `<div class="maprow" style="gap:8px;flex-wrap:wrap"><input id="exclRuleInput" placeholder="بادئة (مثل KSA) — حرفان فأكثر" dir="ltr" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')previewExcludeRuleFromInput()"><button class="btn-run sm" onclick="previewExcludeRuleFromInput()">معاينة</button></div>`
+    + `<div id="exclPreviewBox"></div>`;
+  renderExclPreview();
+}
+// معاينة القاعدة داخل البطاقة: جدول بتحديد ＋ عدّاد حيّ ＋ زرّا «فردياً» و«قاعدة» ＋ تنبيه العمر
+function renderExclPreview() {
+  const box = document.getElementById("exclPreviewBox"); if (!box) return;
+  if (!exclPreview) { box.innerHTML = ""; return; }
+  const p = exclPreview, n = p.items.filter(it => it.checked).length;
+  const stale = p.stale ? `<div class="vm-stale" style="margin:6px 2px">⚠ المعاينة على بيانات زد عمرها ${esc(p.age)} — قد تفوت منتجات أحدث.</div>` : "";
+  box.innerHTML =
+    `<div class="section-head" style="margin:16px 2px 8px"><h2 style="font-size:15px">معاينة «${esc(p.prefix)}» — ${p.items.length} منتجاً</h2><span class="line"></span></div>`
+    + stale
+    + `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><button class="mini-btn" onclick="exclPreviewToggleAll(true)">تحديد الكل</button><button class="mini-btn" onclick="exclPreviewToggleAll(false)">إلغاء التحديد</button></div>`
+    + `<div class="twrap" style="max-height:340px;overflow-y:auto"><table class="upd-table"><thead><tr><th></th><th>SKU</th><th>الاسم</th><th>الكمية</th><th>منشور؟</th></tr></thead><tbody>`
+    + p.items.map((it, i) => `<tr><td><input type="checkbox" ${it.checked ? "checked" : ""} onchange="exclPreviewCheck(${i}, this.checked)" aria-label="تحديد ${esc(it.sku)}"></td><td class="mono" dir="ltr">${esc(it.sku)}</td><td>${esc(it.name) || "—"}</td><td>${esc(it.qty)}</td><td>${esc(it.published)}</td></tr>`).join("")
+    + `</tbody></table></div>`
+    + `<div class="maprow" style="margin-top:10px;gap:8px;flex-wrap:wrap"><button class="btn-run sm" onclick="excludeSelectedIndividual()">استبعاد المحدَّد فردياً (<span id="exclSelN">${n}</span>)</button><button class="mini-btn" onclick="saveExclPrefixRuleFromPreview()">حفظ قاعدة بادئة «${esc(p.prefix)}»</button><button class="mini-btn ignore" onclick="closeExclPreview()">إغلاق</button></div>`
+    + `<p class="muted-2" style="font-size:12px;margin-top:6px">التحديد ⇒ استبعاد فرديّ دقيق (لا يشمل الجديد). القاعدة ⇒ كل ما يبدأ بـ«${esc(p.prefix)}» حاضراً ومستقبلاً (حتى غير المحدَّد).</p>`;
 }
 function requireOnline() { if (!dbOnline) { showToast("🔴 غير متصل بالقاعدة — الكتابة معطّلة لمنع تشعّب البيانات."); throw new Error("db-offline"); } }
 // حجب عدم الاتصال (الدفعة أ): بلا اتصال ⇒ الإجراءات والتنزيل و«طابق وأنشئ» معطّلة + بانر ظاهر
