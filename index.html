@@ -1108,6 +1108,60 @@
   .susp-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 9px 2px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
   .susp-row .mono { color: var(--text); }
   .susp-note { font-size: 11.5px; color: var(--muted-2); }
+  /* ب-٢ب: تخطيط الصورة — ترويسة · مؤشّرات · أعمدة المواقع · تذييل */
+  .sales-topbar { display: flex; align-items: center; gap: 14px 22px; flex-wrap: wrap; margin: 2px 2px 10px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .stb-brand { display: flex; align-items: center; gap: 11px; }
+  .stb-brand .stb-ic { color: var(--info); display: inline-flex; }
+  .stb-title { font-family: var(--serif); font-size: 22px; font-weight: 800; color: var(--text); }
+  .stb-badge { font-size: 11px; font-weight: 700; color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); border: 1px solid color-mix(in srgb, var(--green) 30%, transparent); border-radius: 999px; padding: 2px 9px; margin-inline-start: 6px; }
+  .stb-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .stb-search { flex: 1 1 260px; min-width: 180px; display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 12px; padding: 8px 12px; }
+  .stb-search input { flex: 1; background: none; border: 0; color: var(--text); font: inherit; font-size: 13px; outline: none; }
+  .stb-search .ico { color: var(--muted); }
+  .stb-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .sales-loc-sel { background: var(--panel); border: 1px solid var(--border-strong); border-radius: 10px; color: var(--text); font: inherit; font-size: 12.5px; padding: 7px 12px; cursor: pointer; }
+  .sales-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  @media (max-width: 1100px) { .sales-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .sales-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+  .sales-cols.one { grid-template-columns: minmax(0, 1fr); }
+  @media (max-width: 1180px) { .sales-cols { grid-template-columns: minmax(0, 1fr); } }
+  .sales-col { border: 1px solid color-mix(in srgb, var(--loc, var(--info)) 40%, var(--border)); border-radius: 16px; background: var(--glass); backdrop-filter: blur(24px) saturate(150%); overflow: hidden; display: flex; flex-direction: column; }
+  .sc-head { position: relative; display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); background: linear-gradient(90deg, color-mix(in srgb, var(--loc, var(--info)) 18%, transparent), transparent); }
+  .sc-ic { display: inline-flex; color: var(--loc, var(--info)); }
+  .sc-h-txt { flex: 1; min-width: 0; }
+  .sc-h-txt b { font-size: 16px; color: var(--text); }
+  .sc-h-txt span { display: block; font-size: 11px; color: var(--muted); }
+  .sc-status { font-size: 11px; font-weight: 700; color: var(--loc, var(--info)); white-space: nowrap; }
+  .sc-status::before { content: "●"; margin-inline-end: 4px; }
+  .sc-upd { font-size: 10.5px; color: var(--muted-2); white-space: nowrap; }
+  .sc-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 12px; }
+  .sc-card { border-radius: 10px; padding: 10px 8px; text-align: center; border: 1px solid var(--border); background: color-mix(in srgb, var(--loc, var(--info)) 8%, var(--panel-2)); }
+  .sc-card.inv { background: color-mix(in srgb, var(--steel, var(--muted)) 12%, var(--panel-2)); }
+  .sc-card b { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 16px; color: var(--text); }
+  .sc-card .scc-lbl { font-size: 10px; color: var(--muted); margin-top: 3px; display: block; }
+  .sc-card .scc-tr { font-size: 10.5px; font-weight: 700; font-family: var(--mono); }
+  .scc-tr.up { color: var(--green); } .scc-tr.down { color: var(--danger); } .scc-tr.flat { color: var(--muted-2); } .scc-tr.inv { color: var(--gold-2); }
+  .sc-chart-row { display: grid; grid-template-columns: 1.7fr 1fr; gap: 10px; padding: 0 12px 12px; align-items: center; }
+  @media (max-width: 520px) { .sc-chart-row { grid-template-columns: minmax(0,1fr); } }
+  .sc-chart-h { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+  .sc-chart-h b { font-size: 12px; color: var(--text); }
+  .sc-dd { font-size: 10.5px; color: var(--muted); border: 1px solid var(--border); border-radius: 7px; padding: 2px 7px; }
+  .sc-linechart { width: 100%; height: auto; }
+  .sc-lc-grid { stroke: var(--border); stroke-width: 1; }
+  .sc-lc-axis { fill: var(--muted-2); font-size: 9px; font-family: var(--mono); }
+  .sc-donutwrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .sc-donut-svg { width: 108px; height: 108px; }
+  .sc-donut-c { fill: var(--text); font-size: 15px; font-weight: 800; font-family: var(--mono); }
+  .sc-donut-cl { fill: var(--muted); font-size: 8px; }
+  .sc-donut-lg { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .sc-donut-lg .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; background: var(--loc, var(--info)); }
+  .sc-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 12px; border-top: 1px solid var(--border); margin-top: auto; }
+  .scs-cell { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
+  .scs-cell .scs-ic { width: 26px; height: 26px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--info); }
+  .scs-cell b { display: block; font-family: var(--mono); font-size: 14px; color: var(--text); }
+  .scs-cell.ok .scs-ic { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green); }
+  .scs-cell.warn .scs-ic { background: color-mix(in srgb, var(--gold) 14%, transparent); color: var(--gold-2); }
+  .sales-foot { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--muted-2); text-align: center; }
   .exp-chip.zero-btn { margin-inline-start: auto; border-color: color-mix(in srgb, var(--info) 60%, transparent); color: var(--info); background: color-mix(in srgb, var(--info) 8%, transparent); }
   .exp-chip.zero-btn:hover { border-color: var(--info); }
   .un-note { margin-inline-start: auto; font-size: 11px; font-weight: 700; color: var(--muted-2); cursor: help; }
@@ -1644,19 +1698,20 @@
 
   <!-- ============ الصفحة: لوحة المبيعات المقدّرة (عرض فقط — مصادرها المخزون وحده) ============ -->
   <section class="page" id="page-sales">
-    <div class="page-head"><span class="ph-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><div class="ph-txt"><h2>شاشة عرض المبيعات</h2><p>مبيعات مقدّرة — مقارنة رفعة اليوم برفعة أمس لكل موقع (النقص بيعٌ مقدّر، تقدير من المخزون لا مبيعات فعلية)</p></div></div>
-    <div class="sales-lastup" id="salesLastUp">—</div>
-    <div class="sales-filters">
-      <div class="exp-grp"><span class="exp-grp-lbl">الفترة</span><span id="salesPeriodChips"></span></div>
-      <div class="exp-grp"><span class="exp-grp-lbl">الموقع</span><span id="salesLocChips"></span></div>
+    <div class="sales-topbar">
+      <div class="stb-brand"><span class="stb-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><div><span class="stb-title">لوحة المبيعات</span><span class="stb-badge">مبيعات مقدّرة</span><div class="stb-sub">تحليل حركة المخزون والمبيعات المقدّرة حسب المواقع</div></div></div>
+      <div class="stb-search"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="salesSearch" type="search" placeholder="البحث عن منتج أو SKU …" oninput="onSalesSearch()" aria-label="بحث في شاشة المبيعات"></div>
+      <div class="stb-filters"><span id="salesPeriodChips"></span><select id="salesLocSel" class="sales-loc-sel" onchange="salesSetLoc(this.value)" aria-label="الموقع"></select></div>
     </div>
+    <div class="sales-lastup" id="salesLastUp">—</div>
     <div id="salesEmpty" class="stc-empty" style="display:none"></div>
     <div id="salesBody" style="display:none">
-      <div class="dash-kpis" id="salesKpis"></div>
+      <div class="dash-kpis sales-kpis" id="salesKpis"></div>
       <div class="sales-notes" id="salesNotes"></div>
       <div id="salesSuspectBox" style="display:none"></div>
-      <div class="card sales-region"><div class="section-head"><h2>المبيعات المقدّرة حسب الموقع</h2></div><div class="twrap" id="salesByLoc"></div></div>
+      <div class="sales-cols" id="salesCols"></div>
     </div>
+    <div class="sales-foot">جميع الأرقام مبيعات مقدّرة بناءً على حركة المخزون بين الرفعات</div>
   </section>
 
   <!-- ============ الصفحة: مستخدم جديد ============ -->
@@ -1760,7 +1815,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "0fe6ab6";
+const APP_VERSION = "fb69a66";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2742,10 +2797,12 @@ function renderInventoryPage() {
 // لوحة المبيعات المقدّرة (ب-٢أ نواة) — عرض فقط، مصادرها المخزون وسجلّ الحركات وحدها.
 // المؤشّر الرئيسيّ = estimated_sale (النقص في صنف باقٍ)؛ المختفي فئة منفصلة بسطر مستقلّ.
 // ============================================================================
-let salesPeriod = "30", salesLoc = "all";
+let salesPeriod = "30", salesLoc = "all", salesSearch = "";
 const SALES_PERIODS = [["today", "اليوم"], ["7", "7 أيام"], ["30", "30 يوماً"], ["365", "سنة"], ["all", "منذ البداية"]];
 function salesLocName(loc) { return loc === "wh" ? "المستودع" : (((invBranches || []).find(b => b.id === loc) || {}).name || loc); }
-function salesLocList() { return [["all", "الكل"], ["wh", "المستودع"], ...(invBranches || []).map(b => [b.id, b.name])]; }
+function salesLocList() { return [["all", "جميع المواقع"], ["wh", "المستودع"], ...(invBranches || []).map(b => [b.id, b.name])]; }
+function salesLocColor(loc) { if (loc === "wh") return "--info"; const i = (invBranches || []).findIndex(b => b.id === loc); return ["--green", "--gold", "--amber", "--green-2"][i] || "--info"; }
+function salesLocIcon(loc) { return loc === "wh" ? ic("warehouse") : ic("branch"); }
 function salesRange(period) {
   const now = Date.now(), day = 86400000;
   if (period === "all") return { sinceIso: null, prevSinceIso: null };
@@ -2778,11 +2835,13 @@ function salesTrend(cur, prev) {   // مقارنة بالفترة السابقة
 function renderSalesFilters() {
   const pc = document.getElementById("salesPeriodChips");
   if (pc) pc.innerHTML = SALES_PERIODS.map(([v, l]) => `<button class="exp-chip${salesPeriod === v ? " on" : ""}" onclick="salesSetPeriod('${v}')">${l}</button>`).join(" ");
-  const lc = document.getElementById("salesLocChips");
-  if (lc) lc.innerHTML = salesLocList().map(([v, l]) => `<button class="exp-chip${salesLoc === v ? " on" : ""}" onclick="salesSetLoc('${esc(String(v))}')">${esc(l)}</button>`).join(" ");
+  const sel = document.getElementById("salesLocSel");
+  if (sel) sel.innerHTML = salesLocList().map(([v, l]) => `<option value="${esc(String(v))}"${salesLoc === v ? " selected" : ""}>${esc(l)}</option>`).join("");
 }
 function salesSetPeriod(p) { salesPeriod = p; renderSalesPage(); }
 function salesSetLoc(l) { salesLoc = l; renderSalesPage(); }
+function onSalesSearch() { salesSearch = (document.getElementById("salesSearch") || {}).value || ""; salesApplySearch(); }   // يفلتر جداول الأعمدة (ب-٢ب-ب)؛ الآن يخزّن فقط
+function salesApplySearch() { /* يُفعَّل مع الجداول في ب-٢ب-ب */ }
 function renderSalesLastUp(ups) {
   const el = document.getElementById("salesLastUp"); if (!el) return;
   const locs = [["wh", "المستودع"], ...(invBranches || []).map(b => [b.id, b.name])];
@@ -2790,19 +2849,76 @@ function renderSalesLastUp(ups) {
   for (const u of ups || []) { const t = Date.parse(u.captured_at); if (Number.isFinite(t) && (!latest.has(u.location) || t > latest.get(u.location))) latest.set(u.location, t); }
   el.innerHTML = "آخر رفعة — " + locs.map(([id, name]) => { const t = latest.get(id); return `${esc(name)}: <b>${t ? ageText(t) : "لم تُرفع"}</b>`; }).join(" · ");
 }
-// قيمة المخزون الحالية = Σ (الكمية × السعر الشامل) من جداول المخزون (قراءة مستقلّة — لا تمسّ المطابقة)
-async function salesInventoryValue(loc) {
-  // من العرض sales_stock (لا الجداول الأساس) — فيعمل لـmarketing (محجوب عن المخزون) وأوowner معاً؛ مُصفّح
-  try {
-    let sum = 0, from = 0; const page = 1000;
-    for (;;) {
-      const { data, error } = await sb.from("sales_stock").select("location,qty,price_incl").range(from, from + page - 1);
-      if (error) throw error;
-      for (const r of data || []) { if (loc !== "all" && r.location !== loc) continue; const q = numOrNull(r.qty), p = numOrNull(r.price_incl); if (q != null && p != null) sum += q * p; }
-      if (!data || data.length < page) break; from += page;
-    }
-    return sum;
-  } catch (e) { console.warn("salesInventoryValue:", e); return null; }
+// لقطة المخزون من العرض sales_stock (لا الجداول الأساس ⇒ يعمل لـmarketing) — مُصفّحة، قراءة واحدة لكل الأعمدة
+async function salesStockRows() {
+  const out = [], page = 1000; let from = 0;
+  for (;;) { const { data, error } = await sb.from("sales_stock").select("location,sku,name,qty,price_incl").range(from, from + page - 1); if (error) throw error; out.push(...(data || [])); if (!data || data.length < page) break; from += page; }
+  return out;
+}
+// سلسلة زمنية يومية لقيمة البيع المقدّر (للرسم الخطّي)
+function salesSeries(cur) {
+  const byDay = new Map();
+  for (const m of cur) { if (m.kind !== "estimated_sale" || m.value_est == null) continue; const d = String(m.captured_at).slice(0, 10); byDay.set(d, (byDay.get(d) || 0) + (Number(m.value_est) || 0)); }
+  return [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([d, v]) => ({ d, v }));
+}
+// بيانات عمود موقع واحد: التجميع الحاليّ ＋ السابق ＋ لقطة المخزون ＋ أيام التغطية ＋ السلسلة
+function salesColData(loc, movs, stock, curSince, prevSince) {
+  const lm = movs.filter(m => m.location === loc);
+  const cur = lm.filter(m => Date.parse(m.captured_at) >= curSince);
+  const prev = prevSince != null ? lm.filter(m => { const t = Date.parse(m.captured_at); return t >= prevSince && t < curSince; }) : [];
+  const a = salesAgg(cur), pa = salesAgg(prev);
+  const srows = stock.filter(r => r.location === loc);
+  let invValue = 0, totalUnits = 0; for (const r of srows) { const q = numOrNull(r.qty), p = numOrNull(r.price_incl); if (q != null) totalUnits += q; if (q != null && p != null) invValue += q * p; }
+  // أيام التغطية المرصودة = Σ period_days المتمايزة لكل رفعة (لا عدد الرفعات)
+  const perUp = new Map(); for (const m of cur) if (m.period_days != null && !perUp.has(m.upload_id)) perUp.set(m.upload_id, Number(m.period_days) || 0);
+  let daysCovered = 0; for (const d of perUp.values()) daysCovered += d;
+  const dailyRate = daysCovered > 0 ? a.units / daysCovered : null;           // الوحدات ÷ period_days المجموعة (لا عدد الرفعات)
+  const coverage = (dailyRate && dailyRate > 0) ? Math.round(totalUnits / dailyRate) : null;   // الكمية ÷ المعدّل اليوميّ
+  return { loc, name: salesLocName(loc), agg: a, pagg: pa, invValue: srows.length ? invValue : null, totalItems: srows.length, totalUnits, daysCovered, dailyRate, coverage, series: salesSeries(cur) };
+}
+const salesShort = n => { n = Number(n) || 0; return Math.abs(n) >= 1000 ? Math.round(n / 100) / 10 + "K" : String(Math.round(n)); };
+function scTrend(c, p) { if (p == null) return ""; if (!p) return c ? `<span class="scc-tr up">جديد</span>` : `<span class="scc-tr flat">—</span>`; const r = Math.round((c - p) / p * 100); return `<span class="scc-tr ${r > 0 ? "up" : r < 0 ? "down" : "flat"}">${r > 0 ? "+" : ""}${r}%</span>`; }
+// رسم خطّي SVG مضمّن (بلا مكتبة) — نقاط ＋ شبكة ＋ محاور
+function salesLineSVG(series, colorVar) {
+  const W = 300, H = 120, padL = 34, padB = 18, padT = 8, padR = 6, col = `var(${colorVar})`;
+  if (!series.length) return `<svg class="sc-linechart" viewBox="0 0 ${W} ${H}" aria-hidden="true"><text x="${W / 2}" y="${H / 2}" text-anchor="middle" class="sc-lc-axis">لا بيانات كافية للرسم</text></svg>`;
+  const max = Math.max(1, ...series.map(p => p.v)), n = series.length;
+  const X = i => padL + (n === 1 ? (W - padL - padR) / 2 : i * (W - padL - padR) / (n - 1));
+  const Y = v => padT + (1 - v / max) * (H - padT - padB);
+  let grid = "", ax = "";
+  for (const f of [0, 0.5, 1]) { const yy = padT + (1 - f) * (H - padT - padB); grid += `<line class="sc-lc-grid" x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}"/>`; ax += `<text class="sc-lc-axis" x="${padL - 4}" y="${(yy + 3).toFixed(1)}" text-anchor="end">${salesShort(max * f)}</text>`; }
+  const poly = series.map((p, i) => `${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`).join(" ");
+  const dots = series.map((p, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.4" fill="${col}"/>`).join("");
+  const xl = `<text class="sc-lc-axis" x="${X(0).toFixed(1)}" y="${H - 5}" text-anchor="start">${esc(series[0].d.slice(5))}</text>` + (n > 1 ? `<text class="sc-lc-axis" x="${X(n - 1).toFixed(1)}" y="${H - 5}" text-anchor="end">${esc(series[n - 1].d.slice(5))}</text>` : "");
+  return `<svg class="sc-linechart" viewBox="0 0 ${W} ${H}" aria-hidden="true">${grid}<polyline fill="none" stroke="${col}" stroke-width="2" points="${poly}"/>${dots}${ax}${xl}</svg>`;
+}
+// رسم حلقيّ لموقع واحد (قيمته = 100% من مبيعاته) — كما في التصميم
+function salesDonutSVG(value, colorVar, name) {
+  const col = `var(${colorVar})`, r = 42;
+  return `<div class="sc-donutwrap"><svg class="sc-donut-svg" viewBox="0 0 108 108" aria-hidden="true"><g transform="rotate(-90 54 54)"><circle cx="54" cy="54" r="${r}" fill="none" stroke="color-mix(in srgb, ${col} 20%, transparent)" stroke-width="12"/><circle cx="54" cy="54" r="${r}" fill="none" stroke="${col}" stroke-width="12" stroke-dasharray="${(2 * Math.PI * r).toFixed(1)} 0" stroke-linecap="round"/></g><text x="54" y="52" text-anchor="middle" class="sc-donut-c">${salesNum(value)}</text><text x="54" y="66" text-anchor="middle" class="sc-donut-cl">ر.س</text></svg><div class="sc-donut-lg"><span class="sw" style="background:${col}"></span>${esc(name)} 100%</div></div>`;
+}
+function salesColumnHTML(d, colorVar) {
+  const card = (num, lbl, tr, cls) => `<div class="sc-card ${cls || ""}"><b><bdi dir="ltr">${num}</bdi></b><span class="scc-lbl">${lbl}</span>${tr || ""}</div>`;
+  const scs = (icon, val, lbl, cls) => `<div class="scs-cell ${cls || ""}"><span class="scs-ic">${icon}</span><div><b><bdi dir="ltr">${val}</bdi></b>${lbl}</div></div>`;
+  return `<div class="sales-col" data-loc="${esc(d.loc)}" style="--loc: var(${colorVar})">
+    <div class="sc-head"><span class="sc-ic">${salesLocIcon(d.loc)}</span><div class="sc-h-txt"><b>${esc(d.name)}</b><span>مبيعات مقدّرة وحركة المخزون</span></div><span class="sc-upd">${esc(d.updText || "")}</span></div>
+    <div class="sc-cards">
+      ${card(salesNum(d.agg.estValue), "قيمة المبيعات المقدّرة", scTrend(d.agg.estValue, d.pagg.estValue))}
+      ${card(salesNum(d.agg.units), "وحدات مباعة", scTrend(d.agg.units, d.pagg.units))}
+      ${card(salesNum(d.agg.moved.size), "منتجات متحركة", scTrend(d.agg.moved.size, d.pagg.moved.size))}
+      ${card(d.invValue != null ? salesNum(d.invValue) : "—", "قيمة المخزون الحالية", `<span class="scc-tr inv">شاملة الضريبة</span>`, "inv")}
+    </div>
+    <div class="sc-chart-row">
+      <div class="sc-line"><div class="sc-chart-h"><b>المبيعات المقدّرة عبر الزمن (قيمة)</b><span class="sc-dd">قيمة المبيعات</span></div>${salesLineSVG(d.series, colorVar)}</div>
+      ${salesDonutSVG(d.agg.estValue, colorVar, d.name)}
+    </div>
+    <div class="sc-summary">
+      ${scs(ic("inbox"), salesNum(d.totalItems), "إجمالي الأصناف", "")}
+      ${scs(ic("check"), salesNum(d.agg.moved.size), "منتجات نشطة", "ok")}
+      ${scs(ic("warn"), salesNum(d.agg.noPrice), "بلا سعر", "warn")}
+      ${scs(ic("spark"), d.coverage != null ? d.coverage + " يوم" : "—", "متوسط أيام التغطية", "")}
+    </div>
+  </div>`;
 }
 async function salesShowSuspect() {
   const box = document.getElementById("salesSuspectBox"); if (!box) return;
@@ -2827,42 +2943,50 @@ async function salesClearSuspect(id) {
 async function renderSalesPage() {
   renderSalesFilters();
   const body = document.getElementById("salesBody"), empty = document.getElementById("salesEmpty"), lu = document.getElementById("salesLastUp");
-  if (!(dbOnline && sb)) { if (empty) { empty.style.display = "block"; empty.textContent = "غير متصل بالقاعدة — لوحة المبيعات غير متاحة."; } if (body) body.style.display = "none"; if (lu) lu.textContent = "—"; return; }
+  if (!(dbOnline && sb)) { if (empty) { empty.style.display = "block"; empty.textContent = "غير متصل بالقاعدة — شاشة عرض المبيعات غير متاحة."; } if (body) body.style.display = "none"; if (lu) lu.textContent = "—"; return; }
   try {
     const ups = await db.sales.uploads();
     renderSalesLastUp(ups);
     const suspectIds = new Set(ups.filter(u => u.suspect === true).map(u => u.id));
     const { sinceIso, prevSinceIso } = salesRange(salesPeriod);
-    const all = (await db.sales.movements(salesLoc, prevSinceIso || sinceIso)).filter(m => !suspectIds.has(m.upload_id));
-    const curSince = sinceIso ? Date.parse(sinceIso) : -Infinity;
-    const cur = all.filter(m => Date.parse(m.captured_at) >= curSince);
-    const prev = prevSinceIso ? all.filter(m => { const t = Date.parse(m.captured_at); return t >= Date.parse(prevSinceIso) && t < curSince; }) : null;
-    if (!cur.length) {
+    const curSince = sinceIso ? Date.parse(sinceIso) : -Infinity, prevSince = prevSinceIso ? Date.parse(prevSinceIso) : null;
+    const movs = (await db.sales.movements("all", prevSinceIso || sinceIso)).filter(m => !suspectIds.has(m.upload_id));
+    const stock = await salesStockRows();
+    const locsAll = ["wh", ...(invBranches || []).map(b => b.id)];
+    const shown = salesLoc === "all" ? locsAll : [salesLoc];
+    const curAll = movs.filter(m => Date.parse(m.captured_at) >= curSince && shown.includes(m.location));
+    if (!curAll.length) {
       body.style.display = "none"; empty.style.display = "block";
       empty.textContent = ups.length ? "لا حركات مبيعات مقدّرة في هذه الفترة/الموقع — جرّب فترة أوسع أو موقعاً آخر." : "لا حركات بعد. ارفع ملفاً من «تحديث قاعدة البيانات» لتبدأ المبيعات المقدّرة في الظهور.";
-      document.getElementById("salesKpis").innerHTML = ""; document.getElementById("salesNotes").innerHTML = ""; document.getElementById("salesByLoc").innerHTML = "";
+      document.getElementById("salesKpis").innerHTML = ""; document.getElementById("salesNotes").innerHTML = ""; document.getElementById("salesCols").innerHTML = "";
       return;
     }
     empty.style.display = "none"; body.style.display = "block";
-    const a = salesAgg(cur), pa = prev ? salesAgg(prev) : null, invVal = await salesInventoryValue(salesLoc);
+    const latest = new Map(); for (const u of ups) { const t = Date.parse(u.captured_at); if (Number.isFinite(t) && (!latest.has(u.location) || t > latest.get(u.location))) latest.set(u.location, t); }
+    const data = shown.map(loc => { const d = salesColData(loc, movs, stock, curSince, prevSince); d.updText = latest.has(loc) ? "آخر تحديث: " + ageText(latest.get(loc)) : "لم تُرفع"; return d; });
+    // مؤشّرات علوية = نطاق المعروض (مجموع الأعمدة) — قيمة/وحدات مع مقارنة سابقة، منتجات فريدة، قيمة مخزون، متوسط تغطية
+    const scope = data.reduce((s, d) => { s.val += d.agg.estValue; s.units += d.agg.units; s.pval += d.pagg.estValue; s.punits += d.pagg.units; s.inv += (d.invValue || 0); s.noPrice += d.agg.noPrice; s.disC += d.agg.disCount; s.disV += d.agg.disValue; if (d.coverage != null) { s.cov += d.coverage; s.covN++; } return s; }, { val: 0, units: 0, pval: 0, punits: 0, inv: 0, noPrice: 0, disC: 0, disV: 0, cov: 0, covN: 0 });
+    const movedNow = new Set(curAll.map(m => m.sku)).size;
+    const movedPrev = prevSince != null ? new Set(movs.filter(m => { const t = Date.parse(m.captured_at); return t >= prevSince && t < curSince && shown.includes(m.location); }).map(m => m.sku)).size : null;
+    const covAvg = scope.covN ? Math.round(scope.cov / scope.covN) : null;
     const kpi = (k, icon, num, lbl, sub, trend) => `<div class="card kpi" data-k="${k}"><span class="kpi-ic">${icon}</span><b><bdi dir="ltr">${num}</bdi></b><span class="kpi-lbl">${lbl}</span><span class="kpi-sub">${sub}</span>${trend || ""}</div>`;
+    const scopeLbl = salesLoc === "all" ? "جميع المواقع" : salesLocName(salesLoc);
     document.getElementById("salesKpis").innerHTML =
-      kpi("sval", ic("spark"), salesNum(a.estValue), "قيمة المبيعات المقدّرة", "شاملة الضريبة", salesTrend(a.estValue, pa ? pa.estValue : null)) +
-      kpi("sunits", ic("inbox"), salesNum(a.units), "الوحدات المباعة", "بيع مقدّر", salesTrend(a.units, pa ? pa.units : null)) +
-      kpi("smoved", ic("branch"), salesNum(a.moved.size), "منتجات تحرّكت", "في الفترة", salesTrend(a.moved.size, pa ? pa.moved.size : null)) +
-      kpi("sinv", ic("warehouse"), invVal == null ? "—" : salesNum(invVal), "قيمة المخزون الحالية", "شاملة الضريبة", "");
+      kpi("sval", ic("spark"), salesNum(scope.val), `إجمالي المبيعات المقدّرة (${scopeLbl})`, "شاملة الضريبة", salesTrend(scope.val, prevSince != null ? scope.pval : null)) +
+      kpi("sunits", ic("inbox"), salesNum(scope.units), "إجمالي الوحدات المباعة", "بيع مقدّر", salesTrend(scope.units, prevSince != null ? scope.punits : null)) +
+      kpi("smoved", ic("branch"), salesNum(movedNow), "عدد المنتجات المتحركة", "في الفترة", salesTrend(movedNow, movedPrev)) +
+      kpi("sinv", ic("warehouse"), salesNum(scope.inv), "قيمة المخزون الحالية", "شاملة الضريبة", "") +
+      kpi("scov", ic("check"), covAvg != null ? covAvg + " يوم" : "—", "أيام التغطية (متوسط)", "بناءً على معدّل البيع اليوميّ", "");
     const notes = [];
-    if (a.noPrice) notes.push(`<span class="sales-note warn">${a.noPrice} حركة بيع بلا سعر — تُحسب في الوحدات لا القيمة</span>`);
-    if (a.disCount) notes.push(`<span class="sales-note">اختفى: ${a.disCount} صنف بقيمة <bdi dir="ltr">${salesNum(a.disValue)}</bdi> — راجعها (غامض: بيع أم حذف)</span>`);
+    if (scope.noPrice) notes.push(`<span class="sales-note warn">${scope.noPrice} حركة بيع بلا سعر — تُحسب في الوحدات لا القيمة</span>`);
+    if (scope.disC) notes.push(`<span class="sales-note">اختفى: ${scope.disC} صنف بقيمة <bdi dir="ltr">${salesNum(scope.disV)}</bdi> — راجعها (غامض: بيع أم حذف، منفصل عن البيع المقدّر)</span>`);
     const susCount = ups.filter(u => u.suspect === true).length;
     if (susCount) notes.push(`<span class="sales-note bad">رفعات مشبوهة مستبعَدة من الإجماليّ: ${susCount} — <a onclick="salesShowSuspect()">راجعها</a></span>`);
     document.getElementById("salesNotes").innerHTML = notes.join("");
-    const brows = [...a.byLoc.entries()].sort((x, y) => y[1].value - x[1].value)
-      .map(([loc, v]) => `<tr><td>${esc(salesLocName(loc))}</td><td class="mono"><bdi dir="ltr">${salesNum(v.value)}</bdi></td><td class="mono"><bdi dir="ltr">${salesNum(v.units)}</bdi></td></tr>`).join("");
-    document.getElementById("salesByLoc").innerHTML = brows
-      ? `<table class="upd-table" aria-label="المبيعات المقدّرة حسب الموقع"><thead><tr><th scope="col">الموقع</th><th scope="col">القيمة المقدّرة</th><th scope="col">الوحدات</th></tr></thead><tbody>${brows}</tbody></table>`
-      : `<div class="stc-empty">لا مبيعات مقدّرة في هذه الفترة (حركات شراء/جديد فقط).</div>`;
-  } catch (e) { if (empty) { empty.style.display = "block"; empty.textContent = "تعذّر تحميل لوحة المبيعات: " + esc(e.message || String(e)); } if (body) body.style.display = "none"; }
+    const cols = document.getElementById("salesCols");
+    cols.className = "sales-cols" + (data.length === 1 ? " one" : "");
+    cols.innerHTML = data.map(d => salesColumnHTML(d, salesLocColor(d.loc))).join("");
+  } catch (e) { if (empty) { empty.style.display = "block"; empty.textContent = "تعذّر تحميل شاشة المبيعات: " + esc(e.message || String(e)); } if (body) body.style.display = "none"; }
 }
 // KPI اللوحة «أين أنا الآن» — كلها من مصادر حيّة، وتُظهر «—» قبل توفّر مصدرها (لا رقم ملفَّق قبل المطابقة)
 function renderInvKPIs() {
