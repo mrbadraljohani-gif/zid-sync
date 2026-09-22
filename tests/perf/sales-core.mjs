@@ -49,15 +49,16 @@ const res = await p.evaluate(async () => {
   const kpiVal = (document.querySelector('#salesKpis .kpi[data-k="sval"] bdi') || {}).textContent || "";
   const notes = (document.getElementById("salesNotes") || {}).textContent || "";
   const bodyShown = document.getElementById("salesBody").style.display !== "none";
-  // §ب-٢ب-أ: عمود موقع واحد يُرسَم، وأوّل بطاقة قيمته = قيمة بيعه المقدّر (500)
-  const colCount = document.querySelectorAll("#salesCols .sales-col").length;
-  const colVal = (document.querySelector('#salesCols .sales-col[data-loc="wh"] .sc-card b bdi') || {}).textContent || "";
+  // §design-4: جدول مقارنة المواقع — صفّ المستودع قيمته = بيعه المقدّر (500) ＋ صفّ إجماليّ
+  const cmpVal = (document.querySelector('#salesCmp tbody tr:not(.total) td.n bdi') || {}).textContent || "";
+  const cmpHasTotal = !!document.querySelector('#salesCmp tr.total');
+  const chartDrawn = !!document.querySelector('#salesChart svg');
   // ③ الحالة الفارغة
   db.sales.uploads = async () => []; db.sales.movements = async () => [];
   await renderSalesPage();
   const emptyShown = document.getElementById("salesEmpty").style.display !== "none";
   const emptyMsg = (document.getElementById("salesEmpty") || {}).textContent || "";
-  return { agg: { estValue: a.estValue, units: a.units, moved: a.moved.size, noPrice: a.noPrice, disCount: a.disCount, disValue: a.disValue, whVal: (a.byLoc.get("wh") || {}).value }, kpiVal, notes, bodyShown, emptyShown, emptyMsg, colCount, colVal };
+  return { agg: { estValue: a.estValue, units: a.units, moved: a.moved.size, noPrice: a.noPrice, disCount: a.disCount, disValue: a.disValue, whVal: (a.byLoc.get("wh") || {}).value }, kpiVal, notes, bodyShown, emptyShown, emptyMsg, cmpVal, cmpHasTotal, chartDrawn };
 });
 await b.close();
 const fails = [];
@@ -74,8 +75,9 @@ if (!BROKEN) {
   if (!res.notes.includes("مشبوهة")) fails.push("لا سطر «رفعات مشبوهة مستبعَدة»");
   if (!res.notes.includes("بلا سعر")) fails.push("لا عدّاد «بلا سعر»");
   if (!res.bodyShown) fails.push("جسم اللوحة مخفيّ رغم وجود حركات");
-  if (res.colCount !== 1) fails.push(`أعمدة المواقع: توقّعت 1 (المستودع)، وجدت ${res.colCount}`);
-  if (res.colVal.replace(/[^\d]/g, "") !== "500") fails.push(`بطاقة قيمة عمود المستودع: توقّعت 500، وجدت «${res.colVal}»`);
+  if (res.cmpVal.replace(/[^\d]/g, "") !== "500") fails.push(`جدول المقارنة — قيمة المستودع: توقّعت 500، وجدت «${res.cmpVal}»`);
+  if (!res.cmpHasTotal) fails.push("جدول المقارنة بلا صفّ إجماليّ");
+  if (!res.chartDrawn) fails.push("الرسم الخطّي متعدّد المواقع لم يُرسَم");
   if (!(res.emptyShown && /ارفع ملفاً/.test(res.emptyMsg))) fails.push("الحالة الفارغة ليست رسالة «ارفع ملفاً» (أو أظهرت أصفاراً)");
 }
 if (BROKEN) {

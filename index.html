@@ -1162,6 +1162,34 @@
   .scs-cell.ok .scs-ic { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green); }
   .scs-cell.warn .scs-ic { background: color-mix(in srgb, var(--gold) 14%, transparent); color: var(--gold-2); }
   .sales-foot { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--muted-2); text-align: center; }
+  /* design-4: ترويسة · مؤشّرات · بانر · (رسم متعدّد + جدول مقارنة) · أسطر */
+  .s4-top { display: flex; align-items: center; justify-content: space-between; gap: 14px 22px; flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .s4-brand { display: flex; align-items: center; gap: 10px; }
+  .s4-brand .s4-ic { color: var(--info); display: inline-flex; }
+  .s4-ctrl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .s4-daterange { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--border); border-radius: 9px; padding: 6px 11px; cursor: default; }
+  .s4-user { display: flex; align-items: center; gap: 9px; }
+  .s4-user .av { width: 34px; height: 34px; border-radius: 50%; background: color-mix(in srgb, var(--info) 30%, var(--steel)); color: var(--text); display: flex; align-items: center; justify-content: center; font-weight: 700; font-family: var(--mono); }
+  .s4-user .un { font-size: 12.5px; color: var(--text); } .s4-user .ur { font-size: 11px; color: var(--muted); }
+  .s4-banner { display: flex; align-items: center; gap: 12px; background: color-mix(in srgb, var(--amber) 10%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 34%, transparent); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: var(--amber-tint); }
+  .s4-banner .lnk { color: inherit; text-decoration: underline; cursor: pointer; margin-inline-start: auto; }
+  .s4-banner .x { cursor: pointer; color: var(--muted); border: 0; background: none; font-size: 16px; line-height: 1; padding: 0 4px; }
+  .s4-mid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+  @media (max-width: 980px) { .s4-mid { grid-template-columns: minmax(0, 1fr); } }
+  .s4-ch-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .s4-ch-head h2 { font-size: 15px; }
+  .s4-legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .s4-legend span { display: flex; align-items: center; gap: 5px; } .s4-legend i { width: 13px; height: 3px; border-radius: 2px; display: inline-block; }
+  .s4-dd { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 7px; padding: 3px 9px; }
+  .s4-ml { width: 100%; height: auto; }
+  .s4-ml-grid { stroke: var(--border); stroke-width: 1; } .s4-ml-ax { fill: var(--muted-2); font-size: 10px; font-family: var(--mono); }
+  .s4-cmp h2 { font-size: 15px; margin-bottom: 12px; }
+  .s4-cmp table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .s4-cmp th { font-size: 10px; color: var(--muted); font-weight: 600; padding: 6px 4px; border-bottom: 1px solid var(--border-strong); text-align: start; white-space: nowrap; }
+  .s4-cmp td { padding: 7px 4px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .s4-cmp td.n { font-family: var(--mono); text-align: end; }
+  .s4-cmp tr.total td { border-top: 2px solid var(--border-strong); font-weight: 700; border-bottom: 0; }
+  .s4-cmp .dot { width: 8px; height: 8px; border-radius: 3px; display: inline-block; margin-inline-end: 5px; vertical-align: middle; }
   .exp-chip.zero-btn { margin-inline-start: auto; border-color: color-mix(in srgb, var(--info) 60%, transparent); color: var(--info); background: color-mix(in srgb, var(--info) 8%, transparent); }
   .exp-chip.zero-btn:hover { border-color: var(--info); }
   .un-note { margin-inline-start: auto; font-size: 11px; font-weight: 700; color: var(--muted-2); cursor: help; }
@@ -1698,20 +1726,25 @@
 
   <!-- ============ الصفحة: لوحة المبيعات المقدّرة (عرض فقط — مصادرها المخزون وحده) ============ -->
   <section class="page" id="page-sales">
-    <div class="sales-topbar">
-      <div class="stb-brand"><span class="stb-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><div><span class="stb-title">لوحة المبيعات</span><span class="stb-badge">مبيعات مقدّرة</span><div class="stb-sub">تحليل حركة المخزون والمبيعات المقدّرة حسب المواقع</div></div></div>
-      <div class="stb-search"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="salesSearch" type="search" placeholder="البحث عن منتج أو SKU …" oninput="onSalesSearch()" aria-label="بحث في شاشة المبيعات"></div>
-      <div class="stb-filters"><span id="salesPeriodChips"></span><select id="salesLocSel" class="sales-loc-sel" onchange="salesSetLoc(this.value)" aria-label="الموقع"></select></div>
+    <div class="s4-top">
+      <div class="s4-brand"><span class="s4-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><div><span class="stb-title">شاشة عرض المبيعات</span><span class="stb-badge">مبيعات مقدّرة</span><div class="stb-sub">تحليل حركة المخزون وتقدير المبيعات من الفروق بين الرفعات</div></div></div>
+      <div class="s4-ctrl"><span class="s4-daterange" id="salesDateLabel" aria-label="الفترة (عرض)"></span><span id="salesPeriodChips"></span><select id="salesLocSel" class="sales-loc-sel" onchange="salesSetLoc(this.value)" aria-label="الموقع"></select></div>
+      <div class="s4-user" id="salesUser"></div>
     </div>
-    <div class="sales-lastup" id="salesLastUp">—</div>
     <div id="salesEmpty" class="stc-empty" style="display:none"></div>
     <div id="salesBody" style="display:none">
       <div class="dash-kpis sales-kpis" id="salesKpis"></div>
+      <div class="s4-banner" id="salesBanner" style="display:none"></div>
+      <div id="salesDisBox" style="display:none;margin-bottom:14px"></div>
+      <div class="sales-lastup" id="salesLastUp">—</div>
+      <div class="s4-mid">
+        <div class="card"><div class="s4-ch-head"><h2>المبيعات المقدّرة عبر الزمن (قيمة)</h2><span class="s4-dd">يومياً</span></div><div class="s4-legend" id="salesChartLegend"></div><div id="salesChart"></div></div>
+        <div class="card s4-cmp"><h2>مقارنة المواقع</h2><div class="twrap" id="salesCmp"></div></div>
+      </div>
       <div class="sales-notes" id="salesNotes"></div>
       <div id="salesSuspectBox" style="display:none"></div>
-      <div class="sales-cols" id="salesCols"></div>
     </div>
-    <div class="sales-foot">جميع الأرقام مبيعات مقدّرة بناءً على حركة المخزون بين الرفعات</div>
+    <div class="sales-foot">جميع الأرقام مبيعات مقدّرة بناءً على حركة المخزون بين الرفعات · شاشة عرض المبيعات — ASJ Inventory Sync</div>
   </section>
 
   <!-- ============ الصفحة: مستخدم جديد ============ -->
@@ -1815,7 +1848,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "fb69a66";
+const APP_VERSION = "09bb6d9";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2840,8 +2873,22 @@ function renderSalesFilters() {
 }
 function salesSetPeriod(p) { salesPeriod = p; renderSalesPage(); }
 function salesSetLoc(l) { salesLoc = l; renderSalesPage(); }
-function onSalesSearch() { salesSearch = (document.getElementById("salesSearch") || {}).value || ""; salesApplySearch(); }   // يفلتر جداول الأعمدة (ب-٢ب-ب)؛ الآن يخزّن فقط
-function salesApplySearch() { /* يُفعَّل مع الجداول في ب-٢ب-ب */ }
+// ترويسة design-4: هويّة الجلسة الحقيقية (الحرف الأوّل من البريد ＋ الدور) — لا اسم مخترع
+function renderSalesUser() {
+  const el = document.getElementById("salesUser"); if (!el) return;
+  const email = (authSession && authSession.user && authSession.user.email) || "";
+  if (!email) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div><div class="un" dir="ltr">${esc(email)}</div><div class="ur">${esc(roleLabel(myRole))}</div></div><span class="av">${esc((email[0] || "?").toUpperCase())}</span>`;
+}
+// تسمية مدى الفترة (عرضٌ لا اختيار) — تُحسب من الشريحة النشطة
+function salesSetDateLabel() {
+  const el = document.getElementById("salesDateLabel"); if (!el) return;
+  const cal = `<svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>`;
+  if (salesPeriod === "all") { el.innerHTML = `${cal} كل التاريخ`; return; }
+  const { sinceIso } = salesRange(salesPeriod);
+  const fmt = iso => { try { return new Date(iso).toLocaleDateString("ar", { day: "numeric", month: "long" }); } catch (e) { return ""; } };
+  el.innerHTML = `${cal} ${fmt(sinceIso)} – اليوم`;
+}
 function renderSalesLastUp(ups) {
   const el = document.getElementById("salesLastUp"); if (!el) return;
   const locs = [["wh", "المستودع"], ...(invBranches || []).map(b => [b.id, b.name])];
@@ -2940,8 +2987,43 @@ async function salesClearSuspect(id) {
   try { await db.sales.clearSuspect(id); showToast("✓ رُفع الوسم — دخلت حركاتها الإجماليّ."); const b = document.getElementById("salesSuspectBox"); if (b) b.style.display = "none"; renderSalesPage(); }
   catch (e) { showToast("تعذّر رفع الوسم: " + (e.message || e)); }
 }
+let salesBannerDismissed = false;   // إغلاق البانر للجلسة فقط — يعود عند إعادة التحميل (التنبيه لا يُخفى نهائياً)
+function salesDismissBanner() { salesBannerDismissed = true; const b = document.getElementById("salesBanner"); if (b) b.style.display = "none"; }
+async function salesShowDisappeared() {
+  const box = document.getElementById("salesDisBox"); if (!box) return;
+  if (box.style.display !== "none") { box.style.display = "none"; return; }
+  box.style.display = "block";
+  try {
+    const { prevSinceIso, sinceIso } = salesRange(salesPeriod);
+    const movs = await db.sales.movements(salesLoc === "all" ? "all" : salesLoc, prevSinceIso || sinceIso);
+    const dis = movs.filter(m => m.kind === "disappeared");
+    if (!dis.length) { box.innerHTML = `<div class="stc-empty">لا أصناف مختفية في هذه الفترة.</div>`; return; }
+    box.innerHTML = `<div class="card"><div class="s4-ch-head"><h2>أصناف اختفت من الملفات (غائبة عن المخزن) — مستبعدة من المبيعات المقدّرة</h2></div><div class="twrap"><table class="upd-table"><thead><tr><th>SKU</th><th>الموقع</th><th>الكمية الأخيرة</th></tr></thead><tbody>`
+      + dis.slice(0, 60).map(m => `<tr><td class="mono"><span dir="ltr">${esc(m.sku)}</span></td><td>${esc(salesLocName(m.location))}</td><td class="mono"><bdi dir="ltr">${salesNum(Math.abs(Number(m.delta) || 0))}</bdi></td></tr>`).join("")
+      + `</tbody></table></div></div>`;
+  } catch (e) { box.innerHTML = `<div class="stc-empty">تعذّر: ${esc(e.message || String(e))}</div>`; }
+}
+// رسم خطّي متعدّد المواقع (SVG مضمّن، بلا مكتبة)
+function salesMultiLineSVG(seriesMap, order) {
+  const W = 560, H = 220, padL = 44, padB = 26, padT = 12, padR = 10;
+  const dates = [...new Set(order.flatMap(l => (seriesMap[l] || []).map(p => p.d)))].sort();
+  if (!dates.length) return `<svg class="s4-ml" viewBox="0 0 ${W} ${H}" aria-hidden="true"><text x="${W / 2}" y="${H / 2}" text-anchor="middle" class="s4-ml-ax">لا بيانات كافية للرسم</text></svg>`;
+  const max = Math.max(1, ...order.flatMap(l => (seriesMap[l] || []).map(p => p.v)));
+  const xi = new Map(dates.map((d, i) => [d, i]));
+  const X = i => padL + (dates.length === 1 ? (W - padL - padR) / 2 : i * (W - padL - padR) / (dates.length - 1));
+  const Y = v => padT + (1 - v / max) * (H - padT - padB);
+  let grid = "", ax = "", lines = "";
+  for (const f of [0, 0.25, 0.5, 0.75, 1]) { const yy = padT + (1 - f) * (H - padT - padB); grid += `<line class="s4-ml-grid" x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}"/>`; ax += `<text class="s4-ml-ax" x="${padL - 5}" y="${(yy + 3).toFixed(1)}" text-anchor="end">${salesShort(max * f)}</text>`; }
+  for (const loc of order) {
+    const s = seriesMap[loc] || []; if (!s.length) continue;
+    const col = `var(${salesLocColor(loc)})`;
+    lines += `<polyline fill="none" stroke="${col}" stroke-width="2.2" points="${s.map(p => `${X(xi.get(p.d)).toFixed(1)},${Y(p.v).toFixed(1)}`).join(" ")}"/>` + s.map(p => `<circle cx="${X(xi.get(p.d)).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.4" fill="${col}"/>`).join("");
+  }
+  const xl = `<text class="s4-ml-ax" x="${X(0).toFixed(1)}" y="${H - 6}" text-anchor="start">${esc(dates[0].slice(5))}</text>` + (dates.length > 1 ? `<text class="s4-ml-ax" x="${X(dates.length - 1).toFixed(1)}" y="${H - 6}" text-anchor="end">${esc(dates[dates.length - 1].slice(5))}</text>` : "");
+  return `<svg class="s4-ml" viewBox="0 0 ${W} ${H}" aria-hidden="true">${grid}${lines}${ax}${xl}</svg>`;
+}
 async function renderSalesPage() {
-  renderSalesFilters();
+  renderSalesFilters(); renderSalesUser(); salesSetDateLabel();
   const body = document.getElementById("salesBody"), empty = document.getElementById("salesEmpty"), lu = document.getElementById("salesLastUp");
   if (!(dbOnline && sb)) { if (empty) { empty.style.display = "block"; empty.textContent = "غير متصل بالقاعدة — شاشة عرض المبيعات غير متاحة."; } if (body) body.style.display = "none"; if (lu) lu.textContent = "—"; return; }
   try {
@@ -2958,34 +3040,46 @@ async function renderSalesPage() {
     if (!curAll.length) {
       body.style.display = "none"; empty.style.display = "block";
       empty.textContent = ups.length ? "لا حركات مبيعات مقدّرة في هذه الفترة/الموقع — جرّب فترة أوسع أو موقعاً آخر." : "لا حركات بعد. ارفع ملفاً من «تحديث قاعدة البيانات» لتبدأ المبيعات المقدّرة في الظهور.";
-      document.getElementById("salesKpis").innerHTML = ""; document.getElementById("salesNotes").innerHTML = ""; document.getElementById("salesCols").innerHTML = "";
       return;
     }
     empty.style.display = "none"; body.style.display = "block";
-    const latest = new Map(); for (const u of ups) { const t = Date.parse(u.captured_at); if (Number.isFinite(t) && (!latest.has(u.location) || t > latest.get(u.location))) latest.set(u.location, t); }
-    const data = shown.map(loc => { const d = salesColData(loc, movs, stock, curSince, prevSince); d.updText = latest.has(loc) ? "آخر تحديث: " + ageText(latest.get(loc)) : "لم تُرفع"; return d; });
-    // مؤشّرات علوية = نطاق المعروض (مجموع الأعمدة) — قيمة/وحدات مع مقارنة سابقة، منتجات فريدة، قيمة مخزون، متوسط تغطية
-    const scope = data.reduce((s, d) => { s.val += d.agg.estValue; s.units += d.agg.units; s.pval += d.pagg.estValue; s.punits += d.pagg.units; s.inv += (d.invValue || 0); s.noPrice += d.agg.noPrice; s.disC += d.agg.disCount; s.disV += d.agg.disValue; if (d.coverage != null) { s.cov += d.coverage; s.covN++; } return s; }, { val: 0, units: 0, pval: 0, punits: 0, inv: 0, noPrice: 0, disC: 0, disV: 0, cov: 0, covN: 0 });
+    const dataAll = locsAll.map(loc => salesColData(loc, movs, stock, curSince, prevSince));
+    const dataShown = dataAll.filter(d => shown.includes(d.loc));
+    const scope = dataShown.reduce((s, d) => { s.val += d.agg.estValue; s.units += d.agg.units; s.pval += d.pagg.estValue; s.punits += d.pagg.units; s.inv += (d.invValue || 0); s.noPrice += d.agg.noPrice; s.disC += d.agg.disCount; s.disV += d.agg.disValue; s.days = Math.max(s.days, d.daysCovered || 0); if (d.coverage != null) { s.cov += d.coverage; s.covN++; } return s; }, { val: 0, units: 0, pval: 0, punits: 0, inv: 0, noPrice: 0, disC: 0, disV: 0, days: 0, cov: 0, covN: 0 });
     const movedNow = new Set(curAll.map(m => m.sku)).size;
     const movedPrev = prevSince != null ? new Set(movs.filter(m => { const t = Date.parse(m.captured_at); return t >= prevSince && t < curSince && shown.includes(m.location); }).map(m => m.sku)).size : null;
     const covAvg = scope.covN ? Math.round(scope.cov / scope.covN) : null;
+    const scRate = scope.days > 0 ? Math.round(scope.units / scope.days) : null;
+    // توضيح التغطية: معدّل البيع اليوميّ ＋ الفترة المرصودة (period_days) — على سطر آخر رفعة
+    if (lu) lu.innerHTML += ` &nbsp;·&nbsp; التغطية: معدّل <b>${scRate != null ? salesNum(scRate) : "—"}</b>/يوم · الفترة تغطّي <b>${scope.days ? Math.round(scope.days * 10) / 10 : "—"}</b> يوم`;
     const kpi = (k, icon, num, lbl, sub, trend) => `<div class="card kpi" data-k="${k}"><span class="kpi-ic">${icon}</span><b><bdi dir="ltr">${num}</bdi></b><span class="kpi-lbl">${lbl}</span><span class="kpi-sub">${sub}</span>${trend || ""}</div>`;
     const scopeLbl = salesLoc === "all" ? "جميع المواقع" : salesLocName(salesLoc);
     document.getElementById("salesKpis").innerHTML =
-      kpi("sval", ic("spark"), salesNum(scope.val), `إجمالي المبيعات المقدّرة (${scopeLbl})`, "شاملة الضريبة", salesTrend(scope.val, prevSince != null ? scope.pval : null)) +
-      kpi("sunits", ic("inbox"), salesNum(scope.units), "إجمالي الوحدات المباعة", "بيع مقدّر", salesTrend(scope.units, prevSince != null ? scope.punits : null)) +
-      kpi("smoved", ic("branch"), salesNum(movedNow), "عدد المنتجات المتحركة", "في الفترة", salesTrend(movedNow, movedPrev)) +
+      kpi("sval", ic("spark"), salesNum(scope.val), `المبيعات المقدّرة (${scopeLbl})`, "شاملة الضريبة", salesTrend(scope.val, prevSince != null ? scope.pval : null)) +
+      kpi("sunits", ic("inbox"), salesNum(scope.units), "الوحدات المقدّرة", "بيع مقدّر", salesTrend(scope.units, prevSince != null ? scope.punits : null)) +
+      kpi("smoved", ic("branch"), salesNum(movedNow), "منتجات متحرّكة", "في الفترة", salesTrend(movedNow, movedPrev)) +
       kpi("sinv", ic("warehouse"), salesNum(scope.inv), "قيمة المخزون الحالية", "شاملة الضريبة", "") +
-      kpi("scov", ic("check"), covAvg != null ? covAvg + " يوم" : "—", "أيام التغطية (متوسط)", "بناءً على معدّل البيع اليوميّ", "");
+      kpi("scov", ic("check"), covAvg != null ? covAvg + " يوم" : "—", "متوسط أيام التغطية", "الكمية ÷ معدّل البيع اليوميّ", "");
+    // بانر المختفي (يعود عند التحميل؛ «عرض التفاصيل» قائمة حقيقية)
+    const banner = document.getElementById("salesBanner");
+    if (scope.disC && !salesBannerDismissed) { banner.style.display = "flex"; banner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>تنبيه: <b>${scope.disC}</b> منتجاً بقيمة <bdi dir="ltr">${salesNum(scope.disV)}</bdi> ر.س اختفت من الملفات (غائبة عن المخزن) — مستبعدة من المبيعات المقدّرة.</span><a class="lnk" onclick="salesShowDisappeared()">عرض التفاصيل ←</a><button class="x" onclick="salesDismissBanner()" aria-label="إغلاق">✕</button>`; }
+    else banner.style.display = "none";
+    // الرسم متعدّد المواقع ＋ وسيلة الإيضاح
+    const smap = {}; for (const d of dataAll) smap[d.loc] = d.series;
+    document.getElementById("salesChart").innerHTML = salesMultiLineSVG(smap, locsAll);
+    document.getElementById("salesChartLegend").innerHTML = locsAll.map(loc => `<span><i style="background:var(${salesLocColor(loc)})"></i>${esc(salesLocName(loc))}</span>`).join("");
+    // جدول المقارنة (كل المواقع ＋ الإجمالي)
+    const trend = (c, p) => { if (p == null || !p) return `<span class="scc-tr flat">—</span>`; const r = Math.round((c - p) / p * 100); return `<span class="scc-tr ${r > 0 ? "up" : r < 0 ? "down" : "flat"}">${r > 0 ? "+" : ""}${r}%</span>`; };
+    const rowT = (name, colorVar, d, cls) => `<tr class="${cls || ""}"><td>${colorVar ? `<span class="dot" style="background:var(${colorVar})"></span>` : ""}${esc(name)}</td><td class="n"><bdi dir="ltr">${salesNum(d.val)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(d.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(d.moved)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(d.inv)}</bdi></td><td class="n">${d.cov == null ? "—" : (d.cov > 3650 ? "بطيء" : d.cov + " ي")}</td><td class="n">${trend(d.val, d.pval)}</td></tr>`;
+    const tot = { val: 0, units: 0, moved: 0, inv: 0, pval: 0, cov: 0, covN: 0 };
+    const rows = dataAll.map(d => { const r = { val: d.agg.estValue, units: d.agg.units, moved: d.agg.moved.size, inv: d.invValue || 0, cov: d.coverage, pval: d.pagg.estValue }; tot.val += r.val; tot.units += r.units; tot.moved += r.moved; tot.inv += r.inv; tot.pval += r.pval; if (r.cov != null) { tot.cov += r.cov; tot.covN++; } return rowT(d.name, salesLocColor(d.loc), r); }).join("");
+    document.getElementById("salesCmp").innerHTML = `<table><thead><tr><th>الموقع</th><th>المبيعات</th><th>الوحدات</th><th>متحركة</th><th>قيمة المخزون</th><th>التغطية</th><th>التغيّر</th></tr></thead><tbody>${rows}${rowT("الإجمالي", null, { val: tot.val, units: tot.units, moved: tot.moved, inv: tot.inv, cov: tot.covN ? Math.round(tot.cov / tot.covN) : null, pval: tot.pval }, "total")}</tbody></table>`;
+    // الأسطر (بلا سعر · مشبوهة) — المختفي في البانر
     const notes = [];
     if (scope.noPrice) notes.push(`<span class="sales-note warn">${scope.noPrice} حركة بيع بلا سعر — تُحسب في الوحدات لا القيمة</span>`);
-    if (scope.disC) notes.push(`<span class="sales-note">اختفى: ${scope.disC} صنف بقيمة <bdi dir="ltr">${salesNum(scope.disV)}</bdi> — راجعها (غامض: بيع أم حذف، منفصل عن البيع المقدّر)</span>`);
     const susCount = ups.filter(u => u.suspect === true).length;
     if (susCount) notes.push(`<span class="sales-note bad">رفعات مشبوهة مستبعَدة من الإجماليّ: ${susCount} — <a onclick="salesShowSuspect()">راجعها</a></span>`);
     document.getElementById("salesNotes").innerHTML = notes.join("");
-    const cols = document.getElementById("salesCols");
-    cols.className = "sales-cols" + (data.length === 1 ? " one" : "");
-    cols.innerHTML = data.map(d => salesColumnHTML(d, salesLocColor(d.loc))).join("");
   } catch (e) { if (empty) { empty.style.display = "block"; empty.textContent = "تعذّر تحميل شاشة المبيعات: " + esc(e.message || String(e)); } if (body) body.style.display = "none"; }
 }
 // KPI اللوحة «أين أنا الآن» — كلها من مصادر حيّة، وتُظهر «—» قبل توفّر مصدرها (لا رقم ملفَّق قبل المطابقة)
