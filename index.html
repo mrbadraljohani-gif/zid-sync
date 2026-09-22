@@ -1086,6 +1086,22 @@
   .exp-chip { font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid var(--border-strong); background: rgba(255,255,255,.03); color: var(--muted); border-radius: 999px; padding: 5px 11px; transition: all .12s; white-space: nowrap; }
   .exp-chip:hover { color: var(--text); border-color: var(--gold-2); }
   .exp-chip.on { background: var(--gold); color: #0a1622; border-color: var(--gold); }
+  /* لوحة المبيعات المقدّرة (عرض فقط) */
+  .sales-lastup { font-size: 12.5px; color: var(--muted); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px 13px; margin-bottom: 12px; line-height: 1.7; }
+  .sales-lastup b { color: var(--text); font-family: var(--mono); }
+  .sales-lastup .lu-stale { color: var(--amber); }
+  .sales-filters { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-bottom: 14px; }
+  .sales-notes { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+  .sales-note { font-size: 12px; font-weight: 700; border-radius: 9px; padding: 6px 11px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); }
+  .sales-note.warn { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 34%, transparent); background: color-mix(in srgb, var(--amber) 10%, transparent); }
+  .sales-note.bad { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 34%, transparent); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+  .sales-note a { color: inherit; text-decoration: underline; cursor: pointer; }
+  .kpi .kpi-trend { font-size: 12px; font-weight: 700; font-family: var(--mono); }
+  .kpi .kpi-trend.up { color: var(--green); } .kpi .kpi-trend.down { color: var(--danger); } .kpi .kpi-trend.flat { color: var(--muted-2); }
+  .kpi[data-k="sval"] .kpi-ic { color: var(--green-2); } .kpi[data-k="sunits"] .kpi-ic { color: var(--info); }
+  .kpi[data-k="smoved"] .kpi-ic { color: var(--gold-2); } .kpi[data-k="sinv"] .kpi-ic { color: var(--muted); }
+  .sales-region { margin-top: 14px; }
+  .sales-region .section-head { margin-bottom: 12px; }
   .exp-chip.zero-btn { margin-inline-start: auto; border-color: color-mix(in srgb, var(--info) 60%, transparent); color: var(--info); background: color-mix(in srgb, var(--info) 8%, transparent); }
   .exp-chip.zero-btn:hover { border-color: var(--info); }
   .un-note { margin-inline-start: auto; font-size: 11px; font-weight: 700; color: var(--muted-2); cursor: help; }
@@ -1297,6 +1313,7 @@
     <nav class="side-nav" id="sidebar" aria-label="التنقّل الرئيسي">
       <button type="button" class="side-link active" aria-current="page" data-page="home" onclick="goPage('home')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.5 20v-6h5v6"/></svg></span><span class="sl">الرئيسية</span></button>
       <button type="button" class="side-link" data-page="inventory" onclick="goPage('inventory')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5"/><path d="M12 12v9"/></svg></span><span class="sl">المخزون</span></button>
+      <button type="button" class="side-link" data-page="sales" onclick="goPage('sales')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><span class="sl">المبيعات المقدّرة</span></button>
       <button type="button" class="side-link" data-page="db" onclick="goPage('db')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14-4.5L4 9"/><path d="M4 5v4h4"/><path d="M4 13a8 8 0 0 0 14 4.5L20 15"/><path d="M20 19v-4h-4"/></svg></span><span class="sl">تحديث قاعدة البيانات</span></button>
       <button type="button" class="side-link" data-page="options" onclick="goPage('options')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 8 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H2a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 3.6 8a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H8a1.6 1.6 0 0 0 1-1.5V2a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V8a1.6 1.6 0 0 0 1.5 1H22a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg></span><span class="sl">الخيارات</span></button>
       <button type="button" class="side-link" data-page="newuser" onclick="goPage('newuser')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="sl">مستخدم جديد</span></button>
@@ -1619,6 +1636,22 @@
     </details>
   </section>
 
+  <!-- ============ الصفحة: لوحة المبيعات المقدّرة (عرض فقط — مصادرها المخزون وحده) ============ -->
+  <section class="page" id="page-sales">
+    <div class="page-head"><span class="ph-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><div class="ph-txt"><h2>لوحة المبيعات المقدّرة</h2><p>مقارنة رفعة اليوم برفعة أمس لكل موقع — النقص بيعٌ مقدّر (تقدير من المخزون، لا مبيعات فعلية)</p></div></div>
+    <div class="sales-lastup" id="salesLastUp">—</div>
+    <div class="sales-filters">
+      <div class="exp-grp"><span class="exp-grp-lbl">الفترة</span><span id="salesPeriodChips"></span></div>
+      <div class="exp-grp"><span class="exp-grp-lbl">الموقع</span><span id="salesLocChips"></span></div>
+    </div>
+    <div id="salesEmpty" class="stc-empty" style="display:none"></div>
+    <div id="salesBody" style="display:none">
+      <div class="dash-kpis" id="salesKpis"></div>
+      <div class="sales-notes" id="salesNotes"></div>
+      <div class="card sales-region"><div class="section-head"><h2>المبيعات المقدّرة حسب الموقع</h2></div><div class="twrap" id="salesByLoc"></div></div>
+    </div>
+  </section>
+
   <!-- ============ الصفحة: مستخدم جديد ============ -->
   <section class="page" id="page-newuser">
     <div class="page-head"><span class="ph-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><div class="ph-txt"><h2>مستخدم جديد</h2><p>إنشاء حساب دخول جديد للأداة</p></div></div>
@@ -1714,7 +1747,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "a3f108e";
+const APP_VERSION = "d64712c";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -1953,6 +1986,25 @@ const db = {
     async remove(id) { const { error } = await sb.from("branches").delete().eq("id", id); if (error) throw error; },   // FK on delete cascade يمسح صفوف branch_items لهذا الفرع (لا يتامى)
     async setMeta(id, patch) { const { error } = await sb.from("branches").update(patch).eq("id", id); if (error) throw error; },
   }
+};
+// لوحة المبيعات المقدّرة — قراءة فقط من sales_movements/sales_uploads (فلترة على القاعدة عبر الفهارس الأربعة)
+db.sales = {
+  async uploads() {   // رؤوس الرفعات (قليلة) — للطابع الأخير لكل موقع ＋ المشبوهة. select * تسامحاً مع عمود suspect قبل الـALTER
+    const { data, error } = await sb.from("sales_uploads").select("*").order("captured_at", { ascending: false }).limit(3000);
+    if (error) throw error; return data || [];
+  },
+  async movements(location, sinceIso) {   // مُصفّاة على القاعدة (location, captured_at) ثم مُصفّحة
+    const out = [], page = 1000; let from = 0;
+    for (;;) {
+      let q = sb.from("sales_movements").select("sku,sku_name,location,captured_at,period_days,qty_before,qty_after,delta,kind,unit_price_incl,unit_price_excl,price_source,value_est,upload_id");
+      if (location && location !== "all") q = q.eq("location", location);
+      if (sinceIso) q = q.gte("captured_at", sinceIso);
+      q = q.order("captured_at", { ascending: false }).range(from, from + page - 1);
+      const { data, error } = await q; if (error) throw error;
+      out.push(...(data || [])); if (!data || data.length < page) break; from += page;
+    }
+    return out;
+  },
 };
 // تسجيل نشاط — غير حاجب (fire-and-forget): فشله لا يعطّل العملية إطلاقاً
 function logActivity(event_type, zid_sku, details) {
@@ -2414,8 +2466,8 @@ function keepScroll(fn) { const restore = scrollMark(); try { return fn(); } fin
 
 // ===== تنقّل SPA بين الصفحات (أقسام تُظهر/تُخفى — الحالة مشتركة، لا فقدان لشيء) =====
 // خريطة الصفحة ⇄ hash للرابط (بقاء الصفحة عبر التحديث + رجوع/تقدم المتصفح + الإشارات المرجعية)
-const PAGE_HASH = { home: "home", inventory: "inventory", db: "db-update", options: "options", newuser: "new-user" };
-const HASH_PAGE = { home: "home", inventory: "inventory", "db-update": "db", options: "options", account: "inventory", "new-user": "newuser" };   // #account القديم ⇒ المخزون (روابط محفوظة)
+const PAGE_HASH = { home: "home", inventory: "inventory", sales: "sales", db: "db-update", options: "options", newuser: "new-user" };
+const HASH_PAGE = { home: "home", inventory: "inventory", sales: "sales", "db-update": "db", options: "options", account: "inventory", "new-user": "newuser" };   // #account القديم ⇒ المخزون (روابط محفوظة)
 function goPage(id, fromHash) {
   if (id === "newuser" && !isOwner()) { if (!fromHash) showToast("🔒 صفحة إنشاء المستخدمين للمالك فقط."); return; }   // حماية إضافية (الرابط مخفي أصلاً)
   const cur = document.querySelector(".page.active");
@@ -2429,6 +2481,7 @@ function goPage(id, fromHash) {
   if (id === "home") renderReadiness();
   if (id === "db") { renderInvCards(); renderBranchCards(); }
   if (id === "inventory") { renderInventoryPage(); renderActivityTable(); }
+  if (id === "sales" && typeof renderSalesPage === "function") renderSalesPage();
   if (id === "options" && typeof renderOffsetsList === "function") renderOffsetsList();
   closeSidebar();
   const h = PAGE_HASH[id] || "home";   // حدّث الـhash (بلا إعادة تحميل) ما لم يأتِ التنقّل من الـhash أصلاً
@@ -2655,6 +2708,114 @@ function renderInventoryPage() {
   if (typeof renderExcludedCard === "function") renderExcludedCard();   // بطاقة المستبعَدين من المطابقة
   if (typeof renderPosExceptCard === "function") renderPosExceptCard();   // بطاقة استثناءات النسب الموضعيّ
   if (typeof renderFingerprint === "function") renderFingerprint();
+}
+// ============================================================================
+// لوحة المبيعات المقدّرة (ب-٢أ نواة) — عرض فقط، مصادرها المخزون وسجلّ الحركات وحدها.
+// المؤشّر الرئيسيّ = estimated_sale (النقص في صنف باقٍ)؛ المختفي فئة منفصلة بسطر مستقلّ.
+// ============================================================================
+let salesPeriod = "30", salesLoc = "all";
+const SALES_PERIODS = [["today", "اليوم"], ["7", "7 أيام"], ["30", "30 يوماً"], ["365", "سنة"], ["all", "منذ البداية"]];
+function salesLocName(loc) { return loc === "wh" ? "المستودع" : (((invBranches || []).find(b => b.id === loc) || {}).name || loc); }
+function salesLocList() { return [["all", "الكل"], ["wh", "المستودع"], ...(invBranches || []).map(b => [b.id, b.name])]; }
+function salesRange(period) {
+  const now = Date.now(), day = 86400000;
+  if (period === "all") return { sinceIso: null, prevSinceIso: null };
+  const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
+  let since, span;
+  if (period === "today") { since = startToday.getTime(); span = day; } else { const d = Number(period); span = d * day; since = now - span; }
+  return { sinceIso: new Date(since).toISOString(), prevSinceIso: new Date(since - span).toISOString() };
+}
+// التجميع: القيمة والوحدات من estimated_sale فقط؛ المختفي منفصل؛ «تحرّكت» = أي حركة (فريدة موقع|كود)
+function salesAgg(rows) {
+  const a = { estValue: 0, units: 0, moved: new Set(), noPrice: 0, disCount: 0, disValue: 0, byLoc: new Map() };
+  for (const m of rows || []) {
+    a.moved.add(m.location + "|" + m.sku);
+    if (m.kind === "estimated_sale") {
+      const u = Math.abs(Number(m.delta) || 0); a.units += u;
+      const L = a.byLoc.get(m.location) || { value: 0, units: 0 }; L.units += u;
+      if (m.value_est != null) { a.estValue += Number(m.value_est) || 0; L.value += Number(m.value_est) || 0; } else a.noPrice++;
+      a.byLoc.set(m.location, L);
+    } else if (m.kind === "disappeared") { a.disCount++; if (m.value_est != null) a.disValue += Number(m.value_est) || 0; }
+  }
+  return a;
+}
+const salesNum = n => (Math.round(Number(n) || 0)).toLocaleString("en-US");
+function salesTrend(cur, prev) {   // مقارنة بالفترة السابقة (سهم بالنصّ لا إيموجي)
+  if (prev == null) return "";
+  if (!prev) return cur ? `<span class="kpi-trend up">جديد</span>` : `<span class="kpi-trend flat">—</span>`;
+  const r = Math.round((cur - prev) / prev * 100), cls = r > 0 ? "up" : (r < 0 ? "down" : "flat");
+  return `<span class="kpi-trend ${cls}">${r > 0 ? "+" : ""}${r}% عن السابق</span>`;
+}
+function renderSalesFilters() {
+  const pc = document.getElementById("salesPeriodChips");
+  if (pc) pc.innerHTML = SALES_PERIODS.map(([v, l]) => `<button class="exp-chip${salesPeriod === v ? " on" : ""}" onclick="salesSetPeriod('${v}')">${l}</button>`).join(" ");
+  const lc = document.getElementById("salesLocChips");
+  if (lc) lc.innerHTML = salesLocList().map(([v, l]) => `<button class="exp-chip${salesLoc === v ? " on" : ""}" onclick="salesSetLoc('${esc(String(v))}')">${esc(l)}</button>`).join(" ");
+}
+function salesSetPeriod(p) { salesPeriod = p; renderSalesPage(); }
+function salesSetLoc(l) { salesLoc = l; renderSalesPage(); }
+function renderSalesLastUp(ups) {
+  const el = document.getElementById("salesLastUp"); if (!el) return;
+  const locs = [["wh", "المستودع"], ...(invBranches || []).map(b => [b.id, b.name])];
+  const latest = new Map();
+  for (const u of ups || []) { const t = Date.parse(u.captured_at); if (Number.isFinite(t) && (!latest.has(u.location) || t > latest.get(u.location))) latest.set(u.location, t); }
+  el.innerHTML = "آخر رفعة — " + locs.map(([id, name]) => { const t = latest.get(id); return `${esc(name)}: <b>${t ? ageText(t) : "لم تُرفع"}</b>`; }).join(" · ");
+}
+// قيمة المخزون الحالية = Σ (الكمية × السعر الشامل) من جداول المخزون (قراءة مستقلّة — لا تمسّ المطابقة)
+async function salesInventoryValue(loc) {
+  try {
+    let sum = 0; const add = rows => { for (const r of rows) { const q = numOrNull(r.qty), p = numOrNull(r.price_incl); if (q != null && p != null) sum += q * p; } };
+    if (loc === "wh" || loc === "all") add(await db.inventory.getAll("warehouse_items"));
+    if (loc !== "wh") { const br = await db.inventory.getAll("branch_items"); add(loc === "all" ? br : br.filter(r => r.branch_id === loc)); }
+    return sum;
+  } catch (e) { console.warn("salesInventoryValue:", e); return null; }
+}
+async function salesShowSuspect() {
+  try {
+    const ups = (await db.sales.uploads()).filter(u => u.suspect === true);
+    if (!ups.length) { showToast("لا رفعات مشبوهة."); return; }
+    alert("رفعات مشبوهة (مستبعَدة من الإجماليّ حتى المراجعة):\n\n" + ups.map(u => `• ${salesLocName(u.location)} · ${ageText(Date.parse(u.captured_at))} · ${u.note || ""}`).join("\n"));
+  } catch (e) { showToast("تعذّر جلب الرفعات المشبوهة."); }
+}
+async function renderSalesPage() {
+  renderSalesFilters();
+  const body = document.getElementById("salesBody"), empty = document.getElementById("salesEmpty"), lu = document.getElementById("salesLastUp");
+  if (!(dbOnline && sb)) { if (empty) { empty.style.display = "block"; empty.textContent = "غير متصل بالقاعدة — لوحة المبيعات غير متاحة."; } if (body) body.style.display = "none"; if (lu) lu.textContent = "—"; return; }
+  try {
+    const ups = await db.sales.uploads();
+    renderSalesLastUp(ups);
+    const suspectIds = new Set(ups.filter(u => u.suspect === true).map(u => u.id));
+    const { sinceIso, prevSinceIso } = salesRange(salesPeriod);
+    const all = (await db.sales.movements(salesLoc, prevSinceIso || sinceIso)).filter(m => !suspectIds.has(m.upload_id));
+    const curSince = sinceIso ? Date.parse(sinceIso) : -Infinity;
+    const cur = all.filter(m => Date.parse(m.captured_at) >= curSince);
+    const prev = prevSinceIso ? all.filter(m => { const t = Date.parse(m.captured_at); return t >= Date.parse(prevSinceIso) && t < curSince; }) : null;
+    if (!cur.length) {
+      body.style.display = "none"; empty.style.display = "block";
+      empty.textContent = ups.length ? "لا حركات مبيعات مقدّرة في هذه الفترة/الموقع — جرّب فترة أوسع أو موقعاً آخر." : "لا حركات بعد. ارفع ملفاً من «تحديث قاعدة البيانات» لتبدأ المبيعات المقدّرة في الظهور.";
+      document.getElementById("salesKpis").innerHTML = ""; document.getElementById("salesNotes").innerHTML = ""; document.getElementById("salesByLoc").innerHTML = "";
+      return;
+    }
+    empty.style.display = "none"; body.style.display = "block";
+    const a = salesAgg(cur), pa = prev ? salesAgg(prev) : null, invVal = await salesInventoryValue(salesLoc);
+    const kpi = (k, icon, num, lbl, sub, trend) => `<div class="card kpi" data-k="${k}"><span class="kpi-ic">${icon}</span><b><bdi dir="ltr">${num}</bdi></b><span class="kpi-lbl">${lbl}</span><span class="kpi-sub">${sub}</span>${trend || ""}</div>`;
+    document.getElementById("salesKpis").innerHTML =
+      kpi("sval", ic("spark"), salesNum(a.estValue), "قيمة المبيعات المقدّرة", "شاملة الضريبة", salesTrend(a.estValue, pa ? pa.estValue : null)) +
+      kpi("sunits", ic("inbox"), salesNum(a.units), "الوحدات المباعة", "بيع مقدّر", salesTrend(a.units, pa ? pa.units : null)) +
+      kpi("smoved", ic("branch"), salesNum(a.moved.size), "منتجات تحرّكت", "في الفترة", salesTrend(a.moved.size, pa ? pa.moved.size : null)) +
+      kpi("sinv", ic("warehouse"), invVal == null ? "—" : salesNum(invVal), "قيمة المخزون الحالية", "شاملة الضريبة", "");
+    const notes = [];
+    if (a.noPrice) notes.push(`<span class="sales-note warn">${a.noPrice} حركة بيع بلا سعر — تُحسب في الوحدات لا القيمة</span>`);
+    if (a.disCount) notes.push(`<span class="sales-note">اختفى: ${a.disCount} صنف بقيمة <bdi dir="ltr">${salesNum(a.disValue)}</bdi> — راجعها (غامض: بيع أم حذف)</span>`);
+    const susCount = ups.filter(u => u.suspect === true).length;
+    if (susCount) notes.push(`<span class="sales-note bad">رفعات مشبوهة مستبعَدة من الإجماليّ: ${susCount} — <a onclick="salesShowSuspect()">راجعها</a></span>`);
+    document.getElementById("salesNotes").innerHTML = notes.join("");
+    const brows = [...a.byLoc.entries()].sort((x, y) => y[1].value - x[1].value)
+      .map(([loc, v]) => `<tr><td>${esc(salesLocName(loc))}</td><td class="mono"><bdi dir="ltr">${salesNum(v.value)}</bdi></td><td class="mono"><bdi dir="ltr">${salesNum(v.units)}</bdi></td></tr>`).join("");
+    document.getElementById("salesByLoc").innerHTML = brows
+      ? `<table class="upd-table" aria-label="المبيعات المقدّرة حسب الموقع"><thead><tr><th scope="col">الموقع</th><th scope="col">القيمة المقدّرة</th><th scope="col">الوحدات</th></tr></thead><tbody>${brows}</tbody></table>`
+      : `<div class="stc-empty">لا مبيعات مقدّرة في هذه الفترة (حركات شراء/جديد فقط).</div>`;
+  } catch (e) { if (empty) { empty.style.display = "block"; empty.textContent = "تعذّر تحميل لوحة المبيعات: " + esc(e.message || String(e)); } if (body) body.style.display = "none"; }
 }
 // KPI اللوحة «أين أنا الآن» — كلها من مصادر حيّة، وتُظهر «—» قبل توفّر مصدرها (لا رقم ملفَّق قبل المطابقة)
 function renderInvKPIs() {
