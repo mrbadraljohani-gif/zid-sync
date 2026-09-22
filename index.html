@@ -1714,7 +1714,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "033e6c9";
+const APP_VERSION = "4d0bcd6";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -1918,16 +1918,16 @@ const db = {
       }
       return out;
     },
-    async getAllCodes(table, branchId) {
+    async getAllCodes(table, branchId) {   // ＋qty: القديم للدلتا (لوحة المبيعات) — نفس القراءة الفارقة، بلا جولة إضافية
       const out = [], page = 1000; let from = 0;
       for (;;) {
-        let q = sb.from(table).select("code"); if (branchId) q = q.eq("branch_id", branchId);
+        let q = sb.from(table).select("code,qty"); if (branchId) q = q.eq("branch_id", branchId);
         const { data, error } = await q.range(from, from + page - 1);
         if (error) throw error;
-        out.push(...(data || []).map(r => r.code));
+        out.push(...(data || []));
         if (!data || data.length < page) break; from += page;
       }
-      return out;
+      return out;   // [{code, qty}] — المستدعي يشتقّ الأكواد من المفاتيح
     },
     async bulkUpsert(table, rows, onProgress) {
       for (let i = 0; i < rows.length; i += 500) {
@@ -4412,11 +4412,88 @@ function invShrinkCheck(kind, newCount, branchId) {
     `إن كان الملف ناقصاً أو عموده مفقوداً فألغِ الآن وأعِد تصديره كاملاً.\n\nمتابعة؟`
   );
 }
+// ============================================================================
+// لوحة المبيعات المقدّرة — محرّك الحركات (معزول تماماً: لا يمسّ المطابقة/التصدير/mergeInventory).
+// حركة كل كود بين رفعتين لنفس الموقع: نقص⇒بيع مقدّر · زيادة⇒شراء · جديد⇒new · اختفى⇒disappeared.
+// السعر مثبَّت من الرفعة (يُستبدَل في المخزون كل رفعة، فلا يُقرأ لاحقاً). دلتا الصفر لا تُدرَج.
+// العتبة والأرضية مقيستان من بيانات المستخدم: 8% (ضِعف الطبيعي 4.1% · نصف الأدنى الشاذّ 15%) · أرضية 10.
+// ============================================================================
+const MOVE_VALVE_PCT = 8, MOVE_VALVE_FLOOR = 10;
+function computeMovements(existMap, rows, location, capturedAt, prevSyncedAt) {
+  const movs = [], newSet = new Set(rows.map(r => String(r.code)));
+  const pDays = prevSyncedAt ? (Date.parse(capturedAt) - Date.parse(prevSyncedAt)) / 86400000 : null;
+  for (const r of rows) {
+    const code = String(r.code), newQ = numOrNull(r.qty) != null ? numOrNull(r.qty) : 0, had = existMap.has(code);
+    const oldQ = had ? (existMap.get(code) != null ? existMap.get(code) : 0) : null;
+    const delta = had ? (newQ - oldQ) : newQ;
+    if (delta === 0) continue;   // دلتا الصفر لا تُدرَج (＋قيد القاعدة delta<>0 طبقة ثانية)
+    const incl = numOrNull(r.price_incl), excl = numOrNull(r.price_excl);
+    const unit = incl != null ? incl : (excl != null ? excl : null), ps = incl != null ? "incl" : (excl != null ? "excl" : "none");
+    const kind = !had ? "new" : (delta < 0 ? "estimated_sale" : "purchase");   // نقص=بيع مقدّر · زيادة=شراء (لا نقل بين الفروع)
+    movs.push({ sku: code, sku_name: r.name || null, location, captured_at: capturedAt,
+      period_start: had ? (prevSyncedAt || null) : null, period_days: had ? pDays : null,
+      qty_before: had ? oldQ : null, qty_after: newQ, delta, kind,
+      unit_price_incl: incl, unit_price_excl: excl, price_source: ps,
+      value_est: (kind === "estimated_sale" && unit != null) ? Math.abs(delta) * unit : null });
+  }
+  for (const [code, oldQ0] of existMap) {   // اختفى من الملف الجديد
+    if (newSet.has(code)) continue;
+    const oldQ = oldQ0 != null ? oldQ0 : 0; if (oldQ === 0) continue;   // 0→غائب = لا حركة
+    movs.push({ sku: code, sku_name: null, location, captured_at: capturedAt,
+      period_start: prevSyncedAt || null, period_days: pDays,
+      qty_before: oldQ, qty_after: null, delta: -oldQ, kind: "disappeared",
+      unit_price_incl: null, unit_price_excl: null, price_source: "none", value_est: null });   // صفّه محذوف فلا سعر (القراءة code,qty بالاتفاق) — قيمة null (غامض)
+  }
+  return movs;
+}
+// الصمّام: يوقف **التسجيل** لا الرفعة (المخزون كُتب فعلاً؛ invShrinkCheck يحمي الرفعة). «تخطّي التسجيل» افتراضيّ.
+function moveValveOk(disappeared, prevCount) {
+  if (!prevCount || disappeared < MOVE_VALVE_FLOOR) return true;
+  const pct = disappeared / prevCount * 100;
+  if (pct <= MOVE_VALVE_PCT) return true;
+  return confirm(
+    `توقّف: سيُسجَّل ${disappeared} اختفاءً = ${Math.round(pct * 10) / 10}% من مخزون هذا الموقع (${prevCount}).\n\n` +
+    `الطبيعي عندك أقلّ من 4%. هذا يقع عادةً حين يكون الملف ناقصاً.\n` +
+    `المخزون كُتب فعلاً — هذا يخصّ سجلّ المبيعات المقدّرة وحده.\n\n` +
+    `تسجيل الحركات رغم ذلك؟`
+  );
+}
+// التسجيل — غير حاجب (fire-and-forget): فشله لا يعطّل الرفع إطلاقاً. يُستدعى **بعد نجاح** bulkUpsert فقط.
+async function recordMovements(uploadId, kind, existMap, rows, branchId, fileName, prevSyncedAt) {
+  if (!(dbOnline && sb)) return;
+  try {
+    const location = kind === "wh" ? "wh" : branchId, captured_at = new Date().toISOString();
+    const movs = computeMovements(existMap, rows, location, captured_at, prevSyncedAt);
+    // تنبيه الكودين المتشابهين (كشف فقط، بلا تطبيع مخزَّن): اختفى ونظيره ظهر بعد إزالة الأصفار البادئة
+    const strip = c => String(c).replace(/^0+/, "");
+    const gone = movs.filter(m => m.kind === "disappeared").map(m => m.sku);
+    const appeared = new Set(movs.filter(m => m.kind === "new").map(m => strip(m.sku)));
+    const sim = gone.filter(c => appeared.has(strip(c)));
+    let note = sim.length ? `⚠ كودان متشابهان: ${sim.slice(0, 3).join(" · ")} اختفى ونظيره ظهر — راجع ملفك` : null;
+    if (note) showToast(note);
+    const prevCount = existMap.size;
+    if (!moveValveOk(gone.length, prevCount)) {   // الصمّام أوقف التسجيل — رأس الرفعة فقط بملاحظة (أثر للتدقيق)
+      note = (note ? note + " · " : "") + `تُخطّي التسجيل: اختفاء شاذّ (${gone.length}/${prevCount})`;
+      await sb.from("sales_uploads").insert({ id: uploadId, location, captured_at, file_name: fileName || null, item_count: rows.length, source: "sync", note });
+      return;
+    }
+    if (!movs.length) return;
+    const { error: ue } = await sb.from("sales_uploads").insert({ id: uploadId, location, captured_at, file_name: fileName || null, item_count: rows.length, source: "sync", note });
+    if (ue) throw ue;
+    const withId = movs.map(m => Object.assign({ upload_id: uploadId }, m));
+    for (let i = 0; i < withId.length; i += 500) { const { error } = await sb.from("sales_movements").insert(withId.slice(i, i + 500)); if (error) throw error; }
+  } catch (e) { console.warn("recordMovements:", e); }
+}
 async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
   const isBr = kind === "branch", scope = isBr ? branchId : null;
   const table = INV_TABLE[kind], rows = buildInvDbRows(aggList, scope);
   const newCodes = rows.map(r => r.code), newSet = new Set(newCodes);
-  const existing = (await db.inventory.getAllCodes(table, scope)).map(String), existSet = new Set(existing);
+  const existRows = await db.inventory.getAllCodes(table, scope);   // [{code,qty}] — القديم للدلتا (لوحة المبيعات)
+  const existMap = new Map(existRows.map(r => [String(r.code), numOrNull(r.qty)]));
+  const existing = [...existMap.keys()], existSet = new Set(existing);
+  // لوحة المبيعات: طابع الرفعة السابقة لهذا الموقع **قبل** أن يُستبدَل بـsetMeta أدناه (للفترة، بلا قراءة إضافية)
+  const prevSyncedAt = isBr ? (((invBranches || []).find(b => b.id === branchId) || {}).synced_at || null) : (invMeta && invMeta.wh_synced_at) || null;
+  const uploadId = (crypto.randomUUID ? crypto.randomUUID() : ("" + Date.now() + Math.random()).replace(/\D/g, ""));
   // الحذف محصور بنطاقه: المستودع مصدر واحد؛ الفرع **داخل branch_id الخاصّ به فقط** (رفع فرع لا يمسّ صفّاً من فرع آخر — دفعة ١أ).
   const toDelete = existing.filter(c => !newSet.has(c));
   const added = newCodes.filter(c => !existSet.has(c)).length, updated = newCodes.length - added;
@@ -4438,7 +4515,8 @@ async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
       await db.inventory.setMeta(patch); invMeta = Object.assign(invMeta || { id: 1 }, patch);
     }
     resyncNeeded[kind] = invPolluted(rows); renderResyncWarn();   // الملف الجديد (بالرأس المُلتقط) يُصفّي التلوّث إن حواه شامل
-    logActivity(isBr ? "branch_sync_full" : "warehouse_sync_full", null, { added, updated, deleted: toDelete.length, total: newCodes.length, file: fileName || "" });
+    logActivity(isBr ? "branch_sync_full" : "warehouse_sync_full", null, { added, updated, deleted: toDelete.length, total: newCodes.length, file: fileName || "", location: isBr ? branchId : "wh", upload_id: uploadId });   // ＋location/upload_id: يمنع عمى «أي فرع» مستقبلاً
+    recordMovements(uploadId, kind, existMap, rows, branchId, fileName, prevSyncedAt);   // لوحة المبيعات: تسجيل صامت **بعد نجاح** الكتابة (fire-and-forget، معزول — لا يمسّ الرفع ولا المطابقة)
     return { added, updated, deleted: toDelete.length, total: newCodes.length };
   } finally { setBusy(msgId, false); }
 }

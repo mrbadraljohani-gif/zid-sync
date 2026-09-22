@@ -174,6 +174,14 @@ jobs:
         run: node tests/perf/count-consistency.mjs --broken
       - name: G-COUNT — رقم واحد لمفهوم «يحتاج ربط» (KPI==انتباهك==القائمة==الشريحة==اللافتة)
         run: node tests/perf/count-consistency.mjs
+      - name: Self-check — حارس محرّك الحركات يرسب بعكس تعيين النوع
+        run: node tests/perf/move-record.mjs --broken
+      - name: G-MOVE — محرّك حركات المبيعات المقدّرة (بيع/شراء/جديد/اختفى · سعر مثبَّت · معزول)
+        run: node tests/perf/move-record.mjs
+      - name: Self-check — حارس صمّام الرفعة الشاذّة يرسب برفع العتبة
+        run: node tests/perf/move-valve.mjs --broken
+      - name: G-VALVE-MOVE — صمّام الرفعة الشاذّة (8%＋أرضية 10، يوقف التسجيل لا الرفعة)
+        run: node tests/perf/move-valve.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)

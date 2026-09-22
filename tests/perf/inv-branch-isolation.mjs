@@ -16,10 +16,10 @@ const BROKEN = process.argv.includes("--broken");
 let html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 if (BROKEN) {
   // أزِل التحجيم: getAllCodes يرى كل الفروع · removeCodes يحذف بالكود عبر كل الفروع (سلوك ما قبل المفتاح المركّب)
-  const G = 'const existing = (await db.inventory.getAllCodes(table, scope)).map(String)';
+  const G = 'const existRows = await db.inventory.getAllCodes(table, scope);';
   const R = 'await db.inventory.removeCodes(table, toDelete, scope);';
   if (!html.includes(G) || !html.includes(R)) { console.error("✗ (--broken) لم أجد نداءات التحجيم لتعطيلها"); process.exit(2); }
-  html = html.replace(G, 'const existing = (await db.inventory.getAllCodes(table, null)).map(String)')
+  html = html.replace(G, 'const existRows = await db.inventory.getAllCodes(table, null);')
              .replace(R, 'await db.inventory.removeCodes(table, toDelete, null);');
 }
 function findChrome(){const c=["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",process.env.CHROME_PATH||"","/usr/bin/google-chrome-stable","/usr/bin/google-chrome"];for(const x of c)if(x&&existsSync(x))return x;for(const n of ["google-chrome-stable","google-chrome","chromium"])try{return execFileSync("bash",["-lc","command -v "+n]).toString().trim();}catch{}return"";}
@@ -36,7 +36,7 @@ const res = await p.evaluate(async () => {
   for (let i = 0; i < 30; i++) put(BB, "B" + i);   // فرع B: 30 كوداً
   const countIn = bid => [...store.keys()].filter(k => k.startsWith(bid + "||")).length;
   db.inventory = {
-    getAllCodes: async (t, branchId) => [...store.values()].filter(r => !branchId || r.branch_id === branchId).map(r => r.code),
+    getAllCodes: async (t, branchId) => [...store.values()].filter(r => !branchId || r.branch_id === branchId).map(r => ({ code: r.code, qty: r.qty })),   // ＋qty بعد الإثراء (لوحة المبيعات)
     bulkUpsert: async (t, rows) => { rows.forEach(r => store.set((r.branch_id || "") + "||" + r.code, r)); },
     removeCodes: async (t, codes, branchId) => {
       const cs = new Set(codes.map(String));
