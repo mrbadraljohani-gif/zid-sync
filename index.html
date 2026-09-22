@@ -1190,6 +1190,28 @@
   .s4-cmp td.n { font-family: var(--mono); text-align: end; }
   .s4-cmp tr.total td { border-top: 2px solid var(--border-strong); font-weight: 700; border-bottom: 0; }
   .s4-cmp .dot { width: 8px; height: 8px; border-radius: 3px; display: inline-block; margin-inline-end: 5px; vertical-align: middle; }
+  /* design-4 السفليّ: تبويب · تفصيل الموقع · ٣ جداول */
+  .s4-tabs { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 14px; }
+  .s4-tab { font-size: 12.5px; font-weight: 600; border: 1px solid var(--border-strong); background: rgba(255,255,255,.03); color: var(--muted); border-radius: 10px; padding: 7px 15px; cursor: pointer; font-family: inherit; }
+  .s4-tab.on { background: color-mix(in srgb, var(--green) 16%, transparent); border-color: color-mix(in srgb, var(--green) 45%, transparent); color: var(--text); }
+  .s4-tab-upd { margin-inline-start: auto; font-size: 11px; color: var(--muted); }
+  .s4-dhead { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .s4-dhead .s4-ic { color: var(--info); display: inline-flex; }
+  .s4-dcards { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 14px; }
+  @media (max-width: 1100px) { .s4-dcards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .s4-search { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 11px; padding: 8px 13px; margin-bottom: 12px; max-width: 380px; }
+  .s4-search .ico { color: var(--muted); } .s4-search input { flex: 1; background: none; border: 0; color: var(--text); font: inherit; font-size: 13px; outline: none; }
+  .s4-3tables { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  @media (max-width: 1100px) { .s4-3tables { grid-template-columns: minmax(0, 1fr); } }
+  .s4-tbl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .s4-tbl-head h3 { font-size: 13.5px; display: flex; align-items: center; gap: 7px; } .s4-tbl-head .s4-ti { color: var(--gold-2); display: inline-flex; }
+  .s4-tbl-head .all-lnk { font-size: 11px; color: var(--info); cursor: pointer; }
+  .s4-tbl table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  .s4-tbl th { font-size: 10px; color: var(--muted); font-weight: 600; padding: 5px 4px; border-bottom: 1px solid var(--border-strong); text-align: start; white-space: nowrap; }
+  .s4-tbl td { padding: 6px 4px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .s4-tbl td.n { font-family: var(--mono); text-align: end; } .s4-tbl td.nm { color: var(--text); white-space: normal; }
+  .s4-tbl .warnt { color: var(--amber); } .s4-tbl .badt { color: var(--danger); }
+  .s4-gate { padding: 22px 14px; text-align: center; color: var(--muted); font-size: 12.5px; line-height: 1.9; border: 1px dashed var(--border-strong); border-radius: 10px; }
   .exp-chip.zero-btn { margin-inline-start: auto; border-color: color-mix(in srgb, var(--info) 60%, transparent); color: var(--info); background: color-mix(in srgb, var(--info) 8%, transparent); }
   .exp-chip.zero-btn:hover { border-color: var(--info); }
   .un-note { margin-inline-start: auto; font-size: 11px; font-weight: 700; color: var(--muted-2); cursor: help; }
@@ -1743,6 +1765,8 @@
       </div>
       <div class="sales-notes" id="salesNotes"></div>
       <div id="salesSuspectBox" style="display:none"></div>
+      <div class="s4-tabs" id="salesTabs"></div>
+      <div id="salesDetail"></div>
     </div>
     <div class="sales-foot">جميع الأرقام مبيعات مقدّرة بناءً على حركة المخزون بين الرفعات · شاشة عرض المبيعات — ASJ Inventory Sync</div>
   </section>
@@ -1848,7 +1872,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "09bb6d9";
+const APP_VERSION = "0244b69";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3022,6 +3046,78 @@ function salesMultiLineSVG(seriesMap, order) {
   const xl = `<text class="s4-ml-ax" x="${X(0).toFixed(1)}" y="${H - 6}" text-anchor="start">${esc(dates[0].slice(5))}</text>` + (dates.length > 1 ? `<text class="s4-ml-ax" x="${X(dates.length - 1).toFixed(1)}" y="${H - 6}" text-anchor="end">${esc(dates[dates.length - 1].slice(5))}</text>` : "");
   return `<svg class="s4-ml" viewBox="0 0 ${W} ${H}" aria-hidden="true">${grid}${lines}${ax}${xl}</svg>`;
 }
+let salesTab = "all", salesCtx = null, salesShowAll = {};
+const S4_STAGNANT_MIN_DAYS = 14, S4_NAFAD_DAYS = 30, S4_NOSALE_DAYS = 14;
+function salesSetTab(t) { salesTab = t; salesShowAll = {}; if (salesCtx) renderSalesDetail(); }
+function salesToggleAll(k) { salesShowAll[k] = !salesShowAll[k]; renderSalesTables(); }   // «عرض الكل» ⇄ أعلى 10 (لا زرّ معطّل)
+const salesCap = (list, k) => salesShowAll[k] ? list : list.slice(0, 10);
+function onSalesTblSearch(v) { salesSearch = v || ""; renderSalesTables(); }   // يفلتر الجداول فقط (قيمة الحدث — لا getElementById لعنصر ديناميكيّ)
+// تفصيل الموقع المختار (تبويب) ＋ ٤ بطاقات ＋ ٣ جداول
+function renderSalesDetail() {
+  const wrap = document.getElementById("salesDetail"), tabsEl = document.getElementById("salesTabs");
+  if (!wrap || !salesCtx) return;
+  const { movs, stock, curSince, prevSince, locsAll, latest } = salesCtx;
+  const maxUpd = Math.max(0, ...[...latest.values()]);
+  tabsEl.innerHTML = [["all", "جميع المواقع"], ...locsAll.map(l => [l, salesLocName(l)])].map(([v, n]) => `<button class="s4-tab${salesTab === v ? " on" : ""}" onclick="salesSetTab('${esc(String(v))}')">${esc(n)}</button>`).join("") + `<span class="s4-tab-upd">آخر تحديث للبيانات: ${maxUpd ? ageText(maxUpd) : "—"}</span>`;
+  const tabLocs = (salesTab === "all") ? locsAll : [salesTab];
+  const cur = movs.filter(m => Date.parse(m.captured_at) >= curSince && tabLocs.includes(m.location));
+  const prev = prevSince != null ? movs.filter(m => { const t = Date.parse(m.captured_at); return t >= prevSince && t < curSince && tabLocs.includes(m.location); }) : [];
+  const a = salesAgg(cur), pa = salesAgg(prev);
+  const srows = stock.filter(r => tabLocs.includes(r.location));
+  let inv = 0, totUnits = 0; const qtyBySku = new Map(), priceBySku = new Map();
+  for (const r of srows) { const qn = numOrNull(r.qty), pn = numOrNull(r.price_incl); if (qn != null) { totUnits += qn; qtyBySku.set(r.sku, (qtyBySku.get(r.sku) || 0) + qn); } if (qn != null && pn != null) { inv += qn * pn; if (!priceBySku.has(r.sku)) priceBySku.set(r.sku, pn); } }
+  const perUp = new Map(); for (const m of cur) if (m.period_days != null && !perUp.has(m.upload_id)) perUp.set(m.upload_id, Number(m.period_days) || 0);
+  let daysCov = 0; for (const v of perUp.values()) daysCov += v;
+  const dailyRate = daysCov > 0 ? a.units / daysCov : null;
+  const coverage = (dailyRate && dailyRate > 0) ? Math.round(totUnits / dailyRate) : null;
+  const upCount = new Set(cur.map(m => m.upload_id)).size;
+  const name = (salesTab === "all") ? "جميع المواقع" : salesLocName(salesTab);
+  const card = (num, lbl, tr) => `<div class="card kpi" data-k="d"><b><bdi dir="ltr">${num}</bdi></b><span class="kpi-lbl">${lbl}</span>${tr || ""}</div>`;
+  wrap.innerHTML = `<div class="s4-dhead"><span class="s4-ic">${salesTab === "all" ? ic("branch") : salesLocIcon(salesTab)}</span><div><b style="font-size:16px">${esc(name)}</b><div style="font-size:11px;color:var(--muted)">مبيعات مقدّرة وتحليل تفصيليّ</div></div></div>`
+    + `<div class="dash-kpis s4-dcards">`
+    + card(salesNum(a.estValue), "المبيعات المقدّرة", scTrend(a.estValue, pa.estValue))
+    + card(salesNum(a.units), "الوحدات المقدّرة", scTrend(a.units, pa.units))
+    + card(salesNum(a.moved.size), "منتج متحرّك", scTrend(a.moved.size, pa.moved.size))
+    + card(salesNum(inv), "قيمة المخزون الحالية", "")
+    + card(coverage != null ? coverage + " يوم" : "—", "أيام التغطية", "")
+    + `</div>`
+    + `<div class="s4-search"><svg class="ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" placeholder="بحث في المنتجات: كود أو اسم …" value="${esc(salesSearch)}" oninput="onSalesTblSearch(this.value)" aria-label="بحث في الجداول"></div>`
+    + `<div class="s4-3tables"></div>`;
+  salesCtx._tab = { cur, qtyBySku, priceBySku, daysCov, upCount, tabLocs };
+  renderSalesTables();
+}
+function renderSalesTables() {
+  const host = document.querySelector("#salesDetail .s4-3tables"); if (!host || !salesCtx || !salesCtx._tab) return;
+  const { cur, qtyBySku, priceBySku, daysCov, upCount, tabLocs } = salesCtx._tab;
+  const q = normText(salesSearch || ""), match = (sku, nm) => !q || normText(String(sku || "") + " " + String(nm || "")).includes(q);
+  const sMap = new Map(), lastSale = new Map();
+  for (const m of cur) { if (m.kind !== "estimated_sale") continue; const e = sMap.get(m.sku) || { sku: m.sku, name: m.sku_name || "", u: 0, v: 0 }; e.u += Math.abs(Number(m.delta) || 0); if (m.value_est != null) e.v += Number(m.value_est) || 0; if (m.sku_name && !e.name) e.name = m.sku_name; sMap.set(m.sku, e); const t = Date.parse(m.captured_at); if (!lastSale.has(m.sku) || t > lastSale.get(m.sku)) lastSale.set(m.sku, t); }
+  const sellers = salesCap([...sMap.values()].filter(x => match(x.sku, x.name)).sort((a, b) => b.v - a.v), "sellers");
+  const sellersTbl = sellers.length
+    ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th>الوحدات</th><th>القيمة</th></tr></thead><tbody>${sellers.map((x, i) => `<tr><td>${i + 1}</td><td class="nm">${esc(x.name) || "—"}</td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.u)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(x.v)}</bdi></td></tr>`).join("")}</tbody></table>`
+    : `<div class="s4-gate">لا مبيعات مقدّرة في هذه الفترة.</div>`;
+  const gate = daysCov < S4_STAGNANT_MIN_DAYS;
+  const gateMsg = `<div class="s4-gate">التاريخ غير كافٍ للحكم — يلزم ${S4_STAGNANT_MIN_DAYS} يوماً من الرصد.<br>المرصود: ${upCount} رفعة · ${Math.round(daysCov * 10) / 10} يوم</div>`;
+  let rakaTbl = gateMsg, nafadTbl = gateMsg;
+  if (!gate) {
+    const now = Date.now();
+    const otherStatus = sku => { const others = salesCtx.locsAll.filter(l => !tabLocs.includes(l)); if (!others.length) return "—"; const sold = salesCtx.movs.some(m => m.kind === "estimated_sale" && m.sku === sku && others.includes(m.location) && Date.parse(m.captured_at) >= salesCtx.curSince); return sold ? "سريع في موقع آخر" : "راكد/غائب"; };
+    const raka = [...qtyBySku.entries()].map(([sku, qty]) => { const ls = lastSale.get(sku), days = ls ? Math.round((now - ls) / 86400000) : null, nm = (sMap.get(sku) || {}).name || "", pr = priceBySku.get(sku); return { sku, name: nm, qty, days, val: pr != null ? qty * pr : null }; })
+      .filter(x => x.qty > 0 && (x.days == null || x.days >= S4_NOSALE_DAYS) && match(x.sku, x.name)).sort((a, b) => (b.days || 99999) - (a.days || 99999));
+    const rakaTop = salesCap(raka, "raka");
+    rakaTbl = rakaTop.length
+      ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th>الكمية</th><th>آخر حركة</th><th>القيمة</th><th>في المواقع الأخرى</th></tr></thead><tbody>${rakaTop.map((x, i) => `<tr><td>${i + 1}</td><td class="nm">${esc(x.name) || "—"}</td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.days == null ? "لا بيع" : "منذ " + x.days + " يوم"}</td><td class="n"><bdi dir="ltr">${x.val == null ? "—" : salesNum(x.val)}</bdi></td><td>${esc(otherStatus(x.sku))}</td></tr>`).join("")}</tbody></table>`
+      : `<div class="s4-gate">لا أصناف راكدة في هذا الموقع.</div>`;
+    const nafadAll = [...qtyBySku.entries()].map(([sku, qty]) => { const s = sMap.get(sku), sold = s ? s.u : 0, dr = daysCov > 0 ? sold / daysCov : 0, cov = dr > 0 ? Math.round(qty / dr) : null; return { sku, name: (s || {}).name || "", qty, cov }; })
+      .filter(x => x.qty > 0 && x.cov != null && x.cov < S4_NAFAD_DAYS && match(x.sku, x.name)).sort((a, b) => a.cov - b.cov);
+    const nafad = salesCap(nafadAll, "nafad");
+    nafadTbl = nafad.length
+      ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th>الكمية</th><th>أيام التغطية</th></tr></thead><tbody>${nafad.map((x, i) => `<tr><td>${i + 1}</td><td class="nm">${esc(x.name) || "—"}</td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.cov} يوم</td></tr>`).join("")}</tbody></table>`
+      : `<div class="s4-gate">لا مخاطر نفاد قريبة.</div>`;
+  }
+  const cardT = (icon, title, inner, key, gated) => `<div class="card s4-tbl"><div class="s4-tbl-head"><h3><span class="s4-ti">${icon}</span>${title}</h3>${gated ? "" : `<span class="all-lnk" onclick="salesToggleAll('${key}')">${salesShowAll[key] ? "عرض أقل" : "عرض الكل"}</span>`}</div><div class="twrap">${inner}</div></div>`;
+  host.innerHTML = cardT(ic("spark"), "أكثر 10 منتجات مبيعاً", sellersTbl, "sellers", false) + cardT(ic("inbox"), "أكثر 10 منتجات راكدة", rakaTbl, "raka", gate) + cardT(ic("hourglass"), "مخاطر النفاد (أقل من 30 يوماً)", nafadTbl, "nafad", gate);
+}
 async function renderSalesPage() {
   renderSalesFilters(); renderSalesUser(); salesSetDateLabel();
   const body = document.getElementById("salesBody"), empty = document.getElementById("salesEmpty"), lu = document.getElementById("salesLastUp");
@@ -3080,6 +3176,11 @@ async function renderSalesPage() {
     const susCount = ups.filter(u => u.suspect === true).length;
     if (susCount) notes.push(`<span class="sales-note bad">رفعات مشبوهة مستبعَدة من الإجماليّ: ${susCount} — <a onclick="salesShowSuspect()">راجعها</a></span>`);
     document.getElementById("salesNotes").innerHTML = notes.join("");
+    // §ب-٢ب-٢ب: تبويب الموقع ＋ تفصيله ＋ الجداول الثلاثة
+    const latest = new Map(); for (const u of ups) { const t = Date.parse(u.captured_at); if (Number.isFinite(t) && (!latest.has(u.location) || t > latest.get(u.location))) latest.set(u.location, t); }
+    if (!locsAll.includes(salesTab)) salesTab = "all";   // فرع حُذف ⇒ ارجع لـ«الكل»
+    salesCtx = { movs, stock, curSince, prevSince, locsAll, latest };
+    renderSalesDetail();
   } catch (e) { if (empty) { empty.style.display = "block"; empty.textContent = "تعذّر تحميل شاشة المبيعات: " + esc(e.message || String(e)); } if (body) body.style.display = "none"; }
 }
 // KPI اللوحة «أين أنا الآن» — كلها من مصادر حيّة، وتُظهر «—» قبل توفّر مصدرها (لا رقم ملفَّق قبل المطابقة)

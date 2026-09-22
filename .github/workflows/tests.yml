@@ -186,6 +186,10 @@ jobs:
         run: node tests/perf/sales-core.mjs --broken
       - name: G-SALES-CORE — نواة لوحة المبيعات (القيمة من البيع المقدّر · المشبوهة مستبعَدة · الفارغة رسالة)
         run: node tests/perf/sales-core.mjs
+      - name: Self-check — حارس تفصيل المبيعات يرسب بإلغاء بوّابة «التاريخ غير كافٍ»
+        run: node tests/perf/sales-detail.mjs --broken
+      - name: G-SALES-DETAIL — تبويب + الأكثر مبيعاً + الراكد/النفاد مبوّبان بالتاريخ غير الكافٍ + البحث
+        run: node tests/perf/sales-detail.mjs
       - name: Self-check — حارس عزل الأدوار يرسب بإظهار المبيعات لـadmin
         run: node tests/perf/role-sales.mjs --broken
       - name: G-ROLE-SALES — عزل شاشة المبيعات بالدور (واجهة + بنية SQL؛ admin بلا شاشة · marketing عليها فقط)

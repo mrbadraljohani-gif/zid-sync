@@ -1,0 +1,74 @@
+// ============================================================================
+// G-SALES-DETAIL — النصف السفليّ design-4 (القيمة، لا الشكل):
+//   ① تبويب المواقع (جميع + المواقع). ② «الأكثر مبيعاً» يعمل: أعلى صفّ = أعلى قيمة (500).
+//   ③ الراكد ＋ مخاطر النفاد **مبوّبان بـ«التاريخ غير كافٍ»** ما دام daysCovered<14 (المرصود: N رفعة · X يوم).
+//   ④ البحث يفلتر الجداول (يبقى «الأكثر مبيعاً» يعمل ببيانات رفعتين).
+// --broken: يُلغي بوّابة «التاريخ غير كافٍ» (gate=false) ⇒ الراكد يعرض جدولاً بلا رصد كافٍ ⇒ يرسب.
+// ============================================================================
+import { readFileSync, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import puppeteer from "puppeteer-core";
+const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const BROKEN = process.argv.includes("--broken");
+let html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
+if (BROKEN) {
+  const A = "const gate = daysCov < S4_STAGNANT_MIN_DAYS;";
+  if (!html.includes(A)) { console.error("✗ (--broken) لم أجد بوّابة التاريخ"); process.exit(2); }
+  html = html.replace(A, "const gate = false;");
+}
+function findChrome(){const c=["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",process.env.CHROME_PATH||"","/usr/bin/google-chrome-stable","/usr/bin/google-chrome"];for(const x of c)if(x&&existsSync(x))return x;for(const n of ["google-chrome-stable","google-chrome","chromium"])try{return execFileSync("bash",["-lc","command -v "+n]).toString().trim();}catch{}return"";}
+const b = await puppeteer.launch({ executablePath: findChrome(), headless: "new", args: ["--no-sandbox"] });
+const p = await b.newPage();
+const errs = []; p.on("pageerror", e => errs.push(String(e)));
+await p.setRequestInterception(true); p.on("request", r => { const u = r.url(); if (u.startsWith("data:") || u.startsWith("about:")) return r.continue(); if (/^https?:/.test(u)) return r.abort(); r.continue(); });
+await p.setContent(html, { waitUntil: "load" });
+const res = await p.evaluate(async () => {
+  dbOnline = true; myRole = "owner"; authSession = { user: { email: "o@x.sa" } };
+  invBranches = [{ id: "az", name: "فرع العزيزية" }];
+  salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
+  const now = new Date().toISOString();
+  const movs = [
+    { kind: "estimated_sale", delta: -5, value_est: 500, location: "wh", sku: "A1", sku_name: "طقم مفارش", upload_id: "U", captured_at: now, period_days: 2 },
+    { kind: "estimated_sale", delta: -3, value_est: 300, location: "wh", sku: "B2", sku_name: "مقلاة", upload_id: "U", captured_at: now, period_days: 2 },
+    { kind: "purchase", delta: 4, location: "az", sku: "C3", sku_name: "لحاف", upload_id: "U", captured_at: now, period_days: 2 },
+  ];
+  const stock = [{ location: "wh", sku: "A1", name: "طقم مفارش", qty: 40, price_incl: 100 }, { location: "wh", sku: "B2", name: "مقلاة", qty: 12, price_incl: 80 }];
+  db.sales = { uploads: async () => [{ id: "U", location: "wh", captured_at: now, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
+  sb = { from: () => ({ select: () => ({ range: async (a) => ({ data: (a === 0 ? stock : []), error: null }) }) }) };
+  try { goPage("home"); } catch (e) {}
+  const r = document.getElementById("result"); if (r) r.style.display = "block";
+  const blk = document.getElementById("unBlock"); if (blk) blk.style.display = "block";
+  currentFilter = "unmatched"; activeCard = "unmatched";
+  document.getElementById("page-sales").classList.add("active");
+  await renderSalesPage();
+  const txt = el => (el ? (el.textContent || "").replace(/\s+/g, " ").trim() : "");
+  const tabCount = document.querySelectorAll("#salesTabs .s4-tab").length;
+  const tbls = document.querySelectorAll("#salesDetail .s4-3tables .s4-tbl");
+  const firstSellerVal = (document.querySelector("#salesDetail .s4-3tables .s4-tbl table tbody tr td.n:last-child bdi") || {}).textContent || "";
+  const gates = [...document.querySelectorAll("#salesDetail .s4-gate")].map(txt);
+  // ④ البحث
+  onSalesTblSearch("مقلاة");
+  const afterSearchRows = document.querySelectorAll("#salesDetail .s4-3tables .s4-tbl table tbody tr").length;
+  const afterSearchTxt = txt(document.querySelector("#salesDetail .s4-3tables .s4-tbl table tbody tr"));
+  return { tabCount, tblCount: tbls.length, firstSellerVal, gates, afterSearchRows, afterSearchTxt };
+});
+await b.close();
+const fails = [];
+if (errs.length) fails.push("أخطاء JS: " + errs.join(" | "));
+if (res.tabCount < 2) fails.push(`تبويب المواقع: توقّعت ≥2، وجدت ${res.tabCount}`);
+if (res.tblCount !== 3) fails.push(`الجداول الثلاثة: وجدت ${res.tblCount}`);
+if (res.firstSellerVal.replace(/[^\d]/g, "") !== "500") fails.push(`«الأكثر مبيعاً» أعلى صفّ ليس 500: «${res.firstSellerVal}»`);
+if (!BROKEN) {
+  const gated = res.gates.filter(g => /التاريخ غير كافٍ/.test(g));
+  if (gated.length !== 2) fails.push(`بوّابة «التاريخ غير كافٍ»: توقّعت 2 (راكد ＋ نفاد)، وجدت ${gated.length}`);
+  if (!res.gates.some(g => /المرصود/.test(g) && /رفعة/.test(g))) fails.push("رسالة البوّابة بلا «المرصود: N رفعة · X يوم»");
+  if (res.afterSearchRows !== 1 || !/مقلاة/.test(res.afterSearchTxt)) fails.push(`البحث لم يفلتر «الأكثر مبيعاً» إلى «مقلاة» وحدها (صفوف=${res.afterSearchRows})`);
+}
+if (BROKEN) {
+  if (fails.length || res.gates.filter(g => /التاريخ غير كافٍ/.test(g)).length < 2) { console.log("✅ (--broken) G-SALES-DETAIL مسك العطل (بلا بوّابة التاريخ)"); process.exit(0); }
+  console.error("✗ (--broken) لم يرسب بعد إلغاء البوّابة — لا أسنان."); process.exit(1);
+}
+if (fails.length) { console.error("✗ G-SALES-DETAIL:\n  " + fails.join("\n  ")); process.exit(1); }
+console.log("✅ G-SALES-DETAIL: تبويب ＋ «الأكثر مبيعاً» (أعلى=500) ＋ الراكد/النفاد مبوّبان «التاريخ غير كافٍ» (المرصود رفعة · يوم) ＋ البحث يفلتر.");
