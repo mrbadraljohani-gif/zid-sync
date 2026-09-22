@@ -186,6 +186,10 @@ jobs:
         run: node tests/perf/sales-core.mjs --broken
       - name: G-SALES-CORE — نواة لوحة المبيعات (القيمة من البيع المقدّر · المشبوهة مستبعَدة · الفارغة رسالة)
         run: node tests/perf/sales-core.mjs
+      - name: Self-check — حارس عزل الأدوار يرسب بإظهار المبيعات لـadmin
+        run: node tests/perf/role-sales.mjs --broken
+      - name: G-ROLE-SALES — عزل شاشة المبيعات بالدور (واجهة + بنية SQL؛ admin بلا شاشة · marketing عليها فقط)
+        run: node tests/perf/role-sales.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)

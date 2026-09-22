@@ -1102,6 +1102,8 @@
   .kpi[data-k="smoved"] .kpi-ic { color: var(--gold-2); } .kpi[data-k="sinv"] .kpi-ic { color: var(--muted); }
   .sales-region { margin-top: 14px; }
   .sales-region .section-head { margin-bottom: 12px; }
+  .su-roledesc { margin: 10px 0 0; padding: 0 0 0 2px; list-style: none; font-size: 12px; color: var(--muted); line-height: 1.9; }
+  .su-roledesc b { color: var(--text); }
   .exp-chip.zero-btn { margin-inline-start: auto; border-color: color-mix(in srgb, var(--info) 60%, transparent); color: var(--info); background: color-mix(in srgb, var(--info) 8%, transparent); }
   .exp-chip.zero-btn:hover { border-color: var(--info); }
   .un-note { margin-inline-start: auto; font-size: 11px; font-weight: 700; color: var(--muted-2); cursor: help; }
@@ -1313,7 +1315,7 @@
     <nav class="side-nav" id="sidebar" aria-label="التنقّل الرئيسي">
       <button type="button" class="side-link active" aria-current="page" data-page="home" onclick="goPage('home')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.5 20v-6h5v6"/></svg></span><span class="sl">الرئيسية</span></button>
       <button type="button" class="side-link" data-page="inventory" onclick="goPage('inventory')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5"/><path d="M12 12v9"/></svg></span><span class="sl">المخزون</span></button>
-      <button type="button" class="side-link" data-page="sales" onclick="goPage('sales')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><span class="sl">المبيعات المقدّرة</span></button>
+      <button type="button" class="side-link" data-page="sales" onclick="goPage('sales')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><span class="sl">شاشة عرض المبيعات</span></button>
       <button type="button" class="side-link" data-page="db" onclick="goPage('db')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14-4.5L4 9"/><path d="M4 5v4h4"/><path d="M4 13a8 8 0 0 0 14 4.5L20 15"/><path d="M20 19v-4h-4"/></svg></span><span class="sl">تحديث قاعدة البيانات</span></button>
       <button type="button" class="side-link" data-page="options" onclick="goPage('options')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 8 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H2a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 3.6 8a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H8a1.6 1.6 0 0 0 1-1.5V2a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V8a1.6 1.6 0 0 0 1.5 1H22a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg></span><span class="sl">الخيارات</span></button>
       <button type="button" class="side-link" data-page="newuser" onclick="goPage('newuser')"><span class="si"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="sl">مستخدم جديد</span></button>
@@ -1638,7 +1640,7 @@
 
   <!-- ============ الصفحة: لوحة المبيعات المقدّرة (عرض فقط — مصادرها المخزون وحده) ============ -->
   <section class="page" id="page-sales">
-    <div class="page-head"><span class="ph-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><div class="ph-txt"><h2>لوحة المبيعات المقدّرة</h2><p>مقارنة رفعة اليوم برفعة أمس لكل موقع — النقص بيعٌ مقدّر (تقدير من المخزون، لا مبيعات فعلية)</p></div></div>
+    <div class="page-head"><span class="ph-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><div class="ph-txt"><h2>شاشة عرض المبيعات</h2><p>مبيعات مقدّرة — مقارنة رفعة اليوم برفعة أمس لكل موقع (النقص بيعٌ مقدّر، تقدير من المخزون لا مبيعات فعلية)</p></div></div>
     <div class="sales-lastup" id="salesLastUp">—</div>
     <div class="sales-filters">
       <div class="exp-grp"><span class="exp-grp-lbl">الفترة</span><span id="salesPeriodChips"></span></div>
@@ -1671,10 +1673,16 @@
       </div>
       <div class="login-field"><label id="suRoleLbl">الصلاحية</label>
         <span class="seg su-seg" role="radiogroup" aria-labelledby="suRoleLbl">
-          <button type="button" role="radio" aria-checked="true" class="chip on" data-role="admin" onclick="pickSignupRole(this)">مشرف (كامل عدا الروابط)</button>
-          <button type="button" role="radio" aria-checked="false" class="chip" data-role="viewer" onclick="pickSignupRole(this)">مشاهد (قراءة فقط)</button>
+          <button type="button" role="radio" aria-checked="true" class="chip on" data-role="admin" onclick="pickSignupRole(this)">مشرف</button>
+          <button type="button" role="radio" aria-checked="false" class="chip" data-role="marketing" onclick="pickSignupRole(this)">تسويق</button>
+          <button type="button" role="radio" aria-checked="false" class="chip" data-role="viewer" onclick="pickSignupRole(this)">مشاهد</button>
         </span>
       </div>
+      <ul class="su-roledesc" aria-hidden="true">
+        <li><b>مشرف:</b> يرفع الملفات ويطابق ويصدّر — لا يرى «شاشة عرض المبيعات».</li>
+        <li><b>تسويق:</b> «شاشة عرض المبيعات» فقط (قراءة) — لا يصل بقيّة الموقع.</li>
+        <li><b>مشاهد:</b> قراءة عامة — لا كتابة.</li>
+      </ul>
       <button type="submit" class="btn-run" id="suBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> إنشاء الحساب</button>
       <div id="suMsg" class="login-err" role="alert"></div>
       <p class="hint" style="margin-top:14px;line-height:1.7"><svg class="ico inline ico-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.8" r=".9" fill="currentColor" stroke="none"/></svg> كتابة الروابط صلاحية <b>المالك</b> وحده. قد يتطلب النظام تأكيد البريد قبل أول دخول (حسب إعدادات Supabase)، ولن تتأثر جلستك الحالية. لإدارة كاملة للمستخدمين استخدم لوحة <b>Supabase → Authentication</b>.</p>
@@ -1747,7 +1755,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "d64712c";
+const APP_VERSION = "7a2755f";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2425,10 +2433,12 @@ function userKey(e) {
 // ===== أدوار المستخدمين =====
 let myRole = null;          // 'owner' | 'admin' | 'viewer' | null (غير محمّل)
 let signupRole = "admin";   // الدور المختار في صفحة «مستخدم جديد»
-function roleLabel(r) { return r === "owner" ? "المالك" : r === "admin" ? "مشرف" : r === "viewer" ? "مشاهد" : "—"; }
+function roleLabel(r) { return r === "owner" ? "المالك" : r === "admin" ? "مشرف" : r === "marketing" ? "تسويق" : r === "viewer" ? "مشاهد" : "—"; }
 function isOwner() { return myRole === "owner"; }
+function canSeeSales() { return myRole === "owner" || myRole === "marketing"; }   // شاشة عرض المبيعات: owner+marketing (admin/viewer محجوبان — RLS يعيد 0)
 // منع الربط في الواجهة لغير المالك (RLS هو الحاجز الحقيقي؛ null=غير محمّل ⇒ نترك القاعدة تقرّر)
-function linkForbidden() { return myRole === "admin" || myRole === "viewer"; }
+// استثنِ المسموح لا تعدّد الممنوع: أيّ دور محمَّل غير المالك ممنوع من الربط (لا يتسرّب دور جديد)
+function linkForbidden() { return myRole != null && myRole !== "owner"; }
 async function loadMyRole() {
   if (!(sb && authSession)) { myRole = null; applyRoleUI(); return; }
   try { myRole = await db.roles.mine(); } catch (e) { console.warn("role load:", e); myRole = null; }
@@ -2436,10 +2446,21 @@ async function loadMyRole() {
 }
 // تجميل الواجهة حسب الدور (الأمان الحقيقي في RLS): إخفاء «مستخدم جديد» لغير المالك ＋ قفل أزرار الربط
 function applyRoleUI() {
-  const owner = isOwner();
+  const owner = isOwner(), mkt = myRole === "marketing";
   document.body.classList.toggle("nonowner", myRole != null && !owner);
-  const nu = document.querySelector('.side-link[data-page="newuser"]'); if (nu) nu.style.display = owner ? "" : "none";
-  if (!owner) { const p = document.getElementById("page-newuser"); if (p && p.classList.contains("active")) goPage("home"); }
+  // رؤية الروابط لكل دور: marketing = المبيعات فقط · admin/viewer = الكل عدا المبيعات ومستخدم جديد · owner = الكل
+  document.querySelectorAll(".side-link").forEach(a => {
+    const pg = a.dataset.page;
+    let show;
+    if (pg === "sales") show = canSeeSales();
+    else if (pg === "newuser") show = owner;
+    else show = !mkt;                         // marketing لا يرى بقيّة الموقع
+    a.style.display = show ? "" : "none";
+  });
+  // إن كان في صفحة صارت ممنوعة عليه، حوّله (marketing⇒المبيعات · admin/viewer خارج المبيعات ومستخدم جديد)
+  const cur = document.querySelector(".page.active"), curId = cur ? cur.id.replace("page-", "") : "";
+  if (mkt && curId !== "sales") goPage("sales");
+  else if (!owner && (curId === "newuser" || (curId === "sales" && !canSeeSales()))) goPage("home");
   const rb = document.getElementById("roleBadge"); if (rb) rb.textContent = myRole ? ("👤 " + roleLabel(myRole)) : "";
 }
 function pickSignupRole(btn) {
@@ -2470,6 +2491,8 @@ const PAGE_HASH = { home: "home", inventory: "inventory", sales: "sales", db: "d
 const HASH_PAGE = { home: "home", inventory: "inventory", sales: "sales", "db-update": "db", options: "options", account: "inventory", "new-user": "newuser" };   // #account القديم ⇒ المخزون (روابط محفوظة)
 function goPage(id, fromHash) {
   if (id === "newuser" && !isOwner()) { if (!fromHash) showToast("🔒 صفحة إنشاء المستخدمين للمالك فقط."); return; }   // حماية إضافية (الرابط مخفي أصلاً)
+  if (id === "sales" && !canSeeSales()) { if (!fromHash) showToast("🔒 شاشة عرض المبيعات لغير المصرّح."); return; }   // admin/viewer محجوبان (RLS يعيد 0 أيضاً)
+  if (myRole === "marketing" && id !== "sales") { return goPage("sales", fromHash); }   // تسويق: شاشة المبيعات فقط
   const cur = document.querySelector(".page.active");
   const changed = !cur || cur.id !== "page-" + id;   // هل تغيّرت الصفحة فعلاً؟ (يحكم التمرير للأعلى في آخر الدالّة)
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + id));
@@ -2763,10 +2786,15 @@ function renderSalesLastUp(ups) {
 }
 // قيمة المخزون الحالية = Σ (الكمية × السعر الشامل) من جداول المخزون (قراءة مستقلّة — لا تمسّ المطابقة)
 async function salesInventoryValue(loc) {
+  // من العرض sales_stock (لا الجداول الأساس) — فيعمل لـmarketing (محجوب عن المخزون) وأوowner معاً؛ مُصفّح
   try {
-    let sum = 0; const add = rows => { for (const r of rows) { const q = numOrNull(r.qty), p = numOrNull(r.price_incl); if (q != null && p != null) sum += q * p; } };
-    if (loc === "wh" || loc === "all") add(await db.inventory.getAll("warehouse_items"));
-    if (loc !== "wh") { const br = await db.inventory.getAll("branch_items"); add(loc === "all" ? br : br.filter(r => r.branch_id === loc)); }
+    let sum = 0, from = 0; const page = 1000;
+    for (;;) {
+      const { data, error } = await sb.from("sales_stock").select("location,qty,price_incl").range(from, from + page - 1);
+      if (error) throw error;
+      for (const r of data || []) { if (loc !== "all" && r.location !== loc) continue; const q = numOrNull(r.qty), p = numOrNull(r.price_incl); if (q != null && p != null) sum += q * p; }
+      if (!data || data.length < page) break; from += page;
+    }
     return sum;
   } catch (e) { console.warn("salesInventoryValue:", e); return null; }
 }
@@ -2869,7 +2897,7 @@ async function doSignup() {
   if (!email || !p1) { fail("أدخل البريد وكلمة المرور."); return; }
   if (p1.length < 6) { fail("كلمة المرور 6 أحرف على الأقل."); return; }
   if (p1 !== p2) { fail("كلمتا المرور غير متطابقتين."); return; }
-  const role = (signupRole === "viewer") ? "viewer" : "admin";   // لا owner من الواجهة إطلاقاً
+  const role = ["admin", "viewer", "marketing"].includes(signupRole) ? signupRole : "admin";   // قائمة مسموح صريحة (لا owner من الواجهة؛ ولا يتسرّب دور مجهول)
   btn.disabled = true; btn.setAttribute("aria-busy", "true"); btn.textContent = "⏳ جارٍ الإنشاء…"; setLoginMsg(msg, "");
   try {
     const { data: cur } = await sb.auth.getSession();

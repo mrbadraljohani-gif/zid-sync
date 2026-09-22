@@ -35,8 +35,8 @@ const res = await p.evaluate(async () => {
   ];
   const a = salesAgg(movs);
   // ② render: استبعاد المشبوهة + الحالة الفارغة
-  dbOnline = true; sb = {}; invBranches = []; salesPeriod = "all"; salesLoc = "all";
-  db.inventory = Object.assign({}, db.inventory, { getAll: async () => [] });
+  dbOnline = true; invBranches = []; salesPeriod = "all"; salesLoc = "all";
+  sb = { from: () => ({ select: () => ({ range: async () => ({ data: [], error: null }) }) }) };   // sales_stock فارغ (قيمة المخزون = 0/—)
   db.sales = {
     uploads: async () => [{ id: "U1", location: "wh", captured_at: new Date().toISOString(), suspect: false }, { id: "U2", location: "wh", captured_at: new Date().toISOString(), suspect: true }],
     movements: async () => [
