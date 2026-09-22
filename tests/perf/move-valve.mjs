@@ -1,10 +1,9 @@
 // ============================================================================
-// G-VALVE-MOVE — صمّام الرفعة الشاذّة (لوحة المبيعات): يوقف **التسجيل** لا الرفعة.
-//   العتبة 8% ＋ أرضية 10 (مقيستان من بيانات المستخدم). يُطلق confirm فوقهما فقط.
-//   يُطلق: (10/100=10%) · (150/1000=15%) · (481/3200≈15%)
-//   يمرّ بلا confirm: (2/100 دون الأرضية) · (9/100 دون الأرضية) · (12/1000=1.2% فوق الأرضية دون العتبة) · (73/3339=2.1% طبيعي)
-//   والعزل: recordMovements عند فشل الصمّام يُدرج رأس الرفعة فقط لا الحركات؛ والرفع (bulkUpsert) قبله مستقلّ.
-// --broken: يرفع العتبة إلى 60% ⇒ 15% لا يُطلق confirm ⇒ يرسب.
+// G-VALVE-MOVE — صمّام الرفعة الشاذّة (لوحة المبيعات): يوقف/يوسم **التسجيل** لا الرفعة.
+//   moveIsAnomaly (نقيّ): 8%＋أرضية 10 ⇒ يُطلق: 10/100·150/1000·481/3200 · يمرّ: 2/100·9/100 (أرضية)·12/1000·73/3339.
+//   recordMovements عند الشذوذ: «موافق» ⇒ **يسجّل الحركات ويوسم الرفعة suspect=true** (لا تخطٍّ — لا فقد) ·
+//     «إلغاء» ⇒ تخطٍّ نهائيّ (رأس فقط بملاحظة، بلا حركات).
+// --broken: يرفع العتبة إلى 60% ⇒ 150/1000 (15%) لا يُعدّ شاذّاً ⇒ يرسب.
 // ============================================================================
 import { readFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -24,32 +23,41 @@ const b = await puppeteer.launch({ executablePath: findChrome(), headless: "new"
 const p = await b.newPage();
 await p.setRequestInterception(true); p.on("request", r => { const u = r.url(); if (u.startsWith("data:") || u.startsWith("about:")) return r.continue(); if (/^https?:/.test(u)) return r.abort(); r.continue(); });
 await p.setContent(html, { waitUntil: "load" });
-const res = await p.evaluate(() => {
-  const calls = [];
-  window.confirm = (msg) => { calls.push(msg); return true; };   // نرصد الاستدعاء (المتابعة true لا تهمّ — المهمّ: هل سأل؟)
-  const trial = (dis, prev) => { const before = calls.length; const ok = moveValveOk(dis, prev); return { asked: calls.length > before, ok }; };
-  return {
-    stop10:  trial(10, 100),     // 10% ≥ 8 · فوق الأرضية ⇒ يسأل
-    stop15:  trial(150, 1000),   // 15% ⇒ يسأل
-    stop481: trial(481, 3200),   // ≈15% ⇒ يسأل
-    pass2:   trial(2, 100),      // دون الأرضية (2<10) ⇒ لا يسأل
-    pass9:   trial(9, 100),      // دون الأرضية (9<10) ⇒ لا يسأل
-    pass12:  trial(12, 1000),    // 1.2% فوق الأرضية دون العتبة ⇒ لا يسأل
-    pass73:  trial(73, 3339),    // 2.1% طبيعي ⇒ لا يسأل
-    msg: calls[0] || "",
-  };
+const res = await p.evaluate(async () => {
+  // ① نقيّ
+  const A = (d, pr) => moveIsAnomaly(d, pr);
+  const anom = { stop10: A(10, 100), stop15: A(150, 1000), stop481: A(481, 3200), pass2: A(2, 100), pass9: A(9, 100), pass12: A(12, 1000), pass73: A(73, 3339) };
+  // ② تكامل: رفعة شاذّة (20 اختفاء من 20 = 100%) — «موافق» يسجّل ويوسم · «إلغاء» يتخطّى
+  dbOnline = true;
+  const cap = { uploads: [], movements: [] };
+  sb = { from: t => ({ insert: async row => { (t === "sales_uploads" ? cap.uploads : cap.movements).push(row); return { error: null }; } }) };
+  const existMap = new Map(); for (let i = 0; i < 20; i++) existMap.set("C" + i, { qty: 5, price_incl: 100, name: "x" });
+  const rows = [];   // كلها اختفت ⇒ 100% شاذّ
+  window.confirm = () => true;
+  cap.uploads = []; cap.movements = [];
+  await recordMovements("U-OK", "wh", existMap, rows, null, "f.xlsx", null);
+  const okUp = cap.uploads[0] || {}, okMovs = cap.movements.length;
+  window.confirm = () => false;
+  cap.uploads = []; cap.movements = [];
+  await recordMovements("U-NO", "wh", existMap, rows, null, "f.xlsx", null);
+  const noUp = cap.uploads[0] || {}, noMovs = cap.movements.length;
+  return { anom, okSuspect: okUp.suspect, okMovs, noSuspect: noUp.suspect, noMovs, noNote: noUp.note || "" };
 });
 await b.close();
 const fails = [];
-const mustStop = { stop10: res.stop10, stop15: res.stop15, stop481: res.stop481 };
-const mustPass = { pass2: res.pass2, pass9: res.pass9, pass12: res.pass12, pass73: res.pass73 };
-for (const [k, v] of Object.entries(mustStop)) if (!v.asked) fails.push(`${k}: كان يجب أن يُطلق confirm (اختفاء شاذّ) فلم يفعل`);
-for (const [k, v] of Object.entries(mustPass)) if (v.asked) fails.push(`${k}: أطلق confirm على رفعة طبيعية (إنذار كاذب)`);
-// النصّ يقول ماذا/لماذا/ما العمل بالأرقام
-if (!BROKEN && res.stop15.asked && !(/\d+ اختفاء/.test(res.msg) && /%/.test(res.msg) && /سجلّ المبيعات/.test(res.msg))) fails.push("نصّ الصمّام لا يذكر العدد/النسبة/أنه يخصّ سجلّ المبيعات");
+const a = res.anom;
+for (const k of ["stop10", "stop15", "stop481"]) if (!a[k]) fails.push(`${k}: كان يجب أن يُعدّ شاذّاً`);
+for (const k of ["pass2", "pass9", "pass12", "pass73"]) if (a[k]) fails.push(`${k}: عُدّ شاذّاً (إنذار كاذب)`);
+if (!BROKEN) {
+  if (res.okSuspect !== true) fails.push("«موافق» لم يوسم الرفعة suspect=true");
+  if (!(res.okMovs > 0)) fails.push("«موافق» لم يسجّل الحركات (فقدها بدل وسمها)");
+  if (res.noSuspect === true) fails.push("«إلغاء» وسم suspect (يجب تخطٍّ لا وسم)");
+  if (res.noMovs !== 0) fails.push("«إلغاء» سجّل حركات (يجب تخطّيها)");
+  if (!/تُخطّي/.test(res.noNote)) fails.push("«إلغاء» بلا ملاحظة تخطٍّ في رأس الرفعة");
+}
 if (BROKEN) {
   if (fails.length) { console.log("✅ (--broken) G-VALVE-MOVE مسك العطل: " + fails[0]); process.exit(0); }
   console.error("✗ (--broken) لم يرسب بعد رفع العتبة — لا أسنان."); process.exit(1);
 }
 if (fails.length) { console.error("✗ G-VALVE-MOVE:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ G-VALVE-MOVE: 8%＋أرضية 10 — يوقف التسجيل عند الشذوذ (10%/15%) ويمرّ الطبيعي (2.1%/دون الأرضية)، بنصّ بالأرقام.");
+console.log("✅ G-VALVE-MOVE: 8%＋أرضية 10 — الشاذّ «موافق» يسجّل ويوسم suspect (لا فقد) · «إلغاء» يتخطّى · الطبيعي يمرّ.");

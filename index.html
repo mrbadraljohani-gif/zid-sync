@@ -1104,6 +1104,10 @@
   .sales-region .section-head { margin-bottom: 12px; }
   .su-roledesc { margin: 10px 0 0; padding: 0 0 0 2px; list-style: none; font-size: 12px; color: var(--muted); line-height: 1.9; }
   .su-roledesc b { color: var(--text); }
+  #salesSuspectBox { margin: 4px 0 14px; }
+  .susp-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 9px 2px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+  .susp-row .mono { color: var(--text); }
+  .susp-note { font-size: 11.5px; color: var(--muted-2); }
   .exp-chip.zero-btn { margin-inline-start: auto; border-color: color-mix(in srgb, var(--info) 60%, transparent); color: var(--info); background: color-mix(in srgb, var(--info) 8%, transparent); }
   .exp-chip.zero-btn:hover { border-color: var(--info); }
   .un-note { margin-inline-start: auto; font-size: 11px; font-weight: 700; color: var(--muted-2); cursor: help; }
@@ -1650,6 +1654,7 @@
     <div id="salesBody" style="display:none">
       <div class="dash-kpis" id="salesKpis"></div>
       <div class="sales-notes" id="salesNotes"></div>
+      <div id="salesSuspectBox" style="display:none"></div>
       <div class="card sales-region"><div class="section-head"><h2>المبيعات المقدّرة حسب الموقع</h2></div><div class="twrap" id="salesByLoc"></div></div>
     </div>
   </section>
@@ -1755,7 +1760,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "7a2755f";
+const APP_VERSION = "0fe6ab6";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -1997,10 +2002,11 @@ const db = {
 };
 // لوحة المبيعات المقدّرة — قراءة فقط من sales_movements/sales_uploads (فلترة على القاعدة عبر الفهارس الأربعة)
 db.sales = {
-  async uploads() {   // رؤوس الرفعات (قليلة) — للطابع الأخير لكل موقع ＋ المشبوهة. select * تسامحاً مع عمود suspect قبل الـALTER
+  async uploads() {   // رؤوس الرفعات (قليلة) — للطابع الأخير لكل موقع ＋ المشبوهة
     const { data, error } = await sb.from("sales_uploads").select("*").order("captured_at", { ascending: false }).limit(3000);
     if (error) throw error; return data || [];
   },
+  async clearSuspect(id) { const { error } = await sb.from("sales_uploads").update({ suspect: false }).eq("id", id); if (error) throw error; },   // رفع الوسم — RLS: UPDATE للمالك فقط
   async movements(location, sinceIso) {   // مُصفّاة على القاعدة (location, captured_at) ثم مُصفّحة
     const out = [], page = 1000; let from = 0;
     for (;;) {
@@ -2799,11 +2805,24 @@ async function salesInventoryValue(loc) {
   } catch (e) { console.warn("salesInventoryValue:", e); return null; }
 }
 async function salesShowSuspect() {
+  const box = document.getElementById("salesSuspectBox"); if (!box) return;
+  if (box.style.display !== "none") { box.style.display = "none"; return; }   // تبديل
+  box.style.display = "block";
   try {
     const ups = (await db.sales.uploads()).filter(u => u.suspect === true);
-    if (!ups.length) { showToast("لا رفعات مشبوهة."); return; }
-    alert("رفعات مشبوهة (مستبعَدة من الإجماليّ حتى المراجعة):\n\n" + ups.map(u => `• ${salesLocName(u.location)} · ${ageText(Date.parse(u.captured_at))} · ${u.note || ""}`).join("\n"));
-  } catch (e) { showToast("تعذّر جلب الرفعات المشبوهة."); }
+    if (!ups.length) { box.innerHTML = `<div class="stc-empty">لا رفعات مشبوهة.</div>`; return; }
+    const own = isOwner();
+    box.innerHTML = `<div class="card sales-region"><div class="section-head"><h2>رفعات مشبوهة — مستبعَدة من الإجماليّ</h2></div>`
+      + ups.map(u => `<div class="susp-row"><span><b>${esc(salesLocName(u.location))}</b> · ${ageText(Date.parse(u.captured_at))} · <span class="mono">${esc(u.file_name || "")}</span> — ${esc(u.note || "")}</span>`
+        + (own ? `<button class="mini-btn" onclick="salesClearSuspect('${esc(String(u.id))}')">رفع الوسم</button>` : `<span class="susp-note">رفع الوسم للمالك</span>`) + `</div>`).join("")
+      + `</div>`;
+  } catch (e) { box.innerHTML = `<div class="stc-empty">تعذّر جلب الرفعات المشبوهة: ${esc(e.message || String(e))}</div>`; }
+}
+async function salesClearSuspect(id) {
+  if (!isOwner()) { showToast("🔒 رفع الوسم صلاحية المالك."); return; }
+  if (!confirm("رفع الوسم عن هذه الرفعة؟ ستدخل حركاتها في الإجماليّ.")) return;
+  try { await db.sales.clearSuspect(id); showToast("✓ رُفع الوسم — دخلت حركاتها الإجماليّ."); const b = document.getElementById("salesSuspectBox"); if (b) b.style.display = "none"; renderSalesPage(); }
+  catch (e) { showToast("تعذّر رفع الوسم: " + (e.message || e)); }
 }
 async function renderSalesPage() {
   renderSalesFilters();
@@ -4638,17 +4657,10 @@ function computeMovements(existMap, rows, location, capturedAt, prevSyncedAt) {
   }
   return movs;
 }
-// الصمّام: يوقف **التسجيل** لا الرفعة (المخزون كُتب فعلاً؛ invShrinkCheck يحمي الرفعة). «تخطّي التسجيل» افتراضيّ.
-function moveValveOk(disappeared, prevCount) {
-  if (!prevCount || disappeared < MOVE_VALVE_FLOOR) return true;
-  const pct = disappeared / prevCount * 100;
-  if (pct <= MOVE_VALVE_PCT) return true;
-  return confirm(
-    `توقّف: سيُسجَّل ${disappeared} اختفاءً = ${Math.round(pct * 10) / 10}% من مخزون هذا الموقع (${prevCount}).\n\n` +
-    `الطبيعي عندك أقلّ من 4%. هذا يقع عادةً حين يكون الملف ناقصاً.\n` +
-    `المخزون كُتب فعلاً — هذا يخصّ سجلّ المبيعات المقدّرة وحده.\n\n` +
-    `تسجيل الحركات رغم ذلك؟`
-  );
+// كشف الرفعة الشاذّة (نقيّ): اختفاء فوق العتبة 8% وفوق الأرضية 10. (الصمّام لا يوقف الرفعة — المخزون كُتب؛ invShrinkCheck حماها.)
+function moveIsAnomaly(disappeared, prevCount) {
+  if (!prevCount || disappeared < MOVE_VALVE_FLOOR) return false;
+  return (disappeared / prevCount * 100) > MOVE_VALVE_PCT;
 }
 // التسجيل — غير حاجب (fire-and-forget): فشله لا يعطّل الرفع إطلاقاً. يُستدعى **بعد نجاح** bulkUpsert فقط.
 async function recordMovements(uploadId, kind, existMap, rows, branchId, fileName, prevSyncedAt) {
@@ -4664,13 +4676,26 @@ async function recordMovements(uploadId, kind, existMap, rows, branchId, fileNam
     let note = sim.length ? `⚠ كودان متشابهان: ${sim.slice(0, 3).join(" · ")} اختفى ونظيره ظهر — راجع ملفك` : null;
     if (note) showToast(note);
     const prevCount = existMap.size;
-    if (!moveValveOk(gone.length, prevCount)) {   // الصمّام أوقف التسجيل — رأس الرفعة فقط بملاحظة (أثر للتدقيق)
-      note = (note ? note + " · " : "") + `تُخطّي التسجيل: اختفاء شاذّ (${gone.length}/${prevCount})`;
-      await sb.from("sales_uploads").insert({ id: uploadId, location, captured_at, file_name: fileName || null, item_count: rows.length, source: "sync", note });
-      return;
+    let suspect = false;
+    if (moveIsAnomaly(gone.length, prevCount)) {   // شاذّ ⇒ سجّل ووسم (لا تخطٍّ نهائيّ — إعادة الرفع لا تستعيد المفقود)
+      const pct = Math.round(gone.length / prevCount * 1000) / 10;
+      const ok = confirm(
+        `توقّف: سيُسجَّل ${gone.length} اختفاءً = ${pct}% من مخزون هذا الموقع (${prevCount}).\n\n` +
+        `الطبيعي عندك أقلّ من 4%. هذا يقع عادةً حين يكون الملف ناقصاً.\n` +
+        `المخزون كُتب فعلاً — هذا يخصّ سجلّ المبيعات المقدّرة وحده.\n\n` +
+        `«موافق» = تسجيل الحركات ووسمها «مشبوهة» (تُستبعد من الإجماليّ حتى تراجعها في الشاشة).\n` +
+        `«إلغاء» = تخطّي التسجيل نهائياً (لا يُستعاد — المخزون كُتب فعلاً).`
+      );
+      if (!ok) {   // تخطٍّ نهائيّ — رأس الرفعة فقط بملاحظة (أثر للتدقيق)
+        note = (note ? note + " · " : "") + `تُخطّي التسجيل: اختفاء شاذّ (${gone.length}/${prevCount})`;
+        await sb.from("sales_uploads").insert({ id: uploadId, location, captured_at, file_name: fileName || null, item_count: rows.length, source: "sync", note });
+        return;
+      }
+      suspect = true;
+      note = (note ? note + " · " : "") + `اختفاء شاذّ (${gone.length}/${prevCount}) — موسومة مشبوهة`;
     }
     if (!movs.length) return;
-    const { error: ue } = await sb.from("sales_uploads").insert({ id: uploadId, location, captured_at, file_name: fileName || null, item_count: rows.length, source: "sync", note });
+    const { error: ue } = await sb.from("sales_uploads").insert({ id: uploadId, location, captured_at, file_name: fileName || null, item_count: rows.length, source: "sync", note, suspect });
     if (ue) throw ue;
     const withId = movs.map(m => Object.assign({ upload_id: uploadId }, m));
     for (let i = 0; i < withId.length; i += 500) { const { error } = await sb.from("sales_movements").insert(withId.slice(i, i + 500)); if (error) throw error; }
