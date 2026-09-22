@@ -1446,7 +1446,7 @@
     <div class="dash-kpis">
       <div class="card kpi" data-k="products"><span class="kpi-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18l-1.2 4.2a2.6 2.6 0 0 1-2.5 1.9H6.7a2.6 2.6 0 0 1-2.5-1.9L3 4z"/><path d="M5 10.5V21h14V10.5"/><rect x="9" y="14" width="4" height="4"/></svg></span><b id="kpiProducts">—</b><span class="kpi-lbl">منتجات زد</span><span class="kpi-sub">في القاعدة</span></div>
       <div class="card kpi" data-k="unified"><span class="kpi-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></span><b id="kpiUnified">—</b><span class="kpi-lbl">المخزن الموحّد</span><span class="kpi-sub">مستودع ＋ فرع</span></div>
-      <div class="card kpi" data-k="unmatched"><span class="kpi-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1.4 1.4"/><path d="M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1.4-1.4"/><path d="M4 4l16 16"/></svg></span><b id="kpiUnmatched">—</b><span class="kpi-lbl">بلا ربط</span><span class="kpi-sub">يحتاج قرارك</span></div>
+      <div class="card kpi" data-k="unmatched"><span class="kpi-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1.4 1.4"/><path d="M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1.4-1.4"/><path d="M4 4l16 16"/></svg></span><b id="kpiUnmatched">—</b><span class="kpi-lbl">يحتاج ربط</span><span class="kpi-sub" title="أصناف زد بلا ربط تحتاج قرارك — تستبعد «غير متوفر» المقرَّرة والآباء غير القابلين للربط">يحتاج قرارك</span></div>
       <div class="card kpi" data-k="links"><span class="kpi-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1.4 1.4"/><path d="M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1.4-1.4"/></svg></span><b id="kpiLinks">—</b><span class="kpi-lbl">الروابط</span><span class="kpi-sub">محفوظة</span></div>
     </div>
     <div class="stc-empty" id="kpiEmpty" style="display:none;margin:-4px 2px 14px">ارفع «ملف المستودع» من صفحة تحديث قاعدة البيانات لبناء المخزن الموحّد وبدء المطابقة.</div>
@@ -1714,7 +1714,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "4a8fcd2";
+const APP_VERSION = "033e6c9";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2503,7 +2503,7 @@ const ACT_META = {
   ignored_added: { ic: "ban", cl: "ico-mute", t: "تجاهل صنف" }, ignored_removed: { ic: "ban", t: "إلغاء تجاهل" },
 };
 function relTime(iso) {
-  const t = Date.parse(iso); if (!Number.isFinite(t)) return "";
+  const t = Date.parse(iso); if (!Number.isFinite(t)) return "—";   // وقت غائب/غير قابل للتحليل ⇒ «—» لا فراغ (الفراغ يُقرأ عطل عرض)
   const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
   if (s < 60) return "الآن"; const m = Math.floor(s / 60); if (m < 60) return `قبل ${m} د`;
   const h = Math.floor(m / 60); if (h < 24) return `قبل ${h} س`; return `قبل ${Math.floor(h / 24)} ي`;
@@ -2605,24 +2605,24 @@ function renderInventoryAttention() {
   // ① أكواد متصادمة — lastCollisions (التصادم الصعب فقط)
   cards.push(statusCard({
     status: "danger", icon: ICO.warn2, count: lastCollisions.length, countLabel: "مجموعة",
-    title: "أكواد متصادمة",
-    description: "أسماء مختلفة لنفس الكود — المطابقة التلقائية معطّلة حتى تُربط يدوياً.",
+    title: "مجموعات متصادمة",
+    description: "أسماء مختلفة لنفس الكود (الوحدة: مجموعة، لا منتج) — المطابقة التلقائية معطّلة حتى تُربط يدوياً.",
     actionLabel: "عرض التفاصيل", onAction: "invGoto('collisionWarn')",
   }));
 
-  // ② بدون ربط — lastUnmatchedRaw
+  // ② يحتاج ربط — batchOkItem (مصدر واحد مع الرئيسية/القائمة/KPI): يستبعد «غير متوفر» والآباء والمربوط
   cards.push(statusCard({
-    status: "amber", icon: ICO.link2, count: lastUnmatchedRaw.length, countLabel: "صنف",
+    status: "amber", icon: ICO.link2, count: lastUnmatchedRaw.filter(batchOkItem).length, countLabel: "صنف",
     title: "يحتاج ربط",
-    description: "كمياتها لن تتحدّث.",
+    description: "أصناف زد بلا ربط تحتاج قرارك (تستبعد «غير متوفر» والآباء) — كمياتها لن تتحدّث.",
     actionLabel: "ابدأ الربط الذكي", onAction: "invStartBatch()",
   }));
 
   // ③ أب/خيار — lastVariantGroups
   cards.push(statusCard({
     status: "info", icon: ICO.branch, count: lastVariantGroups.length, countLabel: "مجموعة",
-    title: "أب/خيار",
-    description: "عولجت تلقائياً — الأب مُستبعد، وخياراته تتحدّث.",
+    title: "مجموعات أب/خيار",
+    description: "عولجت تلقائياً — الأب مُستبعد، وخياراته تتحدّث (الوحدة: مجموعة؛ الدونات تعدّ المنتجات ضمنها).",
     actionLabel: "عرض المجموعات", onAction: "invGoto('variantInfo')",
   }));
 
@@ -2662,7 +2662,7 @@ function renderInvKPIs() {
   const zp = (zidDbMeta && zidDbMeta.product_count) ? zidDbMeta.product_count : (stData ? stData.rows.length - 1 : 0);
   setK("kpiProducts", zp, zp > 0);                              // منتجات زد: القاعدة أو الملف المرفوع
   setK("kpiUnified", lastMerge ? lastMerge.total : 0, !!lastMerge);   // الموحّد: بعد الدمج فقط
-  setK("kpiUnmatched", lastUnmatchedRaw.length, !!lastRunSummary);    // بلا ربط: بعد المطابقة فقط (لا صفر صامت قبلها)
+  setK("kpiUnmatched", lastUnmatchedRaw.filter(batchOkItem).length, !!lastRunSummary);    // «يحتاج ربط» = batchOkItem (مصدر واحد مع الرئيسية/القائمة): يستبعد «غير متوفر» والآباء والمربوط — لا الطول الخام
   setK("kpiLinks", Object.keys(manualMap).length, true);        // الروابط: حقيقة مخزَّنة (0 ذو معنى)
   const kEmpty = document.getElementById("kpiEmpty"); if (kEmpty) kEmpty.style.display = (!lastMerge && !lastRunSummary && zp === 0) ? "block" : "none";
   const w = document.getElementById("invWaiting"); if (w) w.innerHTML = "<bdi>" + esc(String(waitingSet ? waitingSet.size : 0)) + "</bdi>";
@@ -2672,11 +2672,12 @@ function renderInvKPIs() {
 // الوصولية: الـSVG aria-hidden، والأسطورة (أرقام ونسب في <bdi>) هي المصدر المقروء — أوضح لقارئ الشاشة من aria-label مختزل.
 // بلا حركة إطلاقاً (رسم ساكن) ⇒ prefers-reduced-motion مُستوفى بنيوياً.
 const PIE_SLICES = [
-  { k: "matched", ar: "مربوطة", tok: "--green" },
-  { k: "unmatched", ar: "بلا ربط", tok: "--amber" },
-  { k: "collided", ar: "متصادمة", tok: "--danger" },
-  { k: "absent", ar: "غائب", tok: "--info" },
-  { k: "parent", ar: "أب/خيار", tok: "--gold" },
+  // الدونات = توزيع منتجات زد (وحدتها «منتج»)؛ بطاقات «يحتاج انتباهك» وحدتها «مجموعة» — التسمية تميّز الوحدة صراحةً
+  { k: "matched", ar: "منتجات مربوطة", tok: "--green" },
+  { k: "unmatched", ar: "بلا ربط (＋غير متوفر)", tok: "--amber" },
+  { k: "collided", ar: "منتجات متصادمة", tok: "--danger" },
+  { k: "absent", ar: "منتجات غائبة", tok: "--info" },
+  { k: "parent", ar: "منتجات ضمن مجموعات الأب", tok: "--gold" },
 ];
 function renderInvPie() {
   const host = document.getElementById("invPie"); if (!host) return;
@@ -5875,7 +5876,7 @@ async function deleteOffset(sk) {
 
 // شريط التنبيه البرتقالي + البطاقة الخامسة (يستبعد ما رُبط في هذه الجلسة)
 function updateNewCount() {
-  const newCount = lastUnmatchedRaw.filter(u => !boundSet.has(String(u.sku)) && !waitingSet.has(normCode(u.skuN))).length;
+  const newCount = lastUnmatchedRaw.filter(batchOkItem).length;   // «يحتاج ربط» = المصدر الواحد batchOkItem (لا تعريف رابع): يستبعد «غير متوفر» والآباء والمربوط
   const sn = document.getElementById("sNew"); if (sn) sn.textContent = newCount;   // البطاقة أُزيلت (مدمجة في «بدون ربط») — تحديث دفاعي
   const alert = document.getElementById("newAlert");
   if (newCount > 0) {

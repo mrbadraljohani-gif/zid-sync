@@ -170,6 +170,10 @@ jobs:
         run: node tests/perf/uni-filter-chips.mjs --broken
       - name: G-UNI-CHIPS — شرائح فلتر «يحتاج ربط» قابلة للنقر ＋ «بلا مرشّح» ＋ «غير متوفر للمعروض» دفعيّ
         run: node tests/perf/uni-filter-chips.mjs
+      - name: Self-check — حارس توحيد العدّاد يرسب بإعادة KPI للطول الخام
+        run: node tests/perf/count-consistency.mjs --broken
+      - name: G-COUNT — رقم واحد لمفهوم «يحتاج ربط» (KPI==انتباهك==القائمة==الشريحة==اللافتة)
+        run: node tests/perf/count-consistency.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)
