@@ -1714,7 +1714,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "4d0bcd6";
+const APP_VERSION = "a3f108e";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -1921,7 +1921,7 @@ const db = {
     async getAllCodes(table, branchId) {   // ＋qty: القديم للدلتا (لوحة المبيعات) — نفس القراءة الفارقة، بلا جولة إضافية
       const out = [], page = 1000; let from = 0;
       for (;;) {
-        let q = sb.from(table).select("code,qty"); if (branchId) q = q.eq("branch_id", branchId);
+        let q = sb.from(table).select("code,qty,name,price_incl,price_excl"); if (branchId) q = q.eq("branch_id", branchId);   // ＋الاسم والسعر: لتقييم المختفي (صفّه يُحذف، فلا سعر متبقٍّ) — نفس الجولة
         const { data, error } = await q.range(from, from + page - 1);
         if (error) throw error;
         out.push(...(data || []));
@@ -4424,7 +4424,7 @@ function computeMovements(existMap, rows, location, capturedAt, prevSyncedAt) {
   const pDays = prevSyncedAt ? (Date.parse(capturedAt) - Date.parse(prevSyncedAt)) / 86400000 : null;
   for (const r of rows) {
     const code = String(r.code), newQ = numOrNull(r.qty) != null ? numOrNull(r.qty) : 0, had = existMap.has(code);
-    const oldQ = had ? (existMap.get(code) != null ? existMap.get(code) : 0) : null;
+    const oldQ = had ? (numOrNull(existMap.get(code).qty) != null ? numOrNull(existMap.get(code).qty) : 0) : null;   // القديم صار صفّاً كاملاً {qty,name,price_*}
     const delta = had ? (newQ - oldQ) : newQ;
     if (delta === 0) continue;   // دلتا الصفر لا تُدرَج (＋قيد القاعدة delta<>0 طبقة ثانية)
     const incl = numOrNull(r.price_incl), excl = numOrNull(r.price_excl);
@@ -4436,13 +4436,16 @@ function computeMovements(existMap, rows, location, capturedAt, prevSyncedAt) {
       unit_price_incl: incl, unit_price_excl: excl, price_source: ps,
       value_est: (kind === "estimated_sale" && unit != null) ? Math.abs(delta) * unit : null });
   }
-  for (const [code, oldQ0] of existMap) {   // اختفى من الملف الجديد
+  for (const [code, old] of existMap) {   // اختفى من الملف الجديد — يُقيَّم بسعره الأخير المخزَّن (أخطر الأنواع، لا يُترك بلا وزن)
     if (newSet.has(code)) continue;
-    const oldQ = oldQ0 != null ? oldQ0 : 0; if (oldQ === 0) continue;   // 0→غائب = لا حركة
-    movs.push({ sku: code, sku_name: null, location, captured_at: capturedAt,
+    const oldQ = numOrNull(old.qty) != null ? numOrNull(old.qty) : 0; if (oldQ === 0) continue;   // 0→غائب = لا حركة
+    const incl = numOrNull(old.price_incl), excl = numOrNull(old.price_excl);
+    const unit = incl != null ? incl : (excl != null ? excl : null), ps = incl != null ? "incl" : (excl != null ? "excl" : "none");
+    movs.push({ sku: code, sku_name: old.name || null, location, captured_at: capturedAt,
       period_start: prevSyncedAt || null, period_days: pDays,
       qty_before: oldQ, qty_after: null, delta: -oldQ, kind: "disappeared",
-      unit_price_incl: null, unit_price_excl: null, price_source: "none", value_est: null });   // صفّه محذوف فلا سعر (القراءة code,qty بالاتفاق) — قيمة null (غامض)
+      unit_price_incl: incl, unit_price_excl: excl, price_source: ps,
+      value_est: unit != null ? oldQ * unit : null });   // قيمة المختفي = كميته الأخيرة × سعره الأخير المخزَّن
   }
   return movs;
 }
@@ -4489,7 +4492,7 @@ async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
   const table = INV_TABLE[kind], rows = buildInvDbRows(aggList, scope);
   const newCodes = rows.map(r => r.code), newSet = new Set(newCodes);
   const existRows = await db.inventory.getAllCodes(table, scope);   // [{code,qty}] — القديم للدلتا (لوحة المبيعات)
-  const existMap = new Map(existRows.map(r => [String(r.code), numOrNull(r.qty)]));
+  const existMap = new Map(existRows.map(r => [String(r.code), r]));   // القديم كصفّ كامل {qty,name,price_incl,price_excl} — لتقييم المختفي بسعره الأخير
   const existing = [...existMap.keys()], existSet = new Set(existing);
   // لوحة المبيعات: طابع الرفعة السابقة لهذا الموقع **قبل** أن يُستبدَل بـsetMeta أدناه (للفترة، بلا قراءة إضافية)
   const prevSyncedAt = isBr ? (((invBranches || []).find(b => b.id === branchId) || {}).synced_at || null) : (invMeta && invMeta.wh_synced_at) || null;

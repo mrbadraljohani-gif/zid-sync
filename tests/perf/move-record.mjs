@@ -35,14 +35,19 @@ const errs = []; p.on("pageerror", e => errs.push(String(e)));
 await p.setRequestInterception(true); p.on("request", r => { const u = r.url(); if (u.startsWith("data:") || u.startsWith("about:")) return r.continue(); if (/^https?:/.test(u)) return r.abort(); r.continue(); });
 await p.setContent(html, { waitUntil: "load" });
 const res = await p.evaluate(() => {
-  const existMap = new Map([["A", 10], ["B", 3], ["D", 5]]);
+  // القديم = صفّ كامل {qty,name,price_*} (بعد إثراء القراءة) — لتقييم المختفي بسعره الأخير
+  const existMap = new Map([
+    ["A", { qty: 10, name: "سيف", price_incl: 100 }],
+    ["B", { qty: 3, name: "رمح", price_incl: 200 }],
+    ["D", { qty: 5, name: "مختفٍ", price_incl: 500 }],   // اختفى — يُقيَّم 5×500=2500
+    ["E", { qty: 4, name: "ثابت", price_incl: 30 }],     // 4→4 ⇒ دلتا صفر ⇒ لا يُدرَج
+  ]);
   const rows = [
     { code: "A", qty: 5, price_incl: 100, price_excl: 87, name: "سيف" },   // 10→5 بيع مقدّر
     { code: "B", qty: 8, price_incl: 200, name: "رمح" },                    // 3→8 شراء
     { code: "C", qty: 7, price_incl: 50, name: "درع" },                     // جديد
-    { code: "E", qty: 4, price_incl: 30, name: "ثابت", _n: 4 },             // سيوضع existMap=4 لاختبار دلتا صفر
+    { code: "E", qty: 4, price_incl: 30, name: "ثابت" },                    // 4→4 دلتا صفر
   ];
-  existMap.set("E", 4);   // E: 4→4 ⇒ دلتا صفر ⇒ لا يُدرَج
   const movs = computeMovements(existMap, rows, "wh", "2026-09-22T00:00:00Z", "2026-09-20T00:00:00Z");
   const by = {}; for (const m of movs) by[m.sku] = m;
   return {
@@ -62,6 +67,9 @@ if (!(B.delta === 5 && B.kind === "purchase")) fails.push(`B: توقّعت delta
 if (B.value_est != null) fails.push(`B: الشراء لا يُقيَّم كبيع — value_est يجب null، وجدت ${B.value_est}`);
 if (!(C.kind === "new" && C.qty_before == null && C.period_start == null)) fails.push(`C: توقّعت new/qty_before=null/period_start=null، وجدت kind=${C.kind} qb=${C.qty_before} ps=${C.period_start}`);
 if (!(D.kind === "disappeared" && D.delta === -5 && D.qty_after == null)) fails.push(`D: توقّعت disappeared/delta=-5/qty_after=null، وجدت kind=${D.kind} delta=${D.delta}`);
+if (D.sku_name !== "مختفٍ") fails.push(`D: المختفي بلا اسم — توقّعت «مختفٍ»، وجدت ${D.sku_name}`);
+if (D.unit_price_incl !== 500) fails.push(`D: المختفي بلا سعر — توقّعت 500، وجدت ${D.unit_price_incl}`);
+if (D.value_est !== 2500) fails.push(`D: قيمة المختفي — توقّعت 2500 (5×500)، وجدت ${D.value_est} (لوحة تبدو كاملة وهي ناقصة)`);
 if (res.hasE) fails.push("E: دلتا الصفر (4→4) أُدرِجت — يجب تخطّيها إطلاقاً");
 if (res.anyZero) fails.push("أُدرجت حركة delta=0");
 if (res.count !== 4) fails.push(`عدد الحركات ${res.count} (توقّعت 4: A,B,C,D بلا E)`);
