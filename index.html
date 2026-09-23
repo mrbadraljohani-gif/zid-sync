@@ -1127,8 +1127,10 @@
   .stb-search .ico { color: var(--muted); }
   .stb-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .sales-loc-sel { background: var(--panel); border: 1px solid var(--border-strong); border-radius: 10px; color: var(--text); font: inherit; font-size: 12.5px; padding: 7px 12px; cursor: pointer; }
-  .sales-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-  @media (max-width: 1100px) { .sales-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .sales-kpis { grid-template-columns: 1.7fr repeat(4, minmax(0, 1fr)); }   /* بطاقة البطل «المبيعات» أعرض */
+  .sales-kpis .kpi[data-k="sval"] { border-color: color-mix(in srgb, var(--gold) 30%, var(--border)); background: color-mix(in srgb, var(--gold) 5%, var(--panel)); }
+  .sales-kpis .kpi[data-k="sval"] > b { font-size: 40px; }
+  @media (max-width: 1100px) { .sales-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sales-kpis .kpi[data-k="sval"] { grid-column: 1 / -1; } .sales-kpis .kpi[data-k="sval"] > b { font-size: 34px; } }
   .sales-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
   .sales-cols.one { grid-template-columns: minmax(0, 1fr); }
   @media (max-width: 1180px) { .sales-cols { grid-template-columns: minmax(0, 1fr); } }
@@ -1216,12 +1218,24 @@
   .s4-dhead .s4-ic { color: var(--info); display: inline-flex; }
   .s4-dcards { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 14px; }
   @media (max-width: 1100px) { .s4-dcards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  /* شريط تفصيل الموقع المضغوط (بديل البطاقات الخمس المكرّرة — جدول المقارنة يغني عنها) */
+  .s4-dstrip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 10px 14px; margin-bottom: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
+  .s4-dstrip .ds-item { display: inline-flex; align-items: baseline; gap: 5px; font-size: 12px; color: var(--muted); }
+  .s4-dstrip .ds-item > b { font-size: 17px; font-weight: 800; color: var(--text); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .s4-dstrip .ds-item .ds-u { font-size: 10.5px; color: var(--muted-2); }
+  .s4-dstrip .ds-sep { color: var(--border-strong); }
+  /* شارات آخر رفعة ملوّنة بالحالة */
+  .sales-lastup .lu-badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; margin-inline-start: 6px; }
+  .sales-lastup .lu-badge .lu-d { width: 7px; height: 7px; border-radius: 50%; }
+  .sales-lastup .lu-badge.fresh { background: color-mix(in srgb, var(--green) 12%, transparent); color: var(--green); }
+  .sales-lastup .lu-badge.mid { background: color-mix(in srgb, var(--amber) 12%, transparent); color: var(--amber-tint); }
+  .sales-lastup .lu-badge.old { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
   .s4-hd-actions { display: flex; align-items: center; gap: 10px; }
   .s4-srch-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 9px; background: rgba(255,255,255,.03); border: 1px solid var(--hair); color: var(--muted); cursor: pointer; padding: 0; transition: color .15s, border-color .15s, background .15s; }
   .s4-srch-btn:hover { color: var(--text); border-color: var(--border-strong); } .s4-srch-btn.on { color: var(--gold); border-color: color-mix(in oklab, var(--gold) 45%, transparent); background: color-mix(in oklab, var(--gold) 10%, transparent); }
   .s4-inline-srch { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 10px; padding: 7px 12px; margin-bottom: 10px; }
   .s4-inline-srch input { flex: 1; background: none; border: 0; color: var(--text); font: inherit; font-size: 13px; outline: none; }
-  .s4-3tables { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .s4-3tables { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }   /* كل كرت بارتفاع محتواه (الفارغ لا يتمدّد) */
   @media (max-width: 1100px) { .s4-3tables { grid-template-columns: minmax(0, 1fr); } }
   .s4-tbl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
   .s4-tbl-head h3 { font-size: 13.5px; display: flex; align-items: center; gap: 7px; } .s4-tbl-head .s4-ti { color: var(--gold-2); display: inline-flex; }
@@ -1905,7 +1919,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "580cc31";
+const APP_VERSION = "dff2b3d";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2973,7 +2987,12 @@ function renderSalesLastUp(ups) {
   const locs = [["wh", "المستودع"], ...(invBranches || []).map(b => [b.id, b.name])];
   const latest = new Map();
   for (const u of ups || []) { const t = Date.parse(u.captured_at); if (Number.isFinite(t) && (!latest.has(u.location) || t > latest.get(u.location))) latest.set(u.location, t); }
-  el.innerHTML = "آخر رفعة — " + locs.map(([id, name]) => { const t = latest.get(id); return `${esc(name)}: <b>${t ? ageText(t) : "لم تُرفع"}</b>`; }).join(" · ");
+  const now = Date.now(), H = 3600000;
+  el.innerHTML = `<span class="lu-lead">آخر رفعة:</span>` + locs.map(([id, name]) => {
+    const t = latest.get(id); const age = t ? (now - t) : null;
+    const cls = age == null ? "old" : (age <= 24 * H ? "fresh" : (age <= 48 * H ? "mid" : "old"));   // أخضر <24س · أصفر 24-48 · أحمر أكثر
+    return `<span class="lu-badge ${cls}"><span class="lu-d" style="background:currentColor"></span>${esc(name)} — ${t ? ageText(t) : "لم تُرفع"}</span>`;
+  }).join("");
 }
 // لقطة المخزون من العرض sales_stock (لا الجداول الأساس ⇒ يعمل لـmarketing) — مُصفّحة، قراءة واحدة لكل الأعمدة
 async function salesStockRows() {
@@ -3188,14 +3207,16 @@ function renderSalesDetail() {
   const upCount = new Set(cur.map(m => m.upload_id)).size;
   const name = (salesTab === "all") ? "جميع المواقع" : salesLocName(salesTab);
   const covGateD = salesCovInsufficient(daysCov);
-  const card = (num, lbl, sub, tip, tr, sub2, unit) => `<div class="card kpi" data-k="d"${tip ? ` title="${esc(tip)}"` : ""}><b><bdi dir="ltr">${num}</bdi>${unit ? `<span class="kpi-unit">${unit}</span>` : ""}</b><span class="kpi-lbl">${lbl}</span>${sub ? `<span class="kpi-sub">${sub}</span>` : ""}${sub2 ? `<span class="kpi-sub2">${sub2}</span>` : ""}${tr || ""}</div>`;
+  // شريط مضغوط بديل البطاقات الخمس (جدول المقارنة يعطي التفصيل لكل موقع) — القيم نفسها، سطر واحد
+  const ds = (k, num, lbl, unit, tip) => `<span class="ds-item" data-k="${k}"${tip ? ` title="${esc(tip)}"` : ""}><b><bdi dir="ltr">${num}</bdi></b>${unit ? `<span class="ds-u">${unit}</span>` : ""} ${lbl}</span>`;
+  const sep = `<span class="ds-sep">·</span>`;
   wrap.innerHTML = `<div class="s4-dhead"><span class="s4-ic">${salesTab === "all" ? ic("branch") : salesLocIcon(salesTab)}</span><div><b style="font-size:16px">${esc(name)}</b><div style="font-size:11px;color:var(--muted)">مبيعات مقدّرة وتحليل تفصيليّ</div></div></div>`
-    + `<div class="dash-kpis s4-dcards">`
-    + card(salesNum(a.estValue), "المبيعات المقدّرة", "قيمة ما بيع هنا — شاملة الضريبة", "مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت وقت الرصد).", salesRateTrend(a.estValue, daysCov, pa.estValue, prevDaysCov, "scc-tr"), `قبل الضريبة: <bdi dir="ltr">${salesNum(a.estValueExcl)}</bdi> ر.س`, "ر.س")
-    + card(salesNum(a.units), "قطع بيعت (مقدّر)", "مجموع النقص في كميات الأصناف", "كل قطعة نقصت من المخزون تُعدّ بيعاً مقدّراً.", salesRateTrend(a.units, daysCov, pa.units, prevDaysCov, "scc-tr"), "", "قطعة")
-    + card(salesNum(a.movedSku.size), "منتجات متحرّكة", "أصناف تغيّرت كميتها (بيعاً أو شراءً)", "عدد الأصناف الفريدة — منتج تحرّك في فرعين يُعدّ مرّة.", salesCountSpan(a.movedSku.size, pa.movedSku.size, daysCov, prevDaysCov, "scc-tr"), "", "صنف")
-    + card(salesNum(inv), "قيمة المخزون الحالية", "قيمة كل المخزون الآن — شاملة الضريبة", "الكمية الحالية × سعرها لكل صنف — لا يقتصر على المتحرّك.", "", `قبل الضريبة: <bdi dir="ltr">${salesNum(invExcl)}</bdi> ر.س${invExclMiss ? ` · <span class="kpi-miss" title="مستبعدة من هذا الرقم لا محسوبة صفراً">${salesNum(invExclMiss)} بلا سعر قبل الضريبة</span>` : ""}`, "ر.س")
-    + card(covGateD ? "—" : (coverage != null ? String(coverage) : "—"), "متوسط أيام التغطية", covGateD ? salesCovGateSub(daysCov) : "الكمية ÷ معدّل البيع اليوميّ", covGateD ? "" : "كم يوماً يكفي المخزون بمعدّل البيع الأخير.", "", covGateD ? "" : "يوم")
+    + `<div class="s4-dstrip">`
+    + ds("sval", salesNum(a.estValue), "المبيعات المقدّرة", "ر.س", "شاملة الضريبة · قبل الضريبة: " + salesNum(a.estValueExcl) + " ر.س") + sep
+    + ds("sunits", salesNum(a.units), "قطع بيعت", "قطعة", "مجموع النقص في كميات الأصناف") + sep
+    + ds("smoved", salesNum(a.movedSku.size), "أصناف متحرّكة", "صنف", "أصناف فريدة تغيّرت كميتها — منتج في فرعين يُعدّ مرّة") + sep
+    + ds("sinv", salesNum(inv), "قيمة المخزون", "ر.س", "شاملة الضريبة · قبل الضريبة: " + salesNum(invExcl) + " ر.س" + (invExclMiss ? " · " + salesNum(invExclMiss) + " بلا سعر قبل الضريبة مستبعَدة" : "")) + sep
+    + ds("scov", covGateD ? "—" : (coverage != null ? String(coverage) : "—"), "متوسط أيام التغطية", covGateD ? "" : "يوم", covGateD ? salesCovGateSub(daysCov) : "الكمية ÷ معدّل البيع اليوميّ")
     + `</div>`
     + `<div class="s4-3tables"></div>`;
   salesCtx._tab = { cur, qtyBySku, priceBySku, daysCov, upCount, tabLocs };

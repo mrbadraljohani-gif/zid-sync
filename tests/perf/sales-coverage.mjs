@@ -41,10 +41,8 @@ async function run(days) {
     const scov = document.querySelector('#salesKpis .kpi[data-k="scov"]');
     const scovVal = txt(scov && scov.querySelector("b"));
     const scovSub = txt(scov && scov.querySelector(".kpi-sub"));
-    // بطاقة التغطية في تفصيل التبويب (آخر بطاقة)
-    const dcards = [...document.querySelectorAll('#salesDetail .s4-dcards .kpi')];
-    const covCard = dcards[dcards.length - 1];
-    const covCardVal = txt(covCard && covCard.querySelector("b"));
+    // التغطية في شريط تفصيل التبويب
+    const covCardVal = txt(document.querySelector('#salesDetail .s4-dstrip [data-k="scov"] b'));
     return { scovVal, scovSub, covCardVal };
   }, days);
 }

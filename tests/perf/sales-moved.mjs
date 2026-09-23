@@ -42,9 +42,8 @@ const res = await p.evaluate(async () => {
   const cmp = document.getElementById("salesCmp");
   const totalMovedCell = txt(cmp.querySelector("tbody tr.total td:nth-child(4)"));   // عمود «متحركة»
   const totNote = txt(cmp.querySelector("tbody tr.total .tot-note"));
-  // بطاقة التفصيل «متحرّكة» (تبويب جميع المواقع)
-  const dcards = [...document.querySelectorAll('#salesDetail .s4-dcards .kpi')];
-  const detailMoved = dcards.length >= 3 ? txt(dcards[2].querySelector("b")) : "";
+  // شريط التفصيل «متحرّكة» (تبويب جميع المواقع)
+  const detailMoved = txt(document.querySelector('#salesDetail .s4-dstrip [data-k="smoved"] b'));
   return { topMoved, totalMovedCell, totNote, detailMoved };
 });
 await b.close();
