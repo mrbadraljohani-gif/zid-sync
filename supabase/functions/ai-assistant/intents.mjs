@@ -226,12 +226,54 @@ export function coverageShortfall(observedDays, period) {
 // النيّات التي لا تُلحَق بها ملاحظة النقص (تحكّم/مبوّبة أصلاً)
 const SHORTFALL_SKIP = new Set(["insufficient_history", "no_upload", "product_not_found", "disambiguate", "need_period", "baseline_only", "no_prev", "unknown_intent"]);
 
+// ————— تنسيق موحّد بمصطلحات الشاشة (الرقم بفواصله ＋ وحدته) — يُرفَق جاهزاً فلا يُنسّق النموذج ولا يختار وحدة —————
+// 🚨 المصطلحات تطابق الشاشة: المبالغ «ر.س» ＋ شامل/صافي · الكميات «قطعة» · الأصناف «صنف» · الأيام «يوم».
+const NF = n => (Math.round(Number(n) || 0)).toLocaleString("en-US");
+const NF1 = n => (Math.round((Number(n) || 0) * 10) / 10).toLocaleString("en-US");
+const M = n => `${NF(n)} ر.س شامل`;
+const MX = n => `${NF(n)} ر.س صافي`;
+const RATE = n => `${NF(n)} ر.س/يوم`;
+const Q = n => `${NF(n)} قطعة`;
+const S = n => `${NF(n)} صنف`;
+const D = n => `${NF1(n)} يوم`;
+const PC = n => `${n > 0 ? "+" : ""}${n}%`;
+// يُلحق نصوص display/label الجاهزة حسب نوع النتيجة (لا يمسّ الحقول الرقمية — التكافؤ محفوظ)
+function applyDisplay(res) {
+  if (!res || typeof res !== "object") return res;
+  switch (res.kind) {
+    case "sales_summary":
+      res.display = { estimated_sales: M(res.estimated_sales_incl), estimated_sales_excl: MX(res.estimated_sales_excl), units: Q(res.units), moved_products: S(res.moved_products), observed: D(res.observed_days) }; break;
+    case "top_sellers": case "bottom_sellers":
+      (res.items || []).forEach(it => { it.label = `${it.name}: ${M(it.value)} · ${Q(it.units)}`; }); break;
+    case "product_movement":
+      res.display = { total_units: Q(res.total_units), total_value: M(res.total_value_incl) };
+      (res.per_location || []).forEach(e => { e.label = `${e.location}: ${Q(e.units)} · ${M(e.value)}`; }); break;
+    case "period_comparison":
+      res.display = { cur_daily_rate: RATE(res.cur_daily_rate), prev_daily_rate: RATE(res.prev_daily_rate), change: PC(res.change_pct), cur_days: D(res.cur_days), prev_days: D(res.prev_days) }; break;
+    case "location_comparison":
+      (res.rows || []).forEach(r => { r.label = r.uploaded ? `${r.location}: ${M(r.estimated_sales_incl)} · ${Q(r.units)} · ${S(r.moved_products)}` : `${r.location}: لا رفعة في هذه الفترة`; });
+      res.display = { total_estimated_sales: M(res.total_estimated_sales_incl), total_units: Q(res.total_units) }; break;
+    case "stagnant_inventory":
+      (res.items || []).forEach(it => { it.label = `${it.name}: ${Q(it.qty)} · قيمة المخزون ${M(it.inventory_value_incl)}`; }); break;
+    case "stockout_risk":
+      (res.by_location || []).forEach(e => { e.label = `${e.location}: تغطية ${D(e.coverage_days)}`; }); break;
+    case "inventory_value":
+      res.display = { inventory_value: M(res.inventory_value_incl), inventory_value_excl: MX(res.inventory_value_excl) }; break;
+    case "data_freshness":
+      res.display = { observed_window: D(res.observed_window_days) }; break;
+    case "biggest_decliners":
+      (res.items || []).forEach(it => { it.label = `${it.name}: من ${RATE(it.prev_daily_rate)} إلى ${RATE(it.cur_daily_rate)} (انخفاض ${RATE(it.drop_daily_rate)})`; });
+      res.display = { cur_days: D(res.cur_days), prev_days: D(res.prev_days) }; break;
+  }
+  return res;
+}
+
 // تشغيل نيّة بعد التحقّق (index.ts يمرّر params مُنقّاة ＋ data ＋ nowMs ＋ observedDays)
 export function runIntent(key, ctx) {
   const fn = INTENTS[key];
   if (!fn) return { kind: "unknown_intent", key };
   const res = fn(ctx);
   const cs = coverageShortfall(ctx.observedDays, ctx.params.period);
-  if (cs && res && !SHORTFALL_SKIP.has(res.kind)) res.coverage_shortfall = cs;   // بيان نقص لا رفض
-  return res;
+  if (cs && res && !SHORTFALL_SKIP.has(res.kind)) { res.coverage_shortfall = cs; res.coverage_shortfall.display = `المرصود ${D(cs.observed_days)} من ${D(cs.requested_days)} المطلوبة`; }   // بيان نقص لا رفض
+  return applyDisplay(res);   // أرقام منسّقة بوحداتها جاهزة للنموذج (لا يُنسّق ولا يختار وحدة)
 }

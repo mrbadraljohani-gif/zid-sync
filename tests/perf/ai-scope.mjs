@@ -21,12 +21,12 @@ if (BROKEN) {
 
 // ————— فحص ساكن: نطاق كود المساعد —————
 const staticFails = [];
-const aiStart = html.indexOf("const AI_DAILY_CAP");                 // بداية كتلة المساعد (قبلها salesAIQuotaLeft لاحقاً)
+const aiStart = html.indexOf("let aiBusy = false;");               // بداية كتلة المساعد (تليها salesAIStatus/renderSalesAI/salesAskAI)
 const aiEnd = html.indexOf("async function renderSalesPage", aiStart);
 const scope = (aiStart >= 0 && aiEnd > aiStart) ? html.slice(aiStart, aiEnd) : "";
 if (!scope) staticFails.push("لم أجد نطاق renderSalesAI/salesAskAI");
 if (!/functions\.invoke\("ai-assistant"/.test(scope)) staticFails.push("لا يستدعي الدالّة ai-assistant");
-if (!/from\("ai_usage"\)\.select/.test(scope)) staticFails.push("لا يقرأ عدّاد ai_usage");
+if (!/rpc\("ai_usage_status"\)/.test(scope)) staticFails.push("لا يقرأ الرصيد عبر ai_usage_status");
 // 🚨 لا كتابة أي جدول من كود المساعد
 for (const w of [".insert(", ".update(", ".delete(", ".upsert("]) if (scope.includes(w)) staticFails.push(`كتابة محظورة في كود المساعد: ${w}`);
 // 🚨 لا وصول لأي جدول أعمال خارج ai_usage
@@ -45,7 +45,7 @@ await p.setContent(html, { waitUntil: "load" });
 const res = await p.evaluate(async () => {
   dbOnline = true; authSession = { user: { email: "x@x.sa" } };
   invBranches = [{ id: "az", name: "العزيزية" }];
-  sb = { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) };
+  sb = { rpc: async () => ({ data: [{ used: 0, cap: 500 }], error: null }) };
   document.getElementById("page-sales").classList.add("active");
   const host = document.getElementById("salesAI");
   myRole = "owner"; await renderSalesAI();

@@ -34,7 +34,11 @@ create policy ai_usage_select_own on public.ai_usage
   for select to authenticated using (user_id = auth.uid());
 -- (لا insert/update/delete policies ⇒ RLS يمنع كل كتابة مباشرة من العميل؛ الدالّة security definer تكتب صفّ المستخدم وحده)
 
--- 3) دالّة الزيادة الذرّية — بلا معاملات (auth.uid داخلياً)، السقف ثابت، تمسّ ai_usage وحده.
+-- 3أ) 🚨 السقف اليوميّ — مصدر واحد. غيّره هنا وحده (تقرؤه الزيادة والحالة والواجهة عبر meta.cap).
+create or replace function public.ai_daily_cap()
+returns integer language sql immutable as $$ select 500 $$;
+
+-- 3ب) دالّة الزيادة الذرّية — بلا معاملات (auth.uid داخلياً)، السقف من ai_daily_cap()، تمسّ ai_usage وحده.
 --    ترجع (allowed, used, cap): allowed=false عند بلوغ السقف (الصفّ لا يُزاد فوقه).
 --    داخل ON CONFLICT DO UPDATE: الصفّ الحاليّ يُشار إليه باسم الجدول غير المؤهّل ai_usage.used_count (لا public.ai_usage).
 create or replace function public.ai_usage_bump()
@@ -44,7 +48,7 @@ security definer
 set search_path = public
 as $$
 declare
-  v_cap  constant integer := 20;                                             -- 🚨 السقف اليوميّ — غيّره هنا وحده
+  v_cap  integer := public.ai_daily_cap();                                   -- السقف من المصدر الواحد
   v_uid  uuid := auth.uid();
   v_day  date := ((now() at time zone 'utc') + interval '3 hours')::date;    -- يوم الرياض (UTC+3)
   v_new  integer;
@@ -68,10 +72,30 @@ begin
   end if;
 end $$;
 
+-- 3ج) دالّة الحالة — قراءة غير مستهلِكة (بلا زيادة): للواجهة لعرض الرصيد عند الفتح («N من cap»).
+--     بلا معاملات (auth.uid داخلياً)، تمسّ ai_usage قراءةً وحدها، السقف من المصدر الواحد.
+create or replace function public.ai_usage_status()
+returns table(used integer, cap integer)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid  uuid := auth.uid();
+  v_day  date := ((now() at time zone 'utc') + interval '3 hours')::date;
+  v_used integer;
+begin
+  if v_uid is null then raise exception 'not authenticated'; end if;
+  select used_count into v_used from public.ai_usage where user_id = v_uid and usage_day = v_day;
+  return query select coalesce(v_used, 0), public.ai_daily_cap();
+end $$;
+
 -- 4) الصلاحيات — revoke من public أوّلاً (المنح يضيف ولا يمنع)، ثم منح صريح لـ authenticated
-revoke execute on function public.ai_usage_bump() from public;   -- 🚨 لا تنفيذ افتراضيّ من PUBLIC
-grant  select   on public.ai_usage            to authenticated;
-grant  execute  on function public.ai_usage_bump() to authenticated;
+revoke execute on function public.ai_usage_bump()   from public;   -- 🚨 لا تنفيذ افتراضيّ من PUBLIC
+revoke execute on function public.ai_usage_status() from public;
+grant  select   on public.ai_usage                  to authenticated;
+grant  execute  on function public.ai_usage_bump()   to authenticated;
+grant  execute  on function public.ai_usage_status() to authenticated;
 
 commit;
 

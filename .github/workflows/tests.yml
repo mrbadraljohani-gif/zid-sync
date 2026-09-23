@@ -256,6 +256,10 @@ jobs:
         run: node tests/perf/ai-scope.mjs --broken
       - name: G-AI-SCOPE — عزل المساعد (owner فقط · يستدعي الدالّة ويقرأ ai_usage فقط · لا كتابة/مساس بالمطابقة)
         run: node tests/perf/ai-scope.mjs
+      - name: Self-check — G-AI-CAP يرسب حين يُثبَّت السقف 20 في الواجهة رغم cap=500
+        run: node tests/perf/ai-cap.mjs --broken
+      - name: G-AI-CAP — السقف من القاعدة (meta.cap/ai_usage_status) لا رقم ثابت في الواجهة
+        run: node tests/perf/ai-cap.mjs
       - name: Self-check — G-CMP-LAYOUT يرسب حين يُبتر محور الرسم (بلا direction:ltr)
         run: node tests/perf/sales-cmp-layout.mjs --broken
       - name: G-CMP-LAYOUT — جدول المقارنة بلا تلاصق ＋ وحدات عربية ملتصقة ＋ محور الرسم بلا بتر

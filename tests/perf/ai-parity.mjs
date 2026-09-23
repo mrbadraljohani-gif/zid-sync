@@ -62,9 +62,9 @@ if (BROKEN) {
 }
 if (BROKEN_WIN) {
   let it = readFileSync(intentsSrc, "utf8");
-  const A = 'if (cs && res && !SHORTFALL_SKIP.has(res.kind)) res.coverage_shortfall = cs;   // بيان نقص لا رفض';
+  const A = 'if (cs && res && !SHORTFALL_SKIP.has(res.kind)) { res.coverage_shortfall = cs; res.coverage_shortfall.display = `المرصود ${D(cs.observed_days)} من ${D(cs.requested_days)} المطلوبة`; }   // بيان نقص لا رفض';
   if (!it.includes(A)) { console.error("✗ (--broken-window) لم أجد سطر بيان النقص"); process.exit(2); }
-  it = it.replace(A, 'if (cs) return { kind: "insufficient_window", observed_days: cs.observed_days, requested_days: cs.requested_days };   // (--broken-window) الرفض القديم');
+  it = it.replace(A, 'if (cs) return applyDisplay({ kind: "insufficient_window", observed_days: cs.observed_days, requested_days: cs.requested_days });   // (--broken-window) الرفض القديم');
   intentsSrc = join(AIDIR, "_broken_win_intents.mjs"); writeFileSync(intentsSrc, it); tmps.push(intentsSrc);
 }
 const { computeScope } = await import(pathToFileURL(computeSrc).href);

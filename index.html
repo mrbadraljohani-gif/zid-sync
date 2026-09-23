@@ -1947,7 +1947,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "643ccf9";
+const APP_VERSION = "154cd56";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3319,22 +3319,31 @@ function renderWarehouseSection(whData, movs, curSince, whUploaded, whLast) {
 // ============ المساعد الذكيّ لشاشة المبيعات (owner فقط) ============
 // 🚨 القيد ①: غير مُنشأ أصلاً لغير owner (لا مخفيّ بـCSS). القيد ③: الرصيد المتبقّي معروض دائماً.
 // يقرأ من الدالّة ai-assistant (Edge) بصلاحيّة JWT المستخدم — لا استعلام أعمال من الواجهة.
-const AI_DAILY_CAP = 20;   // 🚨 يطابق السقف الثابت في supabase_ai_usage.sql (ai_usage_bump) — غيّرهما معاً
+// 🚨 السقف مصدره واحد: القاعدة (ai_daily_cap) عبر ai_usage_status/meta.cap — 🚫 لا رقم ثابت في الواجهة.
 let aiBusy = false;
-async function salesAIQuotaLeft() {   // يقرأ عدّاد اليوم (RLS: صفّ المستخدم فقط) بلا زيادة — للعرض الدائم
+async function salesAIStatus() {   // قراءة غير مستهلِكة (rpc): {used, cap} من المصدر الواحد — للعرض الدائم
   try {
-    const day = riyadhDay(Date.now());
-    const { data, error } = await sb.from("ai_usage").select("used_count").eq("usage_day", day).maybeSingle();
+    const { data, error } = await sb.rpc("ai_usage_status");
     if (error) return null;
-    const used = data ? (Number(data.used_count) || 0) : 0;
-    return Math.max(0, AI_DAILY_CAP - used);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return null;
+    const cap = Number(row.cap), used = Number(row.used) || 0;
+    return { used, cap, left: Math.max(0, cap - used) };
   } catch { return null; }
 }
-function salesAIQuotaText(left) { return left == null ? `— من ${AI_DAILY_CAP} سؤالاً اليوم` : `<b>${left}</b> من ${AI_DAILY_CAP} سؤالاً اليوم`; }
+function salesAIQuotaText(st) { return (!st || !Number.isFinite(st.cap)) ? `— سؤالاً اليوم` : `<b>${st.left}</b> من ${st.cap} سؤالاً اليوم`; }
+function salesAIQuotaFromMeta(meta) { return (meta && meta.cap != null && meta.remaining != null) ? { left: meta.remaining, cap: meta.cap, used: meta.cap - meta.remaining } : null; }
+// تعقيم نصّيّ لمخرَج النموذج: يزيل علامات Markdown (نصّ→نصّ، بلا HTML) — دفاع مع منع Markdown في التعليمات
+function aiPlainText(s) {
+  return String(s == null ? "" : s)
+    .replace(/^\s*[*\-•#]+\s+/gm, "")   // بادئات القوائم/العناوين
+    .replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1")   // **عريض** / *مائل*
+    .replace(/`([^`]+)`/g, "$1");
+}
 async function renderSalesAI() {
   const host = document.getElementById("salesAI"); if (!host) return;
   if (myRole !== "owner" || !(dbOnline && sb)) { host.innerHTML = ""; return; }   // 🚨 غير owner ⇒ لا يُنشأ الحقل إطلاقاً
-  if (host.dataset.built === "1") { const q = document.getElementById("saiQuota"); if (q) q.innerHTML = salesAIQuotaText(await salesAIQuotaLeft()); return; }   // مبنيّ: حدّث الرصيد فقط (لا تمسح جواباً/سؤالاً حيّاً)
+  if (host.dataset.built === "1") { const q = document.getElementById("saiQuota"); if (q) q.innerHTML = salesAIQuotaText(await salesAIStatus()); return; }   // مبنيّ: حدّث الرصيد فقط (لا تمسح جواباً/سؤالاً حيّاً)
   const bot = `<svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="2"/><path d="M12 8V4M9 13h.01M15 13h.01M2 13h2M20 13h2"/></svg>`;
   host.innerHTML = `<div class="card sai-card">
     <div class="sai-head">
@@ -3349,7 +3358,7 @@ async function renderSalesAI() {
     <div id="saiAnswer"></div>
   </div>`;
   host.dataset.built = "1";
-  const q = document.getElementById("saiQuota"); if (q) q.innerHTML = salesAIQuotaText(await salesAIQuotaLeft());
+  const q = document.getElementById("saiQuota"); if (q) q.innerHTML = salesAIQuotaText(await salesAIStatus());
 }
 async function salesAskAI() {
   if (aiBusy) return;
@@ -3364,13 +3373,12 @@ async function salesAskAI() {
     if (data && data.ok) {
       // 🚨 القيد ②: سطر «تحليل آليّ» تضيفه الواجهة برمجياً — لا يعتمد على النموذج
       const disc = `<div class="sai-disc">⚠ تحليل آليّ — تحقّق من الأرقام بنفسك</div>`;
-      if (ansEl) ansEl.innerHTML = `<div class="sai-answer">${esc(data.answer || "")}</div>${disc}`;
-      if (data.meta && data.meta.remaining != null) { const q = document.getElementById("saiQuota"); if (q) q.innerHTML = salesAIQuotaText(data.meta.remaining); }
-      else { const q = document.getElementById("saiQuota"); if (q) q.innerHTML = salesAIQuotaText(await salesAIQuotaLeft()); }
+      if (ansEl) ansEl.innerHTML = `<div class="sai-answer">${esc(aiPlainText(data.answer))}</div>${disc}`;   // نصّ معقَّم (بلا Markdown خام) ثم esc — لا HTML من النموذج
+      const q = document.getElementById("saiQuota"); if (q) q.innerHTML = salesAIQuotaText(salesAIQuotaFromMeta(data.meta) || await salesAIStatus());   // 🚨 cap من meta.cap لا ثابت
     } else {
       // capped / geminiQuota / خطأ منطقيّ — رسالة صريحة (ماذا ولماذا)
       if (ansEl) ansEl.innerHTML = `<div class="sai-answer err">${esc((data && data.error) || "تعذّر الحصول على جواب.")}</div>`;
-      const q = document.getElementById("saiQuota"); if (q) q.innerHTML = salesAIQuotaText(await salesAIQuotaLeft());
+      const q = document.getElementById("saiQuota"); if (q) q.innerHTML = salesAIQuotaText(salesAIQuotaFromMeta(data && data.meta) || await salesAIStatus());
     }
   } catch (e) {
     if (ansEl) ansEl.innerHTML = `<div class="sai-answer err">تعذّر الاتصال بالمساعد: ${esc(e && e.message ? e.message : String(e))}</div>`;

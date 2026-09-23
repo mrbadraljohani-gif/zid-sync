@@ -73,6 +73,8 @@ const PHRASE_INSTRUCTION = [
   "🚨 عند سؤال «لماذا»: ميّز بين ما تثبته الأرقام حسابياً وبين السبب التجاريّ. لا تنسب سبباً لا تثبته الأرقام.",
   "   استعمل «أكبر مساهمة ظاهرة في الانخفاض هي…» لا «السبب هو…».",
   "🚫 لا تقترح تعديل مخزون ولا أسعار ولا إعدادات.",
+  "🚨 لكل رقم استعمل نصّ display/label الجاهز في النتيجة حرفياً (رقمه بفواصله ووحدته) — 🚫 لا تُنسّق رقماً بنفسك ولا تحذف فاصلة ولا تختر وحدة (فالوحدة مُرفَقة).",
+  "🚫 لا تستعمل تنسيق Markdown إطلاقاً — لا نجوم (*) ولا مربّعات (#) ولا قوائم بعلامات. نصّ عربيّ عاديّ بأسطر قصيرة، كل بند في سطر.",
   "أجب عن سؤال المستخدم المُرفَق بالعربية الفصحى وبإيجاز، معتمداً على النتيجة وحدها.",
 ].join("\n");
 
@@ -143,7 +145,7 @@ Deno.serve(async (req) => {
   // تحقّق من allowlist (البنية لا التعليمات): نيّة معروفة ＋ معاملات ضمن القائمة
   const coveredList = INTENT_KEYS.map((k) => "• " + INTENT_AR[k as keyof typeof INTENT_AR]).join("\n");
   if (!INTENT_KEYS.includes(intent)) {
-    return json({ ok: true, answer: `هذا السؤال خارج ما أغطّيه. أستطيع الإجابة عن:\n${coveredList}`, meta: { intent: "unsupported", used, remaining } });
+    return json({ ok: true, answer: `هذا السؤال خارج ما أغطّيه. أستطيع الإجابة عن:\n${coveredList}`, meta: { intent: "unsupported", used, remaining, cap } });
   }
   for (const k of Object.keys(params)) if (k !== "intent" && !PARAM_KEYS.has(k)) delete params[k];   // إسقاط أي معامل خارج القائمة
 
@@ -159,7 +161,7 @@ Deno.serve(async (req) => {
 
   const SALES_INTENTS = new Set(["sales_summary", "top_sellers", "bottom_sellers", "product_movement", "period_comparison", "location_comparison", "stagnant_inventory", "stockout_risk", "biggest_decliners"]);
   if (location === "wh" && SALES_INTENTS.has(intent)) {
-    return json({ ok: true, answer: "المستودع مخزن لا نقطة بيع — لا تُحسب له مبيعات (نقصه سحب لوجهات متعدّدة). اسأل عن فرع، أو عن «قيمة المخزون» للمستودع.", meta: { intent, used, remaining } });
+    return json({ ok: true, answer: "المستودع مخزن لا نقطة بيع — لا تُحسب له مبيعات (نقصه سحب لوجهات متعدّدة). اسأل عن فرع، أو عن «قيمة المخزون» للمستودع.", meta: { intent, used, remaining, cap } });
   }
 
   // جلب البيانات (كلّها صغيرة) بصلاحيّة owner
@@ -181,7 +183,7 @@ Deno.serve(async (req) => {
 
   // نتائج التحكّم تُصاغ في الكود (بلا Gemini)
   const ctrl = controlAnswer(result);
-  if (ctrl != null) return json({ ok: true, answer: ctrl, meta: { intent, period, location, used, remaining } });
+  if (ctrl != null) return json({ ok: true, answer: ctrl, meta: { intent, period, location, used, remaining, cap } });
 
   // ————— (Gemini #2) صياغة —————
   // 🚨 يُرسَل: نتيجة الاستعلام المجمّعة ＋ أسماء الأصناف ＋ سؤال المستخدم (لتوجيه الصياغة).
@@ -197,5 +199,5 @@ Deno.serve(async (req) => {
   if ("quota" in phRes) return json({ ok: false, geminiQuota: true, error: `وصل المساعد إلى حدّ Gemini المجاني — استُهلكت محاولة من رصيدك اليوميّ (${remaining}/${cap} متبقية).` }, 200);
   if ("error" in phRes) return json({ ok: false, error: "تعذّرت صياغة الجواب حالياً." }, 502);
 
-  return json({ ok: true, answer: phRes.text, meta: { intent, period, location, used, remaining } });
+  return json({ ok: true, answer: phRes.text, meta: { intent, period, location, used, remaining, cap } });
 });
