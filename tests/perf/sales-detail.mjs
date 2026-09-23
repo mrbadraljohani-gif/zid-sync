@@ -46,10 +46,11 @@ const res = await p.evaluate(async () => {
   const txt = el => (el ? (el.textContent || "").replace(/\s+/g, " ").trim() : "");
   const tabCount = document.querySelectorAll("#salesTabs .s4-tab").length;
   const tbls = document.querySelectorAll("#salesDetail .s4-3tables .s4-tbl");
-  const firstSellerVal = (document.querySelector("#salesDetail .s4-3tables .s4-tbl table tbody tr td.n:last-child bdi") || {}).textContent || "";
-  // عمود سعر الوحدة في «الأكثر مبيعاً» (المثبَّت في الحركة)
+  // «القيمة» حُذف؛ الترتيب بالقيمة يبقى ⇒ أعلى صفّ = A1 (الأعلى قيمة). سعر الوحدة صار آخر عمود.
+  const firstSellerName = txt(document.querySelector("#salesDetail .s4-3tables .s4-tbl table tbody tr td.nm"));
   const sellersHdr = txt(document.querySelector("#salesDetail .s4-3tables .s4-tbl table thead tr"));
-  const firstSellerUnit = (document.querySelector("#salesDetail .s4-3tables .s4-tbl table tbody tr td.n:nth-last-child(2) bdi") || {}).textContent || "";
+  const firstSellerUnit = (document.querySelector("#salesDetail .s4-3tables .s4-tbl table tbody tr td.n:last-child bdi") || {}).textContent || "";
+  const sortSub = txt(document.querySelector("#salesDetail .s4-3tables .s4-tbl .s4-tbl-sub"));
   const gates = [...document.querySelectorAll("#salesDetail .s4-gate")].map(txt);
   // ④ البحث: المكبّر داخل جدول «الأكثر مبيعاً» — لا مربع مستقلّ
   const oldBox = !!document.querySelector("#salesDetail .s4-search");
@@ -68,14 +69,14 @@ const res = await p.evaluate(async () => {
   // مسح ⇒ العدد كامل · مسافات فقط ⇒ لا فلترة
   onSalesTblSearch(""); const clearedRows = rowCount();
   onSalesTblSearch("   "); const wsRows = rowCount();
-  return { tabCount, tblCount: tbls.length, firstSellerVal, firstSellerUnit, sellersHdr, gates, afterSearchRows, afterSearchTxt, oldBox, srchBtn, inpBeforeToggle, inpAfterToggle, baseRows, bcRows, bcTxt, clearedRows, wsRows };
+  return { tabCount, tblCount: tbls.length, firstSellerName, firstSellerUnit, sellersHdr, sortSub, gates, afterSearchRows, afterSearchTxt, oldBox, srchBtn, inpBeforeToggle, inpAfterToggle, baseRows, bcRows, bcTxt, clearedRows, wsRows };
 });
 await b.close();
 const fails = [];
 if (errs.length) fails.push("أخطاء JS: " + errs.join(" | "));
 if (res.tabCount < 2) fails.push(`تبويب المواقع: توقّعت ≥2، وجدت ${res.tabCount}`);
 if (res.tblCount !== 3) fails.push(`الجداول الثلاثة: وجدت ${res.tblCount}`);
-if (res.firstSellerVal.replace(/[^\d]/g, "") !== "500") fails.push(`«الأكثر مبيعاً» أعلى صفّ ليس 500: «${res.firstSellerVal}»`);
+if (!/طقم مفارش/.test(res.firstSellerName)) fails.push(`الترتيب بالقيمة لم يبقَ — أعلى صفّ ليس A1 (الأعلى قيمة): «${res.firstSellerName}»`);
 if (!BROKEN) {
   const gated = res.gates.filter(g => /التاريخ غير كافٍ/.test(g));
   if (gated.length !== 2) fails.push(`بوّابة «التاريخ غير كافٍ»: توقّعت 2 (راكد ＋ نفاد)، وجدت ${gated.length}`);
@@ -86,7 +87,9 @@ if (!BROKEN) {
   if (res.inpBeforeToggle) fails.push("حقل البحث ظاهر قبل النقر على المكبّر (يجب أن يكون منسدلاً)");
   if (!res.inpAfterToggle) fails.push("النقر على المكبّر لم يُظهر حقل البحث");
   if (!/سعر الوحدة/.test(res.sellersHdr)) fails.push("عمود «سعر الوحدة» غير موجود في رأس «الأكثر مبيعاً»");
-  if (res.firstSellerUnit.replace(/[^\d]/g, "") !== "100") fails.push(`سعر الوحدة (المثبَّت في الحركة) للأعلى ليس 100: «${res.firstSellerUnit}»`);
+  if (/القيمة/.test(res.sellersHdr)) fails.push("عمود «القيمة» ما زال في «الأكثر مبيعاً» (يجب حذفه)");
+  if (res.firstSellerUnit.replace(/[^\d]/g, "") !== "100") fails.push(`سعر الوحدة (آخر عمود) للأعلى ليس 100: «${res.firstSellerUnit}»`);
+  if (!/مرتّب حسب إجمالي قيمة المبيعات/.test(res.sortSub)) fails.push(`سطر أساس الترتيب غائب: «${res.sortSub}»`);
   // البحث بالباركود ＋ القيدان
   if (res.bcRows !== 1 || !/طقم مفارش/.test(res.bcTxt)) fails.push(`البحث بباركود A1 لم يعطِ صفّاً واحداً بعينه (صفوف=${res.bcRows} · «${res.bcTxt}»)`);
   if (res.clearedRows !== res.baseRows) fails.push(`مسح الحقل لم يُعِد العدد كاملاً (${res.clearedRows}≠${res.baseRows})`);
@@ -97,4 +100,4 @@ if (BROKEN) {
   console.error("✗ (--broken) لم يرسب بعد إلغاء البوّابة — لا أسنان."); process.exit(1);
 }
 if (fails.length) { console.error("✗ G-SALES-DETAIL:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ G-SALES-DETAIL: تبويب ＋ «الأكثر مبيعاً» (أعلى=500) ＋ الراكد/النفاد مبوّبان «التاريخ غير كافٍ» (المرصود رفعة · يوم) ＋ البحث يفلتر.");
+console.log("✅ G-SALES-DETAIL: تبويب ＋ «الأكثر مبيعاً» (الترتيب بالقيمة محفوظ · بلا عمود قيمة) ＋ الراكد/النفاد مبوّبان «التاريخ غير كافٍ» (المرصود رفعة · يوم) ＋ البحث يفلتر.");
