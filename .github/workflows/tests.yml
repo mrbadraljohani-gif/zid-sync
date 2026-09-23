@@ -214,6 +214,18 @@ jobs:
         run: node tests/perf/sales-tax.mjs --broken
       - name: G-TAX — «قبل الضريبة» من unit_price_excl مباشرةً لا ضرباً/قسمةً
         run: node tests/perf/sales-tax.mjs
+      - name: Self-check — G-TZ يرسب حين يُشتقّ اليوم بـUTC لا بتوقيت الرياض
+        run: node tests/perf/sales-tz.mjs --broken
+      - name: G-TZ — اليوم التقويميّ بتوقيت الرياض (UTC+3) لا UTC/متصفّح القارئ
+        run: node tests/perf/sales-tz.mjs
+      - name: Self-check — G-BIZDATE يرسب حين النقطة على يوم الرفعة لا يوم العمل
+        run: node tests/perf/sales-bizdate.mjs --broken
+      - name: G-BIZDATE — العرض التجاريّ على business_date (اليوم السابق للرفعة) + الحركات سليمة
+        run: node tests/perf/sales-bizdate.mjs
+      - name: Self-check — G-MULTIDAY يرسب حين لا يُتتبَّع نطاق الفترة المتعدّدة
+        run: node tests/perf/sales-multiday.mjs --broken
+      - name: G-MULTIDAY — الفترة المتعدّدة نقطة واحدة موسومة بالنطاق (لا تقسيم/عدد)
+        run: node tests/perf/sales-multiday.mjs
       - name: Self-check — حارس عزل الأدوار يرسب بإظهار المبيعات لـadmin
         run: node tests/perf/role-sales.mjs --broken
       - name: G-ROLE-SALES — عزل شاشة المبيعات بالدور (واجهة + بنية SQL؛ admin بلا شاشة · marketing عليها فقط)

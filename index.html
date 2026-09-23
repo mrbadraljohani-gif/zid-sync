@@ -1184,6 +1184,7 @@
   @media (max-width: 980px) { .s4-mid { grid-template-columns: minmax(0, 1fr); } }
   .s4-ch-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
   .s4-ch-head h2 { font-size: 15px; }
+  .s4-chart-note { font-size: 10.5px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
   .s4-legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
   .s4-legend span { display: flex; align-items: center; gap: 5px; } .s4-legend i { width: 13px; height: 3px; border-radius: 2px; display: inline-block; }
   .s4-dd { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 7px; padding: 3px 9px; }
@@ -1780,7 +1781,7 @@
       <div id="salesDisBox" style="display:none;margin-bottom:14px"></div>
       <div class="sales-lastup" id="salesLastUp">—</div>
       <div class="s4-mid">
-        <div class="card"><div class="s4-ch-head"><h2>المبيعات المقدّرة عبر الزمن (قيمة)</h2><span class="s4-dd">يومياً</span></div><div class="s4-legend" id="salesChartLegend"></div><div id="salesChart"></div></div>
+        <div class="card"><div class="s4-ch-head"><h2>المبيعات المقدّرة عبر الزمن (قيمة)</h2><span class="s4-dd">يومياً</span></div><div class="s4-legend" id="salesChartLegend"></div><div id="salesChart"></div><div class="s4-chart-note">كل نقطة تمثّل مبيعات اليوم السابق لرفعتها (بتوقيت الرياض) · النقطة المجوّفة ○ تغطّي أكثر من يوم</div></div>
         <div class="card s4-cmp"><h2>مقارنة المواقع</h2><div class="twrap" id="salesCmp"></div></div>
       </div>
       <div class="sales-notes" id="salesNotes"></div>
@@ -1892,7 +1893,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "3cb1d1a";
+const APP_VERSION = "bd3b475";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2880,12 +2881,28 @@ function salesLocName(loc) { return loc === "wh" ? "المستودع" : (((invBr
 function salesLocList() { return [["all", "جميع المواقع"], ["wh", "المستودع"], ...(invBranches || []).map(b => [b.id, b.name])]; }
 function salesLocColor(loc) { if (loc === "wh") return "--info"; const i = (invBranches || []).findIndex(b => b.id === loc); return ["--green", "--gold", "--amber", "--green-2"][i] || "--info"; }
 function salesLocIcon(loc) { return loc === "wh" ? ic("warehouse") : ic("branch"); }
+// ── التوقيت: كل يوم تقويميّ يُشتقّ بتوقيت الرياض (UTC+3، بلا صيفيّ) صراحةً — لا slice على UTC ولا توابع متصفّح القارئ ──
+const SALES_TZ_OFF = 3 * 3600000;
+function riyadhDay(ts) { const t = (typeof ts === "number" ? ts : Date.parse(ts)); if (!Number.isFinite(t)) return ""; return new Date(t + SALES_TZ_OFF).toISOString().slice(0, 10); }   // YYYY-MM-DD بالرياض
+// business_date = اليوم السابق لرفعة (الملف يعكس رصيد اليوم السابق) — بالرياض
+function salesBizDate(ts) { const t = Date.parse(ts); if (!Number.isFinite(t)) return ""; const d = new Date(t + SALES_TZ_OFF); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); }
+// طابع منتصف ليل يوم العمل بالرياض — لعضويّة النافذة (الفلاتر/المقارنات)
+function salesBizTs(ts) { const bd = salesBizDate(ts); return bd ? Date.parse(bd + "T00:00:00+03:00") : NaN; }
+function shiftYmd(ymd, deltaDays) { const t = Date.parse(ymd + "T12:00:00Z"); return Number.isFinite(t) ? new Date(t + deltaDays * 86400000).toISOString().slice(0, 10) : ymd; }
+const SALES_AR_MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+function fmtDayLabel(ymd) { const p = String(ymd).split("-"); return p.length === 3 ? (Number(p[2]) + " " + (SALES_AR_MONTHS[Number(p[1]) - 1] || "")) : ymd; }
+// وسم النطاق لحركة تغطّي span يوماً منتهيةً بـendYmd: «22–23 سبتمبر» (نطاق لا عدد)
+function bizRangeLabel(endYmd, span) {
+  if (!(span > 1)) return fmtDayLabel(endYmd);
+  const startYmd = shiftYmd(endYmd, -(span - 1)), sp = startYmd.split("-"), ep = endYmd.split("-");
+  // نفس الشهر ⇒ «22–23 سبتمبر» · مختلف ⇒ «30 أغسطس–2 سبتمبر»
+  return (sp[1] === ep[1]) ? (Number(sp[2]) + "–" + fmtDayLabel(endYmd)) : (fmtDayLabel(startYmd) + "–" + fmtDayLabel(endYmd));
+}
 function salesRange(period) {
   const now = Date.now(), day = 86400000;
   if (period === "all") return { sinceIso: null, prevSinceIso: null };
-  const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
   let since, span;
-  if (period === "today") { since = startToday.getTime(); span = day; } else { const d = Number(period); span = d * day; since = now - span; }
+  if (period === "today") { since = Date.parse(riyadhDay(now) + "T00:00:00+03:00"); span = day; } else { const d = Number(period); span = d * day; since = now - span; }
   return { sinceIso: new Date(since).toISOString(), prevSinceIso: new Date(since - span).toISOString() };
 }
 // التجميع: القيمة والوحدات من estimated_sale فقط؛ المختفي منفصل؛ «تحرّكت» = أي حركة (فريدة موقع|كود)
@@ -2932,8 +2949,7 @@ function salesSetDateLabel() {
   const cal = `<svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>`;
   if (salesPeriod === "all") { el.innerHTML = `${cal} كل التاريخ`; return; }
   const { sinceIso } = salesRange(salesPeriod);
-  const fmt = iso => { try { return new Date(iso).toLocaleDateString("ar", { day: "numeric", month: "long" }); } catch (e) { return ""; } };
-  el.innerHTML = `${cal} ${fmt(sinceIso)} – اليوم`;
+  el.innerHTML = `${cal} ${fmtDayLabel(riyadhDay(sinceIso))} – اليوم`;   // بتوقيت الرياض لا متصفّح القارئ
 }
 function renderSalesLastUp(ups) {
   const el = document.getElementById("salesLastUp"); if (!el) return;
@@ -2951,14 +2967,14 @@ async function salesStockRows() {
 // سلسلة زمنية يومية لقيمة البيع المقدّر (للرسم الخطّي)
 function salesSeries(cur) {
   const byDay = new Map();
-  for (const m of cur) { if (m.kind !== "estimated_sale" || m.value_est == null) continue; const d = String(m.captured_at).slice(0, 10); byDay.set(d, (byDay.get(d) || 0) + (Number(m.value_est) || 0)); }
-  return [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([d, v]) => ({ d, v }));
+  for (const m of cur) { if (m.kind !== "estimated_sale" || m.value_est == null) continue; const d = salesBizDate(m.captured_at); if (!d) continue; const e = byDay.get(d) || { v: 0, span: 1 }; e.v += Number(m.value_est) || 0; const pd = Number(m.period_days) || 1; if (pd > e.span) e.span = pd; byDay.set(d, e); }   // بيوم العمل (اليوم السابق للرفعة، بالرياض) ＋ أطول نطاق يغطّيه
+  return [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([d, e]) => ({ d, v: e.v, span: e.span }));
 }
 // بيانات عمود موقع واحد: التجميع الحاليّ ＋ السابق ＋ لقطة المخزون ＋ أيام التغطية ＋ السلسلة
 function salesColData(loc, movs, stock, curSince, prevSince) {
   const lm = movs.filter(m => m.location === loc);
-  const cur = lm.filter(m => Date.parse(m.captured_at) >= curSince);
-  const prev = prevSince != null ? lm.filter(m => { const t = Date.parse(m.captured_at); return t >= prevSince && t < curSince; }) : [];
+  const cur = lm.filter(m => salesBizTs(m.captured_at) >= curSince);
+  const prev = prevSince != null ? lm.filter(m => { const t = salesBizTs(m.captured_at); return t >= prevSince && t < curSince; }) : [];
   const a = salesAgg(cur), pa = salesAgg(prev);
   const srows = stock.filter(r => r.location === loc);
   let invValue = 0, totalUnits = 0; for (const r of srows) { const q = numOrNull(r.qty), p = numOrNull(r.price_incl); if (q != null) totalUnits += q; if (q != null && p != null) invValue += q * p; }
@@ -3097,12 +3113,21 @@ function salesMultiLineSVG(seriesMap, order) {
   const Y = v => padT + (1 - v / max) * (H - padT - padB);
   let grid = "", ax = "", lines = "";
   for (const f of [0, 0.25, 0.5, 0.75, 1]) { const yy = padT + (1 - f) * (H - padT - padB); grid += `<line class="s4-ml-grid" x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}"/>`; ax += `<text class="s4-ml-ax" x="${padL - 5}" y="${(yy + 3).toFixed(1)}" text-anchor="end">${salesShort(max * f)}</text>`; }
+  const single = dates.length === 1;   // نقطة زمنية واحدة ⇒ أعمدة لا نقاط معلّقة (٣-د لاحقاً؛ هنا نضمن ظهورها)
   for (const loc of order) {
     const s = seriesMap[loc] || []; if (!s.length) continue;
     const col = `var(${salesLocColor(loc)})`;
-    lines += `<polyline fill="none" stroke="${col}" stroke-width="2.2" points="${s.map(p => `${X(xi.get(p.d)).toFixed(1)},${Y(p.v).toFixed(1)}`).join(" ")}"/>` + s.map(p => `<circle cx="${X(xi.get(p.d)).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.4" fill="${col}"/>`).join("");
+    if (!single) lines += `<polyline fill="none" stroke="${col}" stroke-width="2.2" points="${s.map(p => `${X(xi.get(p.d)).toFixed(1)},${Y(p.v).toFixed(1)}`).join(" ")}"/>`;
+    lines += s.map(p => {
+      const cx = X(xi.get(p.d)), cy = Y(p.v), multi = (p.span || 1) > 1;
+      const title = `<title>${esc(salesLocName(loc))} · ${multi ? "تغطّي " + esc(bizRangeLabel(p.d, p.span)) : esc(fmtDayLabel(p.d))} · ${salesNum(p.v)} ر.س</title>`;
+      // النقطة الممتدّة (span>1): حلقة مجوّفة مميّزة بصرياً عن نقطة اليوم الواحد
+      return multi
+        ? `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.2" fill="none" stroke="${col}" stroke-width="2"/><circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="1.5" fill="${col}">${title}</circle>`
+        : `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="2.4" fill="${col}">${title}</circle>`;
+    }).join("");
   }
-  const xl = `<text class="s4-ml-ax" x="${X(0).toFixed(1)}" y="${H - 6}" text-anchor="start">${esc(dates[0].slice(5))}</text>` + (dates.length > 1 ? `<text class="s4-ml-ax" x="${X(dates.length - 1).toFixed(1)}" y="${H - 6}" text-anchor="end">${esc(dates[dates.length - 1].slice(5))}</text>` : "");
+  const xl = `<text class="s4-ml-ax" x="${X(0).toFixed(1)}" y="${H - 6}" text-anchor="${single ? "middle" : "start"}">${esc(fmtDayLabel(dates[0]))}</text>` + (dates.length > 1 ? `<text class="s4-ml-ax" x="${X(dates.length - 1).toFixed(1)}" y="${H - 6}" text-anchor="end">${esc(fmtDayLabel(dates[dates.length - 1]))}</text>` : "");
   return `<svg class="s4-ml" viewBox="0 0 ${W} ${H}" aria-hidden="true">${grid}${lines}${ax}${xl}</svg>`;
 }
 let salesTab = "all", salesCtx = null, salesShowAll = {}, salesSearchOpen = false;
@@ -3127,8 +3152,8 @@ function renderSalesDetail() {
   const maxUpd = Math.max(0, ...[...latest.values()]);
   tabsEl.innerHTML = [["all", "جميع المواقع"], ...locsAll.map(l => [l, salesLocName(l)])].map(([v, n]) => `<button class="s4-tab${salesTab === v ? " on" : ""}" onclick="salesSetTab('${esc(String(v))}')">${esc(n)}</button>`).join("") + `<span class="s4-tab-upd">آخر تحديث للبيانات: ${maxUpd ? ageText(maxUpd) : "—"}</span>`;
   const tabLocs = (salesTab === "all") ? locsAll : [salesTab];
-  const cur = movs.filter(m => Date.parse(m.captured_at) >= curSince && tabLocs.includes(m.location));
-  const prev = prevSince != null ? movs.filter(m => { const t = Date.parse(m.captured_at); return t >= prevSince && t < curSince && tabLocs.includes(m.location); }) : [];
+  const cur = movs.filter(m => salesBizTs(m.captured_at) >= curSince && tabLocs.includes(m.location));
+  const prev = prevSince != null ? movs.filter(m => { const t = salesBizTs(m.captured_at); return t >= prevSince && t < curSince && tabLocs.includes(m.location); }) : [];
   const a = salesAgg(cur), pa = salesAgg(prev);
   const srows = stock.filter(r => tabLocs.includes(r.location));
   let inv = 0, totUnits = 0; const qtyBySku = new Map(), priceBySku = new Map();
@@ -3170,7 +3195,7 @@ function renderSalesTables() {
   let rakaTbl = gateMsg, nafadTbl = gateMsg;
   if (!gate) {
     const now = Date.now();
-    const otherStatus = sku => { const others = salesCtx.locsAll.filter(l => !tabLocs.includes(l)); if (!others.length) return "—"; const sold = salesCtx.movs.some(m => m.kind === "estimated_sale" && m.sku === sku && others.includes(m.location) && Date.parse(m.captured_at) >= salesCtx.curSince); return sold ? "سريع في موقع آخر" : "راكد/غائب"; };
+    const otherStatus = sku => { const others = salesCtx.locsAll.filter(l => !tabLocs.includes(l)); if (!others.length) return "—"; const sold = salesCtx.movs.some(m => m.kind === "estimated_sale" && m.sku === sku && others.includes(m.location) && salesBizTs(m.captured_at) >= salesCtx.curSince); return sold ? "سريع في موقع آخر" : "راكد/غائب"; };
     const raka = [...qtyBySku.entries()].map(([sku, qty]) => { const ls = lastSale.get(sku), days = ls ? Math.round((now - ls) / 86400000) : null, nm = (sMap.get(sku) || {}).name || "", pr = priceBySku.get(sku); return { sku, name: nm, qty, days, unit: pr != null ? pr : null, val: pr != null ? qty * pr : null }; })
       .filter(x => x.qty > 0 && (x.days == null || x.days >= S4_NOSALE_DAYS) && match(x.sku, x.name)).sort((a, b) => (b.days || 99999) - (a.days || 99999));
     const rakaTop = salesCap(raka, "raka");
@@ -3213,9 +3238,9 @@ async function renderSalesPage() {
     const locsAll = ["wh", ...(invBranches || []).map(b => b.id)];
     const shown = salesLoc === "all" ? locsAll : [salesLoc];
     // (ج) موقع «مرفوع في الفترة» = له رفعة غير تأسيسية داخل النافذة الحالية (وإلا: نسي الموظف رفعه)
-    const uploadedInPeriod = new Set(ups.filter(u => !baselineIds.has(u.id) && Date.parse(u.captured_at) >= curSince).map(u => u.location));
-    const prevBaselineOnly = prevSince != null && ups.some(u => baselineIds.has(u.id) && Date.parse(u.captured_at) >= prevSince && Date.parse(u.captured_at) < curSince) && !ups.some(u => !baselineIds.has(u.id) && Date.parse(u.captured_at) >= prevSince && Date.parse(u.captured_at) < curSince);
-    const curAll = movs.filter(m => Date.parse(m.captured_at) >= curSince && shown.includes(m.location));
+    const uploadedInPeriod = new Set(ups.filter(u => !baselineIds.has(u.id) && salesBizTs(u.captured_at) >= curSince).map(u => u.location));
+    const prevBaselineOnly = prevSince != null && ups.some(u => baselineIds.has(u.id) && salesBizTs(u.captured_at) >= prevSince && salesBizTs(u.captured_at) < curSince) && !ups.some(u => !baselineIds.has(u.id) && salesBizTs(u.captured_at) >= prevSince && salesBizTs(u.captured_at) < curSince);
+    const curAll = movs.filter(m => salesBizTs(m.captured_at) >= curSince && shown.includes(m.location));
     if (!curAll.length) {
       body.style.display = "none"; empty.style.display = "block";
       empty.textContent = ups.length ? "لا حركات مبيعات مقدّرة في هذه الفترة/الموقع — جرّب فترة أوسع أو موقعاً آخر." : "لا حركات بعد. ارفع ملفاً من «تحديث قاعدة البيانات» لتبدأ المبيعات المقدّرة في الظهور.";
@@ -3237,7 +3262,7 @@ async function renderSalesPage() {
     }, { val: 0, valExcl: 0, units: 0, inv: 0, noPrice: 0, disC: 0, disV: 0, valRate: 0, unitRate: 0, pvalRate: 0, punitRate: 0, daysMax: 0, pdaysMax: 0, cov: 0, covN: 0 });
     const curActive = curAll.filter(m => uploadedInPeriod.has(m.location));
     const movedNow = new Set(curActive.map(m => String(m.sku))).size;   // (١-أ) كود فريد عبر المواقع
-    const movedPrev = prevSince != null ? new Set(movs.filter(m => { const t = Date.parse(m.captured_at); return t >= prevSince && t < curSince && uploadedInPeriod.has(m.location); }).map(m => String(m.sku))).size : null;
+    const movedPrev = prevSince != null ? new Set(movs.filter(m => { const t = salesBizTs(m.captured_at); return t >= prevSince && t < curSince && uploadedInPeriod.has(m.location); }).map(m => String(m.sku))).size : null;
     const covAvg = scope.covN ? Math.round(scope.cov / scope.covN) : null;
     const scRate = scope.unitRate > 0 ? Math.round(scope.unitRate) : null;   // (ب) Σ(وحدات الموقع÷أيام الموقع)
     // «المرصود» بتعريف واحد = أطول فترة موقع مرصودة (daysMax) ＋ عدّاد الرفعات منفصلاً (١-د)
