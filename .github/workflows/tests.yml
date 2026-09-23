@@ -194,6 +194,26 @@ jobs:
         run: node tests/perf/sales-coverage.mjs --broken
       - name: G-SALES-COV — التغطية مبوّبة «يلزم 14 يوماً» عند رصد قصير (مؤشّرات المعدّل اليوميّ)
         run: node tests/perf/sales-coverage.mjs
+      - name: Self-check — G-MOVED يرسب حين صفّ الإجمالي = مجموع الأعمدة لا الفريد
+        run: node tests/perf/sales-moved.mjs --broken
+      - name: G-MOVED — «متحرّكة» = الأصناف الفريدة (بطاقة=تفصيل=إجمالي) ＋ وسم العابر
+        run: node tests/perf/sales-moved.mjs
+      - name: Self-check — G-TREND يرسب بمقارنة المجاميع (انخفاض وهميّ)
+        run: node tests/perf/sales-trend.mjs --broken
+      - name: G-TREND — «عن السابق» مطبَّعة معدّلاً يوميّاً ＋ إظهار الطولين
+        run: node tests/perf/sales-trend.mjs
+      - name: Self-check — G-BASELINE يرسب حين لا تُستبعَد رفعة التأسيس
+        run: node tests/perf/sales-baseline.mjs --broken
+      - name: G-BASELINE — رفعة التأسيس مستبعَدة من العدّ والمقارنة
+        run: node tests/perf/sales-baseline.mjs
+      - name: Self-check — G-NOUPLOAD يرسب حين الموقع الغائب يظهر بأصفار/-100%
+        run: node tests/perf/sales-noupload.mjs --broken
+      - name: G-NOUPLOAD — موقع بلا رفعة ⇒ «لا رفعة» ومستبعَد من الإجماليّ ＋ صمّام
+        run: node tests/perf/sales-noupload.mjs
+      - name: Self-check — G-TAX يرسب حين «قبل الضريبة» تُشتقّ بالقسمة على 1.15
+        run: node tests/perf/sales-tax.mjs --broken
+      - name: G-TAX — «قبل الضريبة» من unit_price_excl مباشرةً لا ضرباً/قسمةً
+        run: node tests/perf/sales-tax.mjs
       - name: Self-check — حارس عزل الأدوار يرسب بإظهار المبيعات لـadmin
         run: node tests/perf/role-sales.mjs --broken
       - name: G-ROLE-SALES — عزل شاشة المبيعات بالدور (واجهة + بنية SQL؛ admin بلا شاشة · marketing عليها فقط)

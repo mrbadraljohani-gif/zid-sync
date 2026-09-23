@@ -1174,6 +1174,12 @@
   .s4-banner { display: flex; align-items: center; gap: 12px; background: color-mix(in srgb, var(--amber) 10%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 34%, transparent); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: var(--amber-tint); }
   .s4-banner .lnk { color: inherit; text-decoration: underline; cursor: pointer; margin-inline-start: auto; }
   .s4-banner .x { cursor: pointer; color: var(--muted); border: 0; background: none; font-size: 16px; line-height: 1; padding: 0 4px; }
+  .s4-banner.miss { background: color-mix(in srgb, var(--danger) 12%, transparent); border-color: color-mix(in srgb, var(--danger) 36%, transparent); color: var(--danger); }
+  .kpi .kpi-sub2 { font-size: 10.5px; color: var(--muted-2); font-weight: 600; font-family: var(--mono); }
+  .kpi .kpi-trend .trend-dur { font-family: var(--mono); color: var(--muted-2); font-weight: 600; font-size: 10px; margin-inline-start: 4px; }
+  .sc-card .scc-tr .trend-dur, #salesCmp .scc-tr .trend-dur { font-family: var(--mono); color: var(--muted-2); font-weight: 600; font-size: 9.5px; margin-inline-start: 3px; }
+  #salesCmp tr.noup td { color: var(--muted); } #salesCmp td.noupc { text-align: center; color: var(--muted); font-style: normal; }
+  #salesCmp .tot-note { display: block; font-size: 9.5px; font-weight: 600; color: var(--muted-2); font-family: var(--sans); margin-top: 2px; }
   .s4-mid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
   @media (max-width: 980px) { .s4-mid { grid-template-columns: minmax(0, 1fr); } }
   .s4-ch-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -1769,6 +1775,7 @@
     <div id="salesEmpty" class="stc-empty" style="display:none"></div>
     <div id="salesBody" style="display:none">
       <div class="dash-kpis sales-kpis" id="salesKpis"></div>
+      <div class="s4-banner miss" id="salesMissBanner" style="display:none"></div>
       <div class="s4-banner" id="salesBanner" style="display:none"></div>
       <div id="salesDisBox" style="display:none;margin-bottom:14px"></div>
       <div class="sales-lastup" id="salesLastUp">—</div>
@@ -1885,7 +1892,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "5f60f93";
+const APP_VERSION = "3cb1d1a";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2883,13 +2890,15 @@ function salesRange(period) {
 }
 // التجميع: القيمة والوحدات من estimated_sale فقط؛ المختفي منفصل؛ «تحرّكت» = أي حركة (فريدة موقع|كود)
 function salesAgg(rows) {
-  const a = { estValue: 0, units: 0, moved: new Set(), noPrice: 0, disCount: 0, disValue: 0, byLoc: new Map() };
+  // moved = زوج موقع|كود (لعمود الجدول per-location) · movedSku = كود فريد عبر المواقع (منتج واحد ولو تحرّك في فرعين)
+  const a = { estValue: 0, estValueExcl: 0, units: 0, moved: new Set(), movedSku: new Set(), noPrice: 0, disCount: 0, disValue: 0, byLoc: new Map() };
   for (const m of rows || []) {
-    a.moved.add(m.location + "|" + m.sku);
+    a.moved.add(m.location + "|" + m.sku); a.movedSku.add(String(m.sku));
     if (m.kind === "estimated_sale") {
       const u = Math.abs(Number(m.delta) || 0); a.units += u;
-      const L = a.byLoc.get(m.location) || { value: 0, units: 0 }; L.units += u;
+      const L = a.byLoc.get(m.location) || { value: 0, valueExcl: 0, units: 0 }; L.units += u;
       if (m.value_est != null) { a.estValue += Number(m.value_est) || 0; L.value += Number(m.value_est) || 0; } else a.noPrice++;
+      if (m.unit_price_excl != null) { const ve = u * (Number(m.unit_price_excl) || 0); a.estValueExcl += ve; L.valueExcl += ve; }   // «قبل الضريبة» من unit_price_excl المخزَّن (لا اشتقاق)
       a.byLoc.set(m.location, L);
     } else if (m.kind === "disappeared") { a.disCount++; if (m.value_est != null) a.disValue += Number(m.value_est) || 0; }
   }
@@ -2956,12 +2965,49 @@ function salesColData(loc, movs, stock, curSince, prevSince) {
   // أيام التغطية المرصودة = Σ period_days المتمايزة لكل رفعة (لا عدد الرفعات)
   const perUp = new Map(); for (const m of cur) if (m.period_days != null && !perUp.has(m.upload_id)) perUp.set(m.upload_id, Number(m.period_days) || 0);
   let daysCovered = 0; for (const d of perUp.values()) daysCovered += d;
+  const perUpP = new Map(); for (const m of prev) if (m.period_days != null && !perUpP.has(m.upload_id)) perUpP.set(m.upload_id, Number(m.period_days) || 0);
+  let prevDaysCovered = 0; for (const d of perUpP.values()) prevDaysCovered += d;   // أيام الفترة السابقة — للتطبيع (١-ب)
   const dailyRate = daysCovered > 0 ? a.units / daysCovered : null;           // الوحدات ÷ period_days المجموعة (لا عدد الرفعات)
   const coverage = (dailyRate && dailyRate > 0) ? Math.round(totalUnits / dailyRate) : null;   // الكمية ÷ المعدّل اليوميّ
-  return { loc, name: salesLocName(loc), agg: a, pagg: pa, invValue: srows.length ? invValue : null, totalItems: srows.length, totalUnits, daysCovered, dailyRate, coverage, series: salesSeries(cur) };
+  const hasUpload = cur.length > 0 || daysCovered > 0;   // للتمييز «رُفع بلا مبيعات» عن «لم يُرفع» — يُدقَّق فوقه بـuploadedInPeriod
+  return { loc, name: salesLocName(loc), agg: a, pagg: pa, invValue: srows.length ? invValue : null, totalItems: srows.length, totalUnits, daysCovered, prevDaysCovered, dailyRate, coverage, hasUpload, series: salesSeries(cur) };
 }
 const salesShort = n => { n = Number(n) || 0; return Math.abs(n) >= 1000 ? Math.round(n / 100) / 10 + "K" : String(Math.round(n)); };
 function scTrend(c, p) { if (p == null) return ""; if (!p) return c ? `<span class="scc-tr flat" title="لا توجد فترة سابقة يُقارَن بها هذا الرقم بعد">لا فترة سابقة للمقارنة</span>` : `<span class="scc-tr flat">—</span>`; const r = Math.round((c - p) / p * 100); return `<span class="scc-tr ${r > 0 ? "up" : r < 0 ? "down" : "flat"}">${r > 0 ? "+" : ""}${r}% عن السابق</span>`; }
+// التطبيع الموحّد: معدّل يوميّ (cur/curDays) مقابل (prev/prevDays) — لا مقارنة مجاميع أبداً.
+// «—» إن تعذّر (فترة سابقة ناقصة/بلا رفعات/رفعة تأسيس فقط). ويُظهر الطولين إن اختلفا >20%.
+// cls: "kpi-trend" أو "scc-tr" — ليتبع نمط الموضع.
+function salesRateTrend(curVal, curDays, prevVal, prevDays, cls, prevBaselineOnly) {
+  cls = cls || "kpi-trend";
+  if (prevVal == null || prevDays == null || prevDays <= 0 || curDays == null || curDays <= 0) {
+    const why = prevBaselineOnly ? "لا توجد فترة سابقة قابلة للمقارنة (رفعة تأسيس)" : "لا توجد فترة سابقة قابلة للمقارنة";
+    return `<span class="${cls} flat" title="${why}">—</span>`;
+  }
+  const cr = curVal / curDays, pr = prevVal / prevDays;
+  if (!pr) return `<span class="${cls} flat" title="لا مبيعات في الفترة السابقة للمقارنة">—</span>`;
+  const pct = Math.round((cr - pr) / pr * 100), c = pct > 0 ? "up" : (pct < 0 ? "down" : "flat");
+  const dur = (Math.abs(curDays - prevDays) / Math.max(curDays, prevDays) > 0.2)
+    ? ` <span class="trend-dur">${Math.round(curDays * 10) / 10} ← ${Math.round(prevDays * 10) / 10} يوم</span>` : "";
+  return `<span class="${cls} ${c}" title="معدّل يوميّ مقابل معدّل يوميّ (مطبَّع على طول الفترة)">${pct > 0 ? "+" : ""}${pct}% عن السابق${dur}</span>`;
+}
+// اتجاه الإجماليّ من معدّلات يوميّة **مجمّعة per-location** (ب): مجموع(وحدات الموقع÷أيام الموقع)، لا مجموع÷فترة موحّدة.
+function salesRateSpan(curRate, prevRate, cls, prevBaselineOnly, curDays, prevDays) {
+  cls = cls || "kpi-trend";
+  if (!(prevRate > 0)) { const why = prevBaselineOnly ? "لا توجد فترة سابقة قابلة للمقارنة (رفعة تأسيس)" : "لا توجد فترة سابقة قابلة للمقارنة"; return `<span class="${cls} flat" title="${why}">—</span>`; }
+  const pct = Math.round((curRate - prevRate) / prevRate * 100), c = pct > 0 ? "up" : (pct < 0 ? "down" : "flat");
+  const dur = (curDays > 0 && prevDays > 0 && Math.abs(curDays - prevDays) / Math.max(curDays, prevDays) > 0.2)
+    ? ` <span class="trend-dur">${Math.round(curDays * 10) / 10} ← ${Math.round(prevDays * 10) / 10} يوم</span>` : "";
+  return `<span class="${cls} ${c}" title="معدّل يوميّ إجماليّ مقابل السابق (كل موقع بفترته)">${pct > 0 ? "+" : ""}${pct}% عن السابق${dur}</span>`;
+}
+// «متحرّكة» عدد أصناف فريدة (لا تدفّق) — تُقارَن أعداداً فقط إن تقاربت الفترتان (±20%)؛ وإلا «—» (لا تطبيع مفتعَل لعدد).
+function salesCountSpan(cur, prev, curDays, prevDays, cls, prevBaselineOnly) {
+  cls = cls || "kpi-trend";
+  if (prev == null || !(prevDays > 0) || !(curDays > 0)) { const why = prevBaselineOnly ? "لا توجد فترة سابقة قابلة للمقارنة (رفعة تأسيس)" : "لا توجد فترة سابقة قابلة للمقارنة"; return `<span class="${cls} flat" title="${why}">—</span>`; }
+  if (Math.abs(curDays - prevDays) / Math.max(curDays, prevDays) > 0.2) return `<span class="${cls} flat" title="الفترتان مختلفتا الطول — لا تُقارَن أعداد الأصناف الفريدة">—</span>`;
+  if (!prev) return `<span class="${cls} flat">—</span>`;
+  const pct = Math.round((cur - prev) / prev * 100), c = pct > 0 ? "up" : (pct < 0 ? "down" : "flat");
+  return `<span class="${cls} ${c}" title="عدد الأصناف الفريدة مقابل السابق (فترتان متقاربتان)">${pct > 0 ? "+" : ""}${pct}% عن السابق</span>`;
+}
 // رسم خطّي SVG مضمّن (بلا مكتبة) — نقاط ＋ شبكة ＋ محاور
 function salesLineSVG(series, colorVar) {
   const W = 300, H = 120, padL = 34, padB = 18, padT = 8, padR = 6, col = `var(${colorVar})`;
@@ -3089,17 +3135,19 @@ function renderSalesDetail() {
   for (const r of srows) { const qn = numOrNull(r.qty), pn = numOrNull(r.price_incl); if (qn != null) { totUnits += qn; qtyBySku.set(r.sku, (qtyBySku.get(r.sku) || 0) + qn); } if (qn != null && pn != null) { inv += qn * pn; if (!priceBySku.has(r.sku)) priceBySku.set(r.sku, pn); } }
   const perUp = new Map(); for (const m of cur) if (m.period_days != null && !perUp.has(m.upload_id)) perUp.set(m.upload_id, Number(m.period_days) || 0);
   let daysCov = 0; for (const v of perUp.values()) daysCov += v;
+  const perUpP = new Map(); for (const m of prev) if (m.period_days != null && !perUpP.has(m.upload_id)) perUpP.set(m.upload_id, Number(m.period_days) || 0);
+  let prevDaysCov = 0; for (const v of perUpP.values()) prevDaysCov += v;
   const dailyRate = daysCov > 0 ? a.units / daysCov : null;
   const coverage = (dailyRate && dailyRate > 0) ? Math.round(totUnits / dailyRate) : null;
   const upCount = new Set(cur.map(m => m.upload_id)).size;
   const name = (salesTab === "all") ? "جميع المواقع" : salesLocName(salesTab);
   const covGateD = salesCovInsufficient(daysCov);
-  const card = (num, lbl, sub, tip, tr) => `<div class="card kpi" data-k="d"${tip ? ` title="${esc(tip)}"` : ""}><b><bdi dir="ltr">${num}</bdi></b><span class="kpi-lbl">${lbl}</span>${sub ? `<span class="kpi-sub">${sub}</span>` : ""}${tr || ""}</div>`;
+  const card = (num, lbl, sub, tip, tr, sub2) => `<div class="card kpi" data-k="d"${tip ? ` title="${esc(tip)}"` : ""}><b><bdi dir="ltr">${num}</bdi></b><span class="kpi-lbl">${lbl}</span>${sub ? `<span class="kpi-sub">${sub}</span>` : ""}${sub2 ? `<span class="kpi-sub2">${sub2}</span>` : ""}${tr || ""}</div>`;
   wrap.innerHTML = `<div class="s4-dhead"><span class="s4-ic">${salesTab === "all" ? ic("branch") : salesLocIcon(salesTab)}</span><div><b style="font-size:16px">${esc(name)}</b><div style="font-size:11px;color:var(--muted)">مبيعات مقدّرة وتحليل تفصيليّ</div></div></div>`
     + `<div class="dash-kpis s4-dcards">`
-    + card(salesNum(a.estValue), "المبيعات المقدّرة", "قيمة ما بيع هنا — شاملة الضريبة", "مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت وقت الرصد).", scTrend(a.estValue, pa.estValue))
-    + card(salesNum(a.units), "قطع بيعت (مقدّر)", "مجموع النقص في كميات الأصناف", "كل قطعة نقصت من المخزون تُعدّ بيعاً مقدّراً.", scTrend(a.units, pa.units))
-    + card(salesNum(a.moved.size), "منتجات متحرّكة", "أصناف تغيّرت كميتها (بيعاً أو شراءً)", "عدد الأصناف الفريدة التي سُجّلت لها حركة كمية.", scTrend(a.moved.size, pa.moved.size))
+    + card(salesNum(a.estValue), "المبيعات المقدّرة", "قيمة ما بيع هنا — شاملة الضريبة", "مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت وقت الرصد).", salesRateTrend(a.estValue, daysCov, pa.estValue, prevDaysCov, "scc-tr"), `قبل الضريبة: <bdi dir="ltr">${salesNum(a.estValueExcl)}</bdi> ر.س`)
+    + card(salesNum(a.units), "قطع بيعت (مقدّر)", "مجموع النقص في كميات الأصناف", "كل قطعة نقصت من المخزون تُعدّ بيعاً مقدّراً.", salesRateTrend(a.units, daysCov, pa.units, prevDaysCov, "scc-tr"))
+    + card(salesNum(a.movedSku.size), "منتجات متحرّكة", "أصناف تغيّرت كميتها (بيعاً أو شراءً)", "عدد الأصناف الفريدة — منتج تحرّك في فرعين يُعدّ مرّة.", salesCountSpan(a.movedSku.size, pa.movedSku.size, daysCov, prevDaysCov, "scc-tr"))
     + card(salesNum(inv), "قيمة المخزون الحالية", "قيمة كل المخزون الآن — شاملة الضريبة", "الكمية الحالية × سعرها لكل صنف — لا يقتصر على المتحرّك.", "")
     + card(covGateD ? "—" : (coverage != null ? coverage + " يوم" : "—"), "متوسط أيام التغطية", covGateD ? salesCovGateSub(daysCov) : "الكمية ÷ معدّل البيع اليوميّ", covGateD ? "" : "كم يوماً يكفي المخزون بمعدّل البيع الأخير.", "")
     + `</div>`
@@ -3155,10 +3203,18 @@ async function renderSalesPage() {
     const suspectIds = new Set(ups.filter(u => u.suspect === true).map(u => u.id));
     const { sinceIso, prevSinceIso } = salesRange(salesPeriod);
     const curSince = sinceIso ? Date.parse(sinceIso) : -Infinity, prevSince = prevSinceIso ? Date.parse(prevSinceIso) : null;
-    const movs = (await db.sales.movements("all", prevSinceIso || sinceIso)).filter(m => !suspectIds.has(m.upload_id));
+    // (أ) رفعة التأسيس = رفعة **كل حركاتها kind='new'** (تهيئة محتوىً لا ترتيباً — الأولى لكل موقع تكون كذلك حتماً لأنّ prevSyncedAt=null).
+    //     تُكشف بالمحتوى لا بالترتيب، فلا تُستبعَد رفعةٌ عاديّة هي الأقدم في النافذة. وتُستبعَد من كل حساب/مقارنة/معدّل.
+    const rawMovs = (await db.sales.movements("all", prevSinceIso || sinceIso)).filter(m => !suspectIds.has(m.upload_id));
+    const kindsByUp = new Map(); for (const m of rawMovs) { let s = kindsByUp.get(m.upload_id); if (!s) { s = new Set(); kindsByUp.set(m.upload_id, s); } s.add(m.kind); }
+    const baselineIds = new Set([...kindsByUp].filter(([, ks]) => ks.size > 0 && [...ks].every(k => k === "new")).map(([id]) => id));
+    const movs = rawMovs.filter(m => !baselineIds.has(m.upload_id));
     const stock = await salesStockRows();
     const locsAll = ["wh", ...(invBranches || []).map(b => b.id)];
     const shown = salesLoc === "all" ? locsAll : [salesLoc];
+    // (ج) موقع «مرفوع في الفترة» = له رفعة غير تأسيسية داخل النافذة الحالية (وإلا: نسي الموظف رفعه)
+    const uploadedInPeriod = new Set(ups.filter(u => !baselineIds.has(u.id) && Date.parse(u.captured_at) >= curSince).map(u => u.location));
+    const prevBaselineOnly = prevSince != null && ups.some(u => baselineIds.has(u.id) && Date.parse(u.captured_at) >= prevSince && Date.parse(u.captured_at) < curSince) && !ups.some(u => !baselineIds.has(u.id) && Date.parse(u.captured_at) >= prevSince && Date.parse(u.captured_at) < curSince);
     const curAll = movs.filter(m => Date.parse(m.captured_at) >= curSince && shown.includes(m.location));
     if (!curAll.length) {
       body.style.display = "none"; empty.style.display = "block";
@@ -3168,22 +3224,45 @@ async function renderSalesPage() {
     empty.style.display = "none"; body.style.display = "block";
     const dataAll = locsAll.map(loc => salesColData(loc, movs, stock, curSince, prevSince));
     const dataShown = dataAll.filter(d => shown.includes(d.loc));
-    const scope = dataShown.reduce((s, d) => { s.val += d.agg.estValue; s.units += d.agg.units; s.pval += d.pagg.estValue; s.punits += d.pagg.units; s.inv += (d.invValue || 0); s.noPrice += d.agg.noPrice; s.disC += d.agg.disCount; s.disV += d.agg.disValue; s.days = Math.max(s.days, d.daysCovered || 0); if (d.coverage != null) { s.cov += d.coverage; s.covN++; } return s; }, { val: 0, units: 0, pval: 0, punits: 0, inv: 0, noPrice: 0, disC: 0, disV: 0, days: 0, cov: 0, covN: 0 });
-    const movedNow = new Set(curAll.map(m => m.sku)).size;
-    const movedPrev = prevSince != null ? new Set(movs.filter(m => { const t = Date.parse(m.captured_at); return t >= prevSince && t < curSince && shown.includes(m.location); }).map(m => m.sku)).size : null;
+    const dataActive = dataShown.filter(d => uploadedInPeriod.has(d.loc));   // (ج) الإجماليّ من المرفوعة في الفترة فقط
+    const missingLocs = dataShown.filter(d => !uploadedInPeriod.has(d.loc));
+    // scope: قيم مجمّعة ＋ معدّلات يوميّة per-location (ب: كل موقع بفترته، لا فترة موحّدة)
+    const scope = dataActive.reduce((s, d) => {
+      s.val += d.agg.estValue; s.valExcl += d.agg.estValueExcl; s.units += d.agg.units; s.inv += (d.invValue || 0);
+      s.noPrice += d.agg.noPrice; s.disC += d.agg.disCount; s.disV += d.agg.disValue;
+      if (d.daysCovered > 0) { s.valRate += d.agg.estValue / d.daysCovered; s.unitRate += d.agg.units / d.daysCovered; s.daysMax = Math.max(s.daysMax, d.daysCovered); }
+      if (d.prevDaysCovered > 0) { s.pvalRate += d.pagg.estValue / d.prevDaysCovered; s.punitRate += d.pagg.units / d.prevDaysCovered; s.pdaysMax = Math.max(s.pdaysMax, d.prevDaysCovered); }
+      if (d.coverage != null) { s.cov += d.coverage; s.covN++; }
+      return s;
+    }, { val: 0, valExcl: 0, units: 0, inv: 0, noPrice: 0, disC: 0, disV: 0, valRate: 0, unitRate: 0, pvalRate: 0, punitRate: 0, daysMax: 0, pdaysMax: 0, cov: 0, covN: 0 });
+    const curActive = curAll.filter(m => uploadedInPeriod.has(m.location));
+    const movedNow = new Set(curActive.map(m => String(m.sku))).size;   // (١-أ) كود فريد عبر المواقع
+    const movedPrev = prevSince != null ? new Set(movs.filter(m => { const t = Date.parse(m.captured_at); return t >= prevSince && t < curSince && uploadedInPeriod.has(m.location); }).map(m => String(m.sku))).size : null;
     const covAvg = scope.covN ? Math.round(scope.cov / scope.covN) : null;
-    const scRate = scope.days > 0 ? Math.round(scope.units / scope.days) : null;
-    // توضيح التغطية: معدّل البيع اليوميّ ＋ الفترة المرصودة (period_days) — على سطر آخر رفعة
-    if (lu) lu.innerHTML += ` &nbsp;·&nbsp; التغطية: معدّل <b>${scRate != null ? salesNum(scRate) : "—"}</b>/يوم · الفترة تغطّي <b>${scope.days ? Math.round(scope.days * 10) / 10 : "—"}</b> يوم${salesCovInsufficient(scope.days) ? ` <span class="s4-lu-warn" title="المعدّل اليوميّ من فترة أقصر من ١٤ يوماً غير موثوق للتنبّؤ (التغطية والنفاد مبوّبان)">⚠ فترة قصيرة — التنبّؤ غير موثوق بعد</span>` : ""}`;
-    const kpi = (k, icon, num, lbl, sub, trend, tip) => `<div class="card kpi" data-k="${k}"${tip ? ` title="${esc(tip)}"` : ""}><span class="kpi-ic">${icon}</span><b><bdi dir="ltr">${num}</bdi></b><span class="kpi-lbl">${lbl}</span><span class="kpi-sub">${sub}</span>${trend || ""}</div>`;
+    const scRate = scope.unitRate > 0 ? Math.round(scope.unitRate) : null;   // (ب) Σ(وحدات الموقع÷أيام الموقع)
+    // «المرصود» بتعريف واحد = أطول فترة موقع مرصودة (daysMax) ＋ عدّاد الرفعات منفصلاً (١-د)
+    const observedDays = scope.daysMax, upCountScope = new Set(curActive.map(m => m.upload_id)).size;
+    if (lu) lu.innerHTML += ` &nbsp;·&nbsp; التغطية: معدّل <b>${scRate != null ? salesNum(scRate) : "—"}</b>/يوم · المرصود <b>${observedDays ? Math.round(observedDays * 10) / 10 : "—"}</b> يوم · <b>${upCountScope}</b> رفعة${salesCovInsufficient(observedDays) ? ` <span class="s4-lu-warn" title="المعدّل اليوميّ من فترة أقصر من ١٤ يوماً غير موثوق للتنبّؤ (التغطية والنفاد مبوّبان)">⚠ فترة قصيرة — التنبّؤ غير موثوق بعد</span>` : ""}`;
+    const kpi = (k, icon, num, lbl, sub, trend, tip, sub2) => `<div class="card kpi" data-k="${k}"${tip ? ` title="${esc(tip)}"` : ""}><span class="kpi-ic">${icon}</span><b><bdi dir="ltr">${num}</bdi></b><span class="kpi-lbl">${lbl}</span><span class="kpi-sub">${sub}</span>${sub2 ? `<span class="kpi-sub2">${sub2}</span>` : ""}${trend || ""}</div>`;
     const scopeLbl = salesLoc === "all" ? "جميع المواقع" : salesLocName(salesLoc);
-    const covGate = salesCovInsufficient(scope.days);
+    const covGate = salesCovInsufficient(observedDays);
+    const movedComparable = movedPrev != null && scope.pdaysMax > 0 && observedDays > 0;
     document.getElementById("salesKpis").innerHTML =
-      kpi("sval", ic("spark"), salesNum(scope.val), `المبيعات المقدّرة (${scopeLbl})`, "قيمة ما بيع خلال الفترة — شاملة الضريبة", salesTrend(scope.val, prevSince != null ? scope.pval : null), "قيمة تقديرية للمبيع = مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت وقت الرصد). لا تشمل الشراء ولا الأصناف المختفية.") +
-      kpi("sunits", ic("inbox"), salesNum(scope.units), "قطع بيعت (مقدّر)", "مجموع النقص في كميات كل الأصناف", salesTrend(scope.units, prevSince != null ? scope.punits : null), "عدد القطع التي نقصت من المخزون خلال الفترة — كل نقص يُعدّ بيعاً مقدّراً (لا نقل بين الفروع).") +
-      kpi("smoved", ic("branch"), salesNum(movedNow), "منتجات متحرّكة", "أصناف تغيّرت كميتها (بيعاً أو شراءً)", salesTrend(movedNow, movedPrev), "عدد الأصناف الفريدة التي سُجّلت لها أي حركة كمية (نقص بيعاً أو زيادة شراءً) خلال الفترة.") +
-      kpi("sinv", ic("warehouse"), salesNum(scope.inv), "قيمة المخزون الحالية", "قيمة كل المخزون الآن (جميع الأصناف) — شاملة الضريبة", "", "الكمية الحالية × سعرها لكل صنف في المخزون — لا يقتصر على المتحرّك.") +
-      kpi("scov", ic("check"), covGate ? "—" : (covAvg != null ? covAvg + " يوم" : "—"), "متوسط أيام التغطية", covGate ? salesCovGateSub(scope.days) : "متوسط على الأصناف: الكمية ÷ معدّل البيع اليوميّ", "", covGate ? "كم يوماً يكفي المخزون بمعدّل البيع الأخير — يلزم ١٤ يوم رصد ليكون موثوقاً (المعدّل من فترة قصيرة يخدع)." : "متوسط أيام تكفي فيها كمية كل صنف بمعدّل بيعه اليوميّ الأخير.");
+      kpi("sval", ic("spark"), salesNum(scope.val), `المبيعات المقدّرة (${scopeLbl})`, "قيمة ما بيع خلال الفترة — شاملة الضريبة", salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "قيمة تقديرية للمبيع = مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت وقت الرصد). لا تشمل الشراء ولا الأصناف المختفية.", `قبل الضريبة: <bdi dir="ltr">${salesNum(scope.valExcl)}</bdi> ر.س`) +
+      kpi("sunits", ic("inbox"), salesNum(scope.units), "قطع بيعت (مقدّر)", "مجموع النقص في كميات كل الأصناف", salesRateSpan(scope.unitRate, prevSince != null ? scope.punitRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "عدد القطع التي نقصت من المخزون خلال الفترة — كل نقص يُعدّ بيعاً مقدّراً (لا نقل بين الفروع).") +
+      kpi("smoved", ic("branch"), salesNum(movedNow), "منتجات متحرّكة", "أصناف تغيّرت كميتها (بيعاً أو شراءً)", salesCountSpan(movedNow, movedPrev, observedDays, scope.pdaysMax, "kpi-trend", prevBaselineOnly), "عدد الأصناف الفريدة التي سُجّلت لها أي حركة كمية (نقص بيعاً أو زيادة شراءً) خلال الفترة — منتج تحرّك في فرعين يُعدّ مرّة.") +
+      kpi("sinv", ic("warehouse"), salesNum(scope.inv), "قيمة المخزون الحالية", "قيمة كل المخزون الآن (جميع الأصناف) — شاملة الضريبة", "", "الكمية الحالية × سعرها لكل صنف في المخزون — لا يقتصر على المتحرّك.", `قبل الضريبة: — <span title="عرض sales_stock لا يُصدّر price_excl بعد">(غير متاح)</span>`) +
+      kpi("scov", ic("check"), covGate ? "—" : (covAvg != null ? covAvg + " يوم" : "—"), "متوسط أيام التغطية", covGate ? salesCovGateSub(observedDays) : "متوسط على الأصناف: الكمية ÷ معدّل البيع اليوميّ", "", covGate ? "كم يوماً يكفي المخزون بمعدّل البيع الأخير — يلزم ١٤ يوم رصد ليكون موثوقاً (المعدّل من فترة قصيرة يخدع)." : "متوسط أيام تكفي فيها كمية كل صنف بمعدّل بيعه اليوميّ الأخير.");
+    // (ج) صمّام الموقع الغائب — ماذا/لماذا/ما العمل
+    const missBanner = document.getElementById("salesMissBanner");
+    if (missBanner) {
+      if (missingLocs.length) {
+        const lastUp = loc => { let mx = 0; for (const u of ups) if (u.location === loc) { const tt = Date.parse(u.captured_at); if (Number.isFinite(tt) && tt > mx) mx = tt; } return mx; };
+        const parts = missingLocs.map(d => { const last = lastUp(d.loc); return `<b>${esc(d.name)}</b>${last ? ` (آخر رفعة ${ageText(last)})` : " (بلا رفعة)"}`; }).join(" · ");
+        missBanner.style.display = "flex";
+        missBanner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>${missingLocs.length === 1 ? "موقع" : missingLocs.length + " مواقع"} بلا رفعة في هذه الفترة: ${parts} — أرقامه غائبة حتى يُرفع ملفه. <b>الإجمالي يشمل ${dataActive.length} من ${dataShown.length} مواقع.</b></span>`;
+      } else missBanner.style.display = "none";
+    }
     // بانر المختفي (يعود عند التحميل؛ «عرض التفاصيل» قائمة حقيقية)
     const banner = document.getElementById("salesBanner");
     if (scope.disC && !salesBannerDismissed) { banner.style.display = "flex"; banner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>تنبيه: <b>${scope.disC}</b> منتجاً بقيمة <bdi dir="ltr">${salesNum(scope.disV)}</bdi> ر.س اختفت من الملفات (غائبة عن المخزن) — مستبعدة من المبيعات المقدّرة.</span><a class="lnk" onclick="salesShowDisappeared()">عرض التفاصيل ←</a><button class="x" onclick="salesDismissBanner()" aria-label="إغلاق">✕</button>`; }
@@ -3192,12 +3271,21 @@ async function renderSalesPage() {
     const smap = {}; for (const d of dataAll) smap[d.loc] = d.series;
     document.getElementById("salesChart").innerHTML = salesMultiLineSVG(smap, locsAll);
     document.getElementById("salesChartLegend").innerHTML = locsAll.map(loc => `<span><i style="background:var(${salesLocColor(loc)})"></i>${esc(salesLocName(loc))}</span>`).join("");
-    // جدول المقارنة (كل المواقع ＋ الإجمالي)
-    const trend = (c, p) => { if (p == null || !p) return `<span class="scc-tr flat">—</span>`; const r = Math.round((c - p) / p * 100); return `<span class="scc-tr ${r > 0 ? "up" : r < 0 ? "down" : "flat"}">${r > 0 ? "+" : ""}${r}%</span>`; };
-    const rowT = (name, colorVar, d, cls) => `<tr class="${cls || ""}"><td>${colorVar ? `<span class="dot" style="background:var(${colorVar})"></span>` : ""}${esc(name)}</td><td class="n"><bdi dir="ltr">${salesNum(d.val)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(d.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(d.moved)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(d.inv)}</bdi></td><td class="n">${d.cov == null ? "—" : (d.cov > 3650 ? "بطيء" : d.cov + " ي")}</td><td class="n">${trend(d.val, d.pval)}</td></tr>`;
-    const tot = { val: 0, units: 0, moved: 0, inv: 0, pval: 0, cov: 0, covN: 0 };
-    const rows = dataAll.map(d => { const r = { val: d.agg.estValue, units: d.agg.units, moved: d.agg.moved.size, inv: d.invValue || 0, cov: d.coverage, pval: d.pagg.estValue }; tot.val += r.val; tot.units += r.units; tot.moved += r.moved; tot.inv += r.inv; tot.pval += r.pval; if (r.cov != null) { tot.cov += r.cov; tot.covN++; } return rowT(d.name, salesLocColor(d.loc), r); }).join("");
-    document.getElementById("salesCmp").innerHTML = `<table><thead><tr><th>الموقع</th><th>المبيعات</th><th>الوحدات</th><th>متحركة</th><th>قيمة المخزون</th><th>التغطية</th><th>التغيّر</th></tr></thead><tbody>${rows}${rowT("الإجمالي", null, { val: tot.val, units: tot.units, moved: tot.moved, inv: tot.inv, cov: tot.covN ? Math.round(tot.cov / tot.covN) : null, pval: tot.pval }, "total")}</tbody></table>`;
+    // جدول المقارنة — الموقع بلا رفعة: صفّ محايد «لا رفعة» (لا صفر ولا نسبة)؛ الإجمالي = المرفوعة فقط.
+    const rowT = (name, colorVar, d, cls, noUpload) => noUpload
+      ? `<tr class="${cls || ""} noup"><td>${colorVar ? `<span class="dot" style="background:var(${colorVar})"></span>` : ""}${esc(name)}</td><td class="n noupc" colspan="6">لا رفعة في هذه الفترة</td></tr>`
+      : `<tr class="${cls || ""}"><td>${colorVar ? `<span class="dot" style="background:var(${colorVar})"></span>` : ""}${esc(name)}</td><td class="n"><bdi dir="ltr">${salesNum(d.val)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(d.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(d.moved)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(d.inv)}</bdi></td><td class="n">${d.cov == null ? "—" : (d.cov > 3650 ? "بطيء" : d.cov + " يوم")}</td><td class="n">${salesRateTrend(d.val, d.daysCovered, d.pval, d.prevDaysCovered, "scc-tr", prevBaselineOnly)}</td></tr>`;
+    let colMovedSum = 0, movedUniqueAll = new Set();
+    const rows = dataAll.map(d => {
+      if (!uploadedInPeriod.has(d.loc)) return rowT(d.name, salesLocColor(d.loc), null, "", true);
+      colMovedSum += d.agg.moved.size; for (const s of d.agg.movedSku) movedUniqueAll.add(s);
+      const r = { val: d.agg.estValue, units: d.agg.units, moved: d.agg.moved.size, inv: d.invValue || 0, cov: d.coverage, pval: d.pagg.estValue, daysCovered: d.daysCovered, prevDaysCovered: d.prevDaysCovered };
+      return rowT(d.name, salesLocColor(d.loc), r, "");
+    }).join("");
+    const totUnique = movedUniqueAll.size, crossLoc = colMovedSum - totUnique;
+    const totCovVals = dataActive.map(d => d.coverage).filter(c => c != null);
+    const totRow = `<tr class="total"><td>الإجمالي</td><td class="n"><bdi dir="ltr">${salesNum(scope.val)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(scope.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(totUnique)}</bdi>${crossLoc > 0 ? ` <span class="tot-note" title="مجموع الأعمدة ${colMovedSum} يفوق الفريد لأن ${crossLoc} صنفاً تحرّك في أكثر من موقع">أصناف فريدة — ${crossLoc} في أكثر من موقع</span>` : ""}</td><td class="n"><bdi dir="ltr">${salesNum(scope.inv)}</bdi></td><td class="n">${totCovVals.length ? Math.round(totCovVals.reduce((a, b) => a + b, 0) / totCovVals.length) + " يوم" : "—"}</td><td class="n">${salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "scc-tr", prevBaselineOnly)}</td></tr>`;
+    document.getElementById("salesCmp").innerHTML = `<table><thead><tr><th>الموقع</th><th class="n">المبيعات</th><th class="n">الوحدات</th><th class="n">متحركة</th><th class="n">قيمة المخزون</th><th class="n">التغطية</th><th class="n">التغيّر</th></tr></thead><tbody>${rows}${totRow}</tbody></table>`;
     // الأسطر (بلا سعر · مشبوهة) — المختفي في البانر
     const notes = [];
     if (scope.noPrice) notes.push(`<span class="sales-note warn">${scope.noPrice} حركة بيع بلا سعر — تُحسب في الوحدات لا القيمة</span>`);
