@@ -246,6 +246,10 @@ jobs:
         run: node tests/perf/role-sales.mjs --broken
       - name: G-ROLE-SALES — عزل شاشة المبيعات بالدور (واجهة + بنية SQL؛ admin بلا شاشة · marketing عليها فقط)
         run: node tests/perf/role-sales.mjs
+      - name: Self-check — G-CMP-LAYOUT يرسب حين يُبتر محور الرسم (بلا direction:ltr)
+        run: node tests/perf/sales-cmp-layout.mjs --broken
+      - name: G-CMP-LAYOUT — جدول المقارنة بلا تلاصق ＋ وحدات عربية ملتصقة ＋ محور الرسم بلا بتر
+        run: node tests/perf/sales-cmp-layout.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)
