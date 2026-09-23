@@ -78,9 +78,9 @@ if (res.tabCount < 2) fails.push(`تبويب المواقع: توقّعت ≥2،
 if (res.tblCount !== 3) fails.push(`الجداول الثلاثة: وجدت ${res.tblCount}`);
 if (!/طقم مفارش/.test(res.firstSellerName)) fails.push(`الترتيب بالقيمة لم يبقَ — أعلى صفّ ليس A1 (الأعلى قيمة): «${res.firstSellerName}»`);
 if (!BROKEN) {
-  const gated = res.gates.filter(g => /التاريخ غير كافٍ/.test(g));
-  if (gated.length !== 2) fails.push(`بوّابة «التاريخ غير كافٍ»: توقّعت 2 (راكد ＋ نفاد)، وجدت ${gated.length}`);
-  if (!res.gates.some(g => /المرصود/.test(g) && /رفعة/.test(g))) fails.push("رسالة البوّابة بلا «المرصود: N رفعة · X يوم»");
+  const gated = res.gates.filter(g => /بدري علينا نحكم/.test(g));
+  if (gated.length !== 2) fails.push(`بوّابة «بدري علينا نحكم بدقّة»: توقّعت 2 (راكد ＋ نفاد)، وجدت ${gated.length}`);
+  if (!res.gates.some(g => /حتى الآن/.test(g) && /رفعة/.test(g))) fails.push("رسالة البوّابة بلا «حتى الآن: N رفعة · X يوم»");
   if (res.afterSearchRows !== 1 || !/مقلاة/.test(res.afterSearchTxt)) fails.push(`البحث لم يفلتر «الأكثر مبيعاً» إلى «مقلاة» وحدها (صفوف=${res.afterSearchRows})`);
   if (res.oldBox) fails.push("المربع المستقلّ .s4-search ما زال موجوداً (يجب حذفه)");
   if (!res.srchBtn) fails.push("أيقونة المكبّر .s4-srch-btn غير موجودة داخل جدول «الأكثر مبيعاً»");
@@ -96,7 +96,7 @@ if (!BROKEN) {
   if (res.wsRows !== res.baseRows) fails.push(`مسافات فقط فلترت (${res.wsRows}≠${res.baseRows}) — يجب ألّا تفلتر`);
 }
 if (BROKEN) {
-  if (fails.length || res.gates.filter(g => /التاريخ غير كافٍ/.test(g)).length < 2) { console.log("✅ (--broken) G-SALES-DETAIL مسك العطل (بلا بوّابة التاريخ)"); process.exit(0); }
+  if (fails.length || res.gates.filter(g => /بدري علينا نحكم/.test(g)).length < 2) { console.log("✅ (--broken) G-SALES-DETAIL مسك العطل (بلا بوّابة التاريخ)"); process.exit(0); }
   console.error("✗ (--broken) لم يرسب بعد إلغاء البوّابة — لا أسنان."); process.exit(1);
 }
 if (fails.length) { console.error("✗ G-SALES-DETAIL:\n  " + fails.join("\n  ")); process.exit(1); }

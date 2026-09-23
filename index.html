@@ -1830,7 +1830,7 @@
   <!-- ============ الصفحة: لوحة المبيعات المقدّرة (عرض فقط — مصادرها المخزون وحده) ============ -->
   <section class="page" id="page-sales">
     <div class="s4-top">
-      <div class="s4-brand"><span class="s4-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><div><span class="stb-title">شاشة عرض المبيعات</span><span class="stb-badge">مبيعات مقدّرة</span><div class="stb-sub">تحليل حركة المخزون وتقدير المبيعات من الفروق بين الرفعات</div></div></div>
+      <div class="s4-brand"><span class="s4-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><div><span class="stb-title">شاشة عرض المبيعات</span><span class="stb-badge">مبيعات مقدّرة</span><div class="stb-sub">نظرة سريعة على مبيعات المتجر ومخزونه — تقديريّة من الفروق بين الرفعات</div></div></div>
       <div class="s4-ctrl"><span class="s4-daterange" id="salesDateLabel" aria-label="الفترة (عرض)"></span><span id="salesPeriodChips"></span><select id="salesLocSel" class="sales-loc-sel" onchange="salesSetLoc(this.value)" aria-label="الموقع"></select></div>
     </div>
     <!-- المساعد الذكيّ: يُنشَأ لـowner فقط داخل renderSalesAI (غير مُنشأ أصلاً لغيره — لا مخفيّ بـCSS) -->
@@ -1956,7 +1956,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "3384324";
+const APP_VERSION = "aaaf2e1";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3267,9 +3267,9 @@ function renderSalesTables() {
   const sellers = salesCap([...sMap.values()].filter(x => match(x.sku, x.name)).sort((a, b) => b.v - a.v), "sellers");
   const sellersTbl = sellers.length
     ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الوحدات</th><th class="n">سعر الوحدة <span class="incl-tag">شامل</span></th></tr></thead><tbody>${sellers.map((x, i) => `<tr><td>${i + 1}</td><td class="nm"><span class="nmclamp" title="${esc(x.name)}">${esc(x.name) || "—"}</span></td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.u)}</bdi></td><td class="n"><bdi dir="ltr">${x.p == null ? "—" : salesNum(x.p)}</bdi></td></tr>`).join("")}</tbody></table>`
-    : `<div class="s4-gate">لا مبيعات مقدّرة في هذه الفترة.</div>`;
+    : `<div class="s4-gate">ما فيه مبيعات مقدّرة في هذه الفترة.</div>`;
   const gate = daysCov < S4_STAGNANT_MIN_DAYS;
-  const gateMsg = `<div class="s4-gate">التاريخ غير كافٍ للحكم — يلزم ${S4_STAGNANT_MIN_DAYS} يوماً من الرصد.<br>المرصود: ${upCount} رفعة · ${Math.round(daysCov * 10) / 10} يوم</div>`;
+  const gateMsg = `<div class="s4-gate">بدري علينا نحكم بدقّة — نحتاج ${S4_STAGNANT_MIN_DAYS} يوم من الرصد.<br>حتى الآن: ${upCount} رفعة · ${Math.round(daysCov * 10) / 10} يوم</div>`;
   let rakaTbl = gateMsg, nafadTbl = gateMsg;
   if (!gate) {
     const now = Date.now();
@@ -3279,13 +3279,13 @@ function renderSalesTables() {
     const rakaTop = salesCap(raka, "raka");
     rakaTbl = rakaTop.length
       ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الكمية</th><th class="n">آخر حركة</th><th class="n">سعر الوحدة <span class="incl-tag">شامل</span></th><th class="n">القيمة <span class="incl-tag">شامل</span></th><th>في المواقع الأخرى</th></tr></thead><tbody>${rakaTop.map((x, i) => `<tr><td>${i + 1}</td><td class="nm"><span class="nmclamp" title="${esc(x.name)}">${esc(x.name) || "—"}</span></td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.days == null ? "لا بيع" : "منذ " + x.days + " يوم"}</td><td class="n"><bdi dir="ltr">${x.unit == null ? "—" : salesNum(x.unit)}</bdi></td><td class="n"><bdi dir="ltr">${x.val == null ? "—" : salesNum(x.val)}</bdi></td><td class="oth">${esc(otherStatus(x.sku))}</td></tr>`).join("")}</tbody></table>`
-      : `<div class="s4-gate">لا أصناف راكدة في هذا الموقع.</div>`;
+      : `<div class="s4-gate">ما فيه أصناف راكدة هنا.</div>`;
     const nafadAll = [...qtyBySku.entries()].map(([sku, qty]) => { const s = sMap.get(sku), sold = s ? s.u : 0, dr = daysCov > 0 ? sold / daysCov : 0, cov = dr > 0 ? Math.round(qty / dr) : null; return { sku, name: (s || {}).name || "", qty, cov }; })
       .filter(x => x.qty > 0 && x.cov != null && x.cov < S4_NAFAD_DAYS && match(x.sku, x.name)).sort((a, b) => a.cov - b.cov);
     const nafad = salesCap(nafadAll, "nafad");
     nafadTbl = nafad.length
       ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الكمية</th><th class="n">أيام التغطية</th></tr></thead><tbody>${nafad.map((x, i) => `<tr><td>${i + 1}</td><td class="nm"><span class="nmclamp" title="${esc(x.name)}">${esc(x.name) || "—"}</span></td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.cov} يوم</td></tr>`).join("")}</tbody></table>`
-      : `<div class="s4-gate">لا مخاطر نفاد قريبة.</div>`;
+      : `<div class="s4-gate">ما فيه مخاطر نفاد قريبة.</div>`;
   }
   const cardT = (icon, title, inner, key, gated, sub) => `<div class="card s4-tbl"><div class="s4-tbl-head"><h3><span class="s4-ti">${icon}</span>${title}</h3>${gated ? "" : `<span class="all-lnk" onclick="salesToggleAll('${key}')">${salesShowAll[key] ? "عرض أقل" : "عرض الكل"}</span>`}</div>${sub ? `<div class="s4-tbl-sub">${sub}</div>` : ""}<div class="twrap">${inner}</div></div>`;
   // جدول «الأكثر مبيعاً»: أيقونة مكبّر في الرأس ⇄ حقل بحث منسدل (باركود/اسم) — يفلتر الجداول الثلاثة
@@ -3316,10 +3316,10 @@ function renderWarehouseSection(whData, movs, curSince, whUploaded, whLast) {
     + `<span class="ds-item"><b><bdi dir="ltr">${salesNum(whData.totalItems)}</bdi></b><span class="ds-u">صنف</span> إجمالي الأصناف في المستودع</span>`
     + `</div>`;
   const inner = noUp
-    ? `<div class="s4-gate">لا رفعة للمستودع في هذه الفترة — آخر رفعة ${whLast ? ageText(whLast) : "غير معروفة"}. المخزون أعلاه رصيد حاليّ.</div>`
+    ? `<div class="s4-gate">ما وصلتنا رفعة للمستودع في هذه الفترة — آخر رفعة ${whLast ? ageText(whLast) : "غير معروفة"}. المخزون أعلاه رصيد حاليّ.</div>`
     : (top.length
       ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الكمية</th><th class="n">سعر الوحدة <span class="incl-tag">شامل</span></th></tr></thead><tbody>${top.map((x, i) => `<tr><td>${i + 1}</td><td class="nm"><span class="nmclamp" title="${esc(x.name)}">${esc(x.name) || "—"}</span></td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.u)}</bdi></td><td class="n"><bdi dir="ltr">${x.p == null ? "—" : salesNum(x.p)}</bdi></td></tr>`).join("")}</tbody></table>`
-      : `<div class="s4-gate">رُفع المستودع في الفترة لكن بلا سحب مسجَّل.</div>`);
+      : `<div class="s4-gate">وصلت رفعة المستودع لكن بلا سحب مسجَّل في الفترة.</div>`);
   const suhbSub = noUp ? "" : `<div class="s4-tbl-sub">مرتّب حسب إجمالي قيمة السحب (تُحسب داخلياً)</div>`;
   host.innerHTML = `<div class="s4-dhead" style="margin-top:8px"><span class="s4-ic">${ic("warehouse")}</span><div><b style="font-size:16px">المستودع</b><div style="font-size:11px;color:var(--muted)">سحب من المخزن (لا بيع) — يذهب لوجهات متعدّدة بعضها خارج النظام</div></div></div>`
     + strip
@@ -3328,20 +3328,8 @@ function renderWarehouseSection(whData, movs, curSince, whUploaded, whLast) {
 // ============ المساعد الذكيّ لشاشة المبيعات (owner فقط) ============
 // 🚨 القيد ①: غير مُنشأ أصلاً لغير owner (لا مخفيّ بـCSS). القيد ③: الرصيد المتبقّي معروض دائماً.
 // يقرأ من الدالّة ai-assistant (Edge) بصلاحيّة JWT المستخدم — لا استعلام أعمال من الواجهة.
-// 🚨 السقف مصدره واحد: القاعدة (ai_daily_cap) عبر ai_usage_status/meta.cap — 🚫 لا رقم ثابت في الواجهة.
+// 🚨 السقف يبقى في القاعدة (ai_daily_cap/ai_usage_bump) ويُفرَض في الخلفية — 🚫 لا يُعرَض للمستخدم إطلاقاً (لا رصيد ولا سقف).
 let aiBusy = false;
-async function salesAIStatus() {   // قراءة غير مستهلِكة (rpc): {used, cap} من المصدر الواحد — للعرض الدائم
-  try {
-    const { data, error } = await sb.rpc("ai_usage_status");
-    if (error) return null;
-    const row = Array.isArray(data) ? data[0] : data;
-    if (!row) return null;
-    const cap = Number(row.cap), used = Number(row.used) || 0;
-    return { used, cap, left: Math.max(0, cap - used) };
-  } catch { return null; }
-}
-function salesAIQuotaText(st) { return (!st || !Number.isFinite(st.cap)) ? `— سؤالاً اليوم` : `<b>${st.left}</b> من ${st.cap} سؤالاً اليوم`; }
-function salesAIQuotaFromMeta(meta) { return (meta && meta.cap != null && meta.remaining != null) ? { left: meta.remaining, cap: meta.cap, used: meta.cap - meta.remaining } : null; }
 // تعقيم نصّيّ لمخرَج النموذج: يزيل علامات Markdown (نصّ→نصّ، بلا HTML) — دفاع مع منع Markdown في التعليمات
 function aiPlainText(s) {
   return String(s == null ? "" : s)
@@ -3352,22 +3340,20 @@ function aiPlainText(s) {
 async function renderSalesAI() {
   const host = document.getElementById("salesAI"); if (!host) return;
   if (myRole !== "owner" || !(dbOnline && sb)) { host.innerHTML = ""; return; }   // 🚨 غير owner ⇒ لا يُنشأ الحقل إطلاقاً
-  if (host.dataset.built === "1") { const q = document.getElementById("saiQuota"); if (q) q.innerHTML = salesAIQuotaText(await salesAIStatus()); return; }   // مبنيّ: حدّث الرصيد فقط (لا تمسح جواباً/سؤالاً حيّاً)
+  if (host.dataset.built === "1") return;   // مبنيّ: لا تمسح جواباً/سؤالاً حيّاً (🚫 لا عدّاد رصيد يُحدَّث)
   const bot = `<svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="2"/><path d="M12 8V4M9 13h.01M15 13h.01M2 13h2M20 13h2"/></svg>`;
   host.innerHTML = `<div class="card sai-card">
     <div class="sai-head">
-      <span class="sai-title">${bot} مساعد المبيعات — اسأل بالعربية</span>
-      <span class="sai-quota" id="saiQuota" title="حدّ يوميّ لحماية حصّة المساعد المجانية">${salesAIQuotaText(null)}</span>
+      <span class="sai-title">${bot} مساعدك للمبيعات — اسألني عن أداء المتجر</span>
     </div>
     <div class="sai-row">
-      <textarea id="saiInput" class="sai-input" rows="1" placeholder="مثال: كم بعت من الفروة في الخضرة؟ · وين تتحرّك أكثر؟ · ليش المبيعات نزلت؟" aria-label="سؤال المساعد" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();salesAskAI();}"></textarea>
+      <textarea id="saiInput" class="sai-input" rows="1" placeholder="مثال: كم بعنا من الفروة في الخضرة؟ · وين تتحرّك أكثر؟ · ليش المبيعات نزلت؟" aria-label="سؤال المساعد" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();salesAskAI();}"></textarea>
       <button type="button" class="btn-run sm sai-ask" id="saiAsk" onclick="salesAskAI()">اسأل</button>
     </div>
-    <div class="sai-hint">يحلّل بيانات المبيعات والمخزون مباشرةً من قاعدة البيانات</div>
+    <div class="sai-hint">أنا معك لفهم المبيعات والمخزون — اسألني عن أي فرع، صنف أو فترة</div>
     <div id="saiAnswer"></div>
   </div>`;
   host.dataset.built = "1";
-  const q = document.getElementById("saiQuota"); if (q) q.innerHTML = salesAIQuotaText(await salesAIStatus());
 }
 // يرسم JSON المنظّم بنمط النظام — 🚫 كل حقل مُعقَّم بـesc (لا HTML من النموذج)؛ التعقيم النصّيّ حارس أخير
 function renderAiStructured(st) {
@@ -3400,14 +3386,13 @@ async function salesAskAI() {
     const { data, error } = await sb.functions.invoke("ai-assistant", { body: { question } });
     if (error) throw error;
     if (data && data.ok) {
-      // 🚨 القيد ②/⑤: التصريح تحت **كل** جواب ناجح بلا استثناء نيّة/شكل/عدد نوايا (غير مشروط بـstructured)
       const bodyHtml = data.structured ? renderAiStructured(data.structured) : `<div class="sai-answer">${esc(aiPlainText(data.answer || ""))}</div>`;
-      if (ansEl) ansEl.innerHTML = bodyHtml + `<div class="sai-disc">⚠ تحليل آليّ — تحقّق من الأرقام بنفسك</div>`;
-      const q = document.getElementById("saiQuota"); if (q) q.innerHTML = salesAIQuotaText(salesAIQuotaFromMeta(data.meta) || await salesAIStatus());   // 🚨 cap من meta.cap لا ثابت
+      // 🚨 القيد ⑤: التصريح مع الأجوبة التحليليّة (ذوات الأرقام) فقط — لا مع أجوبة الخدمة (خارج التغطية/لا بيانات)
+      const disc = (data.structured && data.structured.analytical) ? `<div class="sai-disc">⚠ تحليل آليّ — تحقّق من الأرقام بنفسك</div>` : "";
+      if (ansEl) ansEl.innerHTML = bodyHtml + disc;
     } else {
-      // capped / geminiQuota / JSON مكسور / خطأ — رسالة صريحة (بلا تصريح: ليست تحليلاً)
+      // بلوغ الحدّ / حدّ Gemini / JSON مكسور / خطأ — رسالة خدمة صريحة (بلا تصريح: ليست تحليلاً)
       if (ansEl) ansEl.innerHTML = `<div class="sai-answer err">${esc((data && data.error) || "تعذّر الحصول على جواب.")}</div>`;
-      const q = document.getElementById("saiQuota"); if (q) q.innerHTML = salesAIQuotaText(salesAIQuotaFromMeta(data && data.meta) || await salesAIStatus());
     }
   } catch (e) {
     if (ansEl) ansEl.innerHTML = `<div class="sai-answer err">تعذّر الاتصال بالمساعد: ${esc(e && e.message ? e.message : String(e))}</div>`;
@@ -3446,7 +3431,7 @@ async function renderSalesPage() {
     const anyRelevant = movs.filter(m => salesBizTs(m.captured_at) >= curSince && (salesShown.includes(m.location) || (showWhSection && m.location === "wh")));
     if (!anyRelevant.length && !isWhView) {   // عرض المستودع يُكمل ولو بلا حركات (قسمه يعرض «لا رفعة» ＋ المخزون الحاليّ)
       body.style.display = "none"; empty.style.display = "block";
-      empty.textContent = ups.length ? "لا حركات في هذه الفترة/الموقع — جرّب فترة أوسع أو موقعاً آخر." : "لا حركات بعد. ارفع ملفاً من «تحديث قاعدة البيانات» لتبدأ المبيعات المقدّرة في الظهور.";
+      empty.textContent = ups.length ? "ما فيه حركة في هذه الفترة أو الموقع — جرّب فترة أوسع أو موقعاً ثانياً." : "ما بدأت الحركة بعد — ارفع ملفاً من «تحديث قاعدة البيانات» وتبدأ المبيعات المقدّرة تظهر.";
       return;
     }
     empty.style.display = "none"; body.style.display = "block";
@@ -3482,14 +3467,14 @@ async function renderSalesPage() {
     const scRate = scope.unitRate > 0 ? Math.round(scope.unitRate) : null;   // (ب) Σ(وحدات الموقع÷أيام الموقع)
     // «المرصود» بتعريف واحد = أطول فترة موقع مرصودة (daysMax) ＋ عدّاد الرفعات منفصلاً (١-د)
     const observedDays = scope.daysMax, upCountScope = new Set(curBranch.map(m => m.upload_id)).size;
-    if (lu) lu.innerHTML += ` &nbsp;·&nbsp; التغطية: معدّل <b>${scRate != null ? salesNum(scRate) : "—"}</b>/يوم · المرصود <b>${observedDays ? Math.round(observedDays * 10) / 10 : "—"}</b> يوم · <b>${upCountScope}</b> رفعة${salesCovInsufficient(observedDays) ? ` <span class="s4-lu-warn" title="المعدّل اليوميّ من فترة أقصر من ١٤ يوماً غير موثوق للتنبّؤ (التغطية والنفاد مبوّبان)">⚠ فترة قصيرة — التنبّؤ غير موثوق بعد</span>` : ""}`;
+    if (lu) lu.innerHTML += ` &nbsp;·&nbsp; التغطية: معدّل <b>${scRate != null ? salesNum(scRate) : "—"}</b>/يوم · المرصود <b>${observedDays ? Math.round(observedDays * 10) / 10 : "—"}</b> يوم · <b>${upCountScope}</b> رفعة${salesCovInsufficient(observedDays) ? ` <span class="s4-lu-warn" title="المعدّل اليوميّ من فترة أقصر من ١٤ يوماً غير موثوق للتنبّؤ (التغطية والنفاد مبوّبان)">⚠ الفترة قصيرة — التوقّع ما زال غير دقيق</span>` : ""}`;
     const kpi = (k, icon, num, lbl, sub, trend, tip, sub2, unit) => `<div class="card kpi" data-k="${k}"${tip ? ` title="${esc(tip)}"` : ""}><span class="kpi-ic">${icon}</span><b><bdi dir="ltr">${num}</bdi>${unit ? `<span class="kpi-unit">${unit}</span>` : ""}</b><span class="kpi-lbl">${lbl}</span><span class="kpi-sub">${sub}</span>${sub2 ? `<span class="kpi-sub2">${sub2}</span>` : ""}${trend || ""}</div>`;
     const scopeLbl = salesLoc === "all" ? "جميع المواقع" : salesLocName(salesLoc);
     const movedComparable = movedPrev != null && scope.pdaysMax > 0 && observedDays > 0;
     const branchLbl = salesLoc === "all" ? "الفروع" : salesLocName(salesLoc);
     const invTag = invIncludesWh ? ` · <span class="kpi-miss" title="يشمل مخزون المستودع مع الفروع — بخلاف مؤشّرات المبيعات (فروع فقط)" style="color:var(--info)">يشمل المستودع</span>` : "";
     document.getElementById("salesKpis").innerHTML =
-      kpi("sval", ic("spark"), salesNum(scope.val), `المبيعات المقدّرة (${branchLbl})`, `الفروع فقط — المستودع مخزن لا نقطة بيع <span class="incl-tag">شامل</span>`, salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "قيمة تقديرية للمبيع في الفروع = مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت). لا تشمل المستودع ولا الأصناف المختفية.", `قبل الضريبة <bdi dir="ltr">${salesNum(scope.valExcl)}</bdi> ر.س <span class="incl-tag">صافي</span>`, "ر.س") +
+      kpi("sval", ic("spark"), salesNum(scope.val), `المبيعات المقدّرة (${branchLbl})`, `الفروع فقط — المستودع يظهر ضمن المخزون <span class="incl-tag">شامل</span>`, salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "قيمة تقديرية للمبيع في الفروع = مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت). لا تشمل المستودع ولا الأصناف المختفية.", `قبل الضريبة <bdi dir="ltr">${salesNum(scope.valExcl)}</bdi> ر.س <span class="incl-tag">صافي</span>`, "ر.س") +
       kpi("sunits", ic("inbox"), salesNum(scope.units), "قطع بيعت (مقدّر)", "مجموع النقص في كميات أصناف الفروع", salesRateSpan(scope.unitRate, prevSince != null ? scope.punitRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "عدد القطع التي نقصت من مخزون الفروع خلال الفترة — كل نقص بيعٌ مقدّر (المستودع مستبعَد).", "", "قطعة") +
       kpi("smoved", ic("branch"), salesNum(movedNow), "منتجات متحرّكة", "أصناف تغيّرت كميتها في الفروع", salesCountSpan(movedNow, movedPrev, observedDays, scope.pdaysMax, "kpi-trend", prevBaselineOnly), "عدد أصناف الفروع الفريدة التي سُجّلت لها حركة كمية — منتج تحرّك في فرعين يُعدّ مرّة (المستودع مستبعَد).", "", "صنف") +
       kpi("sinv", ic("warehouse"), salesNum(invScope.inv), "قيمة المخزون الحالية", `قيمة كل المخزون الآن (جميع الأصناف) <span class="incl-tag">شامل</span>`, "", "الكمية الحالية × سعرها لكل صنف — يشمل المستودع (مخزون فعليّ)، بخلاف المبيعات.", `قبل الضريبة <bdi dir="ltr">${salesNum(invScope.invExcl)}</bdi> ر.س <span class="incl-tag">صافي</span>${invScope.invExclMiss ? ` · <span class="kpi-miss" title="أصناف بلا سعر قبل الضريبة في العرض — مستبعدة من هذا الرقم لا محسوبة صفراً">${salesNum(invScope.invExclMiss)} صنفاً بلا سعر قبل الضريبة — مستبعدة</span>` : ""}${invTag}`, "ر.س");
@@ -3501,12 +3486,12 @@ async function renderSalesPage() {
         const lastUp = loc => { let mx = 0; for (const u of ups) if (u.location === loc) { const tt = Date.parse(u.captured_at); if (Number.isFinite(tt) && tt > mx) mx = tt; } return mx; };
         const parts = missingLocs.map(d => { const last = lastUp(d.loc); return `<b>${esc(d.name)}</b>${last ? ` (آخر رفعة ${ageText(last)})` : " (بلا رفعة)"}`; }).join(" · ");
         missBanner.style.display = "flex";
-        missBanner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>${missingLocs.length === 1 ? "فرع" : missingLocs.length + " فروع"} بلا رفعة في هذه الفترة: ${parts} — أرقامه غائبة حتى يُرفع ملفه. <b>الإجمالي يشمل ${dataActive.length} من ${salesData.length} فروع.</b></span>`;
+        missBanner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>${missingLocs.length === 1 ? "فرع" : missingLocs.length + " فروع"} بلا رفعة في هذه الفترة: ${parts} — أرقامها ما تظهر حتى تُرفع ملفاتها. <b>الإجمالي يشمل ${dataActive.length} من ${salesData.length} فروع.</b></span>`;
       } else missBanner.style.display = "none";
     }
     // بانر المختفي (يعود عند التحميل؛ «عرض التفاصيل» قائمة حقيقية)
     const banner = document.getElementById("salesBanner");
-    if (scope.disC && !salesBannerDismissed) { banner.style.display = "flex"; banner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>تنبيه: <b>${scope.disC}</b> منتجاً بقيمة <bdi dir="ltr">${salesNum(scope.disV)}</bdi> ر.س اختفت من الملفات (غائبة عن المخزن) — مستبعدة من المبيعات المقدّرة.</span><a class="lnk" onclick="salesShowDisappeared()">عرض التفاصيل ←</a><button class="x" onclick="salesDismissBanner()" aria-label="إغلاق">✕</button>`; }
+    if (scope.disC && !salesBannerDismissed) { banner.style.display = "flex"; banner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>ننبّهك: <b>${scope.disC}</b> منتج بقيمة <bdi dir="ltr">${salesNum(scope.disV)}</bdi> ر.س اختفت من الملفات (غائبة عن المخزن) — مستبعدة من المبيعات المقدّرة.</span><a class="lnk" onclick="salesShowDisappeared()">خلّنا نشوف التفاصيل ←</a><button class="x" onclick="salesDismissBanner()" aria-label="إغلاق">✕</button>`; }
     else banner.style.display = "none";
     // الرسم متعدّد المواقع ＋ وسيلة الإيضاح
     const smap = {}; for (const d of salesData) smap[d.loc] = d.series;   // الرسم: الفروع فقط (المستودع ليس بيعاً)

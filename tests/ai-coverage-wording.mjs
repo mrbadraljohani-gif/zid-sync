@@ -14,7 +14,7 @@ const BROKEN = process.argv.includes("--broken");
 let url = pathToFileURL(SRC).href, tmp = "";
 if (BROKEN) {
   let s = readFileSync(SRC, "utf8");
-  const A = "  return L.startsWith(coverageText) ? L : `${coverageText}. خلال المرصود: ${L}`;";
+  const A = "  return L.startsWith(coverageText) ? L : `${coverageText}. وخلال هذه المدة: ${L}`;";
   if (!s.includes(A)) { console.error("✗ (--broken) لم أجد جسم enforceCoverageLead"); process.exit(2); }
   s = s.replace(A, "  return L;   // (--broken) بلا بادئة نقص (السلوك القديم: الأرقام أوّلاً ثم النفي)");
   tmp = join(dirname(SRC), "_broken_cover.mjs"); writeFileSync(tmp, s); url = pathToFileURL(tmp).href;
@@ -34,7 +34,7 @@ if (BROKEN) {
 }
 const fails = [];
 if (!out.startsWith(cover)) fails.push(`الجواب لا يبدأ بالنقص: «${out.slice(0, 40)}…»`);
-if (!/خلال المرصود/.test(out)) fails.push("لا يفصل «خلال المرصود»");
+if (!/وخلال هذه المدة/.test(out)) fails.push("لا يفصل «وخلال هذه المدة»");
 if (out2 !== modelLead) fails.push("بلا نقص: عُدّل الجواب (يجب إبقاؤه كما هو)");
 if (fails.length) { console.error("✗ G-AI-COVERAGE-WORDING:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ G-AI-COVERAGE-WORDING: يبدأ بالنقص ثم «خلال المرصود» · بلا نقص لا يُعدَّل.");
+console.log("✅ G-AI-COVERAGE-WORDING: يبدأ بالنقص ثم «وخلال هذه المدة» · بلا نقص لا يُعدَّل.");

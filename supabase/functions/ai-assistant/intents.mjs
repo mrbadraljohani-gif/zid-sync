@@ -125,7 +125,7 @@ function location_comparison(ctx) {
   return {
     kind: "location_comparison", period: ctx.params.period, rows,
     total_estimated_sales_incl: round(r.scope.val), total_units: round(r.scope.units),
-    note: "المبيعات مقدّرة · مقارنة الفروع (المستودع له قسمه) · موقع بلا رفعة يظهر «لا رفعة» لا صفر"
+    note: "المبيعات مقدّرة · مقارنة الفروع (المستودع يُعرض على حدة) · موقع بلا رفعة يظهر «لا رفعة» لا صفر"
   };
 }
 
@@ -293,10 +293,18 @@ export function periodLabel(period) {
   return ({ today: "أمس", "7": "آخر 7 أيام", "30": "آخر 30 يوماً", "90": "آخر 90 يوماً", "365": "آخر سنة", all: "كامل البيانات المتاحة" })[String(period)] || "كامل البيانات المتاحة";
 }
 export function scopeLabel(location, branches) {
-  if (location === "wh") return "المستودع";
-  if (location && location !== "all") { const b = (branches || []).find(x => x.id === location); return b ? b.name : "فرع"; }
+  if (location === "wh") return "المستودع";   // المستودع بلا وصف
+  if (location && location !== "all") { const b = (branches || []).find(x => x.id === location); return b ? `فرع ${b.name}` : "الفرع"; }   // 🚨 «فرع X» جاهزاً (لا يصوغ النموذج «قسم»)
   const names = (branches || []).map(b => b.name);
   return names.length ? `الفروع (${names.join(" + ")})` : "الفروع";
+}
+// جمع الأيام الصحيح (للفترات المطلوبة 7/30/90/365 وغيرها)
+export function daysWord(n) {
+  n = Number(n) || 0;
+  if (n === 1) return "يوم واحد";
+  if (n === 2) return "يومين";
+  if (n >= 3 && n <= 10) return `${n} أيام`;
+  return `${n} يوماً`;
 }
 
 // ————— تحقّق الأرقام بنيوياً (G-AI-NUMBERS): كل رقم في جواب النموذج له أصل حرفيّ في نتيجة الاستعلام —————
@@ -338,7 +346,7 @@ export function summarizeResult(res, n = 3) {
 export function enforceCoverageLead(lead, coverageText) {
   const L = String(lead || "");
   if (!coverageText) return L;
-  return L.startsWith(coverageText) ? L : `${coverageText}. خلال المرصود: ${L}`;
+  return L.startsWith(coverageText) ? L : `${coverageText}. وخلال هذه المدة: ${L}`;
 }
 
 // تشغيل نيّة بعد التحقّق (index.ts يمرّر params مُنقّاة ＋ data ＋ nowMs ＋ observedDays)
@@ -347,6 +355,6 @@ export function runIntent(key, ctx) {
   if (!fn) return { kind: "unknown_intent", key };
   const res = fn(ctx);
   const cs = coverageShortfall(ctx.observedDays, ctx.params.period);
-  if (cs && res && !SHORTFALL_SKIP.has(res.kind)) { res.coverage_shortfall = cs; res.coverage_shortfall.display = `المرصود ${D(cs.observed_days)} من ${D(cs.requested_days)} المطلوبة`; }   // بيان نقص لا رفض
+  if (cs && res && !SHORTFALL_SKIP.has(res.kind)) { res.coverage_shortfall = cs; res.coverage_shortfall.display = `البيانات المتاحة تغطّي ${NF1(cs.observed_days)} يوم من ${daysWord(cs.requested_days)} المطلوبة`; }   // بيان نقص لا رفض (العدد والمعدود صحيح)
   return applyDisplay(res);   // أرقام منسّقة بوحداتها جاهزة للنموذج (لا يُنسّق ولا يختار وحدة)
 }

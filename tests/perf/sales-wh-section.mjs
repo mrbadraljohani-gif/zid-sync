@@ -65,7 +65,7 @@ const res2 = await p.evaluate(async () => {
   await renderSalesPage();
   const wh = document.getElementById("salesWhSection");
   const whTxt = (wh.textContent || "").replace(/\s+/g, " ");
-  return { noUpMsg: /لا رفعة للمستودع في هذه الفترة/.test(whTxt), noZeroMoved: !/0\s*صنف\s*أصناف متحرّكة/.test(whTxt), noLaSuhb: !/لا سحب من المستودع/.test(whTxt), invStillShown: /قيمة المخزون/.test(whTxt) };
+  return { noUpMsg: /ما وصلتنا رفعة للمستودع/.test(whTxt), noZeroMoved: !/0\s*صنف\s*أصناف متحرّكة/.test(whTxt), noLaSuhb: !/لا سحب من المستودع/.test(whTxt), invStillShown: /قيمة المخزون/.test(whTxt) };
 });
 await b.close();
 const fails = [];
@@ -80,7 +80,7 @@ if (!BROKEN) {
   if (!res.detailHidden) fails.push("تفصيل المبيعات لم يُخفَ في عرض المستودع");
   if (!res.noCoverage) fails.push("القسم يحوي تغطية/نفاد/راكد (بمعنى البيع) — ممنوع");
   // (١-ج) بلا رفعة في الفترة
-  if (!res2.noUpMsg) fails.push("المستودع بلا رفعة: بلا رسالة «لا رفعة للمستودع في هذه الفترة»");
+  if (!res2.noUpMsg) fails.push("المستودع بلا رفعة: بلا رسالة «ما وصلتنا رفعة للمستودع في هذه الفترة»");
   if (!res2.noZeroMoved) fails.push("المستودع بلا رفعة: «أصناف متحرّكة» عرض 0 (صفر كاذب) بدل «لا رفعة»");
   if (!res2.noLaSuhb) fails.push("المستودع بلا رفعة: عرض «لا سحب» (صفر كاذب) بدل «لا رفعة»");
   if (!res2.invStillShown) fails.push("قيمة المخزون اختفت في حالة بلا رفعة (رصيد حاليّ يجب أن يبقى)");

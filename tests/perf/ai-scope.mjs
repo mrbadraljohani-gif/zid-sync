@@ -21,17 +21,16 @@ if (BROKEN) {
 
 // ————— فحص ساكن: نطاق كود المساعد —————
 const staticFails = [];
-const aiStart = html.indexOf("let aiBusy = false;");               // بداية كتلة المساعد (تليها salesAIStatus/renderSalesAI/salesAskAI)
+const aiStart = html.indexOf("let aiBusy = false;");               // بداية كتلة المساعد (تليها renderSalesAI/salesAskAI)
 const aiEnd = html.indexOf("async function renderSalesPage", aiStart);
 const scope = (aiStart >= 0 && aiEnd > aiStart) ? html.slice(aiStart, aiEnd) : "";
 if (!scope) staticFails.push("لم أجد نطاق renderSalesAI/salesAskAI");
 if (!/functions\.invoke\("ai-assistant"/.test(scope)) staticFails.push("لا يستدعي الدالّة ai-assistant");
-if (!/rpc\("ai_usage_status"\)/.test(scope)) staticFails.push("لا يقرأ الرصيد عبر ai_usage_status");
 // 🚨 لا كتابة أي جدول من كود المساعد
 for (const w of [".insert(", ".update(", ".delete(", ".upsert("]) if (scope.includes(w)) staticFails.push(`كتابة محظورة في كود المساعد: ${w}`);
-// 🚨 لا وصول لأي جدول أعمال خارج ai_usage
-for (const t of ["mappings", "sales_movements", "sales_uploads", "sales_stock", "warehouse_items", "branch_items", "zid_products", "waiting_items", "matched_history", "user_roles", "branches"])
-  if (scope.includes(`from("${t}")`)) staticFails.push(`وصول جدول خارج المسموح من كود المساعد: ${t}`);
+// 🚨 لا وصول لأي جدول أعمال من كود المساعد (يستدعي الدالّة فقط)
+for (const t of ["mappings", "sales_movements", "sales_uploads", "sales_stock", "warehouse_items", "branch_items", "zid_products", "waiting_items", "matched_history", "user_roles", "branches", "ai_usage"])
+  if (scope.includes(`from("${t}")`)) staticFails.push(`وصول جدول من كود المساعد: ${t}`);
 // 🚨 لا مساس بالمطابقة/التصدير
 for (const s of ["qtyRows", "priceRows", "run(true)", "resolveWhCode", "downloadSelected"]) if (scope.includes(s)) staticFails.push(`كود المساعد يمسّ المطابقة/التصدير: ${s}`);
 
@@ -50,13 +49,12 @@ const res = await p.evaluate(async () => {
   const host = document.getElementById("salesAI");
   myRole = "owner"; await renderSalesAI();
   const ownerInput = !!document.getElementById("saiInput");
-  const ownerQuota = !!document.getElementById("saiQuota");
   // إعادة الضبط ثم marketing — يجب ألّا يُنشأ الحقل
   host.innerHTML = ""; delete host.dataset.built;
   myRole = "marketing"; await renderSalesAI();
   const mktInput = !!document.getElementById("saiInput");
   const mktEmpty = host.innerHTML.trim() === "";
-  return { ownerInput, ownerQuota, mktInput, mktEmpty };
+  return { ownerInput, mktInput, mktEmpty };
 });
 await b.close();
 
@@ -68,8 +66,7 @@ if (BROKEN) {
   console.error("✗ (--broken) marketing لم يرَ الحقل — لا أسنان."); process.exit(1);
 }
 if (!res.ownerInput) fails.push("owner لا يرى حقل السؤال (#saiInput غير مُنشأ)");
-if (!res.ownerQuota) fails.push("owner لا يرى الرصيد المتبقّي (#saiQuota) — القيد ③");
 if (res.mktInput) fails.push("🚨 marketing يرى حقل المساعد (يجب ألّا يُنشأ أصلاً — القيد ①)");
 if (!res.mktEmpty) fails.push("🚨 #salesAI ليس فارغاً لـmarketing (الحقل يجب أن يكون غير مُنشأ)");
 if (fails.length) { console.error("✗ G-AI-SCOPE:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ G-AI-SCOPE: owner يرى الحقل والرصيد · marketing لا يُنشأ له · الواجهة تستدعي الدالّة وتقرأ ai_usage فقط · لا كتابة/جدول أعمال/مساس بالمطابقة.");
+console.log("✅ G-AI-SCOPE: owner يرى الحقل · marketing لا يُنشأ له · الواجهة تستدعي الدالّة فقط · لا كتابة/جدول أعمال/مساس بالمطابقة.");
