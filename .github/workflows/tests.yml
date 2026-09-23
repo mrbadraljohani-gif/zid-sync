@@ -234,6 +234,10 @@ jobs:
         run: node tests/perf/sales-tax-stock.mjs --broken
       - name: G-TAX-STOCK — قيمة المخزون قبل الضريبة من price_excl؛ الناقص مستبعَد بعدّاد
         run: node tests/perf/sales-tax-stock.mjs
+      - name: Self-check — G-YESTERDAY يرسب حين نافذة «أمس» تستعمل يوم الرفعة لا يوم العمل
+        run: node tests/perf/sales-yesterday.mjs --broken
+      - name: G-YESTERDAY — زرّ «أمس» ونافذته = business_date أمس (لا يوم الرفعة)
+        run: node tests/perf/sales-yesterday.mjs
       - name: Self-check — حارس عزل الأدوار يرسب بإظهار المبيعات لـadmin
         run: node tests/perf/role-sales.mjs --broken
       - name: G-ROLE-SALES — عزل شاشة المبيعات بالدور (واجهة + بنية SQL؛ admin بلا شاشة · marketing عليها فقط)
