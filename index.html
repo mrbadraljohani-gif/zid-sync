@@ -1918,7 +1918,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "249bb37";
+const APP_VERSION = "5210601";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2991,7 +2991,7 @@ function renderSalesLastUp(ups) {
 // لقطة المخزون من العرض sales_stock (لا الجداول الأساس ⇒ يعمل لـmarketing) — مُصفّحة، قراءة واحدة لكل الأعمدة
 async function salesStockRows() {
   const out = [], page = 1000; let from = 0;
-  for (;;) { const { data, error } = await sb.from("sales_stock").select("location,sku,name,qty,price_incl,price_excl").range(from, from + page - 1); if (error) throw error; out.push(...(data || [])); if (!data || data.length < page) break; from += page; }
+  for (;;) { const { data, error } = await sb.from("sales_stock").select("location,sku,name,qty,price_incl,price_excl,barcode").range(from, from + page - 1); if (error) throw error; out.push(...(data || [])); if (!data || data.length < page) break; from += page; }
   return out;
 }
 // سلسلة زمنية يومية لقيمة البيع المقدّر (للرسم الخطّي)
@@ -3219,7 +3219,9 @@ function renderSalesDetail() {
 function renderSalesTables() {
   const host = document.querySelector("#salesDetail .s4-3tables"); if (!host || !salesCtx || !salesCtx._tab) return;
   const { cur, qtyBySku, priceBySku, daysCov, upCount, tabLocs } = salesCtx._tab;
-  const q = normText(salesSearch || ""), match = (sku, nm) => !q || normText(String(sku || "") + " " + String(nm || "")).includes(q);
+  const q = normText(salesSearch || "");   // normText يُنهي بـtrim ⇒ مسافات فقط = "" ⇒ لا فلترة
+  const bcBySku = new Map(); for (const r of (salesCtx.stock || [])) if (r && r.sku != null && r.barcode != null && String(r.barcode).trim() !== "") bcBySku.set(String(r.sku), String(r.barcode));   // باركود المخزون الحاليّ (null/فارغ لا يُدرَج ⇒ لا يطابق شيئاً)
+  const match = (sku, nm) => !q || normText(String(sku || "") + " " + String(nm || "") + " " + (bcBySku.get(String(sku)) || "")).includes(q);
   const sMap = new Map(), lastSale = new Map();
   for (const m of cur) { if (m.kind !== "estimated_sale") continue; const e = sMap.get(m.sku) || { sku: m.sku, name: m.sku_name || "", u: 0, v: 0, p: null, pt: null }; e.u += Math.abs(Number(m.delta) || 0); if (m.value_est != null) e.v += Number(m.value_est) || 0; if (m.sku_name && !e.name) e.name = m.sku_name; const t = Date.parse(m.captured_at) || 0; if (m.unit_price_incl != null && (e.pt == null || t >= e.pt)) { e.p = Number(m.unit_price_incl); e.pt = t; }   /* سعر الوحدة المثبَّت في الحركة (أحدثها) — لا سعر المخزون الحالي */ sMap.set(m.sku, e); if (!lastSale.has(m.sku) || t > lastSale.get(m.sku)) lastSale.set(m.sku, t); }
   const sellers = salesCap([...sMap.values()].filter(x => match(x.sku, x.name)).sort((a, b) => b.v - a.v), "sellers");

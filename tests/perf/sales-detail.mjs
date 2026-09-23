@@ -34,7 +34,7 @@ const res = await p.evaluate(async () => {
     { kind: "estimated_sale", delta: -3, value_est: 300, unit_price_incl: 100, location: "wh", sku: "B2", sku_name: "مقلاة", upload_id: "U", captured_at: now, period_days: 2 },
     { kind: "purchase", delta: 4, location: "az", sku: "C3", sku_name: "لحاف", upload_id: "U", captured_at: now, period_days: 2 },
   ];
-  const stock = [{ location: "wh", sku: "A1", name: "طقم مفارش", qty: 40, price_incl: 100 }, { location: "wh", sku: "B2", name: "مقلاة", qty: 12, price_incl: 80 }];
+  const stock = [{ location: "wh", sku: "A1", name: "طقم مفارش", qty: 40, price_incl: 100, barcode: "6280000000011" }, { location: "wh", sku: "B2", name: "مقلاة", qty: 12, price_incl: 80, barcode: null }];   // A1 له باركود · B2 بلا باركود (null)
   db.sales = { uploads: async () => [{ id: "U", location: "wh", captured_at: now, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
   sb = { from: () => ({ select: () => ({ range: async (a) => ({ data: (a === 0 ? stock : []), error: null }) }) }) };
   try { goPage("home"); } catch (e) {}
@@ -57,10 +57,18 @@ const res = await p.evaluate(async () => {
   const inpBeforeToggle = !!document.querySelector("#salesDetail .s4-inline-srch input");
   salesToggleSearch();   // النقر على المكبّر ⇒ يظهر الحقل
   const inpAfterToggle = !!document.querySelector("#salesDetail .s4-inline-srch input");
+  const rowCount = () => document.querySelectorAll("#salesDetail .s4-3tables .s4-tbl table tbody tr").length;
+  const baseRows = rowCount();   // قبل البحث (البائعون: A1, B2)
   onSalesTblSearch("مقلاة");
-  const afterSearchRows = document.querySelectorAll("#salesDetail .s4-3tables .s4-tbl table tbody tr").length;
+  const afterSearchRows = rowCount();
   const afterSearchTxt = txt(document.querySelector("#salesDetail .s4-3tables .s4-tbl table tbody tr"));
-  return { tabCount, tblCount: tbls.length, firstSellerVal, firstSellerUnit, sellersHdr, gates, afterSearchRows, afterSearchTxt, oldBox, srchBtn, inpBeforeToggle, inpAfterToggle };
+  // بحث بباركود معلوم (A1) ⇒ صفّ واحد بعينه · B2 (بلا باركود) لا يُطابق
+  onSalesTblSearch("6280000000011");
+  const bcRows = rowCount(), bcTxt = txt(document.querySelector("#salesDetail .s4-3tables .s4-tbl table tbody tr"));
+  // مسح ⇒ العدد كامل · مسافات فقط ⇒ لا فلترة
+  onSalesTblSearch(""); const clearedRows = rowCount();
+  onSalesTblSearch("   "); const wsRows = rowCount();
+  return { tabCount, tblCount: tbls.length, firstSellerVal, firstSellerUnit, sellersHdr, gates, afterSearchRows, afterSearchTxt, oldBox, srchBtn, inpBeforeToggle, inpAfterToggle, baseRows, bcRows, bcTxt, clearedRows, wsRows };
 });
 await b.close();
 const fails = [];
@@ -79,6 +87,10 @@ if (!BROKEN) {
   if (!res.inpAfterToggle) fails.push("النقر على المكبّر لم يُظهر حقل البحث");
   if (!/سعر الوحدة/.test(res.sellersHdr)) fails.push("عمود «سعر الوحدة» غير موجود في رأس «الأكثر مبيعاً»");
   if (res.firstSellerUnit.replace(/[^\d]/g, "") !== "100") fails.push(`سعر الوحدة (المثبَّت في الحركة) للأعلى ليس 100: «${res.firstSellerUnit}»`);
+  // البحث بالباركود ＋ القيدان
+  if (res.bcRows !== 1 || !/طقم مفارش/.test(res.bcTxt)) fails.push(`البحث بباركود A1 لم يعطِ صفّاً واحداً بعينه (صفوف=${res.bcRows} · «${res.bcTxt}»)`);
+  if (res.clearedRows !== res.baseRows) fails.push(`مسح الحقل لم يُعِد العدد كاملاً (${res.clearedRows}≠${res.baseRows})`);
+  if (res.wsRows !== res.baseRows) fails.push(`مسافات فقط فلترت (${res.wsRows}≠${res.baseRows}) — يجب ألّا تفلتر`);
 }
 if (BROKEN) {
   if (fails.length || res.gates.filter(g => /التاريخ غير كافٍ/.test(g)).length < 2) { console.log("✅ (--broken) G-SALES-DETAIL مسك العطل (بلا بوّابة التاريخ)"); process.exit(0); }
