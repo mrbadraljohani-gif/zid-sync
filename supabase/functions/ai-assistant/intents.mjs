@@ -237,6 +237,15 @@ const Q = n => `${NF(n)} قطعة`;
 const S = n => `${NF(n)} صنف`;
 const D = n => `${NF1(n)} يوم`;
 const PC = n => `${n > 0 ? "+" : ""}${n}%`;
+// 🚨 مقاييس مُنفصلة {label, value, unit} — القيمة رقم بفواصله وحده، الوحدة والوسم منفصلان (لا دمج ⇒ لا تكرار).
+//   القيمة أرقام/فواصل/إشارة فقط (بلا حروف) — حارس G-AI-METRIC-UNITS يقفل ذلك.
+const mM  = (label, n) => ({ label, value: NF(n),  unit: "ر.س شامل" });
+const mMX = (label, n) => ({ label, value: NF(n),  unit: "ر.س صافي" });
+const mRT = (label, n) => ({ label, value: NF(n),  unit: "ر.س/يوم" });
+const mQ  = (label, n) => ({ label, value: NF(n),  unit: "قطعة" });
+const mS  = (label, n) => ({ label, value: NF(n),  unit: "صنف" });
+const mD  = (label, n) => ({ label, value: NF1(n), unit: "يوم" });
+const mPC = (label, n) => ({ label, value: `${n > 0 ? "+" : ""}${n}`, unit: "%" });
 
 // 🚨 فصل اسم المنتج عن قائمة الأكواد الملتصقة (تنظيف محافظ):
 //   يحذف فقط ذيلاً من أرقام ≥5 خانات مفصولة بفواصل/نقاط (قائمة أكواد) — 🚫 لا يحذف أوصافاً:
@@ -252,29 +261,29 @@ function applyDisplay(res) {
   if (!res || typeof res !== "object") return res;
   switch (res.kind) {
     case "sales_summary":
-      res.display = { estimated_sales: M(res.estimated_sales_incl), estimated_sales_excl: MX(res.estimated_sales_excl), units: Q(res.units), moved_products: S(res.moved_products), observed: D(res.observed_days) }; break;
+      res.metrics = [mM("المبيعات المقدّرة", res.estimated_sales_incl), mMX("المبيعات المقدّرة (صافي)", res.estimated_sales_excl), mQ("قطع بيعت", res.units), mS("منتجات متحرّكة", res.moved_products), mD("أيام الرصد", res.observed_days)]; break;
     case "top_sellers": case "bottom_sellers":
       (res.items || []).forEach(it => { it.name_clean = cleanName(it.name).clean; it.label = `${it.name_clean}: ${M(it.value)} · ${Q(it.units)}`; }); break;
     case "product_movement":
       res.product_clean = cleanName(res.product).clean;
-      res.display = { product: res.product_clean, total_units: Q(res.total_units), total_value: M(res.total_value_incl) };
+      res.metrics = [mQ("إجمالي القطع", res.total_units), mM("إجمالي القيمة", res.total_value_incl)];
       (res.per_location || []).forEach(e => { e.label = `${e.location}: ${Q(e.units)} · ${M(e.value)}`; }); break;
     case "period_comparison":
-      res.display = { cur_daily_rate: RATE(res.cur_daily_rate), prev_daily_rate: RATE(res.prev_daily_rate), change: PC(res.change_pct), cur_days: D(res.cur_days), prev_days: D(res.prev_days) }; break;
+      res.metrics = [mRT("المعدّل اليوميّ الحاليّ", res.cur_daily_rate), mRT("المعدّل السابق", res.prev_daily_rate), mPC("التغيّر", res.change_pct)]; break;
     case "location_comparison":
       (res.rows || []).forEach(r => { r.label = r.uploaded ? `${r.location}: ${M(r.estimated_sales_incl)} · ${Q(r.units)} · ${S(r.moved_products)}` : `${r.location}: لا رفعة في هذه الفترة`; });
-      res.display = { total_estimated_sales: M(res.total_estimated_sales_incl), total_units: Q(res.total_units) }; break;
+      res.metrics = [mM("إجمالي المبيعات", res.total_estimated_sales_incl), mQ("إجمالي القطع", res.total_units)]; break;
     case "stagnant_inventory":
       (res.items || []).forEach(it => { it.name_clean = cleanName(it.name).clean; it.label = `${it.name_clean}: ${Q(it.qty)} · قيمة المخزون ${M(it.inventory_value_incl)}`; }); break;
     case "stockout_risk":
       (res.by_location || []).forEach(e => { e.label = `${e.location}: تغطية ${D(e.coverage_days)}`; }); break;
     case "inventory_value":
-      res.display = { inventory_value: M(res.inventory_value_incl), inventory_value_excl: MX(res.inventory_value_excl) }; break;
+      res.metrics = [mM("قيمة المخزون", res.inventory_value_incl), mMX("قيمة المخزون (صافي)", res.inventory_value_excl)]; break;
     case "data_freshness":
-      res.display = { observed_window: D(res.observed_window_days) }; break;
+      res.metrics = [mD("أطول تغطية مرصودة", res.observed_window_days)]; break;
     case "biggest_decliners":
       (res.items || []).forEach(it => { it.name_clean = cleanName(it.name).clean; it.label = `${it.name_clean}: من ${RATE(it.prev_daily_rate)} إلى ${RATE(it.cur_daily_rate)} (انخفاض ${RATE(it.drop_daily_rate)})`; });
-      res.display = { cur_days: D(res.cur_days), prev_days: D(res.prev_days) }; break;
+      res.metrics = [mD("أيام الفترة الحاليّة", res.cur_days), mD("أيام الفترة السابقة", res.prev_days)]; break;
   }
   return res;
 }

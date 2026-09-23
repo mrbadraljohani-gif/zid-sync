@@ -278,6 +278,14 @@ jobs:
         run: node tests/ai-names.mjs --broken
       - name: G-AI-NAMES — فصل اسم المنتج عن قائمة الأكواد (يبقي الأوصاف · الأصل محفوظ)
         run: node tests/ai-names.mjs
+      - name: Self-check — G-AI-METRIC-UNITS يرسب حين تُدمَج الوحدة في value
+        run: node tests/ai-metric-units.mjs --broken
+      - name: G-AI-METRIC-UNITS — المقياس {label,value,unit} منفصل (لا تكرار وحدة)
+        run: node tests/ai-metric-units.mjs
+      - name: Self-check — G-AI-DISCLAIMER يرسب حين يُقرَن التصريح بالمقاييس
+        run: node tests/perf/ai-disclaimer.mjs --broken
+      - name: G-AI-DISCLAIMER — «تحليل آليّ» تحت كل جواب ناجح (4 أشكال)
+        run: node tests/perf/ai-disclaimer.mjs
       - name: Self-check — G-CMP-LAYOUT يرسب حين يُبتر محور الرسم (بلا direction:ltr)
         run: node tests/perf/sales-cmp-layout.mjs --broken
       - name: G-CMP-LAYOUT — جدول المقارنة بلا تلاصق ＋ وحدات عربية ملتصقة ＋ محور الرسم بلا بتر

@@ -1176,10 +1176,10 @@
   /* design-4: ترويسة · مؤشّرات · بانر · (رسم متعدّد + جدول مقارنة) · أسطر */
   /* المساعد الذكيّ (owner فقط) */
   .sai-card { margin-bottom: 14px; }
-  .sai-head { display: flex; align-items: center; justify-content: space-between; gap: 10px 24px; flex-wrap: wrap; margin-bottom: 10px; }
+  .sai-head { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 10px; }   /* عنصران منفصلان (سطران) — 🚫 لا التصاق العنوان بالرصيد */
   .sai-title { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text); }
   .sai-title .ico { color: var(--gold); }
-  .sai-quota { font-size: 12.5px; color: var(--muted); white-space: nowrap; margin-inline-start: auto; }
+  .sai-quota { font-size: 12.5px; color: var(--muted); white-space: nowrap; }
   .sai-quota b { color: var(--gold-2); font-variant-numeric: tabular-nums; }
   .sai-ctx { font-size: 12px; color: var(--muted-2); margin-bottom: 8px; }
   .sai-lead { color: var(--text); line-height: 1.85; white-space: pre-wrap; margin-bottom: 10px; }
@@ -1956,7 +1956,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "938f371";
+const APP_VERSION = "3384324";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3399,9 +3399,10 @@ async function salesAskAI() {
   try {
     const { data, error } = await sb.functions.invoke("ai-assistant", { body: { question } });
     if (error) throw error;
-    if (data && data.ok && data.structured) {
-      // 🚨 القيد ②/⑤: سطر «تحليل آليّ» تضيفه الواجهة برمجياً تحت **كل** جواب (خارج صندوقه)، بلا استثناء نيّة/شكل
-      if (ansEl) ansEl.innerHTML = renderAiStructured(data.structured) + `<div class="sai-disc">⚠ تحليل آليّ — تحقّق من الأرقام بنفسك</div>`;
+    if (data && data.ok) {
+      // 🚨 القيد ②/⑤: التصريح تحت **كل** جواب ناجح بلا استثناء نيّة/شكل/عدد نوايا (غير مشروط بـstructured)
+      const bodyHtml = data.structured ? renderAiStructured(data.structured) : `<div class="sai-answer">${esc(aiPlainText(data.answer || ""))}</div>`;
+      if (ansEl) ansEl.innerHTML = bodyHtml + `<div class="sai-disc">⚠ تحليل آليّ — تحقّق من الأرقام بنفسك</div>`;
       const q = document.getElementById("saiQuota"); if (q) q.innerHTML = salesAIQuotaText(salesAIQuotaFromMeta(data.meta) || await salesAIStatus());   // 🚨 cap من meta.cap لا ثابت
     } else {
       // capped / geminiQuota / JSON مكسور / خطأ — رسالة صريحة (بلا تصريح: ليست تحليلاً)

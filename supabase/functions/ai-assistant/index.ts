@@ -66,12 +66,14 @@ function classifyInstruction(branchNames) {
   ].join("\n");
 }
 
-// تعليمات الصياغة — النموذج يُرجع JSON منظّماً، وكل رقم من النتيجة حرفياً (يُتحقَّق منه بنيوياً بعده)
+// تعليمات الصياغة — النموذج يكتب النثر فقط (lead/warning/note)؛ المقاييس (الأرقام) تبنيها الخلفية من figures.
+//   فصل القيمة عن الوحدة وبناء المقاييس مسؤوليّة الخلفية ⇒ لا تكرار وحدة ولا تلفيق رقم في البطاقات.
 const PHRASE_INSTRUCTION = [
   "أنت مساعد يشرح نتيجة استعلام مبيعات جاهزة. استعمل الحمولة المرسلة (JSON) فقط.",
   "🚨 أعِد JSON صالحاً فقط بهذا الشكل، بلا أي نصّ خارجه وبلا ```:",
-  '{ "lead": "جملة تلخيص", "metrics": [ { "label": "…", "value": "…", "unit": "…" } ], "warning": "… أو null", "note": "… أو null" }',
-  "🚨 لكل رقم انسخ نصّ display/lines الجاهز حرفياً (بفواصله ووحدته) — 🚫 لا تُنسّق رقماً ولا تحذف فاصلة ولا تختر وحدة ولا تضف أي رقم (ولا أعداد ترتيب) غير الموجود في الحمولة.",
+  '{ "lead": "جملة تلخيص نثريّة", "warning": "… أو null", "note": "… أو null" }',
+  "🚫 لا تُخرِج حقل metrics — الأرقام تُعرض من الحمولة تلقائياً (figures). دورك النثر فقط.",
+  "الحمولة تحوي figures ({label,value,unit}) و lines — استعن بها للفهم، وإن ذكرت رقماً في lead فانسخه حرفياً من value/lines (بفواصله) 🚫 دون تنسيق أو تلفيق.",
   "🚫 لا تخترع رقماً ولا تقدّر. إن لم تكفِ البيانات فاجعل lead: «لا أعرف من البيانات المتاحة».",
   "ابدأ lead بذكر النطاق (scope) والفترة (period) كما وردا نصّاً في الحمولة.",
   "🚨 إن حوت الحمولة coverage: ابدأ lead بنصّ coverage حرفياً (النقص أوّلاً)، وصِف الأرقام للفترة المرصودة لا المطلوبة، 🚫 بلا استكمال بالتقدير.",
@@ -99,13 +101,13 @@ async function geminiCall(model, key, sys, user, asJson) {
   return { text };
 }
 
-// قسم معروض لنيّة (مسمّيات بشرية · أسطر label الجاهزة · بلا kind/period/location/sku — قيم تقنية)
+// قسم معروض لنيّة (مسمّيات بشرية · مقاييس {label,value,unit} منفصلة · أسطر label · بلا قيم تقنية)
 function presentSection(intentKey, res) {
   const title = INTENT_AR[intentKey] || intentKey;
-  if (CONTROL_KINDS.has(res.kind)) return { title, note: controlAnswer(res) || res.why || "لا بيانات كافية.", lines: [], figures: null };
+  if (CONTROL_KINDS.has(res.kind)) return { title, note: controlAnswer(res) || res.why || "لا بيانات كافية.", lines: [], metrics: [] };
   const lines = [];
   for (const arr of [res.items, res.per_location, res.by_location, res.rows]) if (Array.isArray(arr)) for (const x of arr) if (x && x.label) lines.push(x.label);
-  const sec = { title, figures: res.display || null, lines, note: res.note || null };
+  const sec = { title, metrics: Array.isArray(res.metrics) ? res.metrics : [], lines, note: res.note || null };
   if (res.more_count) sec.more = `و ${res.more_count} أخرى غير معروضة`;
   return sec;
 }
@@ -205,7 +207,7 @@ Deno.serve(async (req) => {
   }
 
   // إن كانت كل الأقسام تحكّماً (بلا أرقام) ⇒ ردّ منظّم بلا Gemini (التصريح لاحقاً في الواجهة)
-  const anyData = sections.some((s) => s.figures || (s.lines && s.lines.length));
+  const anyData = sections.some((s) => (s.metrics && s.metrics.length) || (s.lines && s.lines.length));
   if (!anyData) {
     const lead = sections.map((s) => (composite ? `• ${s.title}: ` : "") + (s.note || "")).filter(Boolean).join("\n");
     return json({ ok: true, structured: { lead: lead || "لا بيانات كافية للإجابة.", metrics: [], warning: null, note: null, scope_label, period_label }, meta: { intent: composite ? "composite" : intents[0], period, location, used, remaining, cap } });
@@ -238,9 +240,13 @@ Deno.serve(async (req) => {
   // (٣) الفصل الدلاليّ: بادئة النقص تُفرَض بنيوياً (تبدأ lead بها)
   const lead = enforceCoverageLead(parsed.lead, coverageText);
 
+  // 🚨 المقاييس سلطة الخلفية (من figures المنفصلة) لا النموذج — value رقم وحده، unit منفصلة (لا تكرار ولا تلفيق)
+  const metrics = [];
+  for (const s of sections) for (const m of (s.metrics || [])) if (m && (m.value != null)) metrics.push({ label: m.label || "", value: String(m.value), unit: m.unit || "" });
+
   const structured = {
     lead,
-    metrics: Array.isArray(parsed.metrics) ? parsed.metrics.slice(0, 12) : [],
+    metrics: metrics.slice(0, 12),
     warning: parsed.warning || null,
     note: parsed.note || null,
     scope_label, period_label,
