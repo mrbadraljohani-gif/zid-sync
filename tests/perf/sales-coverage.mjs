@@ -27,11 +27,11 @@ await p.setContent(html, { waitUntil: "load" });
 async function run(days) {
   return await p.evaluate(async (days) => {
     dbOnline = true; myRole = "owner"; authSession = { user: { email: "o@x.sa" } };
-    invBranches = []; salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
+    invBranches = [{ id: "br", name: "فرع" }]; salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
     const now = new Date().toISOString();
-    const movs = [{ kind: "estimated_sale", delta: -10, value_est: 1000, unit_price_incl: 100, location: "wh", sku: "A1", sku_name: "صنف", upload_id: "U", captured_at: now, period_days: days }];
-    const stock = [{ location: "wh", sku: "A1", name: "صنف", qty: 100, price_incl: 100 }];
-    db.sales = { uploads: async () => [{ id: "U", location: "wh", captured_at: now, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
+    const movs = [{ kind: "estimated_sale", delta: -10, value_est: 1000, unit_price_incl: 100, location: "br", sku: "A1", sku_name: "صنف", upload_id: "U", captured_at: now, period_days: days }];
+    const stock = [{ location: "br", sku: "A1", name: "صنف", qty: 100, price_incl: 100 }];
+    db.sales = { uploads: async () => [{ id: "U", location: "br", captured_at: now, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
     sb = { from: () => ({ select: () => ({ range: async (a) => ({ data: (a === 0 ? stock : []), error: null }) }) }) };
     try { goPage("home"); } catch (e) {}
     const r = document.getElementById("result"); if (r) r.style.display = "block";

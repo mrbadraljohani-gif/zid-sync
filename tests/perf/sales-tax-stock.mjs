@@ -25,16 +25,16 @@ await p.setRequestInterception(true); p.on("request", r => { const u = r.url(); 
 await p.setContent(html, { waitUntil: "load" });
 const res = await p.evaluate(async () => {
   dbOnline = true; myRole = "owner"; authSession = { user: { email: "o@x.sa" } };
-  invBranches = []; salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
+  invBranches = [{ id: "br", name: "فرع" }]; salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
   const now = new Date().toISOString();
-  const movs = [{ kind: "estimated_sale", delta: -1, value_est: 100, unit_price_incl: 100, unit_price_excl: 87, location: "wh", sku: "A1", sku_name: "صنف", upload_id: "U1", captured_at: now, period_days: 2 }];
+  const movs = [{ kind: "estimated_sale", delta: -1, value_est: 100, unit_price_incl: 100, unit_price_excl: 87, location: "br", sku: "A1", sku_name: "صنف", upload_id: "U1", captured_at: now, period_days: 2 }];
   // مخزون: صنفان بـexcl (10×80، 5×80) ＋ صنف بلا excl (qty 7)
   const stock = [
-    { location: "wh", sku: "S1", name: "S1", qty: 10, price_incl: 100, price_excl: 80 },
-    { location: "wh", sku: "S2", name: "S2", qty: 5, price_incl: 100, price_excl: 80 },
-    { location: "wh", sku: "S3", name: "S3", qty: 7, price_incl: 100, price_excl: null },
+    { location: "br", sku: "S1", name: "S1", qty: 10, price_incl: 100, price_excl: 80 },
+    { location: "br", sku: "S2", name: "S2", qty: 5, price_incl: 100, price_excl: 80 },
+    { location: "br", sku: "S3", name: "S3", qty: 7, price_incl: 100, price_excl: null },
   ];
-  db.sales = { uploads: async () => [{ id: "U1", location: "wh", captured_at: now, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
+  db.sales = { uploads: async () => [{ id: "U1", location: "br", captured_at: now, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
   sb = { from: () => ({ select: () => ({ range: async (a) => ({ data: (a === 0 ? stock : []), error: null }) }) }) };
   try { goPage("home"); } catch (e) {}
   const r = document.getElementById("result"); if (r) r.style.display = "block";

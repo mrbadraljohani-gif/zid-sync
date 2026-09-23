@@ -26,12 +26,12 @@ await p.setRequestInterception(true); p.on("request", r => { const u = r.url(); 
 await p.setContent(html, { waitUntil: "load" });
 const res = await p.evaluate(async () => {
   dbOnline = true; myRole = "owner"; authSession = { user: { email: "o@x.sa" } };
-  invBranches = [{ id: "az", name: "العزيزية" }]; salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
+  invBranches = [{ id: "az", name: "العزيزية" }, { id: "kh", name: "الخضرة" }]; salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
   const now = new Date().toISOString();
   const mk = (loc, sku, up) => ({ kind: "estimated_sale", delta: -2, value_est: 100, unit_price_incl: 50, unit_price_excl: 43, location: loc, sku, sku_name: sku, upload_id: up, captured_at: now, period_days: 2 });
-  const movs = [mk("wh", "S1", "UW"), mk("wh", "S2", "UW"), mk("az", "S1", "UA"), mk("az", "S3", "UA")];   // S1 عابر
-  const stock = [{ location: "wh", sku: "S1", name: "S1", qty: 10, price_incl: 50 }, { location: "az", sku: "S1", name: "S1", qty: 5, price_incl: 50 }];
-  db.sales = { uploads: async () => [{ id: "UW", location: "wh", captured_at: now, suspect: false }, { id: "UA", location: "az", captured_at: now, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
+  const movs = [mk("az", "S1", "UA"), mk("az", "S2", "UA"), mk("kh", "S1", "UK"), mk("kh", "S3", "UK")];   // S1 عابر بين فرعين
+  const stock = [{ location: "az", sku: "S1", name: "S1", qty: 10, price_incl: 50 }, { location: "kh", sku: "S1", name: "S1", qty: 5, price_incl: 50 }];
+  db.sales = { uploads: async () => [{ id: "UA", location: "az", captured_at: now, suspect: false }, { id: "UK", location: "kh", captured_at: now, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
   sb = { from: () => ({ select: () => ({ range: async (a) => ({ data: (a === 0 ? stock : []), error: null }) }) }) };
   try { goPage("home"); } catch (e) {}
   const r = document.getElementById("result"); if (r) r.style.display = "block";

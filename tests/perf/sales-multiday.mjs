@@ -25,11 +25,11 @@ await p.setRequestInterception(true); p.on("request", r => { const u = r.url(); 
 await p.setContent(html, { waitUntil: "load" });
 const res = await p.evaluate(async () => {
   dbOnline = true; myRole = "owner"; authSession = { user: { email: "o@x.sa" } };
-  invBranches = []; salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
+  invBranches = [{ id: "br", name: "فرع" }]; salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
   const cap = "2026-09-24T12:00:00Z";   // ظهر 24 بالرياض ⇒ business_date = 09-23 · period_days=2 ⇒ يغطّي 09-22..09-23
-  const movs = [{ kind: "estimated_sale", delta: -8, value_est: 800, unit_price_incl: 100, unit_price_excl: 87, location: "wh", sku: "A1", sku_name: "صنف", upload_id: "U1", captured_at: cap, period_days: 2 }];
-  const stock = [{ location: "wh", sku: "A1", name: "صنف", qty: 40, price_incl: 100 }];
-  db.sales = { uploads: async () => [{ id: "U1", location: "wh", captured_at: cap, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
+  const movs = [{ kind: "estimated_sale", delta: -8, value_est: 800, unit_price_incl: 100, unit_price_excl: 87, location: "br", sku: "A1", sku_name: "صنف", upload_id: "U1", captured_at: cap, period_days: 2 }];
+  const stock = [{ location: "br", sku: "A1", name: "صنف", qty: 40, price_incl: 100 }];
+  db.sales = { uploads: async () => [{ id: "U1", location: "br", captured_at: cap, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
   sb = { from: () => ({ select: () => ({ range: async (a) => ({ data: (a === 0 ? stock : []), error: null }) }) }) };
   try { goPage("home"); } catch (e) {}
   const r = document.getElementById("result"); if (r) r.style.display = "block";

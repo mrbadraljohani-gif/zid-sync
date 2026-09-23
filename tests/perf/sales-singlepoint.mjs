@@ -25,13 +25,13 @@ await p.setRequestInterception(true); p.on("request", r => { const u = r.url(); 
 await p.setContent(html, { waitUntil: "load" });
 const res = await p.evaluate(async () => {
   dbOnline = true; myRole = "owner"; authSession = { user: { email: "o@x.sa" } };
-  invBranches = [{ id: "az", name: "العزيزية" }]; salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
+  invBranches = [{ id: "az", name: "العزيزية" }, { id: "kh", name: "الخضرة" }]; salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
   const d22 = "2026-09-22T12:00:00Z", d23 = "2026-09-23T12:00:00Z";   // business: 09-21, 09-22
   const mk = (loc, sku, up, cap) => ({ kind: "estimated_sale", delta: -3, value_est: 19680, unit_price_incl: 100, unit_price_excl: 87, location: loc, sku, sku_name: sku, upload_id: up, captured_at: cap, period_days: 1 });
-  // المستودع: نقطة واحدة (09-22). العزيزية: نقطتان (09-21, 09-22)
-  const movs = [mk("wh", "W1", "UW", d23), mk("az", "A1", "UA1", d22), mk("az", "A2", "UA2", d23)];
-  const stock = [{ location: "wh", sku: "W1", name: "W1", qty: 40, price_incl: 100 }, { location: "az", sku: "A1", name: "A1", qty: 20, price_incl: 100 }];
-  db.sales = { uploads: async () => [{ id: "UW", location: "wh", captured_at: d23, suspect: false }, { id: "UA1", location: "az", captured_at: d22, suspect: false }, { id: "UA2", location: "az", captured_at: d23, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
+  // العزيزية (فرع): نقطة واحدة (09-22) بقيمة كبيرة. الخضرة (فرع): نقطتان (09-21, 09-22)
+  const movs = [mk("az", "W1", "UW", d23), mk("kh", "A1", "UA1", d22), mk("kh", "A2", "UA2", d23)];
+  const stock = [{ location: "az", sku: "W1", name: "W1", qty: 40, price_incl: 100 }, { location: "kh", sku: "A1", name: "A1", qty: 20, price_incl: 100 }];
+  db.sales = { uploads: async () => [{ id: "UW", location: "az", captured_at: d23, suspect: false }, { id: "UA1", location: "kh", captured_at: d22, suspect: false }, { id: "UA2", location: "kh", captured_at: d23, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
   sb = { from: () => ({ select: () => ({ range: async (a) => ({ data: (a === 0 ? stock : []), error: null }) }) }) };
   try { goPage("home"); } catch (e) {}
   const r = document.getElementById("result"); if (r) r.style.display = "block";
@@ -39,12 +39,12 @@ const res = await p.evaluate(async () => {
   await renderSalesPage();
   const svg = document.getElementById("salesChart").innerHTML;
   const soloMarkers = (svg.match(/r="6"/g) || []).length;   // هالة النقطة المنفردة
-  // قيمة المستودع في جدول المقارنة > 0
+  // قيمة الفرع صاحب النقطة المنفردة في جدول المقارنة > 0
   const cmp = document.getElementById("salesCmp");
-  const whRow = [...cmp.querySelectorAll("tbody tr")].map(tr => (tr.textContent || "").replace(/\s+/g, " ")).find(t => /المستودع/.test(t)) || "";
+  const whRow = [...cmp.querySelectorAll("tbody tr")].map(tr => (tr.textContent || "").replace(/\s+/g, " ")).find(t => /العزيزية/.test(t)) || "";
   const whHasValue = /19,?680/.test(whRow);
   const titles = [...document.querySelectorAll("#salesChart svg title")].map(t => t.textContent);
-  const whInChart = titles.some(t => /المستودع/.test(t));
+  const whInChart = titles.some(t => /العزيزية/.test(t));
   return { soloMarkers, whHasValue, whInChart };
 });
 await b.close();

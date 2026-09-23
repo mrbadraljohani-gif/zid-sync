@@ -30,12 +30,12 @@ const res = await p.evaluate(async () => {
   salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
   const now = new Date().toISOString();
   const movs = [
-    { kind: "estimated_sale", delta: -5, value_est: 500, unit_price_incl: 100, location: "wh", sku: "A1", sku_name: "طقم مفارش", upload_id: "U", captured_at: now, period_days: 2 },
-    { kind: "estimated_sale", delta: -3, value_est: 300, unit_price_incl: 100, location: "wh", sku: "B2", sku_name: "مقلاة", upload_id: "U", captured_at: now, period_days: 2 },
+    { kind: "estimated_sale", delta: -5, value_est: 500, unit_price_incl: 100, location: "az", sku: "A1", sku_name: "طقم مفارش", upload_id: "U", captured_at: now, period_days: 2 },
+    { kind: "estimated_sale", delta: -3, value_est: 300, unit_price_incl: 100, location: "az", sku: "B2", sku_name: "مقلاة", upload_id: "U", captured_at: now, period_days: 2 },
     { kind: "purchase", delta: 4, location: "az", sku: "C3", sku_name: "لحاف", upload_id: "U", captured_at: now, period_days: 2 },
   ];
-  const stock = [{ location: "wh", sku: "A1", name: "طقم مفارش", qty: 40, price_incl: 100, barcode: "6280000000011" }, { location: "wh", sku: "B2", name: "مقلاة", qty: 12, price_incl: 80, barcode: null }];   // A1 له باركود · B2 بلا باركود (null)
-  db.sales = { uploads: async () => [{ id: "U", location: "wh", captured_at: now, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
+  const stock = [{ location: "az", sku: "A1", name: "طقم مفارش", qty: 40, price_incl: 100, barcode: "6280000000011" }, { location: "az", sku: "B2", name: "مقلاة", qty: 12, price_incl: 80, barcode: null }];   // A1 له باركود · B2 بلا باركود (null)
+  db.sales = { uploads: async () => [{ id: "U", location: "az", captured_at: now, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
   sb = { from: () => ({ select: () => ({ range: async (a) => ({ data: (a === 0 ? stock : []), error: null }) }) }) };
   try { goPage("home"); } catch (e) {}
   const r = document.getElementById("result"); if (r) r.style.display = "block";

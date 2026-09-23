@@ -35,14 +35,14 @@ const res = await p.evaluate(async () => {
   ];
   const a = salesAgg(movs);
   // ② render: استبعاد المشبوهة + الحالة الفارغة
-  dbOnline = true; invBranches = []; salesPeriod = "all"; salesLoc = "all";
+  dbOnline = true; invBranches = [{ id: "br", name: "فرع" }]; salesPeriod = "all"; salesLoc = "all";   // البيع في فرع (المستودع مخزن)
   sb = { from: () => ({ select: () => ({ range: async () => ({ data: [], error: null }) }) }) };   // sales_stock فارغ (قيمة المخزون = 0/—)
   db.sales = {
-    uploads: async () => [{ id: "U1", location: "wh", captured_at: new Date().toISOString(), suspect: false }, { id: "U2", location: "wh", captured_at: new Date().toISOString(), suspect: true }],
+    uploads: async () => [{ id: "U1", location: "br", captured_at: new Date().toISOString(), suspect: false }, { id: "U2", location: "br", captured_at: new Date().toISOString(), suspect: true }],
     movements: async () => [
-      { kind: "estimated_sale", delta: -5, value_est: 500, location: "wh", sku: "A", upload_id: "U1", captured_at: new Date().toISOString() },
-      { kind: "estimated_sale", delta: -2, value_est: null, price_source: "none", location: "wh", sku: "NP", upload_id: "U1", captured_at: new Date().toISOString() },   // بلا سعر ⇒ عدّاد
-      { kind: "estimated_sale", delta: -9, value_est: 9999, location: "wh", sku: "Z", upload_id: "U2", captured_at: new Date().toISOString() },   // مشبوهة ⇒ تُستبعَد
+      { kind: "estimated_sale", delta: -5, value_est: 500, location: "br", sku: "A", upload_id: "U1", captured_at: new Date().toISOString() },
+      { kind: "estimated_sale", delta: -2, value_est: null, price_source: "none", location: "br", sku: "NP", upload_id: "U1", captured_at: new Date().toISOString() },   // بلا سعر ⇒ عدّاد
+      { kind: "estimated_sale", delta: -9, value_est: 9999, location: "br", sku: "Z", upload_id: "U2", captured_at: new Date().toISOString() },   // مشبوهة ⇒ تُستبعَد
     ],
   };
   await renderSalesPage();

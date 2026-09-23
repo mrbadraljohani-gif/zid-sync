@@ -1821,6 +1821,7 @@
       <div id="salesSuspectBox" style="display:none"></div>
       <div class="s4-tabs" id="salesTabs"></div>
       <div id="salesDetail"></div>
+      <div id="salesWhSection" style="display:none"></div>
     </div>
     <div class="sales-foot">جميع الأرقام مبيعات مقدّرة بناءً على حركة المخزون بين الرفعات · شاشة عرض المبيعات — ASJ Inventory Sync</div>
   </section>
@@ -1926,7 +1927,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "6fc0a23";
+const APP_VERSION = "60134a0";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3191,9 +3192,11 @@ function renderSalesDetail() {
   const wrap = document.getElementById("salesDetail"), tabsEl = document.getElementById("salesTabs");
   if (!wrap || !salesCtx) return;
   const { movs, stock, curSince, prevSince, locsAll, latest } = salesCtx;
+  const branchLocs = salesCtx.branchLocs || locsAll.filter(l => l !== "wh");   // تبويبات المبيعات = الفروع فقط (المستودع في قسمه)
+  if (salesTab !== "all" && !branchLocs.includes(salesTab)) salesTab = "all";
   const maxUpd = Math.max(0, ...[...latest.values()]);
-  tabsEl.innerHTML = [["all", "جميع المواقع"], ...locsAll.map(l => [l, salesLocName(l)])].map(([v, n]) => `<button class="s4-tab${salesTab === v ? " on" : ""}" onclick="salesSetTab('${esc(String(v))}')">${esc(n)}</button>`).join("") + `<span class="s4-tab-upd">آخر تحديث للبيانات: ${maxUpd ? ageText(maxUpd) : "—"}</span>`;
-  const tabLocs = (salesTab === "all") ? locsAll : [salesTab];
+  tabsEl.innerHTML = [["all", "جميع الفروع"], ...branchLocs.map(l => [l, salesLocName(l)])].map(([v, n]) => `<button class="s4-tab${salesTab === v ? " on" : ""}" onclick="salesSetTab('${esc(String(v))}')">${esc(n)}</button>`).join("") + `<span class="s4-tab-upd">آخر تحديث للبيانات: ${maxUpd ? ageText(maxUpd) : "—"}</span>`;
+  const tabLocs = (salesTab === "all") ? branchLocs : [salesTab];
   const cur = movs.filter(m => salesBizTs(m.captured_at) >= curSince && tabLocs.includes(m.location));
   const prev = prevSince != null ? movs.filter(m => { const t = salesBizTs(m.captured_at); return t >= prevSince && t < curSince && tabLocs.includes(m.location); }) : [];
   const a = salesAgg(cur), pa = salesAgg(prev);
@@ -3207,7 +3210,7 @@ function renderSalesDetail() {
   const dailyRate = daysCov > 0 ? a.units / daysCov : null;
   const coverage = (dailyRate && dailyRate > 0) ? Math.round(totUnits / dailyRate) : null;
   const upCount = new Set(cur.map(m => m.upload_id)).size;
-  const name = (salesTab === "all") ? "جميع المواقع" : salesLocName(salesTab);
+  const name = (salesTab === "all") ? "جميع الفروع" : salesLocName(salesTab);
   const covGateD = salesCovInsufficient(daysCov);
   // شريط مضغوط بديل البطاقات الخمس (جدول المقارنة يعطي التفصيل لكل موقع) — القيم نفسها، سطر واحد
   const ds = (k, num, lbl, unit, tip) => `<span class="ds-item" data-k="${k}"${tip ? ` title="${esc(tip)}"` : ""}><b><bdi dir="ltr">${num}</bdi></b>${unit ? `<span class="ds-u">${unit}</span>` : ""} ${lbl}</span>`;
@@ -3241,7 +3244,7 @@ function renderSalesTables() {
   let rakaTbl = gateMsg, nafadTbl = gateMsg;
   if (!gate) {
     const now = Date.now();
-    const otherStatus = sku => { const others = salesCtx.locsAll.filter(l => !tabLocs.includes(l)); if (!others.length) return "—"; const sold = salesCtx.movs.some(m => m.kind === "estimated_sale" && m.sku === sku && others.includes(m.location) && salesBizTs(m.captured_at) >= salesCtx.curSince); return sold ? "سريع في موقع آخر" : "راكد/غائب"; };
+    const otherStatus = sku => { const others = (salesCtx.branchLocs || []).filter(l => !tabLocs.includes(l)); if (!others.length) return "—"; const sold = salesCtx.movs.some(m => m.kind === "estimated_sale" && m.sku === sku && others.includes(m.location) && salesBizTs(m.captured_at) >= salesCtx.curSince); return sold ? "سريع في فرع آخر" : "راكد/غائب"; };   // الفروع الأخرى فقط (المستودع ليس بيعاً)
     const raka = [...qtyBySku.entries()].map(([sku, qty]) => { const ls = lastSale.get(sku), days = ls ? Math.round((now - ls) / 86400000) : null, nm = (sMap.get(sku) || {}).name || "", pr = priceBySku.get(sku); return { sku, name: nm, qty, days, unit: pr != null ? pr : null, val: pr != null ? qty * pr : null }; })
       .filter(x => x.qty > 0 && (x.days == null || x.days >= S4_NOSALE_DAYS) && match(x.sku, x.name)).sort((a, b) => (b.days || 99999) - (a.days || 99999));
     const rakaTop = salesCap(raka, "raka");
@@ -3264,6 +3267,29 @@ function renderSalesTables() {
   host.innerHTML = sellersCard + cardT(ic("inbox"), "أكثر 10 منتجات راكدة", rakaTbl, "raka", gate) + cardT(ic("hourglass"), "مخاطر النفاد (أقل من 30 يوماً)", nafadTbl, "nafad", gate);
   if (salesSearchOpen) { const inp = host.querySelector(".s4-inline-srch input"); if (inp) { inp.focus(); const v = inp.value; try { inp.setSelectionRange(v.length, v.length); } catch (e) {} } }   // إعادة التركيز بعد إعادة البناء (لا يُفقد المؤشّر مع كل حرف)
 }
+// (٣) قسم المستودع — سحب لا بيع: أكثر سحباً ＋ قيمة المخزون ＋ أصناف متحرّكة ＋ إجمالي الأصناف (بلا مبيعات/معدّل/تغطية/راكد)
+function renderWarehouseSection(whData, movs, curSince) {
+  const host = document.getElementById("salesWhSection"); if (!host) return;
+  if (!whData) { host.style.display = "none"; host.innerHTML = ""; return; }
+  host.style.display = "block";
+  const cur = (movs || []).filter(m => m.location === "wh" && salesBizTs(m.captured_at) >= curSince);
+  const wMap = new Map();   // أكثر سحباً = estimated_sale (نقص المستودع = سحب) مجمّع بالكود
+  for (const m of cur) { if (m.kind !== "estimated_sale") continue; const e = wMap.get(m.sku) || { sku: m.sku, name: m.sku_name || "", u: 0, v: 0, p: null, pt: null }; e.u += Math.abs(Number(m.delta) || 0); if (m.value_est != null) e.v += Number(m.value_est) || 0; if (m.sku_name && !e.name) e.name = m.sku_name; const t = Date.parse(m.captured_at) || 0; if (m.unit_price_incl != null && (e.pt == null || t >= e.pt)) { e.p = Number(m.unit_price_incl); e.pt = t; } wMap.set(m.sku, e); }
+  const top = [...wMap.values()].sort((a, b) => b.v - a.v).slice(0, 10);
+  const a = whData.agg, inv = whData.invValue || 0, invExcl = whData.invValueExcl || 0, invMiss = whData.invExclMissing || 0;
+  const strip = `<div class="s4-dstrip">`
+    + `<span class="ds-item"><b><bdi dir="ltr">${salesNum(inv)}</bdi></b><span class="ds-u">ر.س</span> قيمة المخزون</span><span class="ds-sep">·</span>`
+    + `<span class="ds-item" title="من price_excl مباشرةً">قبل الضريبة <b><bdi dir="ltr">${salesNum(invExcl)}</bdi></b><span class="ds-u">ر.س</span>${invMiss ? ` · ${salesNum(invMiss)} بلا سعر` : ""}</span><span class="ds-sep">·</span>`
+    + `<span class="ds-item"><b><bdi dir="ltr">${salesNum(a.movedSku.size)}</bdi></b><span class="ds-u">صنف</span> أصناف متحرّكة (حركة لا بيع)</span><span class="ds-sep">·</span>`
+    + `<span class="ds-item"><b><bdi dir="ltr">${salesNum(whData.totalItems)}</bdi></b><span class="ds-u">صنف</span> إجمالي الأصناف في المستودع</span>`
+    + `</div>`;
+  const tbl = top.length
+    ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الكمية</th><th class="n">سعر الوحدة</th><th class="n">القيمة</th></tr></thead><tbody>${top.map((x, i) => `<tr><td>${i + 1}</td><td class="nm"><span class="nmclamp" title="${esc(x.name)}">${esc(x.name) || "—"}</span></td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.u)}</bdi></td><td class="n"><bdi dir="ltr">${x.p == null ? "—" : salesNum(x.p)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(x.v)}</bdi></td></tr>`).join("")}</tbody></table>`
+    : `<div class="s4-gate">لا سحب من المستودع في هذه الفترة.</div>`;
+  host.innerHTML = `<div class="s4-dhead" style="margin-top:8px"><span class="s4-ic">${ic("warehouse")}</span><div><b style="font-size:16px">المستودع</b><div style="font-size:11px;color:var(--muted)">سحب من المخزن (لا بيع) — يذهب لوجهات متعدّدة بعضها خارج النظام</div></div></div>`
+    + strip
+    + `<div class="card s4-tbl" style="margin-top:14px"><div class="s4-tbl-head"><h3><span class="s4-ti">${ic("spark")}</span>أكثر 10 أصناف سحباً</h3></div><div class="twrap">${tbl}</div></div>`;
+}
 async function renderSalesPage() {
   renderSalesFilters(); salesSetDateLabel();
   const body = document.getElementById("salesBody"), empty = document.getElementById("salesEmpty"), lu = document.getElementById("salesLastUp");
@@ -3282,49 +3308,69 @@ async function renderSalesPage() {
     const movs = rawMovs.filter(m => !baselineIds.has(m.upload_id));
     const stock = await salesStockRows();
     const locsAll = ["wh", ...(invBranches || []).map(b => b.id)];
-    const shown = salesLoc === "all" ? locsAll : [salesLoc];
+    // 🚨 النموذج: المستودع مخزن لا نقطة بيع. المبيعات = الفروع فقط · المخزون = الكل (يشمل المستودع).
+    const branchLocs = locsAll.filter(l => l !== "wh");
+    const isWhView = salesLoc === "wh";
+    const salesShown = isWhView ? [] : (salesLoc === "all" ? branchLocs : [salesLoc]);   // مواقع المبيعات المعروضة (بلا wh أبداً)
+    const invLocsShown = salesLoc === "all" ? locsAll : [salesLoc];                       // المخزون: يشمل المستودع في «الكل»
+    const showWhSection = salesLoc === "all" || isWhView;                                  // قسم المستودع: في «الكل» (أسفل) و«المستودع» (رئيسيّ)
     // (ج) موقع «مرفوع في الفترة» = له رفعة غير تأسيسية داخل النافذة الحالية (وإلا: نسي الموظف رفعه)
     const uploadedInPeriod = new Set(ups.filter(u => !baselineIds.has(u.id) && salesBizTs(u.captured_at) >= curSince).map(u => u.location));
     const prevBaselineOnly = prevSince != null && ups.some(u => baselineIds.has(u.id) && salesBizTs(u.captured_at) >= prevSince && salesBizTs(u.captured_at) < curSince) && !ups.some(u => !baselineIds.has(u.id) && salesBizTs(u.captured_at) >= prevSince && salesBizTs(u.captured_at) < curSince);
-    const curAll = movs.filter(m => salesBizTs(m.captured_at) >= curSince && shown.includes(m.location));
-    if (!curAll.length) {
+    // فحص الفراغ: أي حركة بيع (فروع) أو حركة مستودع (لقسمه) داخل الفترة
+    const anyRelevant = movs.filter(m => salesBizTs(m.captured_at) >= curSince && (salesShown.includes(m.location) || (showWhSection && m.location === "wh")));
+    if (!anyRelevant.length) {
       body.style.display = "none"; empty.style.display = "block";
-      empty.textContent = ups.length ? "لا حركات مبيعات مقدّرة في هذه الفترة/الموقع — جرّب فترة أوسع أو موقعاً آخر." : "لا حركات بعد. ارفع ملفاً من «تحديث قاعدة البيانات» لتبدأ المبيعات المقدّرة في الظهور.";
+      empty.textContent = ups.length ? "لا حركات في هذه الفترة/الموقع — جرّب فترة أوسع أو موقعاً آخر." : "لا حركات بعد. ارفع ملفاً من «تحديث قاعدة البيانات» لتبدأ المبيعات المقدّرة في الظهور.";
       return;
     }
     empty.style.display = "none"; body.style.display = "block";
     const dataAll = locsAll.map(loc => salesColData(loc, movs, stock, curSince, prevSince));
-    const dataShown = dataAll.filter(d => shown.includes(d.loc));
-    const dataActive = dataShown.filter(d => uploadedInPeriod.has(d.loc));   // (ج) الإجماليّ من المرفوعة في الفترة فقط
-    const missingLocs = dataShown.filter(d => !uploadedInPeriod.has(d.loc));
+    const whData = dataAll.find(d => d.loc === "wh");
+    const salesData = dataAll.filter(d => salesShown.includes(d.loc));              // بيانات المبيعات (فروع)
+    const dataActive = salesData.filter(d => uploadedInPeriod.has(d.loc));          // (ج) الإجماليّ من الفروع المرفوعة
+    const missingLocs = salesData.filter(d => !uploadedInPeriod.has(d.loc));
+    const invData = dataAll.filter(d => invLocsShown.includes(d.loc));              // المخزون (يشمل المستودع في «الكل»)
+    const invIncludesWh = invLocsShown.includes("wh") && (whData && whData.invValue != null);
+    // إظهار/إخفاء أجزاء المبيعات حسب العرض (المستودع ⇒ قسمه فقط — لا مؤشّرات بيع صفريّة مضلّلة)
+    const midEl = document.querySelector("#page-sales .s4-mid"); if (midEl) midEl.style.display = isWhView ? "none" : "";
+    document.getElementById("salesTabs").style.display = isWhView ? "none" : "";
+    document.getElementById("salesDetail").style.display = isWhView ? "none" : "";
+    document.getElementById("salesKpis").style.display = isWhView ? "none" : "";
+    document.getElementById("salesNotes").style.display = isWhView ? "none" : "";
+    if (isWhView) { const mb = document.getElementById("salesMissBanner"); if (mb) mb.style.display = "none"; const bb = document.getElementById("salesBanner"); if (bb) bb.style.display = "none"; }
     // scope: قيم مجمّعة ＋ معدّلات يوميّة per-location (ب: كل موقع بفترته، لا فترة موحّدة)
+    // scope المبيعات: الفروع المرفوعة فقط (المستودع مستبعَد — inv منفصل)
     const scope = dataActive.reduce((s, d) => {
-      s.val += d.agg.estValue; s.valExcl += d.agg.estValueExcl; s.units += d.agg.units; s.inv += (d.invValue || 0);
-      s.invExcl += (d.invValueExcl || 0); s.invExclMiss += (d.invExclMissing || 0);
+      s.val += d.agg.estValue; s.valExcl += d.agg.estValueExcl; s.units += d.agg.units;
       s.noPrice += d.agg.noPrice; s.disC += d.agg.disCount; s.disV += d.agg.disValue;
       if (d.daysCovered > 0) { s.valRate += d.agg.estValue / d.daysCovered; s.unitRate += d.agg.units / d.daysCovered; s.daysMax = Math.max(s.daysMax, d.daysCovered); }
       if (d.prevDaysCovered > 0) { s.pvalRate += d.pagg.estValue / d.prevDaysCovered; s.punitRate += d.pagg.units / d.prevDaysCovered; s.pdaysMax = Math.max(s.pdaysMax, d.prevDaysCovered); }
       if (d.coverage != null) { s.cov += d.coverage; s.covN++; }
       return s;
-    }, { val: 0, valExcl: 0, units: 0, inv: 0, invExcl: 0, invExclMiss: 0, noPrice: 0, disC: 0, disV: 0, valRate: 0, unitRate: 0, pvalRate: 0, punitRate: 0, daysMax: 0, pdaysMax: 0, cov: 0, covN: 0 });
-    const curActive = curAll.filter(m => uploadedInPeriod.has(m.location));
-    const movedNow = new Set(curActive.map(m => String(m.sku))).size;   // (١-أ) كود فريد عبر المواقع
-    const movedPrev = prevSince != null ? new Set(movs.filter(m => { const t = salesBizTs(m.captured_at); return t >= prevSince && t < curSince && uploadedInPeriod.has(m.location); }).map(m => String(m.sku))).size : null;
+    }, { val: 0, valExcl: 0, units: 0, noPrice: 0, disC: 0, disV: 0, valRate: 0, unitRate: 0, pvalRate: 0, punitRate: 0, daysMax: 0, pdaysMax: 0, cov: 0, covN: 0 });
+    // المخزون: كل مواقع العرض (يشمل المستودع في «الكل») — مستقلّ عن رفع الفترة (المخزون لقطة حاليّة)
+    const invScope = invData.reduce((s, d) => { s.inv += (d.invValue || 0); s.invExcl += (d.invValueExcl || 0); s.invExclMiss += (d.invExclMissing || 0); return s; }, { inv: 0, invExcl: 0, invExclMiss: 0 });
+    const curBranch = movs.filter(m => salesBizTs(m.captured_at) >= curSince && salesShown.includes(m.location) && uploadedInPeriod.has(m.location));
+    const movedNow = new Set(curBranch.map(m => String(m.sku))).size;   // (١-أ) كود فريد عبر الفروع
+    const movedPrev = prevSince != null ? new Set(movs.filter(m => { const t = salesBizTs(m.captured_at); return t >= prevSince && t < curSince && salesShown.includes(m.location) && uploadedInPeriod.has(m.location); }).map(m => String(m.sku))).size : null;
     const covAvg = scope.covN ? Math.round(scope.cov / scope.covN) : null;
     const scRate = scope.unitRate > 0 ? Math.round(scope.unitRate) : null;   // (ب) Σ(وحدات الموقع÷أيام الموقع)
     // «المرصود» بتعريف واحد = أطول فترة موقع مرصودة (daysMax) ＋ عدّاد الرفعات منفصلاً (١-د)
-    const observedDays = scope.daysMax, upCountScope = new Set(curActive.map(m => m.upload_id)).size;
+    const observedDays = scope.daysMax, upCountScope = new Set(curBranch.map(m => m.upload_id)).size;
     if (lu) lu.innerHTML += ` &nbsp;·&nbsp; التغطية: معدّل <b>${scRate != null ? salesNum(scRate) : "—"}</b>/يوم · المرصود <b>${observedDays ? Math.round(observedDays * 10) / 10 : "—"}</b> يوم · <b>${upCountScope}</b> رفعة${salesCovInsufficient(observedDays) ? ` <span class="s4-lu-warn" title="المعدّل اليوميّ من فترة أقصر من ١٤ يوماً غير موثوق للتنبّؤ (التغطية والنفاد مبوّبان)">⚠ فترة قصيرة — التنبّؤ غير موثوق بعد</span>` : ""}`;
     const kpi = (k, icon, num, lbl, sub, trend, tip, sub2, unit) => `<div class="card kpi" data-k="${k}"${tip ? ` title="${esc(tip)}"` : ""}><span class="kpi-ic">${icon}</span><b><bdi dir="ltr">${num}</bdi>${unit ? `<span class="kpi-unit">${unit}</span>` : ""}</b><span class="kpi-lbl">${lbl}</span><span class="kpi-sub">${sub}</span>${sub2 ? `<span class="kpi-sub2">${sub2}</span>` : ""}${trend || ""}</div>`;
     const scopeLbl = salesLoc === "all" ? "جميع المواقع" : salesLocName(salesLoc);
     const covGate = salesCovInsufficient(observedDays);
     const movedComparable = movedPrev != null && scope.pdaysMax > 0 && observedDays > 0;
+    const branchLbl = salesLoc === "all" ? "الفروع" : salesLocName(salesLoc);
+    const invTag = invIncludesWh ? ` · <span class="kpi-miss" title="يشمل مخزون المستودع مع الفروع — بخلاف مؤشّرات المبيعات (فروع فقط)" style="color:var(--info)">يشمل المستودع</span>` : "";
     document.getElementById("salesKpis").innerHTML =
-      kpi("sval", ic("spark"), salesNum(scope.val), `المبيعات المقدّرة (${scopeLbl})`, "قيمة ما بيع خلال الفترة — شاملة الضريبة", salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "قيمة تقديرية للمبيع = مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت وقت الرصد). لا تشمل الشراء ولا الأصناف المختفية.", `قبل الضريبة: <bdi dir="ltr">${salesNum(scope.valExcl)}</bdi> ر.س`, "ر.س") +
-      kpi("sunits", ic("inbox"), salesNum(scope.units), "قطع بيعت (مقدّر)", "مجموع النقص في كميات كل الأصناف", salesRateSpan(scope.unitRate, prevSince != null ? scope.punitRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "عدد القطع التي نقصت من المخزون خلال الفترة — كل نقص يُعدّ بيعاً مقدّراً (لا نقل بين الفروع).", "", "قطعة") +
-      kpi("smoved", ic("branch"), salesNum(movedNow), "منتجات متحرّكة", "أصناف تغيّرت كميتها (بيعاً أو شراءً)", salesCountSpan(movedNow, movedPrev, observedDays, scope.pdaysMax, "kpi-trend", prevBaselineOnly), "عدد الأصناف الفريدة التي سُجّلت لها أي حركة كمية (نقص بيعاً أو زيادة شراءً) خلال الفترة — منتج تحرّك في فرعين يُعدّ مرّة.", "", "صنف") +
-      kpi("sinv", ic("warehouse"), salesNum(scope.inv), "قيمة المخزون الحالية", "قيمة كل المخزون الآن (جميع الأصناف) — شاملة الضريبة", "", "الكمية الحالية × سعرها لكل صنف في المخزون — لا يقتصر على المتحرّك.", `قبل الضريبة: <bdi dir="ltr">${salesNum(scope.invExcl)}</bdi> ر.س${scope.invExclMiss ? ` · <span class="kpi-miss" title="أصناف بلا سعر قبل الضريبة في العرض — مستبعدة من هذا الرقم لا محسوبة صفراً">${salesNum(scope.invExclMiss)} صنفاً بلا سعر قبل الضريبة — مستبعدة</span>` : ""}`, "ر.س") +
-      kpi("scov", ic("check"), covGate ? "—" : (covAvg != null ? String(covAvg) : "—"), "متوسط أيام التغطية", covGate ? salesCovGateSub(observedDays) : "متوسط على الأصناف: الكمية ÷ معدّل البيع اليوميّ", "", covGate ? "كم يوماً يكفي المخزون بمعدّل البيع الأخير — يلزم ١٤ يوم رصد ليكون موثوقاً (المعدّل من فترة قصيرة يخدع)." : "متوسط أيام تكفي فيها كمية كل صنف بمعدّل بيعه اليوميّ الأخير.", "", covGate ? "" : "يوم");
+      kpi("sval", ic("spark"), salesNum(scope.val), `المبيعات المقدّرة (${branchLbl})`, "الفروع فقط — المستودع مخزن لا نقطة بيع", salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "قيمة تقديرية للمبيع في الفروع = مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت). لا تشمل المستودع ولا الأصناف المختفية.", `قبل الضريبة: <bdi dir="ltr">${salesNum(scope.valExcl)}</bdi> ر.س`, "ر.س") +
+      kpi("sunits", ic("inbox"), salesNum(scope.units), "قطع بيعت (مقدّر)", "مجموع النقص في كميات أصناف الفروع", salesRateSpan(scope.unitRate, prevSince != null ? scope.punitRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "عدد القطع التي نقصت من مخزون الفروع خلال الفترة — كل نقص بيعٌ مقدّر (المستودع مستبعَد).", "", "قطعة") +
+      kpi("smoved", ic("branch"), salesNum(movedNow), "منتجات متحرّكة", "أصناف تغيّرت كميتها في الفروع", salesCountSpan(movedNow, movedPrev, observedDays, scope.pdaysMax, "kpi-trend", prevBaselineOnly), "عدد أصناف الفروع الفريدة التي سُجّلت لها حركة كمية — منتج تحرّك في فرعين يُعدّ مرّة (المستودع مستبعَد).", "", "صنف") +
+      kpi("sinv", ic("warehouse"), salesNum(invScope.inv), "قيمة المخزون الحالية", "قيمة كل المخزون الآن (جميع الأصناف) — شاملة الضريبة", "", "الكمية الحالية × سعرها لكل صنف — يشمل المستودع (مخزون فعليّ)، بخلاف المبيعات.", `قبل الضريبة: <bdi dir="ltr">${salesNum(invScope.invExcl)}</bdi> ر.س${invScope.invExclMiss ? ` · <span class="kpi-miss" title="أصناف بلا سعر قبل الضريبة في العرض — مستبعدة من هذا الرقم لا محسوبة صفراً">${salesNum(invScope.invExclMiss)} صنفاً بلا سعر قبل الضريبة — مستبعدة</span>` : ""}${invTag}`, "ر.س") +
+      kpi("scov", ic("check"), covGate ? "—" : (covAvg != null ? String(covAvg) : "—"), "متوسط أيام التغطية", covGate ? salesCovGateSub(observedDays) : "متوسط على أصناف الفروع: الكمية ÷ معدّل البيع اليوميّ", "", covGate ? "كم يوماً يكفي مخزون الفروع بمعدّل البيع الأخير — يلزم ١٤ يوم رصد (المعدّل من فترة قصيرة يخدع)." : "متوسط أيام تكفي فيها كمية كل صنف بمعدّل بيعه اليوميّ الأخير (فروع).", "", covGate ? "" : "يوم");
     // (ج) صمّام الموقع الغائب — ماذا/لماذا/ما العمل
     const missBanner = document.getElementById("salesMissBanner");
     if (missBanner) {
@@ -3332,7 +3378,7 @@ async function renderSalesPage() {
         const lastUp = loc => { let mx = 0; for (const u of ups) if (u.location === loc) { const tt = Date.parse(u.captured_at); if (Number.isFinite(tt) && tt > mx) mx = tt; } return mx; };
         const parts = missingLocs.map(d => { const last = lastUp(d.loc); return `<b>${esc(d.name)}</b>${last ? ` (آخر رفعة ${ageText(last)})` : " (بلا رفعة)"}`; }).join(" · ");
         missBanner.style.display = "flex";
-        missBanner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>${missingLocs.length === 1 ? "موقع" : missingLocs.length + " مواقع"} بلا رفعة في هذه الفترة: ${parts} — أرقامه غائبة حتى يُرفع ملفه. <b>الإجمالي يشمل ${dataActive.length} من ${dataShown.length} مواقع.</b></span>`;
+        missBanner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>${missingLocs.length === 1 ? "فرع" : missingLocs.length + " فروع"} بلا رفعة في هذه الفترة: ${parts} — أرقامه غائبة حتى يُرفع ملفه. <b>الإجمالي يشمل ${dataActive.length} من ${salesData.length} فروع.</b></span>`;
       } else missBanner.style.display = "none";
     }
     // بانر المختفي (يعود عند التحميل؛ «عرض التفاصيل» قائمة حقيقية)
@@ -3340,8 +3386,8 @@ async function renderSalesPage() {
     if (scope.disC && !salesBannerDismissed) { banner.style.display = "flex"; banner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>تنبيه: <b>${scope.disC}</b> منتجاً بقيمة <bdi dir="ltr">${salesNum(scope.disV)}</bdi> ر.س اختفت من الملفات (غائبة عن المخزن) — مستبعدة من المبيعات المقدّرة.</span><a class="lnk" onclick="salesShowDisappeared()">عرض التفاصيل ←</a><button class="x" onclick="salesDismissBanner()" aria-label="إغلاق">✕</button>`; }
     else banner.style.display = "none";
     // الرسم متعدّد المواقع ＋ وسيلة الإيضاح
-    const smap = {}; for (const d of dataAll) smap[d.loc] = d.series;
-    document.getElementById("salesChart").innerHTML = salesMultiLineSVG(smap, locsAll);
+    const smap = {}; for (const d of salesData) smap[d.loc] = d.series;   // الرسم: الفروع فقط (المستودع ليس بيعاً)
+    document.getElementById("salesChart").innerHTML = salesMultiLineSVG(smap, salesShown);
     // جدول المقارنة — الوحدة ملتصقة برقمها بخطّ عربيّ (لا mono يقطّع «يوم») · «المبيعات» بشريط حصّة خلفيّ بلون الموقع.
     const money = v => `<bdi dir="ltr">${salesNum(v)}</bdi><span class="cmp-u">ر.س</span>`;   // «5,685,194 ر.س»
     const covCell = c => c == null ? "—" : (c > 3650 ? `<span class="cmp-slow">بطيء</span>` : `<bdi dir="ltr">${c}</bdi><span class="cmp-u">يوم</span>`);   // «855 يوم» (يوم بخطّ عربيّ)
@@ -3350,7 +3396,7 @@ async function renderSalesPage() {
       ? `<tr class="${cls || ""} noup"><td class="cmp-loc">${colorVar ? `<span class="dot" style="background:var(${colorVar})"></span>` : ""}${esc(name)}</td><td class="n noupc" colspan="6">لا رفعة في هذه الفترة</td></tr>`
       : `<tr class="${cls || ""}"><td class="cmp-loc">${colorVar ? `<span class="dot" style="background:var(${colorVar})"></span>` : ""}${esc(name)}</td>${salesCell(d.val, colorVar || "--info")}<td class="n"><bdi dir="ltr">${salesNum(d.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(d.moved)}</bdi></td><td class="n">${money(d.inv)}</td><td class="n">${covCell(d.cov)}</td><td class="n">${salesRateTrend(d.val, d.daysCovered, d.pval, d.prevDaysCovered, "scc-tr", prevBaselineOnly)}</td></tr>`;
     let colMovedSum = 0, movedUniqueAll = new Set();
-    const rows = dataAll.map(d => {
+    const rows = salesData.map(d => {   // الفروع فقط — المستودع خارج جدول المبيعات
       if (!uploadedInPeriod.has(d.loc)) return rowT(d.name, salesLocColor(d.loc), null, "", true);
       colMovedSum += d.agg.moved.size; for (const s of d.agg.movedSku) movedUniqueAll.add(s);
       const r = { val: d.agg.estValue, units: d.agg.units, moved: d.agg.moved.size, inv: d.invValue || 0, cov: d.coverage, pval: d.pagg.estValue, daysCovered: d.daysCovered, prevDaysCovered: d.prevDaysCovered };
@@ -3359,7 +3405,8 @@ async function renderSalesPage() {
     const totUnique = movedUniqueAll.size, crossLoc = colMovedSum - totUnique;
     const totCovVals = dataActive.map(d => d.coverage).filter(c => c != null);
     const totCov = totCovVals.length ? Math.round(totCovVals.reduce((a, b) => a + b, 0) / totCovVals.length) : null;
-    const totRow = `<tr class="total"><td class="cmp-loc">الإجمالي</td>${salesCell(scope.val, "--gold")}<td class="n"><bdi dir="ltr">${salesNum(scope.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(totUnique)}</bdi>${crossLoc > 0 ? `<span class="tot-note" title="مجموع الأعمدة ${colMovedSum} يفوق الفريد لأن ${crossLoc} صنفاً تحرّك في أكثر من موقع">أصناف فريدة — ${crossLoc} في أكثر من موقع</span>` : ""}</td><td class="n">${money(scope.inv)}</td><td class="n">${covCell(totCov)}</td><td class="n">${salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "scc-tr", prevBaselineOnly)}</td></tr>`;
+    const branchInvTotal = salesData.reduce((s, d) => s + (d.invValue || 0), 0);   // إجمالي الجدول = مخزون الفروع (المستودع في بطاقة KPI لا الجدول)
+    const totRow = `<tr class="total"><td class="cmp-loc">الإجمالي</td>${salesCell(scope.val, "--gold")}<td class="n"><bdi dir="ltr">${salesNum(scope.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(totUnique)}</bdi>${crossLoc > 0 ? `<span class="tot-note" title="مجموع الأعمدة ${colMovedSum} يفوق الفريد لأن ${crossLoc} صنفاً تحرّك في أكثر من موقع">أصناف فريدة — ${crossLoc} في أكثر من موقع</span>` : ""}</td><td class="n">${money(branchInvTotal)}</td><td class="n">${covCell(totCov)}</td><td class="n">${salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "scc-tr", prevBaselineOnly)}</td></tr>`;
     document.getElementById("salesCmp").innerHTML = `<table><thead><tr><th>الموقع</th><th class="n">المبيعات</th><th class="n">الوحدات</th><th class="n">متحركة</th><th class="n">قيمة المخزون</th><th class="n">التغطية</th><th class="n">التغيّر</th></tr></thead><tbody>${rows}${totRow}</tbody></table>`;
     // الأسطر (بلا سعر · مشبوهة) — المختفي في البانر
     const notes = [];
@@ -3369,9 +3416,11 @@ async function renderSalesPage() {
     document.getElementById("salesNotes").innerHTML = notes.join("");
     // §ب-٢ب-٢ب: تبويب الموقع ＋ تفصيله ＋ الجداول الثلاثة
     const latest = new Map(); for (const u of ups) { const t = Date.parse(u.captured_at); if (Number.isFinite(t) && (!latest.has(u.location) || t > latest.get(u.location))) latest.set(u.location, t); }
-    if (!locsAll.includes(salesTab)) salesTab = "all";   // فرع حُذف ⇒ ارجع لـ«الكل»
-    salesCtx = { movs, stock, curSince, prevSince, locsAll, latest };
+    if (salesTab !== "all" && !branchLocs.includes(salesTab)) salesTab = "all";   // تبويبات المبيعات فروع فقط
+    salesCtx = { movs, stock, curSince, prevSince, locsAll, branchLocs, latest };
     renderSalesDetail();
+    // (٣) قسم المستودع — سحب لا بيع (في «الكل» أسفلَ · في «المستودع» رئيسيّاً)
+    renderWarehouseSection(showWhSection ? whData : null, movs, curSince);
   } catch (e) { if (empty) { empty.style.display = "block"; empty.textContent = "تعذّر تحميل شاشة المبيعات: " + esc(e.message || String(e)); } if (body) body.style.display = "none"; }
 }
 // KPI اللوحة «أين أنا الآن» — كلها من مصادر حيّة، وتُظهر «—» قبل توفّر مصدرها (لا رقم ملفَّق قبل المطابقة)
@@ -5147,7 +5196,7 @@ function computeMovements(existMap, rows, location, capturedAt, prevSyncedAt) {
     if (delta === 0) continue;   // دلتا الصفر لا تُدرَج (＋قيد القاعدة delta<>0 طبقة ثانية)
     const incl = numOrNull(r.price_incl), excl = numOrNull(r.price_excl);
     const unit = incl != null ? incl : (excl != null ? excl : null), ps = incl != null ? "incl" : (excl != null ? "excl" : "none");
-    const kind = !had ? "new" : (delta < 0 ? "estimated_sale" : "purchase");   // نقص=بيع مقدّر · زيادة=شراء (لا نقل بين الفروع)
+    const kind = !had ? "new" : (delta < 0 ? "estimated_sale" : "purchase");   // المخزَّن ثابت؛ المعنى يُفسَّر بالموقع عند العرض: فرع⇒بيع مقدّر/استلام · مستودع⇒سحب/توريد (location==='wh')
     movs.push({ sku: code, sku_name: r.name || null, location, captured_at: capturedAt,
       period_start: had ? (prevSyncedAt || null) : null, period_days: had ? pDays : null,
       qty_before: had ? oldQ : null, qty_after: newQ, delta, kind,

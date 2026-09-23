@@ -250,6 +250,14 @@ jobs:
         run: node tests/perf/sales-cmp-layout.mjs --broken
       - name: G-CMP-LAYOUT — جدول المقارنة بلا تلاصق ＋ وحدات عربية ملتصقة ＋ محور الرسم بلا بتر
         run: node tests/perf/sales-cmp-layout.mjs
+      - name: Self-check — G-WH-EXCLUDE يرسب حين يُعاد المستودع لمقاييس المبيعات
+        run: node tests/perf/sales-wh-exclude.mjs --broken
+      - name: G-WH-EXCLUDE — المستودع مخزن لا نقطة بيع (خارج المبيعات · داخل المخزون · الفروع ثابتة)
+        run: node tests/perf/sales-wh-exclude.mjs
+      - name: Self-check — G-WH-SECTION يرسب حين يُخفى قسم المستودع
+        run: node tests/perf/sales-wh-section.mjs --broken
+      - name: G-WH-SECTION — قسم المستودع (أكثر سحباً · إجمالي الأصناف · بلا مبيعات/تغطية)
+        run: node tests/perf/sales-wh-section.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)

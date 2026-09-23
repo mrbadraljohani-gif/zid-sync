@@ -25,16 +25,16 @@ await p.setRequestInterception(true); p.on("request", r => { const u = r.url(); 
 await p.setContent(html, { waitUntil: "load" });
 const res = await p.evaluate(async () => {
   dbOnline = true; myRole = "owner"; authSession = { user: { email: "o@x.sa" } };
-  invBranches = []; salesPeriod = "7"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
+  invBranches = [{ id: "br", name: "فرع" }]; salesPeriod = "7"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
   const day = 86400000, now = Date.now(), iso = t => new Date(t).toISOString();
   // U0 = تأسيس (كل حركاته new) قبل 9 أيام (داخل نافذة السابقة لـ7 أيام: [−14, −7))
   // U1 = رفعة حاليّة (بيع) قبل 1 يوم
   const baseUp = iso(now - 9 * day), curUp = iso(now - 1 * day);
   const movs = [];
-  for (let i = 0; i < 50; i++) movs.push({ kind: "new", delta: 10, location: "wh", sku: "N" + i, sku_name: "تأسيس" + i, upload_id: "U0", captured_at: baseUp, period_days: null });
-  movs.push({ kind: "estimated_sale", delta: -5, value_est: 500, unit_price_incl: 100, unit_price_excl: 87, location: "wh", sku: "A1", sku_name: "صنف مبيع", upload_id: "U1", captured_at: curUp, period_days: 1 });
-  const stock = [{ location: "wh", sku: "A1", name: "صنف مبيع", qty: 40, price_incl: 100 }];
-  db.sales = { uploads: async () => [{ id: "U0", location: "wh", captured_at: baseUp, suspect: false }, { id: "U1", location: "wh", captured_at: curUp, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
+  for (let i = 0; i < 50; i++) movs.push({ kind: "new", delta: 10, location: "br", sku: "N" + i, sku_name: "تأسيس" + i, upload_id: "U0", captured_at: baseUp, period_days: null });
+  movs.push({ kind: "estimated_sale", delta: -5, value_est: 500, unit_price_incl: 100, unit_price_excl: 87, location: "br", sku: "A1", sku_name: "صنف مبيع", upload_id: "U1", captured_at: curUp, period_days: 1 });
+  const stock = [{ location: "br", sku: "A1", name: "صنف مبيع", qty: 40, price_incl: 100 }];
+  db.sales = { uploads: async () => [{ id: "U0", location: "br", captured_at: baseUp, suspect: false }, { id: "U1", location: "br", captured_at: curUp, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
   sb = { from: () => ({ select: () => ({ range: async (a) => ({ data: (a === 0 ? stock : []), error: null }) }) }) };
   try { goPage("home"); } catch (e) {}
   const r = document.getElementById("result"); if (r) r.style.display = "block";

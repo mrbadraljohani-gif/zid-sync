@@ -26,17 +26,17 @@ await p.setRequestInterception(true); p.on("request", r => { const u = r.url(); 
 await p.setContent(html, { waitUntil: "load" });
 const res = await p.evaluate(async () => {
   dbOnline = true; myRole = "owner"; authSession = { user: { email: "o@x.sa" } };
-  invBranches = [{ id: "az", name: "العزيزية" }]; salesPeriod = "7"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
+  invBranches = [{ id: "az", name: "العزيزية" }, { id: "kh", name: "الخضرة" }]; salesPeriod = "7"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
   const day = 86400000, now = Date.now(), iso = t => new Date(t).toISOString();
   // العزيزية: رفعة داخل الفترة (بيع). المستودع: آخر رفعة قبل 18 ساعة؟ لا — نجعلها خارج نافذة 7 أيام: قبل 9 أيام.
   const azCur = iso(now - 1 * day), whOld = iso(now - 9 * day);
   const movs = [
     { kind: "estimated_sale", delta: -6, value_est: 600, unit_price_incl: 100, unit_price_excl: 87, location: "az", sku: "A1", sku_name: "صنف فرع", upload_id: "UAZ", captured_at: azCur, period_days: 1 },
     // حركة المستودع قديمة (خارج نافذة 7 أيام) — لن تدخل curSince
-    { kind: "estimated_sale", delta: -10, value_est: 1000, unit_price_incl: 100, unit_price_excl: 87, location: "wh", sku: "W1", sku_name: "صنف مستودع", upload_id: "UWH", captured_at: whOld, period_days: 1 },
+    { kind: "estimated_sale", delta: -10, value_est: 1000, unit_price_incl: 100, unit_price_excl: 87, location: "kh", sku: "W1", sku_name: "صنف الخضرة", upload_id: "UWH", captured_at: whOld, period_days: 1 },
   ];
-  const stock = [{ location: "az", sku: "A1", name: "صنف فرع", qty: 30, price_incl: 100 }, { location: "wh", sku: "W1", name: "صنف مستودع", qty: 50, price_incl: 100 }];
-  db.sales = { uploads: async () => [{ id: "UAZ", location: "az", captured_at: azCur, suspect: false }, { id: "UWH", location: "wh", captured_at: whOld, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
+  const stock = [{ location: "az", sku: "A1", name: "صنف فرع", qty: 30, price_incl: 100 }, { location: "kh", sku: "W1", name: "صنف الخضرة", qty: 50, price_incl: 100 }];
+  db.sales = { uploads: async () => [{ id: "UAZ", location: "az", captured_at: azCur, suspect: false }, { id: "UWH", location: "kh", captured_at: whOld, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
   sb = { from: () => ({ select: () => ({ range: async (a) => ({ data: (a === 0 ? stock : []), error: null }) }) }) };
   try { goPage("home"); } catch (e) {}
   const r = document.getElementById("result"); if (r) r.style.display = "block";
