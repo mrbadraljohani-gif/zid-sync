@@ -69,6 +69,7 @@ const PHRASE_INSTRUCTION = [
   "🚫 لا تخترع رقماً ولا تقدّر. وإن لم تكفِ البيانات قل: «لا أعرف من البيانات المتاحة».",
   "المبيعات مقدّرة لا مؤكّدة — اذكر ذلك في كل جواب عنها.",
   "🚫 لا تحكم على المخزون الراكد ولا على التغطية/النفاد ما دام الرصد أقل من " + RATE_MIN_DAYS + " يوماً (سيصلك kind=insufficient_history عندها).",
+  "إن حوى الناتج coverage_shortfall فاذكر أنّ الرقم يخصّ المرصود (observed_days يوم) لا الفترة المطلوبة (requested_days يوم) — 🚫 لا ترفض الإجابة.",
   "🚨 عند سؤال «لماذا»: ميّز بين ما تثبته الأرقام حسابياً وبين السبب التجاريّ. لا تنسب سبباً لا تثبته الأرقام.",
   "   استعمل «أكبر مساهمة ظاهرة في الانخفاض هي…» لا «السبب هو…».",
   "🚫 لا تقترح تعديل مخزون ولا أسعار ولا إعدادات.",
@@ -170,11 +171,9 @@ Deno.serve(async (req) => {
   const movements = movRes.data || [], stock = stockRes.data || [], ups = uploads || [];
   const nowMs = Date.now();
 
-  // نافذة البيانات: فترة أطول من المرصود ⇒ لا رقم جزئيّ
+  // 🚨 نافذة البيانات: فترة أطول من المرصود ⇒ يُجاب بالمرصود مع بيان النقص (لا رفض).
+  //   الرفض يبقى فقط عند صفر بيانات في النطاق (تعالجه النيّة ككـno_upload). observedDays يُمرَّر للنيّة لبناء الملاحظة.
   const observedDays = observedWindowDays(movements, ups, branchList, nowMs);
-  if (period !== "all" && period !== "today" && Number(period) > observedDays + 0.5) {
-    return json({ ok: true, answer: `البيانات المتاحة تغطّي ${Math.round(observedDays * 10) / 10} يوماً فقط — لا يمكن الإجابة عن فترة ${period} يوماً بثقة.`, meta: { intent, period, used, remaining } });
-  }
 
   // تشغيل النيّة الثابتة (sales_compute — تكافؤه مع الشاشة مُختبَر بـG-AI-PARITY)
   const data = { movements, uploads: ups, stock, branches: branchList };

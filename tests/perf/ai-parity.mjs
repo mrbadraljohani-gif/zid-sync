@@ -1,10 +1,12 @@
 // ============================================================================
 // G-AI-PARITY — تكافؤ المساعد مع الشاشة (أهمّ حارس في المشروع، القيمة لا الشكل):
-//   لنفس الفترة ونفس الموقع: رقم المساعد (computeScope من sales_compute.mjs) = رقم الشاشة بالضبط.
-//   المستودع (سحب 19,680) مستبعَد من الطرفين ⇒ 36,588 (9,772 + 26,816) لا 56,268.
-// 🚨 sales_compute.mjs نسخة موازية للشاشة (الشاشة لا تستورده) — هذا الحارس هو ما يكشف أي انحراف.
-// --broken: يكسر قاعدة واحدة في sales_compute (يُدخل المستودع: l!=="wh" ⇒ true) ⇒ رقم المساعد يتضخّم
-//   ⇒ يخالف الشاشة ⇒ يرسب. (إثبات الأسنان على المصدر الحقيقيّ لا محاكاةً.)
+//   ① لنفس الفترة/الموقع: رقم المساعد (computeScope) = رقم الشاشة بالضبط. المستودع مستبعَد من الطرفين
+//      ⇒ 36,588 (9,772 + 26,816) لا 56,268 (سحب 19,680).
+//   ② فترة أطول من المرصود (7 مطلوبة · 5 مرصودة): المساعد يعطي **نفس رقم الشاشة** ＋ coverage_shortfall
+//      (بيان نقص) — 🚫 لا رفض. (الشاشة تعرض الرقم لنفس الفلتر بلا اعتراض.)
+// 🚨 sales_compute.mjs/intents.mjs نسخة موازية للشاشة (الشاشة لا تستوردها) — هذا الحارس يكشف أي انحراف.
+// --broken:        يكسر استثناء المستودع (l!=="wh" ⇒ true) ⇒ رقم المساعد يتضخّم ⇒ يخالف الشاشة ⇒ يرسب.
+// --broken-window: يُعيد الرفض القديم بدل بيان النقص ⇒ الفحص ③ لا يجد رقماً ⇒ يرسب (رسوبه على السلوك القديم).
 // ============================================================================
 import { readFileSync, existsSync, writeFileSync, unlinkSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -13,11 +15,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import puppeteer from "puppeteer-core";
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..", "..");
+const AIDIR = join(root, "supabase", "functions", "ai-assistant");
 const BROKEN = process.argv.includes("--broken");
+const BROKEN_WIN = process.argv.includes("--broken-window");
 const html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
-const COMPUTE = join(root, "supabase", "functions", "ai-assistant", "sales_compute.mjs");
 
-// تجهيزة موحّدة تُغذّى للشاشة (المتصفّح) وللدالّة النقيّة (Node) معاً
+// تجهيزة موحّدة للشاشة والدالّة النقيّة (period_days=5 ⇒ مرصود 5 يوم < 7 المطلوبة ⇒ نقص تغطية)
 const now = new Date().toISOString();
 const branches = [{ id: "az", name: "العزيزية" }, { id: "kh", name: "الخضرة" }];
 const mv = (loc, sku, q, v) => ({ kind: "estimated_sale", delta: -q, value_est: v, unit_price_incl: v / q, unit_price_excl: Math.round(v / q / 1.15), location: loc, sku, sku_name: sku, upload_id: "U_" + loc, captured_at: now, period_days: 5 });
@@ -25,54 +28,77 @@ const movements = [mv("az", "A1", 500, 9772), mv("kh", "K1", 435, 26816), mv("wh
 const uploads = [{ id: "U_az", location: "az", captured_at: now, suspect: false }, { id: "U_kh", location: "kh", captured_at: now, suspect: false }, { id: "U_wh", location: "wh", captured_at: now, suspect: false }];
 const stock = [{ location: "az", sku: "A1", name: "A1", qty: 100, price_incl: 20, price_excl: 17 }, { location: "kh", sku: "K1", name: "K1", qty: 200, price_incl: 30, price_excl: 26 }, { location: "wh", sku: "W1", name: "W1", qty: 1000, price_incl: 500, price_excl: 435 }];
 
-// ————— (1) رقم الشاشة (المتصفّح) —————
+// ————— (أ) أرقام الشاشة (المتصفّح): period=all و period=7 —————
 function findChrome(){const c=["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",process.env.CHROME_PATH||"","/usr/bin/google-chrome-stable","/usr/bin/google-chrome"];for(const x of c)if(x&&existsSync(x))return x;for(const n of ["google-chrome-stable","google-chrome","chromium"])try{return execFileSync("bash",["-lc","command -v "+n]).toString().trim();}catch{}return"";}
 const b = await puppeteer.launch({ executablePath: findChrome(), headless: "new", args: ["--no-sandbox"] });
 const p = await b.newPage();
 const errs = []; p.on("pageerror", e => errs.push(String(e)));
 await p.setRequestInterception(true); p.on("request", r => { const u = r.url(); if (u.startsWith("data:") || u.startsWith("about:")) return r.continue(); if (/^https?:/.test(u)) return r.abort(); r.continue(); });
 await p.setContent(html, { waitUntil: "load" });
-const screenVal = await p.evaluate(async (fx) => {
+const screen = await p.evaluate(async (fx) => {
   dbOnline = true; myRole = "owner"; authSession = { user: { email: "o@x.sa" } };
-  invBranches = fx.branches; salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
+  invBranches = fx.branches; salesLoc = "all"; salesTab = "all"; salesSearch = "";
   db.sales = { uploads: async () => fx.uploads, movements: async (loc) => loc === "all" ? fx.movements : fx.movements.filter(m => m.location === loc), clearSuspect: async () => {} };
   sb = { from: () => ({ select: () => ({ range: async (a) => ({ data: (a === 0 ? fx.stock : []), error: null }) }) }) };
   try { goPage("home"); } catch (e) {}
   const rr = document.getElementById("result"); if (rr) rr.style.display = "block";
   document.getElementById("page-sales").classList.add("active");
-  await renderSalesPage();
-  const el = document.querySelector('#salesKpis .kpi[data-k="sval"] b');
-  return el ? (el.textContent || "").replace(/[^\d]/g, "") : "";
+  const read = async (per) => { salesPeriod = per; await renderSalesPage(); const el = document.querySelector('#salesKpis .kpi[data-k="sval"] b'); return el ? (el.textContent || "").replace(/[^\d]/g, "") : ""; };
+  return { all: await read("all"), p7: await read("7") };
 }, { branches, movements, uploads, stock });
 await b.close();
 
-// ————— (2) رقم المساعد (الدالّة النقيّة) — من المصدر الحقيقيّ أو المكسور —————
-let computeURL = pathToFileURL(COMPUTE).href, tmp = "";
+// ————— (ب) أرقام المساعد (الدالّة النقيّة) — من المصدر الحقيقيّ أو المكسور —————
+const tmps = [];
+let computeSrc = join(AIDIR, "sales_compute.mjs"), intentsSrc = join(AIDIR, "intents.mjs");
 if (BROKEN) {
-  let src = readFileSync(COMPUTE, "utf8");
+  let s = readFileSync(computeSrc, "utf8");
   const A = 'const branchLocs = locsAll.filter(l => l !== "wh");';
-  if (!src.includes(A)) { console.error("✗ (--broken) لم أجد استثناء المستودع في computeScope"); process.exit(2); }
-  src = src.replace(A, 'const branchLocs = locsAll.filter(l => true);   // (--broken) يُدخل المستودع');
-  tmp = join(here, "_broken_sales_compute.mjs");
-  writeFileSync(tmp, src);
-  computeURL = pathToFileURL(tmp).href;
+  if (!s.includes(A)) { console.error("✗ (--broken) لم أجد استثناء المستودع"); process.exit(2); }
+  computeSrc = join(AIDIR, "_broken_compute.mjs"); writeFileSync(computeSrc, s.replace(A, 'const branchLocs = locsAll.filter(l => true);')); tmps.push(computeSrc);
+  // intents يستورد ./sales_compute.mjs — أنشئ نسخة intents تستورد المكسور
+  let it = readFileSync(join(AIDIR, "intents.mjs"), "utf8").replace('from "./sales_compute.mjs"', 'from "./_broken_compute.mjs"');
+  intentsSrc = join(AIDIR, "_broken_intents.mjs"); writeFileSync(intentsSrc, it); tmps.push(intentsSrc);
 }
-const { computeScope } = await import(computeURL);
+if (BROKEN_WIN) {
+  let it = readFileSync(intentsSrc, "utf8");
+  const A = 'if (cs && res && !SHORTFALL_SKIP.has(res.kind)) res.coverage_shortfall = cs;   // بيان نقص لا رفض';
+  if (!it.includes(A)) { console.error("✗ (--broken-window) لم أجد سطر بيان النقص"); process.exit(2); }
+  it = it.replace(A, 'if (cs) return { kind: "insufficient_window", observed_days: cs.observed_days, requested_days: cs.requested_days };   // (--broken-window) الرفض القديم');
+  intentsSrc = join(AIDIR, "_broken_win_intents.mjs"); writeFileSync(intentsSrc, it); tmps.push(intentsSrc);
+}
+const { computeScope } = await import(pathToFileURL(computeSrc).href);
+const { runIntent } = await import(pathToFileURL(intentsSrc).href);
+const { observedWindowDays } = await import(pathToFileURL(join(AIDIR, "sales_compute.mjs")).href);
 const nowMs = Date.parse(now);
-const r = computeScope({ movements, uploads, stock, branches, period: "all", location: "all", nowMs });
-const assistantVal = String(Math.round(r.scope.val));
-if (tmp) unlinkSync(tmp);
+const data = { movements, uploads, stock, branches };
+const observedDays = observedWindowDays(movements, uploads, branches, nowMs);
+const valAll = String(Math.round(computeScope({ ...data, period: "all", location: "all", nowMs }).scope.val));
+const res7 = runIntent("sales_summary", { params: { period: "7", location: "all" }, data, nowMs, observedDays });
+const val7 = res7 && res7.estimated_sales_incl != null ? String(res7.estimated_sales_incl) : "";
+for (const t of tmps) unlinkSync(t);
 
+// ————— النتائج —————
 const fails = [];
 if (errs.length) fails.push("أخطاء JS في الشاشة: " + errs.join(" | "));
-if (screenVal !== "36588") fails.push(`رقم الشاشة ليس 36,588 (تجهيزة مكسورة؟): «${screenVal}»`);
+if (screen.all !== "36588") fails.push(`رقم الشاشة (all) ليس 36,588: «${screen.all}»`);
+if (screen.p7 !== "36588") fails.push(`رقم الشاشة (7 أيام) ليس 36,588: «${screen.p7}»`);
 
-const match = screenVal === assistantVal;
 if (BROKEN) {
-  // كسر قاعدة استثناء المستودع ⇒ رقم المساعد يتضخّم (يشمل 19,680) ⇒ يخالف الشاشة
-  if (!match && assistantVal === "56268") { console.log(`✅ (--broken) G-AI-PARITY مسك الانحراف: المساعد ${assistantVal} ≠ الشاشة ${screenVal} (دخل المستودع).`); process.exit(0); }
-  console.error(`✗ (--broken) لم يُكتشف الانحراف — لا أسنان (المساعد=${assistantVal} · الشاشة=${screenVal}).`); process.exit(1);
+  if (valAll === "56268" && valAll !== screen.all) { console.log(`✅ (--broken) مسك الانحراف: المساعد ${valAll} ≠ الشاشة ${screen.all} (دخل المستودع).`); process.exit(0); }
+  console.error(`✗ (--broken) لم يُكتشف الانحراف — لا أسنان (المساعد=${valAll} · الشاشة=${screen.all}).`); process.exit(1);
 }
-if (!match) fails.push(`تكافؤ منكسر: المساعد ${assistantVal} ≠ الشاشة ${screenVal} — عُدّل حساب الشاشة دون sales_compute.mjs؟`);
+if (BROKEN_WIN) {
+  // الرفض القديم ⇒ res7.kind=insufficient_window ⇒ لا رقم
+  if (res7 && res7.kind === "insufficient_window" && val7 === "") { console.log(`✅ (--broken-window) مسك الرفض القديم: الفحص ③ بلا رقم (kind=${res7.kind}) ⇒ يرسب.`); process.exit(0); }
+  console.error(`✗ (--broken-window) لم يرسب الفحص ③ — لا أسنان (val7=${val7} · kind=${res7 && res7.kind}).`); process.exit(1);
+}
+
+// ① التكافؤ التامّ
+if (valAll !== screen.all) fails.push(`تكافؤ ① منكسر: المساعد ${valAll} ≠ الشاشة ${screen.all}`);
+// ③ فترة أطول من المرصود ⇒ نفس الرقم ＋ بيان نقص، لا رفض
+if (val7 !== screen.p7) fails.push(`تكافؤ ③ منكسر: المساعد (7 أيام) ${val7} ≠ الشاشة ${screen.p7} — رفَض بدل أن يجيب بالمرصود؟`);
+if (!(res7 && res7.coverage_shortfall && res7.coverage_shortfall.requested_days === 7)) fails.push(`الفحص ③: بلا coverage_shortfall (بيان النقص) — «${JSON.stringify(res7 && res7.coverage_shortfall)}»`);
+
 if (fails.length) { console.error("✗ G-AI-PARITY:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log(`✅ G-AI-PARITY: المساعد = الشاشة = ${assistantVal} (المستودع مستبعَد من الطرفين، تكافؤ تامّ).`);
+console.log(`✅ G-AI-PARITY: ① المساعد=الشاشة=${valAll} · ③ فترة 7 أيام ⇒ ${val7} (=الشاشة) ＋ بيان نقص (مرصود ${res7.coverage_shortfall.observed_days} من 7) لا رفض.`);

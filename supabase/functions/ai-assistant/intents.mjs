@@ -214,9 +214,24 @@ export const INTENTS = {
   location_comparison, stagnant_inventory, stockout_risk, inventory_value, data_freshness, biggest_decliners
 };
 
+// 🚨 نقص التغطية بيانٌ لا رفض: فترة أطول من المرصود ⇒ يُعطى رقم المرصود ＋ ملاحظة، لا رفض.
+//   (الرفض يبقى فقط عند صفر رفعات في النطاق — تعالجه النيّات ككـno_upload.)
+//   ⚠ مستقلّ عن بوّابة الجودة (راكد/تغطية/نفاد <14 يوم) — تلك حجبٌ مختلف يبقى.
+export function coverageShortfall(observedDays, period) {
+  if (period === "all" || period === "today") return null;
+  const req = Number(period); if (!Number.isFinite(req)) return null;
+  if ((Number(observedDays) || 0) + 0.5 >= req) return null;
+  return { observed_days: Math.round((Number(observedDays) || 0) * 10) / 10, requested_days: req };
+}
+// النيّات التي لا تُلحَق بها ملاحظة النقص (تحكّم/مبوّبة أصلاً)
+const SHORTFALL_SKIP = new Set(["insufficient_history", "no_upload", "product_not_found", "disambiguate", "need_period", "baseline_only", "no_prev", "unknown_intent"]);
+
 // تشغيل نيّة بعد التحقّق (index.ts يمرّر params مُنقّاة ＋ data ＋ nowMs ＋ observedDays)
 export function runIntent(key, ctx) {
   const fn = INTENTS[key];
   if (!fn) return { kind: "unknown_intent", key };
-  return fn(ctx);
+  const res = fn(ctx);
+  const cs = coverageShortfall(ctx.observedDays, ctx.params.period);
+  if (cs && res && !SHORTFALL_SKIP.has(res.kind)) res.coverage_shortfall = cs;   // بيان نقص لا رفض
+  return res;
 }
