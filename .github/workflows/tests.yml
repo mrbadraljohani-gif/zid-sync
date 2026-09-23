@@ -238,6 +238,10 @@ jobs:
         run: node tests/perf/sales-yesterday.mjs --broken
       - name: G-YESTERDAY — زرّ «أمس» ونافذته = business_date أمس (لا يوم الرفعة)
         run: node tests/perf/sales-yesterday.mjs
+      - name: Self-check — G-UPLOAD-STATUS يرسب حين يُقلب معيار 24 ساعة
+        run: node tests/perf/upload-status.mjs --broken
+      - name: G-UPLOAD-STATUS — شارة الرفع (24س · owner+admin فقط · رسالة المتأخّر)
+        run: node tests/perf/upload-status.mjs
       - name: Self-check — حارس عزل الأدوار يرسب بإظهار المبيعات لـadmin
         run: node tests/perf/role-sales.mjs --broken
       - name: G-ROLE-SALES — عزل شاشة المبيعات بالدور (واجهة + بنية SQL؛ admin بلا شاشة · marketing عليها فقط)

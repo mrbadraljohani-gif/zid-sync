@@ -179,6 +179,12 @@
   .zid-mini-link { color: var(--gold-2); cursor: pointer; font-weight: 800; white-space: nowrap; }
   .zid-mini-link:hover { color: var(--gold); text-decoration: underline; }
   /* المرحلة 4: شريط الجاهزية في الرئيسية (3 بطاقات) ＋ سطر ميتا تحت بطاقات الرفع */
+  .upload-status { align-items: center; flex-wrap: wrap; gap: 4px 10px; font-size: 11.5px; padding: 5px 12px; margin-bottom: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); line-height: 1.5; }
+  .upload-status.bad { border-color: color-mix(in srgb, var(--danger) 34%, transparent); background: color-mix(in srgb, var(--danger) 8%, transparent); }
+  .upload-status .us-lead { font-weight: 700; color: var(--text); display: inline-flex; align-items: center; gap: 5px; }
+  .upload-status .us-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-inline-end: 4px; vertical-align: middle; }
+  .upload-status .us-item.stale { color: var(--danger); } .upload-status .us-item.stale b { color: var(--danger); }
+  .upload-status .us-sep { color: var(--muted-2); opacity: .6; }
   .ready-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 8px; }
   @media (max-width: 760px) { .ready-bar { grid-template-columns: 1fr; } }
   /* --frost غير معرّف (كان يسقط إلى currentColor = أبيض صارخ) — لون frost هو --muted (#8C9CBE) */
@@ -1510,6 +1516,7 @@
   </section>
 
   <div class="section-head"><span class="n">١</span><h2>الجاهزية</h2><span class="line"></span></div>
+  <div class="upload-status" id="uploadStatusBar" style="display:none"></div>
   <div class="ready-bar" id="readyBar"></div>
 
   <div class="section-head"><span class="n">٢</span><h2>طابق وأنشئ الملف المحدث</h2><span class="line"></span></div>
@@ -1898,7 +1905,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "17f8fc7";
+const APP_VERSION = "580cc31";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2645,7 +2652,7 @@ function goPage(id, fromHash) {
     a.classList.toggle("active", on);
     if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");   // حالة التنقّل تُعلَن
   });
-  if (id === "home") renderReadiness();
+  if (id === "home") { renderReadiness(); renderUploadStatus(); }
   if (id === "db") { renderInvCards(); renderBranchCards(); }
   if (id === "inventory") { renderInventoryPage(); renderActivityTable(); }
   if (id === "sales" && typeof renderSalesPage === "function") renderSalesPage();
@@ -5212,7 +5219,7 @@ async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
     return { added, updated, deleted: toDelete.length, total: newCodes.length };
   } finally { setBusy(msgId, false); }
 }
-async function loadInventoryMeta() { if (!sb) return; try { invMeta = await db.inventory.getMeta(); } catch (e) { console.warn("inv meta:", e); } try { invBranches = await db.branches.getAll(); renderBranchCards(); } catch (e) { console.warn("branches:", e); } renderReadiness(); checkReady(); }
+async function loadInventoryMeta() { if (!sb) return; try { invMeta = await db.inventory.getMeta(); } catch (e) { console.warn("inv meta:", e); } try { invBranches = await db.branches.getAll(); renderBranchCards(); } catch (e) { console.warn("branches:", e); } renderReadiness(); renderUploadStatus(); checkReady(); }
 function invDbAvailable() { return !!(dbOnline && sb && invMeta && invMeta.wh_count > 0); }
 function invAge(ms) { return ms != null ? ageText(ms) : ""; }
 // جلب الجدولين من القاعدة وإعادة بناء mergeWh/mergeBranches (المخزّن مجمّع مسبقاً ⇒ الدمج يعطي نفس النتيجة)
@@ -5302,6 +5309,29 @@ function renderReadiness() {
   const brK = (invBranches || []).length;   // ١ب: عدد الفروع — العنوان يعكس التعدّد بدل «الفرع» المفردة المضلّلة
   const zC = zidDbMeta && zidDbMeta.product_count ? zidDbMeta.product_count : 0, zMs = zidDbMeta && zidDbMeta.synced_at ? Date.parse(zidDbMeta.synced_at) : null;
   el.innerHTML = readyCard(ICO.warehouse, "المستودع", whC, whMs, whC > 0) + readyCard(ICO.branch, brK > 1 ? `الفروع (${brK})` : "الفرع", brC, brMs, brC > 0) + readyCard(ICO.store, "متجر زد", zC, zMs, zC > 0);
+}
+// (ب) شارة حالة الرفع اليوميّة — owner/admin فقط · معيار 24 ساعة متدحرجة (حالتان) · من طوابع رفع المخزون (لا sales_uploads)
+const UPLOAD_FRESH_MS = 24 * 3600000;
+function renderUploadStatus() {
+  const el = document.getElementById("uploadStatusBar"); if (!el) return;
+  if (!(myRole === "owner" || myRole === "admin")) { el.style.display = "none"; return; }   // owner/admin فقط (allow-list)
+  const now = Date.now();
+  const locs = [{ name: "المستودع", ms: invMeta && invMeta.wh_synced_at ? Date.parse(invMeta.wh_synced_at) : null },
+    ...(invBranches || []).map(b => ({ name: b.name || b.id, ms: b.synced_at ? Date.parse(b.synced_at) : null }))];
+  if (locs.length === 1 && locs[0].ms == null) { el.style.display = "none"; return; }   // لا مخزون بعد ⇒ لا شريط
+  const isStale = l => l.ms == null || (now - l.ms) > UPLOAD_FRESH_MS;   // مُسند واحد: طازج = خلال 24 ساعة (حالتان فقط)
+  const stale = locs.filter(isStale);
+  const dot = c => `<span class="us-dot" style="background:var(${c})"></span>`;
+  if (!stale.length) {   // كلّها ضمن 24 ساعة ⇒ سطر مقتضب بالأسماء وألوانها (بلا «منذ X» — readyBar يقولها)
+    el.className = "upload-status ok";
+    el.innerHTML = `<span class="us-lead">رُفعت خلال 24 ساعة:</span>` + locs.map(l => `${dot("--green")}${esc(l.name)}`).join(`<span class="us-sep">·</span>`);
+  } else {   // موقع متأخّر ⇒ اسمه بالأحمر ＋ «آخر رفعة منذ X» (ماذا/لماذا/ما العمل)
+    el.className = "upload-status bad";
+    el.innerHTML = `<span class="us-lead">${ic("warn", "ico-warn")} حالة الرفع:</span>` + locs.map(l => isStale(l)
+      ? `<span class="us-item stale">${dot("--danger")}<b>${esc(l.name)}</b> — ${l.ms ? "آخر رفعة " + ageText(l.ms) : "لم يُرفع"} · أرقام مبيعاته ناقصة حتى يُرفع ملفه</span>`
+      : `<span class="us-item">${dot("--green")}${esc(l.name)}</span>`).join(`<span class="us-sep">·</span>`);
+  }
+  el.style.display = "flex";
 }
 
 // طبّع كمية زد الحالية: رقم، و«غير محدود»/فارغ ⇒ NaN (لا تساوي أي رقم — يبقى تغييراً حقيقياً)
@@ -6881,7 +6911,7 @@ function renderFingerprint() {
 applyOpts();
 renderSideUser();              // بطاقة بريد المستخدم (تظهر عند توفّر جلسة)
 applyRoleUI();                 // إخفاء «مستخدم جديد» حتى يُحمّل الدور (يظهر للمالك بعد loadMyRole)
-renderReadiness(); renderInvCards();   // حالة أولية (تُحدَّث بعد loadInventoryMeta)
+renderReadiness(); renderUploadStatus(); renderInvCards();   // حالة أولية (تُحدَّث بعد loadInventoryMeta)
 window.addEventListener("hashchange", onHashChange);   // رجوع/تقدم المتصفح + أي تغيير للـhash
 routeFromHash();               // الإقلاع: افتح صفحة الـhash (تُعاد بعد الدخول/تحميل الدور لتصحيح المحمية)
 (async () => {
