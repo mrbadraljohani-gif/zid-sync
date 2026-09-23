@@ -48,11 +48,16 @@ const res = await p.evaluate(async () => {
   const tbls = document.querySelectorAll("#salesDetail .s4-3tables .s4-tbl");
   const firstSellerVal = (document.querySelector("#salesDetail .s4-3tables .s4-tbl table tbody tr td.n:last-child bdi") || {}).textContent || "";
   const gates = [...document.querySelectorAll("#salesDetail .s4-gate")].map(txt);
-  // ④ البحث
+  // ④ البحث: المكبّر داخل جدول «الأكثر مبيعاً» — لا مربع مستقلّ
+  const oldBox = !!document.querySelector("#salesDetail .s4-search");
+  const srchBtn = !!document.querySelector("#salesDetail .s4-3tables .s4-tbl .s4-srch-btn");
+  const inpBeforeToggle = !!document.querySelector("#salesDetail .s4-inline-srch input");
+  salesToggleSearch();   // النقر على المكبّر ⇒ يظهر الحقل
+  const inpAfterToggle = !!document.querySelector("#salesDetail .s4-inline-srch input");
   onSalesTblSearch("مقلاة");
   const afterSearchRows = document.querySelectorAll("#salesDetail .s4-3tables .s4-tbl table tbody tr").length;
   const afterSearchTxt = txt(document.querySelector("#salesDetail .s4-3tables .s4-tbl table tbody tr"));
-  return { tabCount, tblCount: tbls.length, firstSellerVal, gates, afterSearchRows, afterSearchTxt };
+  return { tabCount, tblCount: tbls.length, firstSellerVal, gates, afterSearchRows, afterSearchTxt, oldBox, srchBtn, inpBeforeToggle, inpAfterToggle };
 });
 await b.close();
 const fails = [];
@@ -65,6 +70,10 @@ if (!BROKEN) {
   if (gated.length !== 2) fails.push(`بوّابة «التاريخ غير كافٍ»: توقّعت 2 (راكد ＋ نفاد)، وجدت ${gated.length}`);
   if (!res.gates.some(g => /المرصود/.test(g) && /رفعة/.test(g))) fails.push("رسالة البوّابة بلا «المرصود: N رفعة · X يوم»");
   if (res.afterSearchRows !== 1 || !/مقلاة/.test(res.afterSearchTxt)) fails.push(`البحث لم يفلتر «الأكثر مبيعاً» إلى «مقلاة» وحدها (صفوف=${res.afterSearchRows})`);
+  if (res.oldBox) fails.push("المربع المستقلّ .s4-search ما زال موجوداً (يجب حذفه)");
+  if (!res.srchBtn) fails.push("أيقونة المكبّر .s4-srch-btn غير موجودة داخل جدول «الأكثر مبيعاً»");
+  if (res.inpBeforeToggle) fails.push("حقل البحث ظاهر قبل النقر على المكبّر (يجب أن يكون منسدلاً)");
+  if (!res.inpAfterToggle) fails.push("النقر على المكبّر لم يُظهر حقل البحث");
 }
 if (BROKEN) {
   if (fails.length || res.gates.filter(g => /التاريخ غير كافٍ/.test(g)).length < 2) { console.log("✅ (--broken) G-SALES-DETAIL مسك العطل (بلا بوّابة التاريخ)"); process.exit(0); }

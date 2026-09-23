@@ -1199,8 +1199,11 @@
   .s4-dhead .s4-ic { color: var(--info); display: inline-flex; }
   .s4-dcards { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 14px; }
   @media (max-width: 1100px) { .s4-dcards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  .s4-search { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 11px; padding: 8px 13px; margin-bottom: 12px; max-width: 380px; }
-  .s4-search .ico { color: var(--muted); } .s4-search input { flex: 1; background: none; border: 0; color: var(--text); font: inherit; font-size: 13px; outline: none; }
+  .s4-hd-actions { display: flex; align-items: center; gap: 10px; }
+  .s4-srch-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 9px; background: rgba(255,255,255,.03); border: 1px solid var(--hair); color: var(--muted); cursor: pointer; padding: 0; transition: color .15s, border-color .15s, background .15s; }
+  .s4-srch-btn:hover { color: var(--text); border-color: var(--border-strong); } .s4-srch-btn.on { color: var(--gold); border-color: color-mix(in oklab, var(--gold) 45%, transparent); background: color-mix(in oklab, var(--gold) 10%, transparent); }
+  .s4-inline-srch { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 10px; padding: 7px 12px; margin-bottom: 10px; }
+  .s4-inline-srch input { flex: 1; background: none; border: 0; color: var(--text); font: inherit; font-size: 13px; outline: none; }
   .s4-3tables { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
   @media (max-width: 1100px) { .s4-3tables { grid-template-columns: minmax(0, 1fr); } }
   .s4-tbl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
@@ -1872,7 +1875,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "0244b69";
+const APP_VERSION = "00fe447";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3046,12 +3049,17 @@ function salesMultiLineSVG(seriesMap, order) {
   const xl = `<text class="s4-ml-ax" x="${X(0).toFixed(1)}" y="${H - 6}" text-anchor="start">${esc(dates[0].slice(5))}</text>` + (dates.length > 1 ? `<text class="s4-ml-ax" x="${X(dates.length - 1).toFixed(1)}" y="${H - 6}" text-anchor="end">${esc(dates[dates.length - 1].slice(5))}</text>` : "");
   return `<svg class="s4-ml" viewBox="0 0 ${W} ${H}" aria-hidden="true">${grid}${lines}${ax}${xl}</svg>`;
 }
-let salesTab = "all", salesCtx = null, salesShowAll = {};
+let salesTab = "all", salesCtx = null, salesShowAll = {}, salesSearchOpen = false;
 const S4_STAGNANT_MIN_DAYS = 14, S4_NAFAD_DAYS = 30, S4_NOSALE_DAYS = 14;
 function salesSetTab(t) { salesTab = t; salesShowAll = {}; if (salesCtx) renderSalesDetail(); }
 function salesToggleAll(k) { salesShowAll[k] = !salesShowAll[k]; renderSalesTables(); }   // «عرض الكل» ⇄ أعلى 10 (لا زرّ معطّل)
 const salesCap = (list, k) => salesShowAll[k] ? list : list.slice(0, 10);
 function onSalesTblSearch(v) { salesSearch = v || ""; renderSalesTables(); }   // يفلتر الجداول فقط (قيمة الحدث — لا getElementById لعنصر ديناميكيّ)
+function salesToggleSearch() {   // المكبّر داخل جدول «الأكثر مبيعاً» ⇄ حقل بحث (باركود/اسم)
+  salesSearchOpen = !salesSearchOpen; if (!salesSearchOpen) salesSearch = "";
+  renderSalesTables();
+  if (salesSearchOpen) { const inp = document.querySelector("#salesDetail .s4-inline-srch input"); if (inp) inp.focus(); }
+}
 // تفصيل الموقع المختار (تبويب) ＋ ٤ بطاقات ＋ ٣ جداول
 function renderSalesDetail() {
   const wrap = document.getElementById("salesDetail"), tabsEl = document.getElementById("salesTabs");
@@ -3081,7 +3089,6 @@ function renderSalesDetail() {
     + card(salesNum(inv), "قيمة المخزون الحالية", "")
     + card(coverage != null ? coverage + " يوم" : "—", "أيام التغطية", "")
     + `</div>`
-    + `<div class="s4-search"><svg class="ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" placeholder="بحث في المنتجات: كود أو اسم …" value="${esc(salesSearch)}" oninput="onSalesTblSearch(this.value)" aria-label="بحث في الجداول"></div>`
     + `<div class="s4-3tables"></div>`;
   salesCtx._tab = { cur, qtyBySku, priceBySku, daysCov, upCount, tabLocs };
   renderSalesTables();
@@ -3116,7 +3123,13 @@ function renderSalesTables() {
       : `<div class="s4-gate">لا مخاطر نفاد قريبة.</div>`;
   }
   const cardT = (icon, title, inner, key, gated) => `<div class="card s4-tbl"><div class="s4-tbl-head"><h3><span class="s4-ti">${icon}</span>${title}</h3>${gated ? "" : `<span class="all-lnk" onclick="salesToggleAll('${key}')">${salesShowAll[key] ? "عرض أقل" : "عرض الكل"}</span>`}</div><div class="twrap">${inner}</div></div>`;
-  host.innerHTML = cardT(ic("spark"), "أكثر 10 منتجات مبيعاً", sellersTbl, "sellers", false) + cardT(ic("inbox"), "أكثر 10 منتجات راكدة", rakaTbl, "raka", gate) + cardT(ic("hourglass"), "مخاطر النفاد (أقل من 30 يوماً)", nafadTbl, "nafad", gate);
+  // جدول «الأكثر مبيعاً»: أيقونة مكبّر في الرأس ⇄ حقل بحث منسدل (باركود/اسم) — يفلتر الجداول الثلاثة
+  const srchIc = `<svg class="ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`;
+  const sellersHead = `<div class="s4-tbl-head"><h3><span class="s4-ti">${ic("spark")}</span>أكثر 10 منتجات مبيعاً</h3><span class="s4-hd-actions"><button type="button" class="s4-srch-btn${salesSearchOpen ? " on" : ""}" onclick="salesToggleSearch()" aria-label="بحث في المنتجات" aria-expanded="${salesSearchOpen}">${srchIc}</button><span class="all-lnk" onclick="salesToggleAll('sellers')">${salesShowAll.sellers ? "عرض أقل" : "عرض الكل"}</span></span></div>`;
+  const sellersSrch = salesSearchOpen ? `<div class="s4-inline-srch"><input type="search" placeholder="الباركود أو اسم الصنف …" value="${esc(salesSearch)}" oninput="onSalesTblSearch(this.value)" aria-label="بحث في المنتجات"></div>` : "";
+  const sellersCard = `<div class="card s4-tbl">${sellersHead}${sellersSrch}<div class="twrap">${sellersTbl}</div></div>`;
+  host.innerHTML = sellersCard + cardT(ic("inbox"), "أكثر 10 منتجات راكدة", rakaTbl, "raka", gate) + cardT(ic("hourglass"), "مخاطر النفاد (أقل من 30 يوماً)", nafadTbl, "nafad", gate);
+  if (salesSearchOpen) { const inp = host.querySelector(".s4-inline-srch input"); if (inp) { inp.focus(); const v = inp.value; try { inp.setSelectionRange(v.length, v.length); } catch (e) {} } }   // إعادة التركيز بعد إعادة البناء (لا يُفقد المؤشّر مع كل حرف)
 }
 async function renderSalesPage() {
   renderSalesFilters(); renderSalesUser(); salesSetDateLabel();
