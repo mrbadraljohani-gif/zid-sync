@@ -1189,7 +1189,7 @@
   .sc-card .scc-tr .trend-dur, #salesCmp .scc-tr .trend-dur { font-family: var(--mono); color: var(--muted-2); font-weight: 600; font-size: 9.5px; margin-inline-start: 3px; }
   #salesCmp tr.noup td { color: var(--muted); } #salesCmp td.noupc { text-align: center; color: var(--muted); font-style: normal; }
   #salesCmp .tot-note { display: block; font-size: 9.5px; font-weight: 600; color: var(--muted-2); font-family: var(--sans); margin-top: 2px; }
-  .s4-mid { display: grid; grid-template-columns: minmax(0, 1.85fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }   /* الجدول ~65% · الرسم ~35% (الجدول أهمّ — أقرأ منه) */
+  .s4-mid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }   /* 50/50 — الجدول صفّان (فرعان) لا يحتاج أكثر، والرسم الزمنيّ يستفيد من العرض */
   @media (max-width: 980px) { .s4-mid { grid-template-columns: minmax(0, 1fr); } }   /* ضيّق: الجدول أولاً بعرض كامل ثم الرسم */
   .s4-ch-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
   .s4-ch-head h2 { font-size: 15px; }
@@ -1927,7 +1927,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "60134a0";
+const APP_VERSION = "2f91ff8";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
