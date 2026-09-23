@@ -1209,10 +1209,19 @@
   .s4-tbl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
   .s4-tbl-head h3 { font-size: 13.5px; display: flex; align-items: center; gap: 7px; } .s4-tbl-head .s4-ti { color: var(--gold-2); display: inline-flex; }
   .s4-tbl-head .all-lnk { font-size: 11px; color: var(--info); cursor: pointer; }
-  .s4-tbl table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-  .s4-tbl th { font-size: 10px; color: var(--muted); font-weight: 600; padding: 5px 4px; border-bottom: 1px solid var(--border-strong); text-align: start; white-space: nowrap; }
-  .s4-tbl td { padding: 6px 4px; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .s4-tbl td.n { font-family: var(--mono); text-align: end; } .s4-tbl td.nm { color: var(--text); white-space: normal; }
+  .s4-tbl table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .s4-tbl thead th { background: var(--panel-2); }
+  .s4-tbl th { font-size: 10.5px; color: var(--muted); font-weight: 600; letter-spacing: .2px; padding: 9px 10px; border-bottom: 1px solid var(--border-strong); text-align: start; white-space: nowrap; vertical-align: middle; }
+  .s4-tbl td { padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
+  .s4-tbl tbody tr:last-child td { border-bottom: 0; }
+  .s4-tbl tbody tr:hover td { background: rgba(255,255,255,.02); }
+  .s4-tbl th:first-child, .s4-tbl td:first-child { text-align: center; color: var(--muted); width: 1%; padding-inline: 8px; }   /* عمود # نحيف موسّط */
+  .s4-tbl td.n { font-family: var(--mono); text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .s4-tbl th.n { text-align: end; }
+  .s4-tbl td.mono { font-family: var(--mono); font-size: 11px; color: var(--muted-2); }
+  .s4-tbl td.nm { color: var(--text); white-space: normal; line-height: 1.5; min-width: 130px; max-width: 240px; overflow-wrap: anywhere; }
+  .s4-tbl td.oth { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .s4-tbl td.badt, .s4-tbl td.warnt { font-family: var(--sans); }   /* نصّ عربيّ («لا بيع»/«منذ X يوم») — لا خطّ أحاديّ يقطّع الحروف */
   .s4-tbl .warnt { color: var(--amber); } .s4-tbl .badt { color: var(--danger); }
   .s4-gate { padding: 22px 14px; text-align: center; color: var(--muted); font-size: 12.5px; line-height: 1.9; border: 1px dashed var(--border-strong); border-radius: 10px; }
   .exp-chip.zero-btn { margin-inline-start: auto; border-color: color-mix(in srgb, var(--info) 60%, transparent); color: var(--info); background: color-mix(in srgb, var(--info) 8%, transparent); }
@@ -1875,7 +1884,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "00fe447";
+const APP_VERSION = "72a68fb";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3101,7 +3110,7 @@ function renderSalesTables() {
   for (const m of cur) { if (m.kind !== "estimated_sale") continue; const e = sMap.get(m.sku) || { sku: m.sku, name: m.sku_name || "", u: 0, v: 0 }; e.u += Math.abs(Number(m.delta) || 0); if (m.value_est != null) e.v += Number(m.value_est) || 0; if (m.sku_name && !e.name) e.name = m.sku_name; sMap.set(m.sku, e); const t = Date.parse(m.captured_at); if (!lastSale.has(m.sku) || t > lastSale.get(m.sku)) lastSale.set(m.sku, t); }
   const sellers = salesCap([...sMap.values()].filter(x => match(x.sku, x.name)).sort((a, b) => b.v - a.v), "sellers");
   const sellersTbl = sellers.length
-    ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th>الوحدات</th><th>القيمة</th></tr></thead><tbody>${sellers.map((x, i) => `<tr><td>${i + 1}</td><td class="nm">${esc(x.name) || "—"}</td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.u)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(x.v)}</bdi></td></tr>`).join("")}</tbody></table>`
+    ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الوحدات</th><th class="n">القيمة</th></tr></thead><tbody>${sellers.map((x, i) => `<tr><td>${i + 1}</td><td class="nm">${esc(x.name) || "—"}</td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.u)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(x.v)}</bdi></td></tr>`).join("")}</tbody></table>`
     : `<div class="s4-gate">لا مبيعات مقدّرة في هذه الفترة.</div>`;
   const gate = daysCov < S4_STAGNANT_MIN_DAYS;
   const gateMsg = `<div class="s4-gate">التاريخ غير كافٍ للحكم — يلزم ${S4_STAGNANT_MIN_DAYS} يوماً من الرصد.<br>المرصود: ${upCount} رفعة · ${Math.round(daysCov * 10) / 10} يوم</div>`;
@@ -3113,13 +3122,13 @@ function renderSalesTables() {
       .filter(x => x.qty > 0 && (x.days == null || x.days >= S4_NOSALE_DAYS) && match(x.sku, x.name)).sort((a, b) => (b.days || 99999) - (a.days || 99999));
     const rakaTop = salesCap(raka, "raka");
     rakaTbl = rakaTop.length
-      ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th>الكمية</th><th>آخر حركة</th><th>القيمة</th><th>في المواقع الأخرى</th></tr></thead><tbody>${rakaTop.map((x, i) => `<tr><td>${i + 1}</td><td class="nm">${esc(x.name) || "—"}</td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.days == null ? "لا بيع" : "منذ " + x.days + " يوم"}</td><td class="n"><bdi dir="ltr">${x.val == null ? "—" : salesNum(x.val)}</bdi></td><td>${esc(otherStatus(x.sku))}</td></tr>`).join("")}</tbody></table>`
+      ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الكمية</th><th class="n">آخر حركة</th><th class="n">القيمة</th><th>في المواقع الأخرى</th></tr></thead><tbody>${rakaTop.map((x, i) => `<tr><td>${i + 1}</td><td class="nm">${esc(x.name) || "—"}</td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.days == null ? "لا بيع" : "منذ " + x.days + " يوم"}</td><td class="n"><bdi dir="ltr">${x.val == null ? "—" : salesNum(x.val)}</bdi></td><td class="oth">${esc(otherStatus(x.sku))}</td></tr>`).join("")}</tbody></table>`
       : `<div class="s4-gate">لا أصناف راكدة في هذا الموقع.</div>`;
     const nafadAll = [...qtyBySku.entries()].map(([sku, qty]) => { const s = sMap.get(sku), sold = s ? s.u : 0, dr = daysCov > 0 ? sold / daysCov : 0, cov = dr > 0 ? Math.round(qty / dr) : null; return { sku, name: (s || {}).name || "", qty, cov }; })
       .filter(x => x.qty > 0 && x.cov != null && x.cov < S4_NAFAD_DAYS && match(x.sku, x.name)).sort((a, b) => a.cov - b.cov);
     const nafad = salesCap(nafadAll, "nafad");
     nafadTbl = nafad.length
-      ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th>الكمية</th><th>أيام التغطية</th></tr></thead><tbody>${nafad.map((x, i) => `<tr><td>${i + 1}</td><td class="nm">${esc(x.name) || "—"}</td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.cov} يوم</td></tr>`).join("")}</tbody></table>`
+      ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الكمية</th><th class="n">أيام التغطية</th></tr></thead><tbody>${nafad.map((x, i) => `<tr><td>${i + 1}</td><td class="nm">${esc(x.name) || "—"}</td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.cov} يوم</td></tr>`).join("")}</tbody></table>`
       : `<div class="s4-gate">لا مخاطر نفاد قريبة.</div>`;
   }
   const cardT = (icon, title, inner, key, gated) => `<div class="card s4-tbl"><div class="s4-tbl-head"><h3><span class="s4-ti">${icon}</span>${title}</h3>${gated ? "" : `<span class="all-lnk" onclick="salesToggleAll('${key}')">${salesShowAll[key] ? "عرض أقل" : "عرض الكل"}</span>`}</div><div class="twrap">${inner}</div></div>`;
