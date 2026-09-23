@@ -1893,7 +1893,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "bd3b475";
+const APP_VERSION = "ce28ac8";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3113,20 +3113,24 @@ function salesMultiLineSVG(seriesMap, order) {
   const Y = v => padT + (1 - v / max) * (H - padT - padB);
   let grid = "", ax = "", lines = "";
   for (const f of [0, 0.25, 0.5, 0.75, 1]) { const yy = padT + (1 - f) * (H - padT - padB); grid += `<line class="s4-ml-grid" x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}"/>`; ax += `<text class="s4-ml-ax" x="${padL - 5}" y="${(yy + 3).toFixed(1)}" text-anchor="end">${salesShort(max * f)}</text>`; }
-  const single = dates.length === 1;   // نقطة زمنية واحدة ⇒ أعمدة لا نقاط معلّقة (٣-د لاحقاً؛ هنا نضمن ظهورها)
   for (const loc of order) {
     const s = seriesMap[loc] || []; if (!s.length) continue;
     const col = `var(${salesLocColor(loc)})`;
-    if (!single) lines += `<polyline fill="none" stroke="${col}" stroke-width="2.2" points="${s.map(p => `${X(xi.get(p.d)).toFixed(1)},${Y(p.v).toFixed(1)}`).join(" ")}"/>`;
+    const solo = s.length === 1;   // موقع بنقطة واحدة: لا خطّ له (polyline بلا طول) ⇒ علامة بارزة إلزاماً (لا يختفي وله قيمة)
+    if (s.length > 1) lines += `<polyline fill="none" stroke="${col}" stroke-width="2.2" points="${s.map(p => `${X(xi.get(p.d)).toFixed(1)},${Y(p.v).toFixed(1)}`).join(" ")}"/>`;
     lines += s.map(p => {
       const cx = X(xi.get(p.d)), cy = Y(p.v), multi = (p.span || 1) > 1;
       const title = `<title>${esc(salesLocName(loc))} · ${multi ? "تغطّي " + esc(bizRangeLabel(p.d, p.span)) : esc(fmtDayLabel(p.d))} · ${salesNum(p.v)} ر.س</title>`;
-      // النقطة الممتدّة (span>1): حلقة مجوّفة مميّزة بصرياً عن نقطة اليوم الواحد
+      if (solo) {   // علامة بارزة (هالة ＋ قرص) — مرئيّة دائماً حتى بلا خطّ؛ مجوّفة الوسط إن كانت ممتدّة
+        return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="6" fill="${col}" opacity="0.18"/><circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4" fill="${multi ? "none" : col}" stroke="${col}" stroke-width="2">${title}</circle>`;
+      }
+      // ضمن خطّ: النقطة الممتدّة (span>1) حلقة مجوّفة مميّزة عن نقطة اليوم الواحد
       return multi
         ? `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.2" fill="none" stroke="${col}" stroke-width="2"/><circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="1.5" fill="${col}">${title}</circle>`
         : `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="2.4" fill="${col}">${title}</circle>`;
     }).join("");
   }
+  const single = dates.length === 1;
   const xl = `<text class="s4-ml-ax" x="${X(0).toFixed(1)}" y="${H - 6}" text-anchor="${single ? "middle" : "start"}">${esc(fmtDayLabel(dates[0]))}</text>` + (dates.length > 1 ? `<text class="s4-ml-ax" x="${X(dates.length - 1).toFixed(1)}" y="${H - 6}" text-anchor="end">${esc(fmtDayLabel(dates[dates.length - 1]))}</text>` : "");
   return `<svg class="s4-ml" viewBox="0 0 ${W} ${H}" aria-hidden="true">${grid}${lines}${ax}${xl}</svg>`;
 }
