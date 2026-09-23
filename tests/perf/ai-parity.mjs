@@ -76,6 +76,9 @@ const observedDays = observedWindowDays(movements, uploads, branches, nowMs);
 const valAll = String(Math.round(computeScope({ ...data, period: "all", location: "all", nowMs }).scope.val));
 const res7 = runIntent("sales_summary", { params: { period: "7", location: "all" }, data, nowMs, observedDays });
 const val7 = res7 && res7.estimated_sales_incl != null ? String(res7.estimated_sales_incl) : "";
+// (٩-د) الوضع المركّب: نيّة ثانية (مقارنة المواقع) — إجماليّها يطابق الشاشة أيضاً (المستودع مستبعَد)
+const resCmp = runIntent("location_comparison", { params: { period: "all", location: "all" }, data, nowMs, observedDays });
+const valCmp = resCmp && resCmp.total_estimated_sales_incl != null ? String(resCmp.total_estimated_sales_incl) : "";
 for (const t of tmps) unlinkSync(t);
 
 // ————— النتائج —————
@@ -85,8 +88,9 @@ if (screen.all !== "36588") fails.push(`رقم الشاشة (all) ليس 36,588:
 if (screen.p7 !== "36588") fails.push(`رقم الشاشة (7 أيام) ليس 36,588: «${screen.p7}»`);
 
 if (BROKEN) {
-  if (valAll === "56268" && valAll !== screen.all) { console.log(`✅ (--broken) مسك الانحراف: المساعد ${valAll} ≠ الشاشة ${screen.all} (دخل المستودع).`); process.exit(0); }
-  console.error(`✗ (--broken) لم يُكتشف الانحراف — لا أسنان (المساعد=${valAll} · الشاشة=${screen.all}).`); process.exit(1);
+  // إدخال المستودع يتضخّم في المفرد والمركّب معاً
+  if (valAll === "56268" && valCmp === "56268" && valAll !== screen.all) { console.log(`✅ (--broken) مسك الانحراف: المفرد ${valAll} والمركّب ${valCmp} ≠ الشاشة ${screen.all} (دخل المستودع).`); process.exit(0); }
+  console.error(`✗ (--broken) لم يُكتشف الانحراف — لا أسنان (مفرد=${valAll} · مركّب=${valCmp} · شاشة=${screen.all}).`); process.exit(1);
 }
 if (BROKEN_WIN) {
   // الرفض القديم ⇒ res7.kind=insufficient_window ⇒ لا رقم
@@ -99,6 +103,8 @@ if (valAll !== screen.all) fails.push(`تكافؤ ① منكسر: المساعد
 // ③ فترة أطول من المرصود ⇒ نفس الرقم ＋ بيان نقص، لا رفض
 if (val7 !== screen.p7) fails.push(`تكافؤ ③ منكسر: المساعد (7 أيام) ${val7} ≠ الشاشة ${screen.p7} — رفَض بدل أن يجيب بالمرصود؟`);
 if (!(res7 && res7.coverage_shortfall && res7.coverage_shortfall.requested_days === 7)) fails.push(`الفحص ③: بلا coverage_shortfall (بيان النقص) — «${JSON.stringify(res7 && res7.coverage_shortfall)}»`);
+// ④ المركّب: إجماليّ مقارنة المواقع == الشاشة (المستودع مستبعَد)
+if (valCmp !== screen.all) fails.push(`تكافؤ ④ (مركّب) منكسر: مقارنة المواقع ${valCmp} ≠ الشاشة ${screen.all}`);
 
 if (fails.length) { console.error("✗ G-AI-PARITY:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log(`✅ G-AI-PARITY: ① المساعد=الشاشة=${valAll} · ③ فترة 7 أيام ⇒ ${val7} (=الشاشة) ＋ بيان نقص (مرصود ${res7.coverage_shortfall.observed_days} من 7) لا رفض.`);
+console.log(`✅ G-AI-PARITY: ① مفرد=الشاشة=${valAll} · ③ فترة 7 ⇒ ${val7} ＋ بيان نقص · ④ مركّب (مقارنة المواقع)=${valCmp}=الشاشة — كلّها المستودع مستبعَد.`);

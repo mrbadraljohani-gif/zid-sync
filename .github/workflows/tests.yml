@@ -264,6 +264,18 @@ jobs:
         run: node tests/edge-bundle-sync.mjs --broken
       - name: G-EDGE-BUNDLE — الملفّ المدمج للنشر == المصادر الثلاثة (build-edge-bundle)
         run: node tests/edge-bundle-sync.mjs
+      - name: Self-check — G-AI-NUMBERS يرسب حين يمرّ رقم مُلفَّق بلا تحقّق
+        run: node tests/ai-numbers.mjs --broken
+      - name: G-AI-NUMBERS — كل رقم في الجواب له أصل حرفيّ في النتيجة (وإلّا يُرفض)
+        run: node tests/ai-numbers.mjs
+      - name: Self-check — G-AI-COVERAGE-WORDING يرسب حين لا يبدأ الجواب بالنقص
+        run: node tests/ai-coverage-wording.mjs --broken
+      - name: G-AI-COVERAGE-WORDING — الجواب يبدأ بالنقص لا ينتهي به (المرصود < المطلوب)
+        run: node tests/ai-coverage-wording.mjs
+      - name: Self-check — G-AI-NAMES يرسب حين يبتلع التنظيف الأوصاف
+        run: node tests/ai-names.mjs --broken
+      - name: G-AI-NAMES — فصل اسم المنتج عن قائمة الأكواد (يبقي الأوصاف · الأصل محفوظ)
+        run: node tests/ai-names.mjs
       - name: Self-check — G-CMP-LAYOUT يرسب حين يُبتر محور الرسم (بلا direction:ltr)
         run: node tests/perf/sales-cmp-layout.mjs --broken
       - name: G-CMP-LAYOUT — جدول المقارنة بلا تلاصق ＋ وحدات عربية ملتصقة ＋ محور الرسم بلا بتر

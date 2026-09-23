@@ -32,7 +32,7 @@ export function matchProducts(stock, phrase) {
     const hay = normText([r.name, r.sku, r.barcode].filter(Boolean).join(" "));
     if (hay.includes(q)) {
       const k = String(r.sku);
-      if (!bySku.has(k)) bySku.set(k, { sku: k, name: r.name || "", barcode: r.barcode || "" });
+      if (!bySku.has(k)) bySku.set(k, { sku: k, name: r.name || "", name_clean: cleanName(r.name).clean, barcode: r.barcode || "" });
     }
   }
   return [...bySku.values()].slice(0, 25);
@@ -237,6 +237,16 @@ const Q = n => `${NF(n)} قطعة`;
 const S = n => `${NF(n)} صنف`;
 const D = n => `${NF1(n)} يوم`;
 const PC = n => `${n > 0 ? "+" : ""}${n}%`;
+
+// 🚨 فصل اسم المنتج عن قائمة الأكواد الملتصقة (تنظيف محافظ):
+//   يحذف فقط ذيلاً من أرقام ≥5 خانات مفصولة بفواصل/نقاط (قائمة أكواد) — 🚫 لا يحذف أوصافاً:
+//   «120*200» (نجمة) · «8ك»/«35لتر» (رقم+حرف) · «ش14» (حرف+رقم) · رقم مفرد ≥5 بلا فاصل يبقى (قد يكون معنىً).
+const CODELIST_RE = /\s*[-–—]?\s*\d{5,}(?:[.,]\s*\d{3,})+\s*$/;
+export function cleanName(name) {
+  const orig = String(name == null ? "" : name);
+  const clean = orig.replace(CODELIST_RE, "").trim();
+  return { clean: clean || orig, original: orig };   // إن أفرغه التنظيف كلّياً ⇒ أبقِ الأصل
+}
 // يُلحق نصوص display/label الجاهزة حسب نوع النتيجة (لا يمسّ الحقول الرقمية — التكافؤ محفوظ)
 function applyDisplay(res) {
   if (!res || typeof res !== "object") return res;
@@ -244,9 +254,10 @@ function applyDisplay(res) {
     case "sales_summary":
       res.display = { estimated_sales: M(res.estimated_sales_incl), estimated_sales_excl: MX(res.estimated_sales_excl), units: Q(res.units), moved_products: S(res.moved_products), observed: D(res.observed_days) }; break;
     case "top_sellers": case "bottom_sellers":
-      (res.items || []).forEach(it => { it.label = `${it.name}: ${M(it.value)} · ${Q(it.units)}`; }); break;
+      (res.items || []).forEach(it => { it.name_clean = cleanName(it.name).clean; it.label = `${it.name_clean}: ${M(it.value)} · ${Q(it.units)}`; }); break;
     case "product_movement":
-      res.display = { total_units: Q(res.total_units), total_value: M(res.total_value_incl) };
+      res.product_clean = cleanName(res.product).clean;
+      res.display = { product: res.product_clean, total_units: Q(res.total_units), total_value: M(res.total_value_incl) };
       (res.per_location || []).forEach(e => { e.label = `${e.location}: ${Q(e.units)} · ${M(e.value)}`; }); break;
     case "period_comparison":
       res.display = { cur_daily_rate: RATE(res.cur_daily_rate), prev_daily_rate: RATE(res.prev_daily_rate), change: PC(res.change_pct), cur_days: D(res.cur_days), prev_days: D(res.prev_days) }; break;
@@ -254,7 +265,7 @@ function applyDisplay(res) {
       (res.rows || []).forEach(r => { r.label = r.uploaded ? `${r.location}: ${M(r.estimated_sales_incl)} · ${Q(r.units)} · ${S(r.moved_products)}` : `${r.location}: لا رفعة في هذه الفترة`; });
       res.display = { total_estimated_sales: M(res.total_estimated_sales_incl), total_units: Q(res.total_units) }; break;
     case "stagnant_inventory":
-      (res.items || []).forEach(it => { it.label = `${it.name}: ${Q(it.qty)} · قيمة المخزون ${M(it.inventory_value_incl)}`; }); break;
+      (res.items || []).forEach(it => { it.name_clean = cleanName(it.name).clean; it.label = `${it.name_clean}: ${Q(it.qty)} · قيمة المخزون ${M(it.inventory_value_incl)}`; }); break;
     case "stockout_risk":
       (res.by_location || []).forEach(e => { e.label = `${e.location}: تغطية ${D(e.coverage_days)}`; }); break;
     case "inventory_value":
@@ -262,10 +273,63 @@ function applyDisplay(res) {
     case "data_freshness":
       res.display = { observed_window: D(res.observed_window_days) }; break;
     case "biggest_decliners":
-      (res.items || []).forEach(it => { it.label = `${it.name}: من ${RATE(it.prev_daily_rate)} إلى ${RATE(it.cur_daily_rate)} (انخفاض ${RATE(it.drop_daily_rate)})`; });
+      (res.items || []).forEach(it => { it.name_clean = cleanName(it.name).clean; it.label = `${it.name_clean}: من ${RATE(it.prev_daily_rate)} إلى ${RATE(it.cur_daily_rate)} (انخفاض ${RATE(it.drop_daily_rate)})`; });
       res.display = { cur_days: D(res.cur_days), prev_days: D(res.prev_days) }; break;
   }
   return res;
+}
+
+// ————— مسمّيات بشرية (🚫 لا قيمة تقنية في نصّ المستخدم: لا «all» ولا اسم نيّة ولا مفتاح معامل) —————
+export function periodLabel(period) {
+  return ({ today: "أمس", "7": "آخر 7 أيام", "30": "آخر 30 يوماً", "90": "آخر 90 يوماً", "365": "آخر سنة", all: "كامل البيانات المتاحة" })[String(period)] || "كامل البيانات المتاحة";
+}
+export function scopeLabel(location, branches) {
+  if (location === "wh") return "المستودع";
+  if (location && location !== "all") { const b = (branches || []).find(x => x.id === location); return b ? b.name : "فرع"; }
+  const names = (branches || []).map(b => b.name);
+  return names.length ? `الفروع (${names.join(" + ")})` : "الفروع";
+}
+
+// ————— تحقّق الأرقام بنيوياً (G-AI-NUMBERS): كل رقم في جواب النموذج له أصل حرفيّ في نتيجة الاستعلام —————
+const AR_DIGITS = { "٠": "0", "١": "1", "٢": "2", "٣": "3", "٤": "4", "٥": "5", "٦": "6", "٧": "7", "٨": "8", "٩": "9" };
+const toWestern = s => String(s).replace(/[٠-٩]/g, d => AR_DIGITS[d]);
+const numTokens = s => (toWestern(s).match(/\d[\d,]*(?:\.\d+)?/g) || []).map(t => t.replace(/,/g, "").replace(/\.0+$/, ""));   // بلا فواصل، وبلا كسور صفرية زائدة
+export function collectSourceNumbers(obj) {
+  const set = new Set();
+  for (const t of numTokens(JSON.stringify(obj))) set.add(t);
+  return set;
+}
+// يفحص نصوص جواب النموذج (lead + قيم metrics + warning + note) — أي رقم خارج المصدر ⇒ يُرفض الجواب
+export function verifyAnswerNumbers(answerObj, sourceSet) {
+  const parts = [];
+  if (answerObj && typeof answerObj === "object") {
+    if (answerObj.lead) parts.push(String(answerObj.lead));
+    if (Array.isArray(answerObj.metrics)) for (const m of answerObj.metrics) { if (m && m.value != null) parts.push(String(m.value)); if (m && m.label != null) parts.push(String(m.label)); }
+    if (answerObj.warning) parts.push(String(answerObj.warning));
+    if (answerObj.note) parts.push(String(answerObj.note));
+  }
+  const offending = [];
+  for (const t of numTokens(parts.join(" "))) if (!sourceSet.has(t)) offending.push(t);
+  return { ok: offending.length === 0, offending };
+}
+
+// ————— تلخيص للوضع المركّب: أعلى n صفوف ＋ الإجماليات (🚫 لا آلاف الصفوف إلى Gemini) —————
+export function summarizeResult(res, n = 3) {
+  if (!res || typeof res !== "object") return res;
+  const trim = (arr) => { if (!Array.isArray(arr)) return arr; const total = arr.length; const cut = arr.slice(0, n); if (total > n) res.more_count = (res.more_count || 0) + (total - n); return cut; };
+  if (Array.isArray(res.items)) res.items = trim(res.items);
+  if (Array.isArray(res.per_location)) res.per_location = trim(res.per_location);
+  if (Array.isArray(res.by_location)) res.by_location = trim(res.by_location);
+  if (Array.isArray(res.rows)) res.rows = trim(res.rows);   // location_comparison صفوفه قليلة أصلاً
+  res.summarized = true;
+  return res;
+}
+
+// (٣) الفصل الدلاليّ — بادئة النقص تُفرَض بنيوياً: يبدأ الجواب بالنقص لا ينتهي به (لا يعتمد على النموذج)
+export function enforceCoverageLead(lead, coverageText) {
+  const L = String(lead || "");
+  if (!coverageText) return L;
+  return L.startsWith(coverageText) ? L : `${coverageText}. خلال المرصود: ${L}`;
 }
 
 // تشغيل نيّة بعد التحقّق (index.ts يمرّر params مُنقّاة ＋ data ＋ nowMs ＋ observedDays)

@@ -28,7 +28,7 @@ const res = await p.evaluate(async () => {
   invBranches = [{ id: "az", name: "العزيزية" }];
   // cap=500 من القاعدة (status) ومن الرد (meta) — لا ثابت في الواجهة
   sb = { rpc: async () => ({ data: [{ used: 4, cap: 500 }], error: null }),
-         functions: { invoke: async () => ({ data: { ok: true, answer: "مبيعات الخضرة 26,816 ر.س شامل.", meta: { intent: "sales_summary", used: 4, remaining: 496, cap: 500 } }, error: null }) } };
+         functions: { invoke: async () => ({ data: { ok: true, structured: { lead: "مبيعات الخضرة 26,816 ر.س شامل.", metrics: [], warning: null, note: null, scope_label: "الخضرة", period_label: "كامل البيانات المتاحة" }, meta: { intent: "sales_summary", used: 4, remaining: 496, cap: 500 } }, error: null }) } };
   document.getElementById("page-sales").classList.add("active");
   await renderSalesAI();
   const onOpen = (document.getElementById("saiQuota") || {}).textContent || "";
