@@ -260,6 +260,10 @@ jobs:
         run: node tests/perf/ai-cap.mjs --broken
       - name: G-AI-CAP — السقف من القاعدة (meta.cap/ai_usage_status) لا رقم ثابت في الواجهة
         run: node tests/perf/ai-cap.mjs
+      - name: Self-check — G-EDGE-BUNDLE يرسب حين ينحرف المدمج عن المصدر
+        run: node tests/edge-bundle-sync.mjs --broken
+      - name: G-EDGE-BUNDLE — الملفّ المدمج للنشر == المصادر الثلاثة (build-edge-bundle)
+        run: node tests/edge-bundle-sync.mjs
       - name: Self-check — G-CMP-LAYOUT يرسب حين يُبتر محور الرسم (بلا direction:ltr)
         run: node tests/perf/sales-cmp-layout.mjs --broken
       - name: G-CMP-LAYOUT — جدول المقارنة بلا تلاصق ＋ وحدات عربية ملتصقة ＋ محور الرسم بلا بتر

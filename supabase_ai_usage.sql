@@ -35,8 +35,12 @@ create policy ai_usage_select_own on public.ai_usage
 -- (لا insert/update/delete policies ⇒ RLS يمنع كل كتابة مباشرة من العميل؛ الدالّة security definer تكتب صفّ المستخدم وحده)
 
 -- 3أ) 🚨 السقف اليوميّ — مصدر واحد. غيّره هنا وحده (تقرؤه الزيادة والحالة والواجهة عبر meta.cap).
+--     ليست security definer (لا تقرأ جدولاً — ثابت بحت). 🚫 revoke من public فلا يقرؤها anon؛
+--     الدالّتان bump/status (definer) تستدعيانها بصلاحية مالكهما فلا تحتاج منحاً لـauthenticated.
+--     «لا يغيّرها أحد»: التبديل (create or replace) صلاحية DDL لمالك القاعدة، لا يملكها authenticated/anon.
 create or replace function public.ai_daily_cap()
 returns integer language sql immutable as $$ select 500 $$;
+revoke execute on function public.ai_daily_cap() from public;
 
 -- 3ب) دالّة الزيادة الذرّية — بلا معاملات (auth.uid داخلياً)، السقف من ai_daily_cap()، تمسّ ai_usage وحده.
 --    ترجع (allowed, used, cap): allowed=false عند بلوغ السقف (الصفّ لا يُزاد فوقه).
