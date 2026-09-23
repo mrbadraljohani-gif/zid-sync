@@ -256,8 +256,12 @@ jobs:
         run: node tests/perf/sales-wh-exclude.mjs
       - name: Self-check — G-WH-SECTION يرسب حين يُخفى قسم المستودع
         run: node tests/perf/sales-wh-section.mjs --broken
-      - name: G-WH-SECTION — قسم المستودع (أكثر سحباً · إجمالي الأصناف · بلا مبيعات/تغطية)
+      - name: G-WH-SECTION — قسم المستودع (أكثر سحباً · إجمالي الأصناف · بلا مبيعات/تغطية ＋ بلا رفعة⇒«لا رفعة»)
         run: node tests/perf/sales-wh-section.mjs
+      - name: Self-check — G-SELLERS-WIDTH يرسب حين ينضغط اسم «أكثر مبيعاً» (بلا width hint)
+        run: node tests/perf/sales-sellers-width.mjs --broken
+      - name: G-SELLERS-WIDTH — اسم «أكثر مبيعاً» ≥120px ＋ رؤوس «شامل» ＋ جدول المقارنة بلا تغطية
+        run: node tests/perf/sales-sellers-width.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)
