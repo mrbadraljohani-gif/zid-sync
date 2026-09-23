@@ -38,12 +38,11 @@ async function run(days) {
     document.getElementById("page-sales").classList.add("active");
     await renderSalesPage();
     const txt = el => (el ? (el.textContent || "").replace(/\s+/g, " ").trim() : "");
-    const scov = document.querySelector('#salesKpis .kpi[data-k="scov"]');
-    const scovVal = txt(scov && scov.querySelector("b"));
-    const scovSub = txt(scov && scov.querySelector(".kpi-sub"));
-    // التغطية في شريط تفصيل التبويب
+    const scovCardGone = !document.querySelector('#salesKpis .kpi[data-k="scov"]');   // الكرت العلويّ حُذف نهائياً
+    // التغطية تبقى في شريط تفصيل التبويب (الأصناف الحرجة في «مخاطر النفاد»)
     const covCardVal = txt(document.querySelector('#salesDetail .s4-dstrip [data-k="scov"] b'));
-    return { scovVal, scovSub, covCardVal };
+    const covCardTip = (document.querySelector('#salesDetail .s4-dstrip [data-k="scov"]') || {}).title || "";
+    return { scovCardGone, covCardVal, covCardTip };
   }, days);
 }
 const short = await run(2);      // رصد قصير
@@ -52,15 +51,15 @@ await b.close();
 const fails = [];
 if (errs.length) fails.push("أخطاء JS: " + errs.join(" | "));
 if (!BROKEN) {
-  if (short.scovVal.replace(/[^\d]/g, "") !== "") fails.push(`رصد قصير: KPI التغطية عرض رقماً (${short.scovVal}) بدل «—»`);
-  if (!/يلزم\s*14/.test(short.scovSub) || !/المرصود/.test(short.scovSub)) fails.push(`رصد قصير: شرح التغطية بلا «يلزم 14 … المرصود»: «${short.scovSub}»`);
-  if (short.covCardVal.replace(/[^\d]/g, "") !== "") fails.push(`رصد قصير: بطاقة تفصيل التغطية عرضت رقماً (${short.covCardVal})`);
-  if (!/يوم/.test(enough.scovVal) || enough.scovVal.replace(/[^\d]/g, "") === "") fails.push(`رصد كافٍ: KPI التغطية لم يعرض رقماً: «${enough.scovVal}»`);
+  if (!short.scovCardGone) fails.push("كرت «متوسط أيام التغطية» ما زال في الصفّ العلويّ (يجب حذفه)");
+  if (short.covCardVal.replace(/[^\d]/g, "") !== "") fails.push(`رصد قصير: شريط تفصيل التغطية عرض رقماً (${short.covCardVal}) بدل «—»`);
+  if (!/يلزم\s*14/.test(short.covCardTip) || !/المرصود/.test(short.covCardTip)) fails.push(`رصد قصير: شرح التغطية بلا «يلزم 14 … المرصود»: «${short.covCardTip}»`);
+  if (enough.covCardVal.replace(/[^\d]/g, "") === "") fails.push(`رصد كافٍ: شريط التغطية لم يعرض رقماً: «${enough.covCardVal}»`);
 }
 if (BROKEN) {
-  // مع إلغاء البوّابة: الرصد القصير يعرض رقماً ⇒ رسوب متوقّع في الوضع السليم
-  if (short.scovVal.replace(/[^\d]/g, "") !== "") { console.log("✅ (--broken) G-SALES-COV مسك العطل: الرصد القصير عرض رقم تغطية واثق بلا بوّابة"); process.exit(0); }
+  // مع إلغاء البوّابة: الرصد القصير يعرض رقماً في شريط التفصيل ⇒ رسوب متوقّع في الوضع السليم
+  if (short.covCardVal.replace(/[^\d]/g, "") !== "") { console.log("✅ (--broken) G-SALES-COV مسك العطل: الرصد القصير عرض رقم تغطية واثق بلا بوّابة"); process.exit(0); }
   console.error("✗ (--broken) لم يعرض رقماً بعد إلغاء البوّابة — لا أسنان."); process.exit(1);
 }
 if (fails.length) { console.error("✗ G-SALES-COV:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ G-SALES-COV: التغطية مبوّبة «يلزم 14 (المرصود N)» عند رصد <14 يوم · تعرض رقماً عند الكفاية · تفصيل التبويب كذلك.");
+console.log("✅ G-SALES-COV: التغطية مبوّبة «يلزم 14 (المرصود N)» عند رصد <14 يوم · شريط التفصيل يعرض رقماً عند الكفاية · الكرت العلويّ محذوف.");

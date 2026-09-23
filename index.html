@@ -1129,7 +1129,7 @@
   .stb-search .ico { color: var(--muted); }
   .stb-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .sales-loc-sel { background: var(--panel); border: 1px solid var(--border-strong); border-radius: 10px; color: var(--text); font: inherit; font-size: 12.5px; padding: 7px 12px; cursor: pointer; }
-  .sales-kpis { grid-template-columns: 1.7fr repeat(4, minmax(0, 1fr)); }   /* بطاقة البطل «المبيعات» أعرض */
+  .sales-kpis { grid-template-columns: 1.7fr repeat(3, minmax(0, 1fr)); }   /* بطاقة البطل «المبيعات» أعرض ＋ ٣ باقية (حُذف كرت التغطية) */
   .sales-kpis .kpi[data-k="sval"] { border-color: color-mix(in srgb, var(--gold) 30%, var(--border)); background: color-mix(in srgb, var(--gold) 5%, var(--panel)); }
   .sales-kpis .kpi[data-k="sval"] > b { font-size: 40px; }
   @media (max-width: 1100px) { .sales-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sales-kpis .kpi[data-k="sval"] { grid-column: 1 / -1; } .sales-kpis .kpi[data-k="sval"] > b { font-size: 34px; } }
@@ -1930,7 +1930,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "cd5e5a3";
+const APP_VERSION = "3f66b13";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3363,14 +3363,12 @@ async function renderSalesPage() {
     const curBranch = movs.filter(m => salesBizTs(m.captured_at) >= curSince && salesShown.includes(m.location) && uploadedInPeriod.has(m.location));
     const movedNow = new Set(curBranch.map(m => String(m.sku))).size;   // (١-أ) كود فريد عبر الفروع
     const movedPrev = prevSince != null ? new Set(movs.filter(m => { const t = salesBizTs(m.captured_at); return t >= prevSince && t < curSince && salesShown.includes(m.location) && uploadedInPeriod.has(m.location); }).map(m => String(m.sku))).size : null;
-    const covAvg = scope.covN ? Math.round(scope.cov / scope.covN) : null;
     const scRate = scope.unitRate > 0 ? Math.round(scope.unitRate) : null;   // (ب) Σ(وحدات الموقع÷أيام الموقع)
     // «المرصود» بتعريف واحد = أطول فترة موقع مرصودة (daysMax) ＋ عدّاد الرفعات منفصلاً (١-د)
     const observedDays = scope.daysMax, upCountScope = new Set(curBranch.map(m => m.upload_id)).size;
     if (lu) lu.innerHTML += ` &nbsp;·&nbsp; التغطية: معدّل <b>${scRate != null ? salesNum(scRate) : "—"}</b>/يوم · المرصود <b>${observedDays ? Math.round(observedDays * 10) / 10 : "—"}</b> يوم · <b>${upCountScope}</b> رفعة${salesCovInsufficient(observedDays) ? ` <span class="s4-lu-warn" title="المعدّل اليوميّ من فترة أقصر من ١٤ يوماً غير موثوق للتنبّؤ (التغطية والنفاد مبوّبان)">⚠ فترة قصيرة — التنبّؤ غير موثوق بعد</span>` : ""}`;
     const kpi = (k, icon, num, lbl, sub, trend, tip, sub2, unit) => `<div class="card kpi" data-k="${k}"${tip ? ` title="${esc(tip)}"` : ""}><span class="kpi-ic">${icon}</span><b><bdi dir="ltr">${num}</bdi>${unit ? `<span class="kpi-unit">${unit}</span>` : ""}</b><span class="kpi-lbl">${lbl}</span><span class="kpi-sub">${sub}</span>${sub2 ? `<span class="kpi-sub2">${sub2}</span>` : ""}${trend || ""}</div>`;
     const scopeLbl = salesLoc === "all" ? "جميع المواقع" : salesLocName(salesLoc);
-    const covGate = salesCovInsufficient(observedDays);
     const movedComparable = movedPrev != null && scope.pdaysMax > 0 && observedDays > 0;
     const branchLbl = salesLoc === "all" ? "الفروع" : salesLocName(salesLoc);
     const invTag = invIncludesWh ? ` · <span class="kpi-miss" title="يشمل مخزون المستودع مع الفروع — بخلاف مؤشّرات المبيعات (فروع فقط)" style="color:var(--info)">يشمل المستودع</span>` : "";
@@ -3378,8 +3376,8 @@ async function renderSalesPage() {
       kpi("sval", ic("spark"), salesNum(scope.val), `المبيعات المقدّرة (${branchLbl})`, `الفروع فقط — المستودع مخزن لا نقطة بيع <span class="incl-tag">شامل</span>`, salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "قيمة تقديرية للمبيع في الفروع = مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت). لا تشمل المستودع ولا الأصناف المختفية.", `قبل الضريبة <bdi dir="ltr">${salesNum(scope.valExcl)}</bdi> ر.س <span class="incl-tag">صافي</span>`, "ر.س") +
       kpi("sunits", ic("inbox"), salesNum(scope.units), "قطع بيعت (مقدّر)", "مجموع النقص في كميات أصناف الفروع", salesRateSpan(scope.unitRate, prevSince != null ? scope.punitRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "عدد القطع التي نقصت من مخزون الفروع خلال الفترة — كل نقص بيعٌ مقدّر (المستودع مستبعَد).", "", "قطعة") +
       kpi("smoved", ic("branch"), salesNum(movedNow), "منتجات متحرّكة", "أصناف تغيّرت كميتها في الفروع", salesCountSpan(movedNow, movedPrev, observedDays, scope.pdaysMax, "kpi-trend", prevBaselineOnly), "عدد أصناف الفروع الفريدة التي سُجّلت لها حركة كمية — منتج تحرّك في فرعين يُعدّ مرّة (المستودع مستبعَد).", "", "صنف") +
-      kpi("sinv", ic("warehouse"), salesNum(invScope.inv), "قيمة المخزون الحالية", `قيمة كل المخزون الآن (جميع الأصناف) <span class="incl-tag">شامل</span>`, "", "الكمية الحالية × سعرها لكل صنف — يشمل المستودع (مخزون فعليّ)، بخلاف المبيعات.", `قبل الضريبة <bdi dir="ltr">${salesNum(invScope.invExcl)}</bdi> ر.س <span class="incl-tag">صافي</span>${invScope.invExclMiss ? ` · <span class="kpi-miss" title="أصناف بلا سعر قبل الضريبة في العرض — مستبعدة من هذا الرقم لا محسوبة صفراً">${salesNum(invScope.invExclMiss)} صنفاً بلا سعر قبل الضريبة — مستبعدة</span>` : ""}${invTag}`, "ر.س") +
-      kpi("scov", ic("check"), covGate ? "—" : (covAvg != null ? String(covAvg) : "—"), "متوسط أيام التغطية", covGate ? salesCovGateSub(observedDays) : "متوسط على أصناف الفروع: الكمية ÷ معدّل البيع اليوميّ", "", covGate ? "كم يوماً يكفي مخزون الفروع بمعدّل البيع الأخير — يلزم ١٤ يوم رصد (المعدّل من فترة قصيرة يخدع)." : "متوسط أيام تكفي فيها كمية كل صنف بمعدّل بيعه اليوميّ الأخير (فروع).", "", covGate ? "" : "يوم");
+      kpi("sinv", ic("warehouse"), salesNum(invScope.inv), "قيمة المخزون الحالية", `قيمة كل المخزون الآن (جميع الأصناف) <span class="incl-tag">شامل</span>`, "", "الكمية الحالية × سعرها لكل صنف — يشمل المستودع (مخزون فعليّ)، بخلاف المبيعات.", `قبل الضريبة <bdi dir="ltr">${salesNum(invScope.invExcl)}</bdi> ر.س <span class="incl-tag">صافي</span>${invScope.invExclMiss ? ` · <span class="kpi-miss" title="أصناف بلا سعر قبل الضريبة في العرض — مستبعدة من هذا الرقم لا محسوبة صفراً">${salesNum(invScope.invExclMiss)} صنفاً بلا سعر قبل الضريبة — مستبعدة</span>` : ""}${invTag}`, "ر.س");
+    // (حُذف كرت «متوسط أيام التغطية» من الصفّ العلويّ — المتوسط يستر الحرج؛ القرار في جدول «مخاطر النفاد» بالأصناف)
     // (ج) صمّام الموقع الغائب — ماذا/لماذا/ما العمل
     const missBanner = document.getElementById("salesMissBanner");
     if (missBanner) {
