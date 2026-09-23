@@ -21,28 +21,48 @@ export const AIDIR = join(root, "supabase", "functions", "ai-assistant");
 export const BUNDLE_PATH = join(AIDIR, "ai-assistant.bundle.ts");
 const ORDER = ["sales_compute.mjs", "intents.mjs", "index.ts"];
 
+const nsOf = (f) => "__m_" + f.replace(/\.[^.]+$/, "").replace(/[^\w]/g, "_");   // sales_compute.mjs → __m_sales_compute
+
+// 🚨 عزل النطاقات: كل وحدة IIFE مستقلّة تُصدِّر ما يحتاجه الباقي فقط — 🚫 لا لصق متسلسل في النطاق العامّ
+//   (منع تصادم أسماء داخلية بين الملفات مهما تكرّرت). الأخيرة (index) IIFE تنفيذيّة (Deno.serve) بلا تصدير.
 export function buildBundle() {
-  const externals = [];                       // استيراد خارجيّ (esm.sh) — يتصدّر
-  const seenExt = new Set();
-  const bodies = [];
+  const externals = []; const seenExt = new Set();
+  const mods = [];
   for (const f of ORDER) {
     const src = readFileSync(join(AIDIR, f), "utf8").replace(/\r\n/g, "\n");
-    const body = [];
+    const body = []; const relImports = []; const exportNames = [];
     for (const ln of src.split("\n")) {
       if (/^\s*import\b/.test(ln)) {
-        if (/from\s+["']\.\//.test(ln)) continue;             // استيراد نسبيّ ⇒ محتواه مُدمَج، أسقطه
-        const t = ln.trim(); if (!seenExt.has(t)) { seenExt.add(t); externals.push(t); }   // خارجيّ ⇒ للأعلى (بلا تكرار)
+        const rel = ln.match(/^\s*import\s*\{([^}]*)\}\s*from\s*["']\.\/([\w.]+)["']/);
+        if (rel) { relImports.push({ names: rel[1].split(",").map((x) => x.trim()).filter(Boolean), from: rel[2] }); continue; }   // نسبيّ ⇒ سيُفكَّك من فضاء الوحدة المصدر
+        const t = ln.trim(); if (!seenExt.has(t)) { seenExt.add(t); externals.push(t); }   // خارجيّ ⇒ يتصدّر (خارج كل IIFE)
         continue;
       }
-      body.push(ln);
+      const mE = ln.match(/^export\s+(?:async\s+)?function\s+([\w$]+)/) || ln.match(/^export\s+const\s+([\w$]+)/);
+      if (mE) exportNames.push(mE[1]);
+      body.push(ln.replace(/^export\s+/, ""));   // إسقاط export داخل IIFE (لا يصحّ في دالّة)
     }
-    bodies.push(`// ===================== ${f} =====================\n` + body.join("\n").trim());
+    mods.push({ f, ns: nsOf(f), body: body.join("\n").trim(), relImports, exportNames });
+  }
+  const chunks = [];
+  for (let i = 0; i < mods.length; i++) {
+    const m = mods[i];
+    const destructures = m.relImports.map((ri) => `  const { ${ri.names.join(", ")} } = ${nsOf(ri.from)};`).join("\n");
+    const head = `// ===================== ${m.f} =====================\n`;
+    if (i < mods.length - 1) {
+      // وحدة مُصدِّرة: IIFE تُرجع صادراتها
+      chunks.push(`${head}const ${m.ns} = (() => {\n${destructures ? destructures + "\n" : ""}${m.body}\n  return { ${m.exportNames.join(", ")} };\n})();`);
+    } else {
+      // الأخيرة (index): IIFE تنفيذيّة (Deno.serve) — تفكّ ما تستورد ولا تُصدِّر
+      chunks.push(`${head}(() => {\n${destructures ? destructures + "\n" : ""}${m.body}\n})();`);
+    }
   }
   const header =
     "// ⚠ ملفّ مُولَّد آلياً بـ scripts/build-edge-bundle.mjs — 🚫 لا تحرّره يدوياً.\n" +
-    "// المصدر: sales_compute.mjs + intents.mjs + index.ts. حارس edge-bundle-sync يمنع انحرافه عن المصدر.\n" +
+    "// المصدر: sales_compute.mjs + intents.mjs + index.ts. حارس G-EDGE-BUNDLE يمنع انحرافه ويتحقّق من إقلاعه.\n" +
+    "// 🚨 كل وحدة في IIFE مستقلّة (عزل نطاق) — لا تصادم أسماء بين الملفات.\n" +
     "// النشر: الصق هذا الملف كاملاً في محرّر Supabase (index.ts) ثم Deploy — 🚫 بلا Add File.\n";
-  return header + "\n" + externals.join("\n") + "\n\n" + bodies.join("\n\n") + "\n";
+  return header + "\n" + externals.join("\n") + "\n\n" + chunks.join("\n\n") + "\n";
 }
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];

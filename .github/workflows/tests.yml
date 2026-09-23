@@ -260,9 +260,11 @@ jobs:
         run: node tests/perf/ai-cap.mjs --broken
       - name: G-AI-CAP — السقف من القاعدة (meta.cap/ai_usage_status) لا رقم ثابت في الواجهة
         run: node tests/perf/ai-cap.mjs
-      - name: Self-check — G-EDGE-BUNDLE يرسب حين ينحرف المدمج عن المصدر
+      - name: Self-check — G-EDGE-BUNDLE يرسب حين ينهار إقلاع المدمج (تصادم أسماء)
         run: node tests/edge-bundle-sync.mjs --broken
-      - name: G-EDGE-BUNDLE — الملفّ المدمج للنشر == المصادر الثلاثة (build-edge-bundle)
+      - name: Self-check — G-EDGE-BUNDLE يرسب حين ينحرف المدمج عن المصدر
+        run: node tests/edge-bundle-sync.mjs --broken-sync
+      - name: G-EDGE-BUNDLE — المدمج يطابق المصادر ＋ يُقلع محلّياً ＋ صفر import محلّيّ
         run: node tests/edge-bundle-sync.mjs
       - name: Self-check — G-AI-NUMBERS يرسب حين يمرّ رقم مُلفَّق بلا تحقّق
         run: node tests/ai-numbers.mjs --broken
