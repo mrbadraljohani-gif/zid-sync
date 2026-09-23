@@ -1221,6 +1221,7 @@
   .s4-tbl td.mono { font-family: var(--mono); font-size: 11px; color: var(--muted-2); }
   .s4-tbl td.nm { color: var(--text); white-space: normal; line-height: 1.5; min-width: 130px; max-width: 240px; overflow-wrap: anywhere; }
   .s4-tbl td.oth { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .s4-lu-warn { color: var(--amber); font-weight: 600; }
   .s4-tbl td.badt, .s4-tbl td.warnt { font-family: var(--sans); }   /* نصّ عربيّ («لا بيع»/«منذ X يوم») — لا خطّ أحاديّ يقطّع الحروف */
   .s4-tbl .warnt { color: var(--amber); } .s4-tbl .badt { color: var(--danger); }
   .s4-gate { padding: 22px 14px; text-align: center; color: var(--muted); font-size: 12.5px; line-height: 1.9; border: 1px dashed var(--border-strong); border-radius: 10px; }
@@ -1884,7 +1885,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "72a68fb";
+const APP_VERSION = "5f60f93";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2897,7 +2898,7 @@ function salesAgg(rows) {
 const salesNum = n => (Math.round(Number(n) || 0)).toLocaleString("en-US");
 function salesTrend(cur, prev) {   // مقارنة بالفترة السابقة (سهم بالنصّ لا إيموجي)
   if (prev == null) return "";
-  if (!prev) return cur ? `<span class="kpi-trend up">جديد</span>` : `<span class="kpi-trend flat">—</span>`;
+  if (!prev) return cur ? `<span class="kpi-trend flat" title="لا توجد فترة سابقة يُقارَن بها هذا الرقم بعد">لا فترة سابقة للمقارنة</span>` : `<span class="kpi-trend flat">—</span>`;
   const r = Math.round((cur - prev) / prev * 100), cls = r > 0 ? "up" : (r < 0 ? "down" : "flat");
   return `<span class="kpi-trend ${cls}">${r > 0 ? "+" : ""}${r}% عن السابق</span>`;
 }
@@ -2960,7 +2961,7 @@ function salesColData(loc, movs, stock, curSince, prevSince) {
   return { loc, name: salesLocName(loc), agg: a, pagg: pa, invValue: srows.length ? invValue : null, totalItems: srows.length, totalUnits, daysCovered, dailyRate, coverage, series: salesSeries(cur) };
 }
 const salesShort = n => { n = Number(n) || 0; return Math.abs(n) >= 1000 ? Math.round(n / 100) / 10 + "K" : String(Math.round(n)); };
-function scTrend(c, p) { if (p == null) return ""; if (!p) return c ? `<span class="scc-tr up">جديد</span>` : `<span class="scc-tr flat">—</span>`; const r = Math.round((c - p) / p * 100); return `<span class="scc-tr ${r > 0 ? "up" : r < 0 ? "down" : "flat"}">${r > 0 ? "+" : ""}${r}%</span>`; }
+function scTrend(c, p) { if (p == null) return ""; if (!p) return c ? `<span class="scc-tr flat" title="لا توجد فترة سابقة يُقارَن بها هذا الرقم بعد">لا فترة سابقة للمقارنة</span>` : `<span class="scc-tr flat">—</span>`; const r = Math.round((c - p) / p * 100); return `<span class="scc-tr ${r > 0 ? "up" : r < 0 ? "down" : "flat"}">${r > 0 ? "+" : ""}${r}% عن السابق</span>`; }
 // رسم خطّي SVG مضمّن (بلا مكتبة) — نقاط ＋ شبكة ＋ محاور
 function salesLineSVG(series, colorVar) {
   const W = 300, H = 120, padL = 34, padB = 18, padT = 8, padR = 6, col = `var(${colorVar})`;
@@ -3060,6 +3061,9 @@ function salesMultiLineSVG(seriesMap, order) {
 }
 let salesTab = "all", salesCtx = null, salesShowAll = {}, salesSearchOpen = false;
 const S4_STAGNANT_MIN_DAYS = 14, S4_NAFAD_DAYS = 30, S4_NOSALE_DAYS = 14;
+// أي مؤشّر مشتقّ من معدّل يوميّ (التغطية · النفاد) لا يُوثَق قبل ١٤ يوم رصد — رقم واثق من فترة قصيرة يخدع
+function salesCovInsufficient(days) { return (Number(days) || 0) < S4_STAGNANT_MIN_DAYS; }
+const salesCovGateSub = days => `يلزم ${S4_STAGNANT_MIN_DAYS} يوماً من الرصد (المرصود: ${Math.round((Number(days) || 0) * 10) / 10} يوم)`;
 function salesSetTab(t) { salesTab = t; salesShowAll = {}; if (salesCtx) renderSalesDetail(); }
 function salesToggleAll(k) { salesShowAll[k] = !salesShowAll[k]; renderSalesTables(); }   // «عرض الكل» ⇄ أعلى 10 (لا زرّ معطّل)
 const salesCap = (list, k) => salesShowAll[k] ? list : list.slice(0, 10);
@@ -3089,14 +3093,15 @@ function renderSalesDetail() {
   const coverage = (dailyRate && dailyRate > 0) ? Math.round(totUnits / dailyRate) : null;
   const upCount = new Set(cur.map(m => m.upload_id)).size;
   const name = (salesTab === "all") ? "جميع المواقع" : salesLocName(salesTab);
-  const card = (num, lbl, tr) => `<div class="card kpi" data-k="d"><b><bdi dir="ltr">${num}</bdi></b><span class="kpi-lbl">${lbl}</span>${tr || ""}</div>`;
+  const covGateD = salesCovInsufficient(daysCov);
+  const card = (num, lbl, sub, tip, tr) => `<div class="card kpi" data-k="d"${tip ? ` title="${esc(tip)}"` : ""}><b><bdi dir="ltr">${num}</bdi></b><span class="kpi-lbl">${lbl}</span>${sub ? `<span class="kpi-sub">${sub}</span>` : ""}${tr || ""}</div>`;
   wrap.innerHTML = `<div class="s4-dhead"><span class="s4-ic">${salesTab === "all" ? ic("branch") : salesLocIcon(salesTab)}</span><div><b style="font-size:16px">${esc(name)}</b><div style="font-size:11px;color:var(--muted)">مبيعات مقدّرة وتحليل تفصيليّ</div></div></div>`
     + `<div class="dash-kpis s4-dcards">`
-    + card(salesNum(a.estValue), "المبيعات المقدّرة", scTrend(a.estValue, pa.estValue))
-    + card(salesNum(a.units), "الوحدات المقدّرة", scTrend(a.units, pa.units))
-    + card(salesNum(a.moved.size), "منتج متحرّك", scTrend(a.moved.size, pa.moved.size))
-    + card(salesNum(inv), "قيمة المخزون الحالية", "")
-    + card(coverage != null ? coverage + " يوم" : "—", "أيام التغطية", "")
+    + card(salesNum(a.estValue), "المبيعات المقدّرة", "قيمة ما بيع هنا — شاملة الضريبة", "مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت وقت الرصد).", scTrend(a.estValue, pa.estValue))
+    + card(salesNum(a.units), "قطع بيعت (مقدّر)", "مجموع النقص في كميات الأصناف", "كل قطعة نقصت من المخزون تُعدّ بيعاً مقدّراً.", scTrend(a.units, pa.units))
+    + card(salesNum(a.moved.size), "منتجات متحرّكة", "أصناف تغيّرت كميتها (بيعاً أو شراءً)", "عدد الأصناف الفريدة التي سُجّلت لها حركة كمية.", scTrend(a.moved.size, pa.moved.size))
+    + card(salesNum(inv), "قيمة المخزون الحالية", "قيمة كل المخزون الآن — شاملة الضريبة", "الكمية الحالية × سعرها لكل صنف — لا يقتصر على المتحرّك.", "")
+    + card(covGateD ? "—" : (coverage != null ? coverage + " يوم" : "—"), "متوسط أيام التغطية", covGateD ? salesCovGateSub(daysCov) : "الكمية ÷ معدّل البيع اليوميّ", covGateD ? "" : "كم يوماً يكفي المخزون بمعدّل البيع الأخير.", "")
     + `</div>`
     + `<div class="s4-3tables"></div>`;
   salesCtx._tab = { cur, qtyBySku, priceBySku, daysCov, upCount, tabLocs };
@@ -3107,10 +3112,10 @@ function renderSalesTables() {
   const { cur, qtyBySku, priceBySku, daysCov, upCount, tabLocs } = salesCtx._tab;
   const q = normText(salesSearch || ""), match = (sku, nm) => !q || normText(String(sku || "") + " " + String(nm || "")).includes(q);
   const sMap = new Map(), lastSale = new Map();
-  for (const m of cur) { if (m.kind !== "estimated_sale") continue; const e = sMap.get(m.sku) || { sku: m.sku, name: m.sku_name || "", u: 0, v: 0 }; e.u += Math.abs(Number(m.delta) || 0); if (m.value_est != null) e.v += Number(m.value_est) || 0; if (m.sku_name && !e.name) e.name = m.sku_name; sMap.set(m.sku, e); const t = Date.parse(m.captured_at); if (!lastSale.has(m.sku) || t > lastSale.get(m.sku)) lastSale.set(m.sku, t); }
+  for (const m of cur) { if (m.kind !== "estimated_sale") continue; const e = sMap.get(m.sku) || { sku: m.sku, name: m.sku_name || "", u: 0, v: 0, p: null, pt: null }; e.u += Math.abs(Number(m.delta) || 0); if (m.value_est != null) e.v += Number(m.value_est) || 0; if (m.sku_name && !e.name) e.name = m.sku_name; const t = Date.parse(m.captured_at) || 0; if (m.unit_price_incl != null && (e.pt == null || t >= e.pt)) { e.p = Number(m.unit_price_incl); e.pt = t; }   /* سعر الوحدة المثبَّت في الحركة (أحدثها) — لا سعر المخزون الحالي */ sMap.set(m.sku, e); if (!lastSale.has(m.sku) || t > lastSale.get(m.sku)) lastSale.set(m.sku, t); }
   const sellers = salesCap([...sMap.values()].filter(x => match(x.sku, x.name)).sort((a, b) => b.v - a.v), "sellers");
   const sellersTbl = sellers.length
-    ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الوحدات</th><th class="n">القيمة</th></tr></thead><tbody>${sellers.map((x, i) => `<tr><td>${i + 1}</td><td class="nm">${esc(x.name) || "—"}</td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.u)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(x.v)}</bdi></td></tr>`).join("")}</tbody></table>`
+    ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الوحدات</th><th class="n">سعر الوحدة</th><th class="n">القيمة</th></tr></thead><tbody>${sellers.map((x, i) => `<tr><td>${i + 1}</td><td class="nm">${esc(x.name) || "—"}</td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.u)}</bdi></td><td class="n"><bdi dir="ltr">${x.p == null ? "—" : salesNum(x.p)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(x.v)}</bdi></td></tr>`).join("")}</tbody></table>`
     : `<div class="s4-gate">لا مبيعات مقدّرة في هذه الفترة.</div>`;
   const gate = daysCov < S4_STAGNANT_MIN_DAYS;
   const gateMsg = `<div class="s4-gate">التاريخ غير كافٍ للحكم — يلزم ${S4_STAGNANT_MIN_DAYS} يوماً من الرصد.<br>المرصود: ${upCount} رفعة · ${Math.round(daysCov * 10) / 10} يوم</div>`;
@@ -3118,11 +3123,11 @@ function renderSalesTables() {
   if (!gate) {
     const now = Date.now();
     const otherStatus = sku => { const others = salesCtx.locsAll.filter(l => !tabLocs.includes(l)); if (!others.length) return "—"; const sold = salesCtx.movs.some(m => m.kind === "estimated_sale" && m.sku === sku && others.includes(m.location) && Date.parse(m.captured_at) >= salesCtx.curSince); return sold ? "سريع في موقع آخر" : "راكد/غائب"; };
-    const raka = [...qtyBySku.entries()].map(([sku, qty]) => { const ls = lastSale.get(sku), days = ls ? Math.round((now - ls) / 86400000) : null, nm = (sMap.get(sku) || {}).name || "", pr = priceBySku.get(sku); return { sku, name: nm, qty, days, val: pr != null ? qty * pr : null }; })
+    const raka = [...qtyBySku.entries()].map(([sku, qty]) => { const ls = lastSale.get(sku), days = ls ? Math.round((now - ls) / 86400000) : null, nm = (sMap.get(sku) || {}).name || "", pr = priceBySku.get(sku); return { sku, name: nm, qty, days, unit: pr != null ? pr : null, val: pr != null ? qty * pr : null }; })
       .filter(x => x.qty > 0 && (x.days == null || x.days >= S4_NOSALE_DAYS) && match(x.sku, x.name)).sort((a, b) => (b.days || 99999) - (a.days || 99999));
     const rakaTop = salesCap(raka, "raka");
     rakaTbl = rakaTop.length
-      ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الكمية</th><th class="n">آخر حركة</th><th class="n">القيمة</th><th>في المواقع الأخرى</th></tr></thead><tbody>${rakaTop.map((x, i) => `<tr><td>${i + 1}</td><td class="nm">${esc(x.name) || "—"}</td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.days == null ? "لا بيع" : "منذ " + x.days + " يوم"}</td><td class="n"><bdi dir="ltr">${x.val == null ? "—" : salesNum(x.val)}</bdi></td><td class="oth">${esc(otherStatus(x.sku))}</td></tr>`).join("")}</tbody></table>`
+      ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الكمية</th><th class="n">آخر حركة</th><th class="n">سعر الوحدة</th><th class="n">القيمة</th><th>في المواقع الأخرى</th></tr></thead><tbody>${rakaTop.map((x, i) => `<tr><td>${i + 1}</td><td class="nm">${esc(x.name) || "—"}</td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.days == null ? "لا بيع" : "منذ " + x.days + " يوم"}</td><td class="n"><bdi dir="ltr">${x.unit == null ? "—" : salesNum(x.unit)}</bdi></td><td class="n"><bdi dir="ltr">${x.val == null ? "—" : salesNum(x.val)}</bdi></td><td class="oth">${esc(otherStatus(x.sku))}</td></tr>`).join("")}</tbody></table>`
       : `<div class="s4-gate">لا أصناف راكدة في هذا الموقع.</div>`;
     const nafadAll = [...qtyBySku.entries()].map(([sku, qty]) => { const s = sMap.get(sku), sold = s ? s.u : 0, dr = daysCov > 0 ? sold / daysCov : 0, cov = dr > 0 ? Math.round(qty / dr) : null; return { sku, name: (s || {}).name || "", qty, cov }; })
       .filter(x => x.qty > 0 && x.cov != null && x.cov < S4_NAFAD_DAYS && match(x.sku, x.name)).sort((a, b) => a.cov - b.cov);
@@ -3169,15 +3174,16 @@ async function renderSalesPage() {
     const covAvg = scope.covN ? Math.round(scope.cov / scope.covN) : null;
     const scRate = scope.days > 0 ? Math.round(scope.units / scope.days) : null;
     // توضيح التغطية: معدّل البيع اليوميّ ＋ الفترة المرصودة (period_days) — على سطر آخر رفعة
-    if (lu) lu.innerHTML += ` &nbsp;·&nbsp; التغطية: معدّل <b>${scRate != null ? salesNum(scRate) : "—"}</b>/يوم · الفترة تغطّي <b>${scope.days ? Math.round(scope.days * 10) / 10 : "—"}</b> يوم`;
-    const kpi = (k, icon, num, lbl, sub, trend) => `<div class="card kpi" data-k="${k}"><span class="kpi-ic">${icon}</span><b><bdi dir="ltr">${num}</bdi></b><span class="kpi-lbl">${lbl}</span><span class="kpi-sub">${sub}</span>${trend || ""}</div>`;
+    if (lu) lu.innerHTML += ` &nbsp;·&nbsp; التغطية: معدّل <b>${scRate != null ? salesNum(scRate) : "—"}</b>/يوم · الفترة تغطّي <b>${scope.days ? Math.round(scope.days * 10) / 10 : "—"}</b> يوم${salesCovInsufficient(scope.days) ? ` <span class="s4-lu-warn" title="المعدّل اليوميّ من فترة أقصر من ١٤ يوماً غير موثوق للتنبّؤ (التغطية والنفاد مبوّبان)">⚠ فترة قصيرة — التنبّؤ غير موثوق بعد</span>` : ""}`;
+    const kpi = (k, icon, num, lbl, sub, trend, tip) => `<div class="card kpi" data-k="${k}"${tip ? ` title="${esc(tip)}"` : ""}><span class="kpi-ic">${icon}</span><b><bdi dir="ltr">${num}</bdi></b><span class="kpi-lbl">${lbl}</span><span class="kpi-sub">${sub}</span>${trend || ""}</div>`;
     const scopeLbl = salesLoc === "all" ? "جميع المواقع" : salesLocName(salesLoc);
+    const covGate = salesCovInsufficient(scope.days);
     document.getElementById("salesKpis").innerHTML =
-      kpi("sval", ic("spark"), salesNum(scope.val), `المبيعات المقدّرة (${scopeLbl})`, "شاملة الضريبة", salesTrend(scope.val, prevSince != null ? scope.pval : null)) +
-      kpi("sunits", ic("inbox"), salesNum(scope.units), "الوحدات المقدّرة", "بيع مقدّر", salesTrend(scope.units, prevSince != null ? scope.punits : null)) +
-      kpi("smoved", ic("branch"), salesNum(movedNow), "منتجات متحرّكة", "في الفترة", salesTrend(movedNow, movedPrev)) +
-      kpi("sinv", ic("warehouse"), salesNum(scope.inv), "قيمة المخزون الحالية", "شاملة الضريبة", "") +
-      kpi("scov", ic("check"), covAvg != null ? covAvg + " يوم" : "—", "متوسط أيام التغطية", "الكمية ÷ معدّل البيع اليوميّ", "");
+      kpi("sval", ic("spark"), salesNum(scope.val), `المبيعات المقدّرة (${scopeLbl})`, "قيمة ما بيع خلال الفترة — شاملة الضريبة", salesTrend(scope.val, prevSince != null ? scope.pval : null), "قيمة تقديرية للمبيع = مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت وقت الرصد). لا تشمل الشراء ولا الأصناف المختفية.") +
+      kpi("sunits", ic("inbox"), salesNum(scope.units), "قطع بيعت (مقدّر)", "مجموع النقص في كميات كل الأصناف", salesTrend(scope.units, prevSince != null ? scope.punits : null), "عدد القطع التي نقصت من المخزون خلال الفترة — كل نقص يُعدّ بيعاً مقدّراً (لا نقل بين الفروع).") +
+      kpi("smoved", ic("branch"), salesNum(movedNow), "منتجات متحرّكة", "أصناف تغيّرت كميتها (بيعاً أو شراءً)", salesTrend(movedNow, movedPrev), "عدد الأصناف الفريدة التي سُجّلت لها أي حركة كمية (نقص بيعاً أو زيادة شراءً) خلال الفترة.") +
+      kpi("sinv", ic("warehouse"), salesNum(scope.inv), "قيمة المخزون الحالية", "قيمة كل المخزون الآن (جميع الأصناف) — شاملة الضريبة", "", "الكمية الحالية × سعرها لكل صنف في المخزون — لا يقتصر على المتحرّك.") +
+      kpi("scov", ic("check"), covGate ? "—" : (covAvg != null ? covAvg + " يوم" : "—"), "متوسط أيام التغطية", covGate ? salesCovGateSub(scope.days) : "متوسط على الأصناف: الكمية ÷ معدّل البيع اليوميّ", "", covGate ? "كم يوماً يكفي المخزون بمعدّل البيع الأخير — يلزم ١٤ يوم رصد ليكون موثوقاً (المعدّل من فترة قصيرة يخدع)." : "متوسط أيام تكفي فيها كمية كل صنف بمعدّل بيعه اليوميّ الأخير.");
     // بانر المختفي (يعود عند التحميل؛ «عرض التفاصيل» قائمة حقيقية)
     const banner = document.getElementById("salesBanner");
     if (scope.disC && !salesBannerDismissed) { banner.style.display = "flex"; banner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>تنبيه: <b>${scope.disC}</b> منتجاً بقيمة <bdi dir="ltr">${salesNum(scope.disV)}</bdi> ر.س اختفت من الملفات (غائبة عن المخزن) — مستبعدة من المبيعات المقدّرة.</span><a class="lnk" onclick="salesShowDisappeared()">عرض التفاصيل ←</a><button class="x" onclick="salesDismissBanner()" aria-label="إغلاق">✕</button>`; }

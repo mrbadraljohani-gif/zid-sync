@@ -30,8 +30,8 @@ const res = await p.evaluate(async () => {
   salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
   const now = new Date().toISOString();
   const movs = [
-    { kind: "estimated_sale", delta: -5, value_est: 500, location: "wh", sku: "A1", sku_name: "طقم مفارش", upload_id: "U", captured_at: now, period_days: 2 },
-    { kind: "estimated_sale", delta: -3, value_est: 300, location: "wh", sku: "B2", sku_name: "مقلاة", upload_id: "U", captured_at: now, period_days: 2 },
+    { kind: "estimated_sale", delta: -5, value_est: 500, unit_price_incl: 100, location: "wh", sku: "A1", sku_name: "طقم مفارش", upload_id: "U", captured_at: now, period_days: 2 },
+    { kind: "estimated_sale", delta: -3, value_est: 300, unit_price_incl: 100, location: "wh", sku: "B2", sku_name: "مقلاة", upload_id: "U", captured_at: now, period_days: 2 },
     { kind: "purchase", delta: 4, location: "az", sku: "C3", sku_name: "لحاف", upload_id: "U", captured_at: now, period_days: 2 },
   ];
   const stock = [{ location: "wh", sku: "A1", name: "طقم مفارش", qty: 40, price_incl: 100 }, { location: "wh", sku: "B2", name: "مقلاة", qty: 12, price_incl: 80 }];
@@ -47,6 +47,9 @@ const res = await p.evaluate(async () => {
   const tabCount = document.querySelectorAll("#salesTabs .s4-tab").length;
   const tbls = document.querySelectorAll("#salesDetail .s4-3tables .s4-tbl");
   const firstSellerVal = (document.querySelector("#salesDetail .s4-3tables .s4-tbl table tbody tr td.n:last-child bdi") || {}).textContent || "";
+  // عمود سعر الوحدة في «الأكثر مبيعاً» (المثبَّت في الحركة)
+  const sellersHdr = txt(document.querySelector("#salesDetail .s4-3tables .s4-tbl table thead tr"));
+  const firstSellerUnit = (document.querySelector("#salesDetail .s4-3tables .s4-tbl table tbody tr td.n:nth-last-child(2) bdi") || {}).textContent || "";
   const gates = [...document.querySelectorAll("#salesDetail .s4-gate")].map(txt);
   // ④ البحث: المكبّر داخل جدول «الأكثر مبيعاً» — لا مربع مستقلّ
   const oldBox = !!document.querySelector("#salesDetail .s4-search");
@@ -57,7 +60,7 @@ const res = await p.evaluate(async () => {
   onSalesTblSearch("مقلاة");
   const afterSearchRows = document.querySelectorAll("#salesDetail .s4-3tables .s4-tbl table tbody tr").length;
   const afterSearchTxt = txt(document.querySelector("#salesDetail .s4-3tables .s4-tbl table tbody tr"));
-  return { tabCount, tblCount: tbls.length, firstSellerVal, gates, afterSearchRows, afterSearchTxt, oldBox, srchBtn, inpBeforeToggle, inpAfterToggle };
+  return { tabCount, tblCount: tbls.length, firstSellerVal, firstSellerUnit, sellersHdr, gates, afterSearchRows, afterSearchTxt, oldBox, srchBtn, inpBeforeToggle, inpAfterToggle };
 });
 await b.close();
 const fails = [];
@@ -74,6 +77,8 @@ if (!BROKEN) {
   if (!res.srchBtn) fails.push("أيقونة المكبّر .s4-srch-btn غير موجودة داخل جدول «الأكثر مبيعاً»");
   if (res.inpBeforeToggle) fails.push("حقل البحث ظاهر قبل النقر على المكبّر (يجب أن يكون منسدلاً)");
   if (!res.inpAfterToggle) fails.push("النقر على المكبّر لم يُظهر حقل البحث");
+  if (!/سعر الوحدة/.test(res.sellersHdr)) fails.push("عمود «سعر الوحدة» غير موجود في رأس «الأكثر مبيعاً»");
+  if (res.firstSellerUnit.replace(/[^\d]/g, "") !== "100") fails.push(`سعر الوحدة (المثبَّت في الحركة) للأعلى ليس 100: «${res.firstSellerUnit}»`);
 }
 if (BROKEN) {
   if (fails.length || res.gates.filter(g => /التاريخ غير كافٍ/.test(g)).length < 2) { console.log("✅ (--broken) G-SALES-DETAIL مسك العطل (بلا بوّابة التاريخ)"); process.exit(0); }

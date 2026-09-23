@@ -190,6 +190,10 @@ jobs:
         run: node tests/perf/sales-detail.mjs --broken
       - name: G-SALES-DETAIL — تبويب + الأكثر مبيعاً + الراكد/النفاد مبوّبان بالتاريخ غير الكافٍ + البحث
         run: node tests/perf/sales-detail.mjs
+      - name: Self-check — حارس بوّابة التغطية يرسب بإلغاء salesCovInsufficient
+        run: node tests/perf/sales-coverage.mjs --broken
+      - name: G-SALES-COV — التغطية مبوّبة «يلزم 14 يوماً» عند رصد قصير (مؤشّرات المعدّل اليوميّ)
+        run: node tests/perf/sales-coverage.mjs
       - name: Self-check — حارس عزل الأدوار يرسب بإظهار المبيعات لـadmin
         run: node tests/perf/role-sales.mjs --broken
       - name: G-ROLE-SALES — عزل شاشة المبيعات بالدور (واجهة + بنية SQL؛ admin بلا شاشة · marketing عليها فقط)
