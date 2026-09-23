@@ -1176,6 +1176,7 @@
   .s4-banner .x { cursor: pointer; color: var(--muted); border: 0; background: none; font-size: 16px; line-height: 1; padding: 0 4px; }
   .s4-banner.miss { background: color-mix(in srgb, var(--danger) 12%, transparent); border-color: color-mix(in srgb, var(--danger) 36%, transparent); color: var(--danger); }
   .kpi .kpi-sub2 { font-size: 10.5px; color: var(--muted-2); font-weight: 600; font-family: var(--mono); }
+  .kpi .kpi-sub2 .kpi-miss { color: var(--amber); font-family: var(--sans); }
   .kpi .kpi-trend .trend-dur { font-family: var(--mono); color: var(--muted-2); font-weight: 600; font-size: 10px; margin-inline-start: 4px; }
   .sc-card .scc-tr .trend-dur, #salesCmp .scc-tr .trend-dur { font-family: var(--mono); color: var(--muted-2); font-weight: 600; font-size: 9.5px; margin-inline-start: 3px; }
   #salesCmp tr.noup td { color: var(--muted); } #salesCmp td.noupc { text-align: center; color: var(--muted); font-style: normal; }
@@ -1893,7 +1894,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "ce28ac8";
+const APP_VERSION = "70dbdc4";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2961,7 +2962,7 @@ function renderSalesLastUp(ups) {
 // لقطة المخزون من العرض sales_stock (لا الجداول الأساس ⇒ يعمل لـmarketing) — مُصفّحة، قراءة واحدة لكل الأعمدة
 async function salesStockRows() {
   const out = [], page = 1000; let from = 0;
-  for (;;) { const { data, error } = await sb.from("sales_stock").select("location,sku,name,qty,price_incl").range(from, from + page - 1); if (error) throw error; out.push(...(data || [])); if (!data || data.length < page) break; from += page; }
+  for (;;) { const { data, error } = await sb.from("sales_stock").select("location,sku,name,qty,price_incl,price_excl").range(from, from + page - 1); if (error) throw error; out.push(...(data || [])); if (!data || data.length < page) break; from += page; }
   return out;
 }
 // سلسلة زمنية يومية لقيمة البيع المقدّر (للرسم الخطّي)
@@ -2977,7 +2978,7 @@ function salesColData(loc, movs, stock, curSince, prevSince) {
   const prev = prevSince != null ? lm.filter(m => { const t = salesBizTs(m.captured_at); return t >= prevSince && t < curSince; }) : [];
   const a = salesAgg(cur), pa = salesAgg(prev);
   const srows = stock.filter(r => r.location === loc);
-  let invValue = 0, totalUnits = 0; for (const r of srows) { const q = numOrNull(r.qty), p = numOrNull(r.price_incl); if (q != null) totalUnits += q; if (q != null && p != null) invValue += q * p; }
+  let invValue = 0, invValueExcl = 0, invExclMissing = 0, totalUnits = 0; for (const r of srows) { const q = numOrNull(r.qty), p = numOrNull(r.price_incl), pe = numOrNull(r.price_excl); if (q != null) totalUnits += q; if (q != null && p != null) invValue += q * p; if (q != null && pe != null) invValueExcl += q * pe; else if (q != null && pe == null) invExclMissing++; }   // «قبل الضريبة» من price_excl مباشرةً؛ صنف بلا سعر excl يُستبعَد ويُعدّ (لا صفر بصمت)
   // أيام التغطية المرصودة = Σ period_days المتمايزة لكل رفعة (لا عدد الرفعات)
   const perUp = new Map(); for (const m of cur) if (m.period_days != null && !perUp.has(m.upload_id)) perUp.set(m.upload_id, Number(m.period_days) || 0);
   let daysCovered = 0; for (const d of perUp.values()) daysCovered += d;
@@ -2986,7 +2987,7 @@ function salesColData(loc, movs, stock, curSince, prevSince) {
   const dailyRate = daysCovered > 0 ? a.units / daysCovered : null;           // الوحدات ÷ period_days المجموعة (لا عدد الرفعات)
   const coverage = (dailyRate && dailyRate > 0) ? Math.round(totalUnits / dailyRate) : null;   // الكمية ÷ المعدّل اليوميّ
   const hasUpload = cur.length > 0 || daysCovered > 0;   // للتمييز «رُفع بلا مبيعات» عن «لم يُرفع» — يُدقَّق فوقه بـuploadedInPeriod
-  return { loc, name: salesLocName(loc), agg: a, pagg: pa, invValue: srows.length ? invValue : null, totalItems: srows.length, totalUnits, daysCovered, prevDaysCovered, dailyRate, coverage, hasUpload, series: salesSeries(cur) };
+  return { loc, name: salesLocName(loc), agg: a, pagg: pa, invValue: srows.length ? invValue : null, invValueExcl: srows.length ? invValueExcl : null, invExclMissing, totalItems: srows.length, totalUnits, daysCovered, prevDaysCovered, dailyRate, coverage, hasUpload, series: salesSeries(cur) };
 }
 const salesShort = n => { n = Number(n) || 0; return Math.abs(n) >= 1000 ? Math.round(n / 100) / 10 + "K" : String(Math.round(n)); };
 function scTrend(c, p) { if (p == null) return ""; if (!p) return c ? `<span class="scc-tr flat" title="لا توجد فترة سابقة يُقارَن بها هذا الرقم بعد">لا فترة سابقة للمقارنة</span>` : `<span class="scc-tr flat">—</span>`; const r = Math.round((c - p) / p * 100); return `<span class="scc-tr ${r > 0 ? "up" : r < 0 ? "down" : "flat"}">${r > 0 ? "+" : ""}${r}% عن السابق</span>`; }
@@ -3160,8 +3161,8 @@ function renderSalesDetail() {
   const prev = prevSince != null ? movs.filter(m => { const t = salesBizTs(m.captured_at); return t >= prevSince && t < curSince && tabLocs.includes(m.location); }) : [];
   const a = salesAgg(cur), pa = salesAgg(prev);
   const srows = stock.filter(r => tabLocs.includes(r.location));
-  let inv = 0, totUnits = 0; const qtyBySku = new Map(), priceBySku = new Map();
-  for (const r of srows) { const qn = numOrNull(r.qty), pn = numOrNull(r.price_incl); if (qn != null) { totUnits += qn; qtyBySku.set(r.sku, (qtyBySku.get(r.sku) || 0) + qn); } if (qn != null && pn != null) { inv += qn * pn; if (!priceBySku.has(r.sku)) priceBySku.set(r.sku, pn); } }
+  let inv = 0, invExcl = 0, invExclMiss = 0, totUnits = 0; const qtyBySku = new Map(), priceBySku = new Map();
+  for (const r of srows) { const qn = numOrNull(r.qty), pn = numOrNull(r.price_incl), pe = numOrNull(r.price_excl); if (qn != null) { totUnits += qn; qtyBySku.set(r.sku, (qtyBySku.get(r.sku) || 0) + qn); } if (qn != null && pn != null) { inv += qn * pn; if (!priceBySku.has(r.sku)) priceBySku.set(r.sku, pn); } if (qn != null && pe != null) invExcl += qn * pe; else if (qn != null && pe == null) invExclMiss++; }
   const perUp = new Map(); for (const m of cur) if (m.period_days != null && !perUp.has(m.upload_id)) perUp.set(m.upload_id, Number(m.period_days) || 0);
   let daysCov = 0; for (const v of perUp.values()) daysCov += v;
   const perUpP = new Map(); for (const m of prev) if (m.period_days != null && !perUpP.has(m.upload_id)) perUpP.set(m.upload_id, Number(m.period_days) || 0);
@@ -3177,7 +3178,7 @@ function renderSalesDetail() {
     + card(salesNum(a.estValue), "المبيعات المقدّرة", "قيمة ما بيع هنا — شاملة الضريبة", "مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت وقت الرصد).", salesRateTrend(a.estValue, daysCov, pa.estValue, prevDaysCov, "scc-tr"), `قبل الضريبة: <bdi dir="ltr">${salesNum(a.estValueExcl)}</bdi> ر.س`)
     + card(salesNum(a.units), "قطع بيعت (مقدّر)", "مجموع النقص في كميات الأصناف", "كل قطعة نقصت من المخزون تُعدّ بيعاً مقدّراً.", salesRateTrend(a.units, daysCov, pa.units, prevDaysCov, "scc-tr"))
     + card(salesNum(a.movedSku.size), "منتجات متحرّكة", "أصناف تغيّرت كميتها (بيعاً أو شراءً)", "عدد الأصناف الفريدة — منتج تحرّك في فرعين يُعدّ مرّة.", salesCountSpan(a.movedSku.size, pa.movedSku.size, daysCov, prevDaysCov, "scc-tr"))
-    + card(salesNum(inv), "قيمة المخزون الحالية", "قيمة كل المخزون الآن — شاملة الضريبة", "الكمية الحالية × سعرها لكل صنف — لا يقتصر على المتحرّك.", "")
+    + card(salesNum(inv), "قيمة المخزون الحالية", "قيمة كل المخزون الآن — شاملة الضريبة", "الكمية الحالية × سعرها لكل صنف — لا يقتصر على المتحرّك.", "", `قبل الضريبة: <bdi dir="ltr">${salesNum(invExcl)}</bdi> ر.س${invExclMiss ? ` · <span class="kpi-miss" title="مستبعدة من هذا الرقم لا محسوبة صفراً">${salesNum(invExclMiss)} بلا سعر قبل الضريبة</span>` : ""}`)
     + card(covGateD ? "—" : (coverage != null ? coverage + " يوم" : "—"), "متوسط أيام التغطية", covGateD ? salesCovGateSub(daysCov) : "الكمية ÷ معدّل البيع اليوميّ", covGateD ? "" : "كم يوماً يكفي المخزون بمعدّل البيع الأخير.", "")
     + `</div>`
     + `<div class="s4-3tables"></div>`;
@@ -3258,12 +3259,13 @@ async function renderSalesPage() {
     // scope: قيم مجمّعة ＋ معدّلات يوميّة per-location (ب: كل موقع بفترته، لا فترة موحّدة)
     const scope = dataActive.reduce((s, d) => {
       s.val += d.agg.estValue; s.valExcl += d.agg.estValueExcl; s.units += d.agg.units; s.inv += (d.invValue || 0);
+      s.invExcl += (d.invValueExcl || 0); s.invExclMiss += (d.invExclMissing || 0);
       s.noPrice += d.agg.noPrice; s.disC += d.agg.disCount; s.disV += d.agg.disValue;
       if (d.daysCovered > 0) { s.valRate += d.agg.estValue / d.daysCovered; s.unitRate += d.agg.units / d.daysCovered; s.daysMax = Math.max(s.daysMax, d.daysCovered); }
       if (d.prevDaysCovered > 0) { s.pvalRate += d.pagg.estValue / d.prevDaysCovered; s.punitRate += d.pagg.units / d.prevDaysCovered; s.pdaysMax = Math.max(s.pdaysMax, d.prevDaysCovered); }
       if (d.coverage != null) { s.cov += d.coverage; s.covN++; }
       return s;
-    }, { val: 0, valExcl: 0, units: 0, inv: 0, noPrice: 0, disC: 0, disV: 0, valRate: 0, unitRate: 0, pvalRate: 0, punitRate: 0, daysMax: 0, pdaysMax: 0, cov: 0, covN: 0 });
+    }, { val: 0, valExcl: 0, units: 0, inv: 0, invExcl: 0, invExclMiss: 0, noPrice: 0, disC: 0, disV: 0, valRate: 0, unitRate: 0, pvalRate: 0, punitRate: 0, daysMax: 0, pdaysMax: 0, cov: 0, covN: 0 });
     const curActive = curAll.filter(m => uploadedInPeriod.has(m.location));
     const movedNow = new Set(curActive.map(m => String(m.sku))).size;   // (١-أ) كود فريد عبر المواقع
     const movedPrev = prevSince != null ? new Set(movs.filter(m => { const t = salesBizTs(m.captured_at); return t >= prevSince && t < curSince && uploadedInPeriod.has(m.location); }).map(m => String(m.sku))).size : null;
@@ -3280,7 +3282,7 @@ async function renderSalesPage() {
       kpi("sval", ic("spark"), salesNum(scope.val), `المبيعات المقدّرة (${scopeLbl})`, "قيمة ما بيع خلال الفترة — شاملة الضريبة", salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "قيمة تقديرية للمبيع = مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت وقت الرصد). لا تشمل الشراء ولا الأصناف المختفية.", `قبل الضريبة: <bdi dir="ltr">${salesNum(scope.valExcl)}</bdi> ر.س`) +
       kpi("sunits", ic("inbox"), salesNum(scope.units), "قطع بيعت (مقدّر)", "مجموع النقص في كميات كل الأصناف", salesRateSpan(scope.unitRate, prevSince != null ? scope.punitRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "عدد القطع التي نقصت من المخزون خلال الفترة — كل نقص يُعدّ بيعاً مقدّراً (لا نقل بين الفروع).") +
       kpi("smoved", ic("branch"), salesNum(movedNow), "منتجات متحرّكة", "أصناف تغيّرت كميتها (بيعاً أو شراءً)", salesCountSpan(movedNow, movedPrev, observedDays, scope.pdaysMax, "kpi-trend", prevBaselineOnly), "عدد الأصناف الفريدة التي سُجّلت لها أي حركة كمية (نقص بيعاً أو زيادة شراءً) خلال الفترة — منتج تحرّك في فرعين يُعدّ مرّة.") +
-      kpi("sinv", ic("warehouse"), salesNum(scope.inv), "قيمة المخزون الحالية", "قيمة كل المخزون الآن (جميع الأصناف) — شاملة الضريبة", "", "الكمية الحالية × سعرها لكل صنف في المخزون — لا يقتصر على المتحرّك.", `قبل الضريبة: — <span title="عرض sales_stock لا يُصدّر price_excl بعد">(غير متاح)</span>`) +
+      kpi("sinv", ic("warehouse"), salesNum(scope.inv), "قيمة المخزون الحالية", "قيمة كل المخزون الآن (جميع الأصناف) — شاملة الضريبة", "", "الكمية الحالية × سعرها لكل صنف في المخزون — لا يقتصر على المتحرّك.", `قبل الضريبة: <bdi dir="ltr">${salesNum(scope.invExcl)}</bdi> ر.س${scope.invExclMiss ? ` · <span class="kpi-miss" title="أصناف بلا سعر قبل الضريبة في العرض — مستبعدة من هذا الرقم لا محسوبة صفراً">${salesNum(scope.invExclMiss)} صنفاً بلا سعر قبل الضريبة — مستبعدة</span>` : ""}`) +
       kpi("scov", ic("check"), covGate ? "—" : (covAvg != null ? covAvg + " يوم" : "—"), "متوسط أيام التغطية", covGate ? salesCovGateSub(observedDays) : "متوسط على الأصناف: الكمية ÷ معدّل البيع اليوميّ", "", covGate ? "كم يوماً يكفي المخزون بمعدّل البيع الأخير — يلزم ١٤ يوم رصد ليكون موثوقاً (المعدّل من فترة قصيرة يخدع)." : "متوسط أيام تكفي فيها كمية كل صنف بمعدّل بيعه اليوميّ الأخير.");
     // (ج) صمّام الموقع الغائب — ماذا/لماذا/ما العمل
     const missBanner = document.getElementById("salesMissBanner");

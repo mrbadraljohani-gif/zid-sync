@@ -230,6 +230,10 @@ jobs:
         run: node tests/perf/sales-singlepoint.mjs --broken
       - name: G-SINGLEPOINT — موقع بنقطة واحدة وقيمة>0 له علامة بارزة (لا يختفي)
         run: node tests/perf/sales-singlepoint.mjs
+      - name: Self-check — G-TAX-STOCK يرسب حين يُحسب الصنف بلا price_excl صفراً
+        run: node tests/perf/sales-tax-stock.mjs --broken
+      - name: G-TAX-STOCK — قيمة المخزون قبل الضريبة من price_excl؛ الناقص مستبعَد بعدّاد
+        run: node tests/perf/sales-tax-stock.mjs
       - name: Self-check — حارس عزل الأدوار يرسب بإظهار المبيعات لـadmin
         run: node tests/perf/role-sales.mjs --broken
       - name: G-ROLE-SALES — عزل شاشة المبيعات بالدور (واجهة + بنية SQL؛ admin بلا شاشة · marketing عليها فقط)
