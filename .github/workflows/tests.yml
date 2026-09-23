@@ -246,6 +246,14 @@ jobs:
         run: node tests/perf/role-sales.mjs --broken
       - name: G-ROLE-SALES — عزل شاشة المبيعات بالدور (واجهة + بنية SQL؛ admin بلا شاشة · marketing عليها فقط)
         run: node tests/perf/role-sales.mjs
+      - name: Self-check — G-AI-PARITY يرسب حين تُكسَر قاعدة (يُدخل المستودع ⇒ رقم المساعد يتضخّم)
+        run: node tests/perf/ai-parity.mjs --broken
+      - name: G-AI-PARITY — تكافؤ المساعد مع الشاشة (نفس الفترة/الموقع ⇒ نفس الرقم بالضبط)
+        run: node tests/perf/ai-parity.mjs
+      - name: Self-check — G-AI-SCOPE يرسب حين يُنشأ حقل المساعد لغير owner
+        run: node tests/perf/ai-scope.mjs --broken
+      - name: G-AI-SCOPE — عزل المساعد (owner فقط · يستدعي الدالّة ويقرأ ai_usage فقط · لا كتابة/مساس بالمطابقة)
+        run: node tests/perf/ai-scope.mjs
       - name: Self-check — G-CMP-LAYOUT يرسب حين يُبتر محور الرسم (بلا direction:ltr)
         run: node tests/perf/sales-cmp-layout.mjs --broken
       - name: G-CMP-LAYOUT — جدول المقارنة بلا تلاصق ＋ وحدات عربية ملتصقة ＋ محور الرسم بلا بتر
