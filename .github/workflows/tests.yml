@@ -302,6 +302,10 @@ jobs:
         run: node tests/ai-coverage-wording.mjs --broken
       - name: G-AI-COVERAGE-WORDING — الجواب يبدأ بالنقص لا ينتهي به (المرصود < المطلوب)
         run: node tests/ai-coverage-wording.mjs
+      - name: Self-check — G-AI-NOTE يرسب حين يصير النوت path-dependent
+        run: node tests/ai-note.mjs --broken
+      - name: G-AI-NOTE — سطر التنويه من النطاق لا مسار الردّ (نصّ واحد للناجح والمتدهور)
+        run: node tests/ai-note.mjs
       - name: Self-check — G-AI-NAMES يرسب حين يبتلع التنظيف الأوصاف
         run: node tests/ai-names.mjs --broken
       - name: G-AI-NAMES — فصل اسم المنتج عن قائمة الأكواد (يبقي الأوصاف · الأصل محفوظ)

@@ -12,7 +12,7 @@
 // ============================================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { runIntent, INTENT_KEYS, INTENT_AR, RATE_MIN_DAYS, periodLabel, scopeLabel, collectSourceNumbers, verifyAnswerNumbers, summarizeResult, enforceCoverageLead } from "./intents.mjs";
-import { observedWindowDays } from "./sales_compute.mjs";
+import { observedWindowDays, SALES_EXTRA_LOCS } from "./sales_compute.mjs";
 
 const MAX_INTENTS = 5;   // (٩-أ) حدّ أقصى للنوايا في السؤال الواحد
 const SALES_INTENTS = new Set(["sales_summary", "top_sellers", "bottom_sellers", "product_movement", "period_comparison", "location_comparison", "stagnant_inventory", "stockout_risk", "biggest_decliners"]);
@@ -71,13 +71,13 @@ function classifyInstruction(branchNames) {
 const PHRASE_INSTRUCTION = [
   "أنت مساعد يشرح نتيجة استعلام مبيعات جاهزة. استعمل الحمولة المرسلة (JSON) فقط.",
   "🚨 أعِد JSON صالحاً فقط بهذا الشكل، بلا أي نصّ خارجه وبلا ```:",
-  '{ "lead": "جملة تلخيص نثريّة", "warning": "… أو null", "note": "… أو null" }',
+  '{ "lead": "جملة تلخيص نثريّة", "warning": "… أو null" }',   // 🚫 لا تُخرِج note — تضيفه الخلفية من النطاق
   "🚫 لا تُخرِج حقل metrics — الأرقام تُعرض من الحمولة تلقائياً (figures). دورك النثر فقط.",
   "الحمولة تحوي figures ({label,value,unit}) و lines — استعن بها للفهم، وإن ذكرت رقماً في lead فانسخه حرفياً من value/lines (بفواصله) 🚫 دون تنسيق أو تلفيق.",
   "🚫 لا تخترع رقماً ولا تقدّر. إن لم تكفِ البيانات فاجعل lead: «لا أعرف من البيانات المتاحة».",
   "ابدأ lead بذكر النطاق (scope) والفترة (period) كما وردا نصّاً في الحمولة.",
   "🚨 إن حوت الحمولة coverage: ابدأ lead بنصّ coverage حرفياً (النقص أوّلاً)، وصِف الأرقام للفترة المرصودة لا المطلوبة، 🚫 بلا استكمال بالتقدير.",
-  "المبيعات مقدّرة لا مؤكّدة — اذكر ذلك في note.",
+  "🚫 لا تُخرِج note ولا metrics — الخلفية تضيفهما (النوت من النطاق، الأرقام من figures).",
   "🚫 لا تحكم على الراكد/التغطية/النفاد إن كان قسمها ملاحظةَ «تاريخ غير كافٍ» — انقل الملاحظة كما هي.",
   "🚨 عند «لماذا»: «أكبر مساهمة ظاهرة في الانخفاض هي…» لا «السبب هو…» — لا تنسب سبباً لا تثبته الأرقام.",
   "🚫 لا تقترح تعديل مخزون/أسعار/إعدادات. 🚫 لا تستعمل قيمة تقنية (all · أسماء نوايا · مفاتيح) — استعمل المسمّيات البشرية في الحمولة.",
@@ -169,7 +169,9 @@ Deno.serve(async (req) => {
 
   // الفروع (لتحويل اسم الموقع ← معرّف، وللنيّات) — بصلاحيّة owner عبر RLS
   const { data: branches } = await sb.from("branches").select("id,name").order("created_at", { ascending: true });
-  const branchList = (branches || []).map((b) => ({ id: String(b.id), name: String(b.name) }));
+  // 🚨 تعداد فروع المبيعات = فروع زد (من الجدول تلقائياً) ＋ فرعا الحراج (SALES_EXTRA_LOCS) — يوازي salesAllLocs في الواجهة.
+  //    المستودع يبقى مستبعَداً من مقاييس المبيعات داخل computeScope كما هو (branchLocs = locsAll بلا wh).
+  const branchList = (branches || []).map((b) => ({ id: String(b.id), name: String(b.name) })).concat(SALES_EXTRA_LOCS.map((x) => ({ id: x.id, name: x.name })));
   const branchNames = branchList.map((b) => b.name);
 
   // ————— (Gemini #1) تصنيف — يُرسَل: نصّ السؤال فقط (عابر، لا يُخزَّن) · إعادة على الازدحام ＋ احتياطيّ —————
@@ -258,18 +260,19 @@ Deno.serve(async (req) => {
   const metrics = [];
   for (const s of sections) for (const m of (s.metrics || [])) if (m && (m.value != null)) metrics.push({ label: m.label || "", value: String(m.value), unit: m.unit || "" });
   const degradeLead = enforceCoverageLead("تعذّرت صياغة الشرح الآن، وهذه الأرقام كما حُسبت:", coverageText);   // سطر تمهيديّ ثابت
-  const DEGRADE_NOTE = "المبيعات مقدّرة لا مؤكّدة.";
+  // 🚨 نقطة ٤: النوت مشتقّ من **النطاق** لا من مسار الردّ — نصّ واحد للناجح والمتدهور (المستودع مستبعَد من المبيعات دائماً).
+  const answerNote = "المبيعات مقدّرة لا مؤكّدة، والمستودع مستبعَد من المبيعات.";
 
   const phRes = await geminiRobust(GEMINI_MODEL, GEMINI_MODEL_FALLBACK, GEMINI_KEY, PHRASE_INSTRUCTION, phrasePayload, true);
   if (phRes.usedFallback && !("error" in phRes)) console.error(`ai-assistant phrase: استُعمل الموديل الاحتياطيّ ${phRes.model} (ازدحام الأساسيّ)`);
 
   // 🚨 نقطة ٤ب: فشل الصياغة (بعد نجاح التصنيف) لا يُفشل الطلب — تُعرض المقاييس المحسوبة في الخادم مع سطر تمهيديّ.
-  let lead = degradeLead, warning = null, note = DEGRADE_NOTE;
+  let lead = degradeLead, warning = null;
   if (!("error" in phRes) && !("quota" in phRes)) {
     let parsed = null;
     try { parsed = JSON.parse(stripFences(phRes.text)); } catch { parsed = null; }
     if (parsed && typeof parsed === "object" && verifyAnswerNumbers(parsed, sourceSet).ok) {
-      lead = enforceCoverageLead(parsed.lead, coverageText); warning = parsed.warning || null; note = parsed.note || null;   // (٣) بادئة النقص بنيوياً
+      lead = enforceCoverageLead(parsed.lead, coverageText); warning = parsed.warning || null;   // (٣) بادئة النقص بنيوياً · النوت من الخلفية لا النموذج
     } else if (parsed && typeof parsed === "object") {
       console.error("ai-assistant phrase: أرقام بلا أصل — أُسقطت الصياغة وعُرضت مقاييس الخادم");   // تلفيق رقم في النثر ⇒ أسقط النثر، أبقِ مقاييس الخادم الصحيحة
     } else {
@@ -279,6 +282,6 @@ Deno.serve(async (req) => {
     logGeminiFail("phrase", "http", phRes, GEMINI_MODEL, (GEMINI_KEY || "").length);   // ازدحام/خطأ ⇒ تدهور رشيق (لا إفشال)
   }
 
-  const structured = { lead, metrics: metrics.slice(0, 12), warning, note, scope_label, period_label, analytical: true };
+  const structured = { lead, metrics: metrics.slice(0, 12), warning, note: answerNote, scope_label, period_label, analytical: true };
   return json({ ok: true, structured, meta: { intent: composite ? "composite" : intents[0], period, location, used, remaining, cap } });
 });

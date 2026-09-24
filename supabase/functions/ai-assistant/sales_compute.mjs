@@ -21,6 +21,11 @@
 
 export const RIY_OFF = 3 * 3600000; // توقيت الرياض
 
+// 🚨 فرعا شاشة المبيعات فقط (يقابل SALES_EXTRA_LOCS في index.html) — يُضمّان لتعداد فروع المبيعات في الدالّة.
+//    معزولان عن زد بنيويّاً: الدالّة الطرفية قراءةٌ لشاشة المبيعات فقط، لا تمسّ ملفَّي زد إطلاقاً.
+//    عند إضافة فرع مبيعات جديد: عدّل هنا وفي index.html (فرعا زد يأتيان من جدول branches تلقائياً).
+export const SALES_EXTRA_LOCS = [{ id: "haraj_maf", name: "الحراج مفروشات" }, { id: "haraj_reh", name: "الحراج رحلات" }];
+
 const numOrNull = v => { if (v == null || v === "") return null; const n = Number(v); return Number.isFinite(n) ? n : null; };
 
 export function riyadhDay(ts) {
