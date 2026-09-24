@@ -95,10 +95,15 @@ async function geminiCall(model, key, sys, user, asJson) {
   // 🚫 لا إعادة محاولة تستهلك الحصّة (429 يُعاد كما هو)
   const resp = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (resp.status === 429) return { quota: true };
-  if (!resp.ok) return { error: `gemini ${resp.status}` };
+  if (!resp.ok) { let body = ""; try { body = String(await resp.text() || "").slice(0, 300); } catch {} return { error: `gemini ${resp.status}`, status: resp.status, body }; }   // ＋الحالة وجسم الرد للتشخيص
   const data = await resp.json();
   const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
   return { text };
+}
+// تسجيل تشخيصيّ غير حسّاس: 🚫 لا مفتاح ولا جزء منه · لا بُرد/معرّفات/أدوار · لا سؤال كامل (طول فقط للتصنيف)
+function logGeminiFail(stage, phase, r, model, keyLen) {
+  if (phase === "http") console.error(`ai-assistant ${stage} fail(http): upstream_status=${r.status} model=${model} keyLen=${keyLen} body=${(r.body || "").replace(/\s+/g, " ").slice(0, 300)}`);
+  else console.error(`ai-assistant ${stage} fail(parse): نجح ردّ جوجل (2xx) لكن تعذّر JSON.parse — model=${model} textHead=${String(r.text || "").replace(/\s+/g, " ").slice(0, 300)}`);
 }
 
 // قسم معروض لنيّة (مسمّيات بشرية · مقاييس {label,value,unit} منفصلة · أسطر label · بلا قيم تقنية)
@@ -156,9 +161,10 @@ Deno.serve(async (req) => {
   // ————— (Gemini #1) تصنيف — يُرسَل: نصّ السؤال فقط (عابر، لا يُخزَّن) —————
   const clsRes = await geminiCall(GEMINI_MODEL, GEMINI_KEY, classifyInstruction(branchNames), question, true);
   if ("quota" in clsRes) return json({ ok: false, geminiQuota: true, error: `خدمة المساعد وصلت حدّها المجانيّ الآن — جرّب بعد قليل.` }, 200);
-  if ("error" in clsRes) return json({ ok: false, error: "تعذّر تحليل السؤال حالياً." }, 502);
+  if ("error" in clsRes) { logGeminiFail("classify", "http", clsRes, GEMINI_MODEL, (GEMINI_KEY || "").length); return json({ ok: false, error: "تعذّر تحليل السؤال حالياً.", upstream_status: clsRes.status ?? null, fail_stage: "http" }, 502); }
   let params = {}; let intentsRaw = [];
-  try { const p = JSON.parse(stripFences(clsRes.text)); params = p; intentsRaw = Array.isArray(p.intents) ? p.intents : (p.intent ? [p.intent] : []); } catch { intentsRaw = []; }
+  try { const p = JSON.parse(stripFences(clsRes.text)); params = p; intentsRaw = Array.isArray(p.intents) ? p.intents : (p.intent ? [p.intent] : []); }
+  catch { logGeminiFail("classify", "parse", clsRes, GEMINI_MODEL, (GEMINI_KEY || "").length); intentsRaw = []; }   // ردّ 2xx بصيغة غير صالحة ⇒ نوايا فارغة (مسار «خارج التغطية» 200، لا 502)
 
   // (٩-أ) تحقّق allowlist ＋ حدّ 5: نوايا معروفة فقط، بحد أقصى MAX_INTENTS (البنية لا التعليمات)
   let intents = intentsRaw.map((x) => String(x)).filter((x) => INTENT_KEYS.includes(x));
@@ -228,12 +234,12 @@ Deno.serve(async (req) => {
   ].join("\n");
   const phRes = await geminiCall(GEMINI_MODEL, GEMINI_KEY, PHRASE_INSTRUCTION, phrasePayload, true);
   if ("quota" in phRes) return json({ ok: false, geminiQuota: true, error: `خدمة المساعد وصلت حدّها المجانيّ الآن — جرّب بعد قليل.` }, 200);
-  if ("error" in phRes) return json({ ok: false, error: "تعذّرت صياغة الجواب حالياً." }, 502);
+  if ("error" in phRes) { logGeminiFail("phrase", "http", phRes, GEMINI_MODEL, (GEMINI_KEY || "").length); return json({ ok: false, error: "تعذّرت صياغة الجواب حالياً.", upstream_status: phRes.status ?? null, fail_stage: "http" }, 502); }
 
   // (١) تحليل JSON — كسر ⇒ رسالة صريحة ＋ تسجيل (🚫 لا شاشة فارغة)
   let parsed = null;
   try { parsed = JSON.parse(stripFences(phRes.text)); } catch { parsed = null; }
-  if (!parsed || typeof parsed !== "object") { console.error("ai-assistant: JSON صياغة مكسور:", phRes.text?.slice(0, 300)); return json({ ok: false, error: "ما قدرت أصيغ الجواب الآن — جرّب مرة ثانية." }, 200); }
+  if (!parsed || typeof parsed !== "object") { logGeminiFail("phrase", "parse", phRes, GEMINI_MODEL, (GEMINI_KEY || "").length); return json({ ok: false, error: "ما قدرت أصيغ الجواب الآن — جرّب مرة ثانية.", fail_stage: "parse" }, 200); }
 
   // (٢) تحقّق الأرقام بنيوياً — أي رقم بلا أصل في المصدر ⇒ رفض الجواب كلّه
   const chk = verifyAnswerNumbers(parsed, sourceSet);
