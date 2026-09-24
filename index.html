@@ -2008,7 +2008,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "013981c";
+const APP_VERSION = "5515cef";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3096,7 +3096,7 @@ function renderSalesLastUp(ups) {
     const t = latest.get(id); const age = t ? (now - t) : null;
     const cls = age == null ? "old" : (age <= 24 * H ? "fresh" : (age <= 48 * H ? "mid" : "old"));   // أخضر <24س · أصفر 24-48 · أحمر أكثر
     return `<span class="lu-badge ${cls}"><span class="lu-d" style="background:currentColor"></span>${esc(name)} — ${t ? ageText(t) : "لم تُرفع"}</span>`;
-  }).join("");
+  }).join("") + `<span id="salesCoverage"></span>`;   // عنصر التغطية مستقلّ يُستبدَل (لا يُلحَق) — يمنع التكرار عند تشغيلين متداخلين
 }
 // لقطة المخزون من العرض sales_stock (لا الجداول الأساس ⇒ يعمل لـmarketing) — مُصفّحة، قراءة واحدة لكل الأعمدة
 async function salesStockRows() {
@@ -3237,8 +3237,9 @@ async function salesShowDisappeared() {
     const movs = await db.sales.movements(salesLoc === "all" ? "all" : salesLoc, prevSinceIso || sinceIso);
     const dis = movs.filter(m => m.kind === "disappeared");
     if (!dis.length) { box.innerHTML = `<div class="stc-empty">لا أصناف مختفية في هذه الفترة.</div>`; return; }
-    box.innerHTML = `<div class="card"><div class="s4-ch-head"><h2>أصناف اختفت من الملفات (غائبة عن المخزن) — مستبعدة من المبيعات المقدّرة</h2></div><div class="twrap"><table class="upd-table"><thead><tr><th>SKU</th><th>الموقع</th><th>الكمية الأخيرة</th></tr></thead><tbody>`
-      + dis.slice(0, 60).map(m => `<tr><td class="mono"><span dir="ltr">${esc(m.sku)}</span></td><td>${esc(salesLocName(m.location))}</td><td class="mono"><bdi dir="ltr">${salesNum(Math.abs(Number(m.delta) || 0))}</bdi></td></tr>`).join("")
+    // اسم الصنف من الحركة نفسها (m.sku_name، مخزَّن وقت الرصد) — 🚫 لا استعلام إضافيّ؛ تعذّره ⇒ «—» صراحةً (الصنف مفقود من المخزن فاسمه غير متاح في sales_stock)
+    box.innerHTML = `<div class="card"><div class="s4-ch-head"><h2>أصناف اختفت من الملفات (غائبة عن المخزن) — مستبعدة من المبيعات المقدّرة</h2></div><div class="twrap"><table class="upd-table"><thead><tr><th>SKU</th><th>اسم الصنف</th><th>الموقع</th><th>الكمية الأخيرة</th></tr></thead><tbody>`
+      + dis.slice(0, 60).map(m => `<tr><td class="mono"><span dir="ltr">${esc(m.sku)}</span></td><td>${m.sku_name ? esc(m.sku_name) : '<span class="q-na">—</span>'}</td><td>${esc(salesLocName(m.location))}</td><td class="mono"><bdi dir="ltr">${salesNum(Math.abs(Number(m.delta) || 0))}</bdi></td></tr>`).join("")
       + `</tbody></table></div></div>`;
   } catch (e) { box.innerHTML = `<div class="stc-empty">تعذّر: ${esc(e.message || String(e))}</div>`; }
 }
@@ -3642,7 +3643,9 @@ async function renderSalesPage() {
     const scRate = scope.unitRate > 0 ? Math.round(scope.unitRate) : null;   // (ب) Σ(وحدات الموقع÷أيام الموقع)
     // «المرصود» بتعريف واحد = أطول فترة موقع مرصودة (daysMax) ＋ عدّاد الرفعات منفصلاً (١-د)
     const observedDays = scope.daysMax, upCountScope = new Set(curBranch.map(m => m.upload_id)).size;
-    if (lu) lu.innerHTML += ` &nbsp;·&nbsp; التغطية: معدّل <b>${scRate != null ? salesNum(scRate) : "—"}</b>/يوم · المرصود <b>${observedDays ? Math.round(observedDays * 10) / 10 : "—"}</b> يوم · <b>${upCountScope}</b> رفعة${salesCovInsufficient(observedDays) ? ` <span class="s4-lu-warn" title="المعدّل اليوميّ من فترة أقصر من ١٤ يوماً غير موثوق للتنبّؤ (التغطية والنفاد مبوّبان)">⚠ الفترة قصيرة — التوقّع ما زال غير دقيق</span>` : ""}`;
+    // 🚨 يُكتب في عنصر مستقلّ بالاستبدال لا الإلحاق (lu.innerHTML += بعد await يتراكم عند تشغيلين متداخلين ⇒ تكرار)
+    const covEl = document.getElementById("salesCoverage");
+    if (covEl) covEl.innerHTML = ` &nbsp;·&nbsp; التغطية: معدّل <b>${scRate != null ? salesNum(scRate) : "—"}</b>/يوم · المرصود <b>${observedDays ? Math.round(observedDays * 10) / 10 : "—"}</b> يوم · <b>${upCountScope}</b> رفعة${salesCovInsufficient(observedDays) ? ` <span class="s4-lu-warn" title="المعدّل اليوميّ من فترة أقصر من ١٤ يوماً غير موثوق للتنبّؤ (التغطية والنفاد مبوّبان)">⚠ الفترة قصيرة — التوقّع ما زال غير دقيق</span>` : ""}`;
     const kpi = (k, icon, num, lbl, sub, trend, tip, sub2, unit) => `<div class="card kpi" data-k="${k}"${tip ? ` title="${esc(tip)}"` : ""}><span class="kpi-ic">${icon}</span><b><bdi dir="ltr">${num}</bdi>${unit ? `<span class="kpi-unit">${unit}</span>` : ""}</b><span class="kpi-lbl">${lbl}</span><span class="kpi-sub">${sub}</span>${sub2 ? `<span class="kpi-sub2">${sub2}</span>` : ""}${trend || ""}</div>`;
     const scopeLbl = salesLoc === "all" ? "جميع المواقع" : salesLocName(salesLoc);
     const movedComparable = movedPrev != null && scope.pdaysMax > 0 && observedDays > 0;
@@ -3658,10 +3661,22 @@ async function renderSalesPage() {
     const missBanner = document.getElementById("salesMissBanner");
     if (missBanner) {
       if (missingLocs.length) {
+        // 🚨 ج-١: ميّز الحالتين — موقع لم يرفع إطلاقاً ≠ موقع رفعته تأسيسية فقط (استُبعدت بحقّ من المقارنة).
+        //    «بلا رفعة» مع «آخر رفعة منذ X» في سطر واحد تناقض؛ الحقيقة: تأسيس فقط ⇒ لا مقارنة بعد.
         const lastUp = loc => { let mx = 0; for (const u of ups) if (u.location === loc) { const tt = Date.parse(u.captured_at); if (Number.isFinite(tt) && tt > mx) mx = tt; } return mx; };
-        const parts = missingLocs.map(d => { const last = lastUp(d.loc); return `<b>${esc(d.name)}</b>${last ? ` (آخر رفعة ${ageText(last)})` : " (بلا رفعة)"}`; }).join(" · ");
+        const hasBaseline = loc => ups.some(u => u.location === loc && baselineIds.has(u.id));
+        let baselineOnly = 0, neverUp = 0;
+        const parts = missingLocs.map(d => {
+          const last = lastUp(d.loc);
+          if (!last) { neverUp++; return `<b>${esc(d.name)}</b> (لم يُرفع بعد)`; }
+          if (hasBaseline(d.loc)) { baselineOnly++; return `<b>${esc(d.name)}</b> (رفعة تأسيس فقط — لا مقارنة بعد)`; }
+          return `<b>${esc(d.name)}</b> (آخر رفعة ${ageText(last)} — خارج الفترة)`;
+        }).join(" · ");
+        // العنوان يتبع الغالب فلا يناقض التفصيل: تأسيس فقط ⇒ «رفعة تأسيس» · وإلّا «بلا رفعة في الفترة»
+        const head = (baselineOnly && !neverUp) ? (missingLocs.length === 1 ? "فرع رفعته تأسيسية فقط" : missingLocs.length + " فروع رفعتها تأسيسية فقط")
+          : (missingLocs.length === 1 ? "فرع بلا رفعة في هذه الفترة" : missingLocs.length + " فروع بلا رفعة في هذه الفترة");
         missBanner.style.display = "flex";
-        missBanner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>${missingLocs.length === 1 ? "فرع" : missingLocs.length + " فروع"} بلا رفعة في هذه الفترة: ${parts} — أرقامها ما تظهر حتى تُرفع ملفاتها. <b>الإجمالي يشمل ${dataActive.length} من ${salesData.length} فروع.</b></span>`;
+        missBanner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>${head}: ${parts} — أرقامها ما تظهر حتى تُرفع ملفاتها. <b>الإجمالي يشمل ${dataActive.length} من ${salesData.length} فروع.</b></span>`;
       } else missBanner.style.display = "none";
     }
     // بانر المختفي (يعود عند التحميل؛ «عرض التفاصيل» قائمة حقيقية)

@@ -246,6 +246,16 @@ jobs:
         run: node tests/perf/role-sales.mjs --broken
       - name: G-ROLE-SALES — عزل شاشة المبيعات بالدور (واجهة + بنية SQL؛ admin بلا شاشة · marketing عليها فقط)
         run: node tests/perf/role-sales.mjs
+      - name: Self-check — G-COVERAGE-ONCE يرسب حين تُكتب التغطية بالإلحاق (تكرار عند تداخل)
+        run: node tests/perf/sales-coverage-once.mjs --broken
+      - name: G-COVERAGE-ONCE — شريط التغطية مرّة واحدة رغم تشغيلين متداخلين
+        run: node tests/perf/sales-coverage-once.mjs
+      - name: Self-check — G-SALES-DISPLAY يرسب على تناقض لافتة التأسيس
+        run: node tests/perf/sales-display-fixes.mjs --broken
+      - name: Self-check — G-SALES-DISPLAY يرسب حين يُحذف عمود اسم الصنف المختفي
+        run: node tests/perf/sales-display-fixes.mjs --broken-name
+      - name: G-SALES-DISPLAY — لافتة «رفعة تأسيس فقط» بلا تناقض · عمود اسم الصنف المختفي (اسم/«—»)
+        run: node tests/perf/sales-display-fixes.mjs
       - name: Self-check — G-ROLE-BRANCHES يرسب حين يُخفى تحذير الفروع (نصف فروع بصمت)
         run: node tests/perf/role-branches.mjs --broken
       - name: G-ROLE-BRANCHES — دور يرى الشاشة يرى فروعها (marketing ⇒ 4 فروع · فشل التحميل ⇒ تحذير صريح لا صمت)
