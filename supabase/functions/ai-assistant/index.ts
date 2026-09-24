@@ -254,7 +254,9 @@ Deno.serve(async (req) => {
   const composite = intents.length > 1;   // (٩) سؤال مركّب
 
   // تشغيل كل نيّة ← قسم معروض (مسمّيات بشرية، أسماء نظيفة، بلا قيم تقنية)
-  const scope_label = scopeLabel(location, branchList);
+  // «all» يشمل المستودع فقط حين تكون كل النوايا مخزونيّة (غير مبيعات) — فالوسم يصدق: «كل المواقع» للمخزون · «الفروع» للمبيعات
+  const answerIncludesWh = location === "all" && intents.length > 0 && intents.every((i) => !SALES_INTENTS.has(i));
+  const scope_label = scopeLabel(location, branchList, answerIncludesWh);
   const period_label = periodLabel(period);
   const sections = [];
   let coverageText = null;
@@ -291,8 +293,12 @@ Deno.serve(async (req) => {
   const metrics = [];
   for (const s of sections) for (const m of (s.metrics || [])) if (m && (m.value != null)) metrics.push({ label: m.label || "", value: String(m.value), unit: m.unit || "" });
   const degradeLead = enforceCoverageLead("تعذّرت صياغة الشرح الآن، وهذه الأرقام كما حُسبت:", coverageText);   // سطر تمهيديّ ثابت
-  // 🚨 نقطة ٤: النوت مشتقّ من **النطاق** لا من مسار الردّ — نصّ واحد للناجح والمتدهور (المستودع مستبعَد من المبيعات دائماً).
-  const answerNote = "المبيعات مقدّرة لا مؤكّدة، والمستودع مستبعَد من المبيعات.";
+  // 🚨 نقطة ٤: النوت مشتقّ من **نوع المقياس** (لا مسار الردّ) — نصّ واحد للناجح والمتدهور:
+  //   مبيعات ⇒ «مقدّرة · المستودع مستبعَد» · مخزون ⇒ «يشمل المستودع» بلا ذكر استبعاد المبيعات (السؤال عن مخزون لا مبيعات).
+  const hasSalesIntent = intents.some((i) => SALES_INTENTS.has(i));
+  const answerNote = hasSalesIntent
+    ? "المبيعات مقدّرة لا مؤكّدة، والمستودع مستبعَد من المبيعات."
+    : (intents.includes("inventory_value") ? "قيمة المخزون لقطة حاليّة تشمل المستودع." : "");
 
   const phRes = await geminiRobust(GEMINI_MODEL, GEMINI_MODEL_FALLBACK, GEMINI_KEY, PHRASE_INSTRUCTION, phrasePayload, true);
   if (phRes.usedFallback && !("error" in phRes)) console.error(`ai-assistant phrase: استُعمل الموديل الاحتياطيّ ${phRes.model} (ازدحام الأساسيّ)`);

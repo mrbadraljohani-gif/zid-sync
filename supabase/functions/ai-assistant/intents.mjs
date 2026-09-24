@@ -49,8 +49,8 @@ function sales_summary(ctx) {
     units: round(r.scope.units), moved_products: r.movedNow,
     observed_days: Math.round(r.observedDays * 10) / 10,
     branches_included: r.dataActive.map(d => d.name),
-    branches_missing_upload: r.missingLocs.map(d => d.name),
-    note: "المبيعات مقدّرة (من نقص الكمية) لا مؤكّدة · المستودع مستبعَد (مخزن لا نقطة بيع)"
+    branches_missing_upload: r.missingLocs.map(d => d.name)
+    // 🚫 لا note هنا — التنويه الموحّد answerNote (مشتقّ من نوع المقياس) يغطّيه؛ نوت مكرّر ⇒ سطران متطابقان
   };
 }
 
@@ -73,8 +73,8 @@ function _sellers(ctx, dir) {
   arr.sort((a, b) => dir === "top" ? b.value - a.value : a.value - b.value);
   return {
     kind: dir === "top" ? "top_sellers" : "bottom_sellers", period: ctx.params.period, location: ctx.params.location,
-    items: arr.slice(0, limit), count: arr.length, sort_basis: "إجمالي قيمة المبيعات المقدّرة (شامل)",
-    note: "المبيعات مقدّرة · المستودع مستبعَد"
+    items: arr.slice(0, limit), count: arr.length, sort_basis: "إجمالي قيمة المبيعات المقدّرة (شامل)"
+    // 🚫 لا note تنويه — answerNote الموحّد يغطّيه (لا سطر مكرّر)
   };
 }
 const top_sellers = ctx => _sellers(ctx, "top");
@@ -112,7 +112,7 @@ function period_comparison(ctx) {
     kind: "period_comparison", period: ctx.params.period, location: ctx.params.location,
     cur_daily_rate: round(cr), prev_daily_rate: round(pr), change_pct: pct,
     cur_days: Math.round(r.observedDays * 10) / 10, prev_days: Math.round(r.prevObservedDays * 10) / 10,
-    basis: "معدّل يوميّ (قيمة÷أيام) لا مجاميع", note: "المبيعات مقدّرة · المستودع مستبعَد · رفعة التأسيس مستبعَدة"
+    basis: "معدّل يوميّ (قيمة÷أيام) لا مجاميع", note: "رفعة التأسيس مستبعَدة من المقارنة"
   };
 }
 
@@ -160,8 +160,8 @@ function inventory_value(ctx) {
     kind: "inventory_value", location: ctx.params.location,
     inventory_value_incl: round(r.invScope.inv), inventory_value_excl: round(r.invScope.invExcl),
     items_missing_excl_price: r.invScope.invExclMiss,
-    includes_warehouse: r.invLocsShown.includes("wh"),
-    note: "قيمة المخزون الحاليّ (لقطة) — يشمل المستودع · أصناف بلا سعر قبل الضريبة مستبعَدة من الصافي لا محسوبة صفراً"
+    includes_warehouse: r.invLocsShown.includes("wh")
+    // 🚫 لا note هنا — answerNote المخزونيّ ＋ وسم «(يشمل المستودع)» على المقياس يغطّيانه (لا سطر مكرّر)
   };
 }
 
@@ -205,7 +205,7 @@ function biggest_decliners(ctx) {
     kind: "biggest_decliners", period: ctx.params.period, location: ctx.params.location,
     items: arr.slice(0, ctx.params.limit || 20), cur_days: Math.round(cd * 10) / 10, prev_days: Math.round(pd * 10) / 10,
     phrasing_rule: "أكبر مساهمة ظاهرة في الانخفاض — لا سبب تجاريّ مؤكّد",
-    note: "معدّل يوميّ مقابل السابق · المبيعات مقدّرة · المستودع/التأسيس مستبعَدان"
+    note: "معدّل يوميّ مقابل السابق · رفعة التأسيس مستبعَدة"
   };
 }
 
@@ -277,8 +277,10 @@ function applyDisplay(res) {
       (res.items || []).forEach(it => { it.name_clean = cleanName(it.name).clean; it.label = `${it.name_clean}: ${Q(it.qty)} · قيمة المخزون ${M(it.inventory_value_incl)}`; }); break;
     case "stockout_risk":
       (res.by_location || []).forEach(e => { e.label = `${e.location}: تغطية ${D(e.coverage_days)}`; }); break;
-    case "inventory_value":
-      res.metrics = [mM("قيمة المخزون", res.inventory_value_incl), mMX("قيمة المخزون (صافي)", res.inventory_value_excl)]; break;
+    case "inventory_value": {
+      const whTag = res.includes_warehouse ? " (يشمل المستودع)" : "";   // وسم كالشاشة — الرقم يشمل مخزون المستودع
+      res.metrics = [mM("قيمة المخزون" + whTag, res.inventory_value_incl), mMX("قيمة المخزون (صافي)" + whTag, res.inventory_value_excl)]; break;
+    }
     case "data_freshness":
       res.metrics = [mD("أطول تغطية مرصودة", res.observed_window_days)]; break;
     case "biggest_decliners":
@@ -292,10 +294,12 @@ function applyDisplay(res) {
 export function periodLabel(period) {
   return ({ today: "أمس", "7": "آخر 7 أيام", "30": "آخر 30 يوماً", "90": "آخر 90 يوماً", "365": "آخر سنة", all: "كامل البيانات المتاحة" })[String(period)] || "كامل البيانات المتاحة";
 }
-export function scopeLabel(location, branches) {
+export function scopeLabel(location, branches, includesWh) {
   if (location === "wh") return "المستودع";   // المستودع بلا وصف
   if (location && location !== "all") { const b = (branches || []).find(x => x.id === location); return b ? `فرع ${b.name}` : "الفرع"; }   // 🚨 «فرع X» جاهزاً (لا يصوغ النموذج «قسم»)
+  // «all» — الوسم يعبّر عن الحقيقة: مقياس مخزون يشمل المستودع ⇒ «كل المواقع» · مقياس مبيعات (wh مستبعَد) ⇒ «الفروع»
   const names = (branches || []).map(b => b.name);
+  if (includesWh) return names.length ? `كل المواقع (المستودع + ${names.join(" + ")})` : "كل المواقع (المستودع + الفروع)";
   return names.length ? `الفروع (${names.join(" + ")})` : "الفروع";
 }
 // جمع الأيام الصحيح (للفترات المطلوبة 7/30/90/365 وغيرها)
