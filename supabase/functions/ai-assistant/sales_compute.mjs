@@ -126,8 +126,10 @@ export function computeScope({ movements, uploads, stock, branches, period, loca
   const { since: curSince, prevSince } = salesRange(period, nowMs);
 
   const isWhView = location === "wh";
-  const salesShown = isWhView ? [] : (location === "all" ? branchLocs : [location]);
-  const invLocsShown = location === "all" ? locsAll : [location];
+  // «branches» = كل الفروع بلا المستودع. المبيعات (salesShown) = branchLocs لـ«all» و«branches» معاً (wh مستبعَد أصلاً) ⇒ صفر تغيير في أرقام المبيعات.
+  const salesShown = isWhView ? [] : (location === "all" || location === "branches" ? branchLocs : [location]);
+  // الفرق الوحيد: المخزون — «all» يشمل المستودع · «branches» يستبعده (branchLocs) · موقع مفرد كما هو.
+  const invLocsShown = location === "all" ? locsAll : (location === "branches" ? branchLocs : [location]);
 
   // موقع «مرفوع في الفترة» = له رفعة غير تأسيسية داخل النافذة
   const uploadedInPeriod = new Set((uploads || []).filter(u => !baselineIds.has(u.id) && bizTs(u.captured_at) >= curSince).map(u => u.location));

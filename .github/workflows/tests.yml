@@ -320,6 +320,10 @@ jobs:
         run: node tests/ai-quota-log.mjs --broken
       - name: G-AI-QUOTA-LOG — 429 يُسجّل الجسم ＋ details كاملاً ＋ retryDelay ＋ model ＋ keyLen (لا مفتاح/سؤال)
         run: node tests/ai-quota-log.mjs
+      - name: Self-check — G-AI-BRANCHES يرسب حين يتسرّب المستودع إلى نطاق «branches»
+        run: node tests/ai-branches.mjs --broken
+      - name: G-AI-BRANCHES — نطاق «الفروع فقط» (بلا المستودع) · صفر انحدار للقيم القائمة · المبيعات ثابتة
+        run: node tests/ai-branches.mjs
       - name: Self-check — G-AI-SCOPE يرسب حين يُنشأ حقل المساعد لغير owner
         run: node tests/perf/ai-scope.mjs --broken
       - name: G-AI-SCOPE — عزل المساعد (owner فقط · يستدعي الدالّة ويقرأ ai_usage فقط · لا كتابة/مساس بالمطابقة)

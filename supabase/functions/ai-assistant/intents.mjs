@@ -296,6 +296,7 @@ export function periodLabel(period) {
 }
 export function scopeLabel(location, branches, includesWh) {
   if (location === "wh") return "المستودع";   // المستودع بلا وصف
+  if (location === "branches") { const n = (branches || []).map(b => b.name); return n.length ? `الفروع (${n.join(" + ")}) — بلا المستودع` : "الفروع — بلا المستودع"; }   // صريح لا ملتبس
   if (location && location !== "all") { const b = (branches || []).find(x => x.id === location); return b ? `فرع ${b.name}` : "الفرع"; }   // 🚨 «فرع X» جاهزاً (لا يصوغ النموذج «قسم»)
   // «all» — الوسم يعبّر عن الحقيقة: مقياس مخزون يشمل المستودع ⇒ «كل المواقع» · مقياس مبيعات (wh مستبعَد) ⇒ «الفروع»
   const names = (branches || []).map(b => b.name);
