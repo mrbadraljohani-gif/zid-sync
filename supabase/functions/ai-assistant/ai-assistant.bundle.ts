@@ -709,10 +709,11 @@ Deno.serve(async (req) => {
   const { data: userData, error: userErr } = await sb.auth.getUser();
   if (userErr || !userData?.user) return json({ ok: false, error: "جلسة غير صالحة" }, 401);
 
-  // تحقّق owner داخل القاعدة (get_my_role عبر auth.uid())
+  // تحقّق الدور داخل القاعدة (get_my_role عبر auth.uid()) — المساعد لـowner و marketing (كلاهما يرى شاشة المبيعات)
+  // 🚨 كل جداول الدالّة (branches · sales_uploads · sales_movements · sales_stock) مسموحة لـmarketing بـRLS — راجعتها واحداً واحداً.
   const { data: role, error: roleErr } = await sb.rpc("get_my_role");
   if (roleErr) return json({ ok: false, error: "تعذّر التحقّق من الصلاحية" }, 500);
-  if (role !== "owner") return json({ ok: false, error: "المساعد متاح للمالك فقط في هذه النسخة." }, 403);
+  if (role !== "owner" && role !== "marketing") return json({ ok: false, error: "المساعد متاح لأصحاب صلاحية المبيعات فقط." }, 403);
 
   let payload = {};
   try { payload = await req.json(); } catch { /* فارغ */ }
