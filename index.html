@@ -575,6 +575,7 @@
   .totals-note { color: var(--amber); font-weight: 600; font-size: 12px; }   /* تنبيه «تُجوهل صفوف مجاميع» */
   /* بطاقات المخزن (دفعة ٢): المستودع ＋ بطاقة لكلّ فرع ＋ «＋ فرع» — لفّ الأسطر لا التمرير الأفقي */
   .inv-cards { display: flex; flex-wrap: wrap; gap: 14px; }
+  .inv-grp-lbl { flex: 1 1 100%; font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 2px 0 -6px; }   /* عنوان مجموعة (المستودع/الفروع) — يفرض لفّ صفّ بعده */
   .inv-cards .upload { flex: 1 1 240px; min-width: 0; }   /* تتساوى وتلتفّ؛ min-width:0 يمنع تجاوز RTL */
   .branch-card .utitle { display: flex; align-items: center; gap: 6px; }
   /* بطاقة «＋ فرع»: نفس هيئة الرفع لكن زرّ متمركز منقّط */
@@ -1743,6 +1744,7 @@
       <div class="stage-head"><span class="stage-n">١</span><b>المستودع والفرع</b><span class="stage-sub">جدولان مستقلان — حدّث كلاً على حدة؛ يُوحّدان عند المطابقة (اتحاد بجمع الكميات)</span></div>
       <!-- بطاقات ديناميكية: المستودع ＋ بطاقة لكلّ فرع (من invBranches) ＋ زرّ «＋ فرع» — لفّ الأسطر لا التمرير -->
       <div class="inv-cards" id="invCardsRow">
+        <div class="inv-grp-lbl">المستودع</div>
         <label class="upload" id="whCard">
           <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeWh(this)">
           <div class="utitle"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V8.5L12 4l9 4.5V21"/><path d="M2 21h20"/><rect x="7" y="12" width="4" height="9"/><rect x="13" y="12" width="4" height="9"/></svg> ملف المستودع</div>
@@ -1751,7 +1753,9 @@
           <div class="inv-meta umeta" id="whMetaLine"></div>
           <div id="whSyncMsg" class="zid-sync-msg" style="display:none"></div>
         </label>
+        <div class="inv-grp-lbl">الفروع</div>
         <span id="branchCards" style="display:contents"></span>
+        <span id="salesBranchCards" style="display:contents"></span>
         <button type="button" class="upload add-branch-card" onclick="addBranch()" title="أنشئ فرعاً جديداً">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
           <span class="abc-txt">فرع جديد</span>
@@ -1956,7 +1960,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "aaaf2e1";
+const APP_VERSION = "efdba82";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2151,9 +2155,10 @@ const db = {
   // المرحلة 4: المخزن في القاعدة (جدولان: warehouse_items / branch_items) — table يُمرَّر
   inventory: {
     async getAll(table) {
+      const hasBr = table === "branch_items" || table === "sales_branch_items";   // جدولا الفروع (زد ＋ شاشة المبيعات) لهما branch_id
       const out = [], page = 1000; let from = 0;
       for (;;) {
-        const { data, error } = await sb.from(table).select(table === "branch_items" ? "code,name,barcode,qty,price_incl,price_excl,row_order,branch_id" : "code,name,barcode,qty,price_incl,price_excl,row_order").order("row_order", { ascending: true }).range(from, from + page - 1);
+        const { data, error } = await sb.from(table).select(hasBr ? "code,name,barcode,qty,price_incl,price_excl,row_order,branch_id" : "code,name,barcode,qty,price_incl,price_excl,row_order").order("row_order", { ascending: true }).range(from, from + page - 1);
         if (error) throw error;
         out.push(...(data || []));
         if (!data || data.length < page) break; from += page;
@@ -2173,7 +2178,7 @@ const db = {
     },
     async bulkUpsert(table, rows, onProgress) {
       for (let i = 0; i < rows.length; i += 500) {
-        const { error } = await sb.from(table).upsert(rows.slice(i, i + 500), { onConflict: table === "branch_items" ? "branch_id,code" : "code" });
+        const { error } = await sb.from(table).upsert(rows.slice(i, i + 500), { onConflict: (table === "branch_items" || table === "sales_branch_items") ? "branch_id,code" : "code" });
         if (error) throw error;
         if (onProgress) onProgress(Math.min(i + 500, rows.length), rows.length);
       }
@@ -2194,6 +2199,22 @@ const db = {
     async rename(id, name) { const { error } = await sb.from("branches").update({ name }).eq("id", id); if (error) throw error; },
     async remove(id) { const { error } = await sb.from("branches").delete().eq("id", id); if (error) throw error; },   // FK on delete cascade يمسح صفوف branch_items لهذا الفرع (لا يتامى)
     async setMeta(id, patch) { const { error } = await sb.from("branches").update(patch).eq("id", id); if (error) throw error; },
+  },
+  // فرعا شاشة المبيعات (sales_branch_items) — ميتا العرض مشتقّة من القاعدة (عدد الأصناف ＋ آخر رفعة)، بلا جدول ميتا
+  salesBranches: {
+    async meta() {   // {haraj_maf:{count,last}, haraj_reh:{count,last}}
+      const out = {};
+      for (const x of SALES_EXTRA_LOCS) {
+        let count = 0, last = null;
+        try { const { count: c } = await sb.from("sales_branch_items").select("id", { count: "exact", head: true }).eq("branch_id", x.id); count = c || 0; } catch {}
+        try { const { data } = await sb.from("sales_uploads").select("captured_at").eq("location", x.id).order("captured_at", { ascending: false }).limit(1); last = (data && data[0]) ? Date.parse(data[0].captured_at) : null; } catch {}
+        out[x.id] = { count, last };
+      }
+      return out;
+    },
+    async lastUploadAt(code) {   // طابع آخر رفعة لهذا الموقع (prevSyncedAt لنافذة المبيعات) — قبل الرفعة الحالية
+      try { const { data } = await sb.from("sales_uploads").select("captured_at").eq("location", code).order("captured_at", { ascending: false }).limit(1); return (data && data[0]) ? data[0].captured_at : null; } catch { return null; }
+    },
   }
 };
 // لوحة المبيعات المقدّرة — قراءة فقط من sales_movements/sales_uploads (فلترة على القاعدة عبر الفهارس الأربعة)
@@ -4974,6 +4995,7 @@ async function onMergeBranch(inp) {
     if (!vatDoubleCheck(f.name, colMap, agg, `الفرع «${brName}»`)) { showToast("أُلغي الرفع — الفرع السابق كما هو."); inp.value = ""; return; }   // كشف مضاعفة الضريبة
     applyVat(agg);   // ＋15% على «قبل الضريبة» ⇒ الشامل (نفس قاعدة المستودع — G-TAX4)
     if (!invShrinkCheck("branch", agg.length, branchId)) { showToast("أُلغي الرفع — الفرع السابق كما هو."); inp.value = ""; return; }
+    if (!(await invOverlapGate("branch_items", branchId, agg.map(r => r.code), `الفرع «${brName}»`))) { showToast("أُلغي الرفع — الفرع السابق كما هو."); inp.value = ""; return; }   // حماية الملف الخاطئ (تقاطع <40٪)
     whWasUploaded = true;                 // رفع ملف فرع فعلي ⇒ يُفعّل عدّ missed_rounds في خطاف الرفع
     if (dbOnline && sb) {
       try {
@@ -4993,6 +5015,78 @@ async function onMergeBranch(inp) {
     renderInvCards(); renderReadiness();   // لا نُعيد بناء البطاقات هنا (يُبقي شارتَي ✓ والمزامنة على البطاقة)
   } catch (x) { if (card) card.classList.remove("ok"); showErr(`ملف الفرع «${brName}»: ` + x.message); }
   inp.value = ""; autoAdopt();   // إضافة/تغيير الفرع ⇒ إعادة دمج تلقائي
+}
+
+// 🚨 حماية الملف الخاطئ (صفحة تحديث القاعدة فقط): رفعة غير تأسيسية بتقاطع أكواد <40٪ مع الموقع ⇒ توقّف ＋ تأكيد صريح.
+//    (البطاقات خمسٌ فارتفع احتمال رفع ملف موقع في بطاقة موقع آخر — المزامنة التفاضلية تحذف كل شيء بصمت.)
+async function invOverlapGate(table, scope, newCodes, locName) {
+  if (!(dbOnline && sb)) return true;
+  let exist = [];
+  try { exist = await db.inventory.getAllCodes(table, scope); } catch { return true; }   // فشل القراءة ⇒ لا تعطّل الرفع
+  const existSet = new Set(exist.map(r => String(r.code)));
+  if (existSet.size === 0) return true;   // تأسيس (لا مرجع) ⇒ لا بوّابة
+  const inter = newCodes.filter(c => existSet.has(String(c))).length;
+  const ratio = inter / existSet.size;
+  if (ratio >= 0.40) return true;   // على القيمة الدقيقة (لا تدوير) — تفادي فخّ الحدّ
+  const pct = Math.round(ratio * 1000) / 10, toDelete = existSet.size - inter;
+  return confirm(
+    `توقّف: تقاطع أكواد الملف مع «${locName}» = ${pct}% فقط (أقلّ من 40%).\n\n` +
+    `قد يكون الملف لموقع آخر. سيُحذف ${toDelete} صنفاً غائباً عن الملف الجديد، ويُستبدَل مخزون «${locName}».\n\n` +
+    `«موافق» = تطبيق الرفعة · «إلغاء» = إبقاء «${locName}» كما هو.`
+  );
+}
+
+// رفع ملف فرع شاشة المبيعات (xbranch) — معزول عن زد: sales_branch_items وحده، بلا invBranches/mergeInventory/run.
+async function onMergeSalesBranch(inp) {
+  const f = inp.files[0]; if (!f) return; showErr("");
+  const card = inp.closest(".branch-card"), code = card ? card.dataset.xbranch : "";
+  const stEl = card ? card.querySelector(".ustatus") : null, syncEl = card ? card.querySelector(".zid-sync-msg") : null;
+  const reject = msg => { if (stEl) { stEl.className = "ustatus rejected"; stEl.textContent = msg; } if (card) { card.classList.remove("ok"); card.classList.add("rejected"); } inp.value = ""; };
+  const loc = SALES_EXTRA_LOCS.find(x => x.id === code);
+  if (!loc) { reject("تعذّر تحديد الفرع — أعِد تحميل الصفحة."); return; }
+  const locName = loc.name;
+  if (!(dbOnline && sb)) { reject("يتطلّب اتصالاً بالقاعدة."); return; }
+  try {
+    const { list, header, headers, colMap } = await readInvFileFull(f);
+    // 🚨 رؤوس مختلفة ⇒ رفض صريح (لا تخمين تعيين) — نفس حارس رفع المخزون
+    if (header && header.length) { const err = invColError(colMap, headers, f.name, `الفرع «${locName}»`); if (err) { reject(err); return; } }
+    if (!list.length) throw new Error("لا أصناف صالحة في الملف");
+    const agg = aggregateInv(list, "branch");
+    if (!vatDoubleCheck(f.name, colMap, agg, `الفرع «${locName}»`)) { showToast("أُلغي الرفع — الفرع السابق كما هو."); inp.value = ""; return; }
+    applyVat(agg);
+    if (!(await invOverlapGate("sales_branch_items", code, agg.map(r => r.code), `الفرع «${locName}»`))) { showToast("أُلغي الرفع — الفرع السابق كما هو."); inp.value = ""; return; }   // حماية الملف الخاطئ
+    try {
+      const r = await syncInventoryToDB("xbranch", agg, header, f.name, code);   // ← sales_branch_items وحده (معزول)
+      if (syncEl) { syncEl.style.display = "block"; syncEl.className = "zid-sync-msg ok"; syncEl.innerHTML = `✓ جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — ${r.total} صنف`; }
+    } catch (e) {
+      if (syncEl) { syncEl.style.display = "block"; syncEl.className = "zid-sync-msg fail"; syncEl.innerHTML = "⚠ تعذّرت المزامنة: " + esc(e.message || String(e)); }
+      inp.value = ""; return;
+    }
+    const brTot = list.totalsSkipped ? ` <span class="totals-note">· تُجوهل صفوف مجاميع: ${list.totalsSkipped}</span>` : "";
+    if (stEl) { stEl.className = "ustatus"; stEl.innerHTML = `<span class="ok-txt">✓ ${esc(f.name)} — ${agg.length} صنف${brTot}</span>`; }
+    if (card) { card.classList.remove("rejected"); card.classList.add("ok"); }
+    try { salesXbrMeta = await db.salesBranches.meta(); } catch {}   // حدّث ميتا العرض (عدد/آخر رفعة)
+    // 🚨 لا autoAdopt ولا loadInventoryFromDB — معزول عن مسار زد. حدّث شاشة المبيعات إن كانت معروضة.
+    if (typeof renderSalesPage === "function" && document.getElementById("page-sales") && document.getElementById("page-sales").classList.contains("active")) renderSalesPage();
+  } catch (x) { if (card) card.classList.remove("ok"); showErr(`ملف الفرع «${locName}»: ` + x.message); }
+  inp.value = "";
+}
+
+// بطاقات فرعَي شاشة المبيعات (ثابتان من SALES_EXTRA_LOCS) — للرفع فقط، بوسم صريح «لشاشة المبيعات»
+function renderSalesBranchCards() {
+  const host = document.getElementById("salesBranchCards"); if (!host) return;
+  const svg = `<svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="7" r="2.2"/><path d="M6 8.2v7.6"/><path d="M18 9.2c0 4-3 5-6 5"/></svg>`;
+  host.innerHTML = SALES_EXTRA_LOCS.map(x => {
+    const m = salesXbrMeta[x.id] || {};
+    const meta = m.count ? `القاعدة: <b>${m.count}</b> صنف · ${invAge(m.last || null)}` : "اضغط لاختيار الملف";
+    return `<label class="upload branch-card" data-xbranch="${esc(x.id)}">
+      <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeSalesBranch(this)">
+      <div class="utitle">${svg} ${esc(x.name)} <span class="totals-note">· لشاشة المبيعات</span></div>
+      <div class="hint">ارفع ملف هذا الفرع — بنفس الأعمدة (كود · اسم · كمية · أسعار)</div>
+      <div class="ustatus">${meta}</div>
+      <div class="zid-sync-msg" id="xbrSync-${esc(x.id)}" style="display:none"></div>
+    </label>`;
+  }).join("");
 }
 
 // إنشاء فرع جديد (اسم للعرض ＋ uuid مستقلّ) — دفعة ١أ
@@ -5163,7 +5257,11 @@ function downloadMerge() {
 let invMeta = null;   // صف inventory_sync_meta (wh_* + branch_*)
 let invHeaderDbg = {};   // { wh:{headers,colMap}, branch:{...} } — رؤوس الملفات المُلتقطة (?debug)
 let resyncNeeded = { wh: false, branch: false };   // تلوّث price_incl الفارغ (رأس السعر لم يُلتقط قبل الإصلاح)
-const INV_TABLE = { wh: "warehouse_items", branch: "branch_items" };
+const INV_TABLE = { wh: "warehouse_items", branch: "branch_items", xbranch: "sales_branch_items" };   // xbranch: فرعا شاشة المبيعات فقط (معزولان عن زد)
+// 🚨 فرعا شاشة المبيعات المقدّرة فقط (خارج جدول branches ⇒ خارج invBranches/mergeInventory/run ⇒ لا يمسّان زد).
+//    رمزاهما سلسلتان (ليستا uuid) فلا تطابقان branches.id — حارس بذاته.
+const SALES_EXTRA_LOCS = [{ id: "haraj_maf", name: "الحراج مفروشات" }, { id: "haraj_reh", name: "الحراج رحلات" }];
+let salesXbrMeta = {};   // {haraj_maf:{count,last}, …} — للعرض في بطاقات الرفع (مشتقّ من القاعدة، لا جدول ميتا)
 // تجميع صفوف الملف حسب الكود (نفس منطق mergeInventory داخل الملف): جمع الكمية ＋ نص المستودع=آخر غير فارغ / الفرع=أول غير فارغ
 function aggregateInv(list, mode) {
   const whMode = mode === "wh", map = new Map();
@@ -5370,26 +5468,29 @@ async function recordMovements(uploadId, kind, existMap, rows, branchId, fileNam
   } catch (e) { console.warn("recordMovements:", e); }
 }
 async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
-  const isBr = kind === "branch", scope = isBr ? branchId : null;
+  const isBr = kind === "branch", isXbr = kind === "xbranch", scope = (isBr || isXbr) ? branchId : null;   // xbranch: فرعا شاشة المبيعات (scope = الرمز الثابت)
   const table = INV_TABLE[kind], rows = buildInvDbRows(aggList, scope);
   const newCodes = rows.map(r => r.code), newSet = new Set(newCodes);
   const existRows = await db.inventory.getAllCodes(table, scope);   // [{code,qty}] — القديم للدلتا (لوحة المبيعات)
   const existMap = new Map(existRows.map(r => [String(r.code), r]));   // القديم كصفّ كامل {qty,name,price_incl,price_excl} — لتقييم المختفي بسعره الأخير
   const existing = [...existMap.keys()], existSet = new Set(existing);
   // لوحة المبيعات: طابع الرفعة السابقة لهذا الموقع **قبل** أن يُستبدَل بـsetMeta أدناه (للفترة، بلا قراءة إضافية)
-  const prevSyncedAt = isBr ? (((invBranches || []).find(b => b.id === branchId) || {}).synced_at || null) : (invMeta && invMeta.wh_synced_at) || null;
+  const prevSyncedAt = isXbr ? (await db.salesBranches.lastUploadAt(branchId)) : isBr ? (((invBranches || []).find(b => b.id === branchId) || {}).synced_at || null) : (invMeta && invMeta.wh_synced_at) || null;
   const uploadId = (crypto.randomUUID ? crypto.randomUUID() : ("" + Date.now() + Math.random()).replace(/\D/g, ""));
   // الحذف محصور بنطاقه: المستودع مصدر واحد؛ الفرع **داخل branch_id الخاصّ به فقط** (رفع فرع لا يمسّ صفّاً من فرع آخر — دفعة ١أ).
   const toDelete = existing.filter(c => !newSet.has(c));
   const added = newCodes.filter(c => !existSet.has(c)).length, updated = newCodes.length - added;
   const setMsg = (id, cls, t) => { const el = document.getElementById(id); if (el) { el.style.display = "block"; el.className = "zid-sync-msg" + (cls ? " " + cls : ""); el.innerHTML = t; } };
-  const msgId = isBr ? ("brSync-" + branchId) : "whSyncMsg";   // تقدّم مزامنة الفرع داخل بطاقته (معرّف مركّب لكلّ فرع)
+  const msgId = isXbr ? ("xbrSync-" + branchId) : isBr ? ("brSync-" + branchId) : "whSyncMsg";   // تقدّم المزامنة داخل بطاقة الموقع (معرّف مركّب)
   setBusy(msgId, true);
   try {
     setMsg(msgId, "", `⏳ مزامنة القاعدة… 0 / ${rows.length}`);
     await db.inventory.bulkUpsert(table, rows, (d, t) => setMsg(msgId, "", `⏳ مزامنة القاعدة… ${d} / ${t} صنف`));
     if (toDelete.length) { setMsg(msgId, "", `⏳ حذف ${toDelete.length} صنف غائب…`); await db.inventory.removeCodes(table, toDelete, scope); }
-    if (isBr) {
+    if (isXbr) {
+      // 🚨 عزل: فرعا شاشة المبيعات لا يمسّان invMeta ولا جدول branches ولا resyncNeeded ولا سجلّ نشاط زد.
+      //    الميتا للعرض تُشتقّ من القاعدة في renderSalesBranchCards. الحركات تُسجَّل أدناه (location = الرمز الثابت).
+    } else if (isBr) {
       // سجلّ الفرع نفسه ＋ مرآة إجماليّة في invMeta.branch_* (ليبقى العرض القديم عاملاً حتى تحويل القرّاء في ١ب)
       await db.branches.setMeta(branchId, { item_count: newCodes.length, file_name: fileName || null, synced_at: new Date().toISOString() });
       const brs = await db.branches.getAll(); const totalBr = brs.reduce((s, b) => s + (b.item_count || 0), 0);
@@ -5399,13 +5500,13 @@ async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
       const patch = { wh_header: header || null, wh_count: newCodes.length, wh_file_name: fileName || null, wh_synced_at: new Date().toISOString() };
       await db.inventory.setMeta(patch); invMeta = Object.assign(invMeta || { id: 1 }, patch);
     }
-    resyncNeeded[kind] = invPolluted(rows); renderResyncWarn();   // الملف الجديد (بالرأس المُلتقط) يُصفّي التلوّث إن حواه شامل
-    logActivity(isBr ? "branch_sync_full" : "warehouse_sync_full", null, { added, updated, deleted: toDelete.length, total: newCodes.length, file: fileName || "", location: isBr ? branchId : "wh", upload_id: uploadId });   // ＋location/upload_id: يمنع عمى «أي فرع» مستقبلاً
-    recordMovements(uploadId, kind, existMap, rows, branchId, fileName, prevSyncedAt);   // لوحة المبيعات: تسجيل صامت **بعد نجاح** الكتابة (fire-and-forget، معزول — لا يمسّ الرفع ولا المطابقة)
+    if (!isXbr) { resyncNeeded[kind] = invPolluted(rows); renderResyncWarn(); }   // الملف الجديد (بالرأس المُلتقط) يُصفّي التلوّث إن حواه شامل (لا يخصّ xbranch)
+    if (!isXbr) logActivity(isBr ? "branch_sync_full" : "warehouse_sync_full", null, { added, updated, deleted: toDelete.length, total: newCodes.length, file: fileName || "", location: isBr ? branchId : "wh", upload_id: uploadId });
+    recordMovements(uploadId, kind, existMap, rows, branchId, fileName, prevSyncedAt);   // لوحة المبيعات: تسجيل صامت **بعد نجاح** الكتابة (fire-and-forget، معزول — location=الرمز الثابت لـxbranch)
     return { added, updated, deleted: toDelete.length, total: newCodes.length };
   } finally { setBusy(msgId, false); }
 }
-async function loadInventoryMeta() { if (!sb) return; try { invMeta = await db.inventory.getMeta(); } catch (e) { console.warn("inv meta:", e); } try { invBranches = await db.branches.getAll(); renderBranchCards(); } catch (e) { console.warn("branches:", e); } renderReadiness(); renderUploadStatus(); checkReady(); }
+async function loadInventoryMeta() { if (!sb) return; try { invMeta = await db.inventory.getMeta(); } catch (e) { console.warn("inv meta:", e); } try { invBranches = await db.branches.getAll(); renderBranchCards(); } catch (e) { console.warn("branches:", e); } try { salesXbrMeta = await db.salesBranches.meta(); } catch (e) { console.warn("xbr meta:", e); } renderSalesBranchCards(); renderReadiness(); renderUploadStatus(); checkReady(); }
 function invDbAvailable() { return !!(dbOnline && sb && invMeta && invMeta.wh_count > 0); }
 function invAge(ms) { return ms != null ? ageText(ms) : ""; }
 // جلب الجدولين من القاعدة وإعادة بناء mergeWh/mergeBranches (المخزّن مجمّع مسبقاً ⇒ الدمج يعطي نفس النتيجة)
