@@ -1889,6 +1889,7 @@
     <div id="salesEmpty" class="stc-empty" style="display:none"></div>
     <div id="salesBody" style="display:none">
       <div class="dash-kpis sales-kpis" id="salesKpis"></div>
+      <div class="s4-banner miss" id="salesBranchWarn" style="display:none"></div>
       <div class="s4-banner miss" id="salesMissBanner" style="display:none"></div>
       <div class="s4-banner" id="salesBanner" style="display:none"></div>
       <div id="salesDisBox" style="display:none;margin-bottom:14px"></div>
@@ -2007,7 +2008,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "4aaa42f";
+const APP_VERSION = "6e7610b";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3580,6 +3581,17 @@ async function renderSalesPage() {
     const movs = rawMovs.filter(m => !baselineIds.has(m.upload_id));
     const stock = await salesStockRows();
     const locsAll = ["wh", ...salesAllLocs().map(b => b.id)];   // شاشة المبيعات: المستودع ＋ فروع زد ＋ الحراج (مسار زد لا يستعمل هذه)
+    // 🚨 أ-٢ صمّام صمت النقص: موقع في البيانات (stock/movs) لا في التعداد (invBranches فشل تحميله بصلاحية/شبكة) ⇒
+    //    تحذير صريح لا نصف فروع بصمت. مستقلّ عن الدور (يُقاس بالبيانات لا بالصلاحية). عرضٌ محض — لا يمسّ أي حساب. /* branch-warn */
+    const knownLocs = new Set(locsAll); const dataLocs = new Set();
+    for (const r of stock) if (r && r.location != null) dataLocs.add(String(r.location));
+    for (const m of movs) if (m && m.location != null) dataLocs.add(String(m.location));
+    const unknownLocs = [...dataLocs].filter(l => !knownLocs.has(l));
+    const branchWarn = document.getElementById("salesBranchWarn");
+    if (branchWarn) {
+      if (unknownLocs.length) { branchWarn.style.display = "flex"; branchWarn.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>تعذّر تحميل قائمة الفروع — الأرقام قد تكون ناقصة (<bdi dir="ltr">${unknownLocs.length}</bdi> موقعاً في البيانات لا يظهر في الشاشة). أعِد تحميل الصفحة، وإن تكرّر فراجِع صلاحيات حسابك.</span>`; }
+      else branchWarn.style.display = "none";
+    }
     // 🚨 النموذج: المستودع مخزن لا نقطة بيع. المبيعات = الفروع فقط · المخزون = الكل (يشمل المستودع).
     const branchLocs = locsAll.filter(l => l !== "wh");
     const isWhView = salesLoc === "wh";

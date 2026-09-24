@@ -246,6 +246,10 @@ jobs:
         run: node tests/perf/role-sales.mjs --broken
       - name: G-ROLE-SALES — عزل شاشة المبيعات بالدور (واجهة + بنية SQL؛ admin بلا شاشة · marketing عليها فقط)
         run: node tests/perf/role-sales.mjs
+      - name: Self-check — G-ROLE-BRANCHES يرسب حين يُخفى تحذير الفروع (نصف فروع بصمت)
+        run: node tests/perf/role-branches.mjs --broken
+      - name: G-ROLE-BRANCHES — دور يرى الشاشة يرى فروعها (marketing ⇒ 4 فروع · فشل التحميل ⇒ تحذير صريح لا صمت)
+        run: node tests/perf/role-branches.mjs
       - name: Self-check — G-COMPACT-TOOLS يرسب على التخطيط القديم (لوحتان ظاهرتان افتراضياً)
         run: node tests/perf/compact-tools.mjs --broken
       - name: Self-check — G-COMPACT-TOOLS يرسب على اقتطاع المنسدلة (سلف overflow:hidden)

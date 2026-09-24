@@ -61,11 +61,16 @@ grant select on public.sales_stock to authenticated;
 -- (4) عزل marketing عن كل جدول آخر: سياسة **restrictive** للقراءة تُدمَج AND مع القائمة (لا تلمس أيّ سياسة قائمة).
 --     get_my_role() is distinct from 'marketing' ⇒ يمرّ الجميع (بمن فيهم بلا-دور=null) إلّا marketing.
 --     get_my_role دالّة security definer فتعمل حتى على user_roles بلا recursion.
+-- 🚨 «branches» مُستثنى عمداً (دفعة أ ٢٠٢٦-٠٩): سياسة restrictive عليه منعت marketing من قراءة
+--    **أسماء** الفروع (بيانات وصفية: id/name/counts فقط) فعاد invBranches فارغاً ⇒ اختفت العزيزية
+--    والخضرة من شاشة المبيعات كلياً (لم يبقَ إلّا الحراج الثابت في SALES_EXTRA_LOCS). أرقام المخزون
+--    تأتي من العرض sales_stock (المسموح لـmarketing) لا من branches، فقراءته آمنة. لا تُعِده للقائمة.
+drop policy if exists branches_nomkt_sel on public.branches;   -- إسقاط السياسة المتقادمة (idempotent)
 do $$
 declare t text;
 begin
   foreach t in array array[
-    'warehouse_items','branch_items','inventory_sync_meta','branches',
+    'warehouse_items','branch_items','inventory_sync_meta',
     'mappings','waiting_items','zid_products','zid_sync_meta','activity_log',
     'aliases','matched_history','price_offsets','positional_exceptions',
     'excluded_skus','excluded_rules','ignored_items','user_roles'
