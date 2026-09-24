@@ -1,11 +1,12 @@
 // ============================================================================
-// G-SALES-CLEAN (دفعة هـ) — كتل حالة الرفع خرجت من شاشة المبيعات إلى صفحة الرفع (القيمة، لا الشكل):
-//   ① لا كتلة من الثلاث (#salesMissBanner · #salesBanner · #salesDisBox · #salesLastUp) داخل #page-sales.
-//   ② الثلاث داخل #dbUploadStatus (صفحة الرفع #page-db).
-//   ③ القاعدة المقدّسة ٨ محفوظة في الشاشة: صفّ الإجمالي في جدول المقارنة يحمل «يشمل N من N فروع» (حين N<الكل).
-//   ④ شريط التغطية (معدّل الريال/يوم) غائب في منظور admin · حاضر في منظور owner (قرار عرض).
-// --broken       : يزيل بوّابة الدور عن التغطية ⇒ تظهر لـadmin ⇒ يرسب على ④.
-// --broken-sales : يُبقي كتلة (#salesMissBanner) داخل #page-sales ⇒ يرسب على ①.
+// G-SALES-CLEAN — كتل حالة الرفع في أعلى «المخزون» (القيمة/المحتوى، لا الغياب):
+//   ① لا كتلة (#salesMissBanner · #salesBanner · #salesDisBox · #salesLastUp) في #page-sales ولا #page-db.
+//   ② الكتل داخل #invUploadStatus (#page-inventory) و**مملوءة فعلاً** (محتوى، لا حاوية فارغة).
+//   ③ القاعدة المقدّسة ٨ محفوظة في شاشة المبيعات: صفّ الإجمالي في جدول المقارنة يحمل «يشمل N من N فروع».
+//   ④ التغطية (معدّل الريال/يوم) حاضرة لـowner · غائبة لـadmin (قرار عرض).
+//   ⑤ viewer: الحاوية مخفيّة (RLS يحجب المصادر — لا نصف صامت).
+// --broken        : يزيل بوّابة دور التغطية ⇒ تظهر لـadmin ⇒ يرسب على ④.
+// --broken-empty  : fillUploadStatus لا يملأ ⇒ الحاوية فارغة (لا «آخر رفعة») ⇒ يرسب على ② (المحتوى لا الغياب).
 // ============================================================================
 import { readFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -14,18 +15,17 @@ import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const BROKEN = process.argv.includes("--broken");
-const BROKEN_SALES = process.argv.includes("--broken-sales");
+const BROKEN_EMPTY = process.argv.includes("--broken-empty");
 let html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 if (BROKEN) {
   const A = 'if (covEl) covEl.innerHTML = (myRole === "owner" || myRole === "marketing") ? ';
   if (!html.includes(A)) { console.error("✗ (--broken) لم أجد بوّابة دور التغطية"); process.exit(2); }
-  html = html.replace(A, 'if (covEl) covEl.innerHTML = (true) ? ');   // التغطية بلا بوّابة ⇒ تظهر لـadmin
+  html = html.replace(A, 'if (covEl) covEl.innerHTML = (true) ? ');
 }
-if (BROKEN_SALES) {
-  // كتلة باقية في شاشة المبيعات (نقل ناقص)
-  const A = '<!-- كتل حالة الرفع (بلا رفعة · المفقود · آخر رفعة/التغطية) نُقلت إلى صفحة «تحديث قاعدة البيانات» ← #dbUploadStatus (دفعة هـ) -->';
-  if (!html.includes(A)) { console.error("✗ (--broken-sales) لم أجد موضع الكتل في الشاشة"); process.exit(2); }
-  html = html.replace(A, '<div class="s4-banner miss" id="salesMissBanner" style="display:none"></div>');
+if (BROKEN_EMPTY) {
+  const A = 'if (typeof renderSalesPage === "function") await renderSalesPage();';
+  if (!html.includes(A)) { console.error("✗ (--broken-empty) لم أجد نداء الملء"); process.exit(2); }
+  html = html.replace(A, '/* (--broken-empty) لا ملء ⇒ حاوية فارغة */');
 }
 function findChrome(){const c=["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",process.env.CHROME_PATH||"","/usr/bin/google-chrome-stable","/usr/bin/google-chrome"];for(const x of c)if(x&&existsSync(x))return x;for(const n of ["google-chrome-stable","google-chrome","chromium"])try{return execFileSync("bash",["-lc","command -v "+n]).toString().trim();}catch{}return"";}
 const b = await puppeteer.launch({ executablePath: findChrome(), headless: "new", args: ["--no-sandbox"] });
@@ -48,38 +48,61 @@ const res = await p.evaluate(async () => {
   const stock = [{ location: "az", sku: "A1", name: "صنف", qty: 30, price_incl: 100, price_excl: 87 }, { location: "kh", sku: "W1", name: "صنف2", qty: 50, price_incl: 100, price_excl: 87 }];
   db.sales = { uploads: async () => [{ id: "UAZ", location: "az", captured_at: azCur, suspect: false }, { id: "UKH", location: "kh", captured_at: khOld, suspect: false }], movements: async () => movs, clearSuspect: async () => {} };
   sb = { rpc: async () => ({ data: [{ used: 0, cap: 500 }], error: null }), from: () => ({ select: () => ({ range: async (a) => ({ data: (a === 0 ? stock : []), error: null }) }) }) };
-
-  // منظور owner: يرسم الشاشة + صفحة الرفع
-  myRole = "owner"; try { goPage("home"); } catch (e) {}
-  document.getElementById("page-sales").classList.add("active");
-  await renderSalesPage();
   const ids = ["salesMissBanner", "salesBanner", "salesDisBox", "salesLastUp"];
-  const inSales = ids.filter(i => document.querySelector(`#page-sales #${i}`));
-  const inDb = ids.filter(i => document.querySelector(`#dbUploadStatus #${i}`));
+  const snap = async (role) => {
+    myRole = role; try { goPage("home"); } catch (e) {}
+    document.getElementById("page-inventory").classList.add("active");
+    await fillUploadStatus();
+    const host = document.getElementById("invUploadStatus");
+    return {
+      hidden: host.style.display === "none",
+      inInv: ids.filter(i => document.querySelector(`#invUploadStatus #${i}`)).length,
+      lu: (document.getElementById("salesLastUp") || {}).textContent || "",
+      miss: (document.getElementById("salesMissBanner") || {}).textContent || "",
+      cov: (document.getElementById("salesCoverage") || {}).textContent || "",
+    };
+  };
+  const owner = await snap("owner");
+  // جدول المقارنة (في شاشة المبيعات) — بيان القاعدة ٨
   const totNote = (document.querySelector("#salesCmp tbody tr.total .tot-note") || {}).textContent || "";
-  const covOwner = (document.getElementById("salesCoverage") || {}).textContent || "";
-
-  // منظور admin: صفحة الرفع (renderSalesPage عبر goPage('db'))
-  myRole = "admin"; await renderSalesPage();
-  const covAdmin = (document.getElementById("salesCoverage") || {}).textContent || "";
-  return { inSales, inDb, totNote, covOwner, covAdmin };
+  // الكتل ليست في page-sales ولا page-db
+  const inSales = ids.filter(i => document.querySelector(`#page-sales #${i}`));
+  const inDb = ids.filter(i => document.querySelector(`#page-db #${i}`));
+  // فتح تفاصيل المفقود
+  if (typeof salesShowDisappeared === "function") await salesShowDisappeared();
+  const disHasTable = !!document.querySelector("#salesDisBox table");
+  const admin = await snap("admin");
+  const viewer = await snap("viewer");
+  return { owner, admin, viewer, totNote, inSales, inDb, disHasTable };
 });
 await b.close();
 const fails = [];
 if (errs.length) fails.push("أخطاء JS: " + errs.join(" | "));
-const covHasRate = s => /التغطية/.test(s);
+const covHas = s => /التغطية/.test(s);
+const populated = s => /آخر رفعة/.test(s);
 if (BROKEN) {
-  if (covHasRate(res.covAdmin)) { console.log("✅ (--broken) G-SALES-CLEAN مسك تسريب التغطية لـadmin."); process.exit(0); }
+  if (covHas(res.admin.cov)) { console.log("✅ (--broken) G-SALES-CLEAN مسك تسريب التغطية لـadmin."); process.exit(0); }
   console.error("✗ (--broken) لم تظهر التغطية لـadmin — لا أسنان."); process.exit(1);
 }
-if (BROKEN_SALES) {
-  if (res.inSales.length) { console.log(`✅ (--broken-sales) G-SALES-CLEAN مسك كتلة باقية في الشاشة: ${res.inSales.join(",")}`); process.exit(0); }
-  console.error("✗ (--broken-sales) لم تُرصد كتلة في الشاشة — لا أسنان."); process.exit(1);
+if (BROKEN_EMPTY) {
+  if (!populated(res.owner.lu)) { console.log("✅ (--broken-empty) G-SALES-CLEAN مسك الحاوية الفارغة: لا «آخر رفعة» في #invUploadStatus."); process.exit(0); }
+  console.error("✗ (--broken-empty) الحاوية بقيت مملوءة — لا أسنان."); process.exit(1);
 }
-if (res.inSales.length) fails.push(`① كتل حالة الرفع ما زالت في شاشة المبيعات: ${res.inSales.join(", ")}`);
-if (res.inDb.length !== 4) fails.push(`② الكتل ليست كلها في #dbUploadStatus: [${res.inDb.join(", ")}]`);
+// ① لا في page-sales/page-db
+if (res.inSales.length) fails.push(`① كتل في شاشة المبيعات: ${res.inSales.join(", ")}`);
+if (res.inDb.length) fails.push(`① كتل بقيت في صفحة الرفع: ${res.inDb.join(", ")}`);
+// ② في المخزون ومملوءة (محتوى)
+if (res.owner.inInv !== 4) fails.push(`② الكتل ليست كلها في #invUploadStatus: ${res.owner.inInv}/4`);
+if (!populated(res.owner.lu)) fails.push(`② حاوية المخزون فارغة (لا «آخر رفعة») — فحص محتوى: «${res.owner.lu.slice(0, 60)}»`);
+if (!res.disHasTable) fails.push("② جدول المفقود لا يفتح (لا table في #salesDisBox)");
+// ③ بيان القاعدة ٨ في الشاشة
 if (!(/يشمل/.test(res.totNote) && /من/.test(res.totNote))) fails.push(`③ صفّ الإجمالي بلا «يشمل N من N فروع»: «${res.totNote}»`);
-if (!covHasRate(res.covOwner)) fails.push(`④ التغطية غائبة عن owner: «${res.covOwner}»`);
-if (covHasRate(res.covAdmin)) fails.push(`④ 🚨 التغطية ظهرت لـadmin (يجب أن تُخفى): «${res.covAdmin}»`);
+// ④ التغطية owner فقط
+if (!covHas(res.owner.cov)) fails.push(`④ التغطية غائبة عن owner: «${res.owner.cov}»`);
+if (covHas(res.admin.cov)) fails.push(`④ 🚨 التغطية ظهرت لـadmin: «${res.admin.cov}»`);
+// ② admin مملوء أيضاً (الكتلتان الأخريان له)
+if (!populated(res.admin.lu)) fails.push("② حاوية admin فارغة (يجب أن تُملأ — بلا التغطية)");
+// ⑤ viewer مخفيّ
+if (!res.viewer.hidden) fails.push("⑤ 🚨 حاوية المخزون ظاهرة لـviewer (RLS يحجب مصادرها — يجب إخفاؤها)");
 if (fails.length) { console.error("✗ G-SALES-CLEAN:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ G-SALES-CLEAN: الكتل الثلاث خارج الشاشة وداخل صفحة الرفع · «يشمل N من N» في صفّ الإجمالي · التغطية owner فقط (لا admin).");
+console.log("✅ G-SALES-CLEAN: الكتل في #invUploadStatus (المخزون) مملوءةً · خارج الشاشة وصفحة الرفع · «يشمل N من N» في الإجمالي · التغطية owner فقط · viewer مخفيّ.");

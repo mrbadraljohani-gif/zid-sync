@@ -1688,6 +1688,14 @@
       <div class="ph-txt"><h2>مراجعة الجرد</h2><p>متابعة حالة المنتجات والربط والتغييرات</p></div>
       <span class="inv-age" id="invLastUpdate"></span>
     </div>
+    <!-- منطقة حالة الرفع (منقولة إلى أعلى المخزون): آخر رفعة/التغطية · بلا رفعة · المفقود -->
+    <!-- تُملأ بالمعرّف عبر fillUploadStatus (دالّة مستقلّة بروّابة دورها owner+admin — لا تعتمد بوّابة شاشة المبيعات) -->
+    <div id="invUploadStatus">
+      <div class="sales-lastup" id="salesLastUp">—</div>
+      <div class="s4-banner miss" id="salesMissBanner" style="display:none"></div>
+      <div class="s4-banner" id="salesBanner" style="display:none"></div>
+      <div id="salesDisBox" style="display:none;margin-bottom:14px"></div>
+    </div>
     <!-- لوحة معلومات: صفّ KPI ← ملخّص/توزيع/نشاط ← اتصال/انتباه ← جدول (دفعة ١: الهيكل ＋ KPI؛ التوزيع والجدول لاحقاً) -->
     <!-- صفّ ١ — KPI «أين أنا الآن»: منتجات زد · الموحّد · بلا ربط · الروابط. تبدأ «—» (لا رقم قبل المصدر) -->
     <div class="dash-kpis">
@@ -1778,14 +1786,7 @@
     <div class="page-head"><span class="ph-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14-4.5L4 9"/><path d="M4 5v4h4"/><path d="M4 13a8 8 0 0 0 14 4.5L20 15"/><path d="M20 19v-4h-4"/></svg></span><div class="ph-txt"><h2>تحديث قاعدة البيانات</h2><p>المخزن (مستودع/فرع) ومنتجات زد مرآةً في القاعدة — حدّث كلاً عند الحاجة</p></div></div>
     <div id="resyncWarn" class="zid-stale-warn" style="display:none;margin-bottom:14px"></div>
 
-    <!-- منطقة حالة الرفع (منقولة من شاشة المبيعات، دفعة هـ): بلا رفعة · المفقود · آخر رفعة/التغطية -->
-    <!-- تُملأ بالمعرّف من renderSalesPage/salesShowDisappeared (يُستدعيان عند فتح الصفحة) — صفر تغيير منطق، عرضٌ منقول -->
-    <div id="dbUploadStatus">
-      <div class="sales-lastup" id="salesLastUp">—</div>
-      <div class="s4-banner miss" id="salesMissBanner" style="display:none"></div>
-      <div class="s4-banner" id="salesBanner" style="display:none"></div>
-      <div id="salesDisBox" style="display:none;margin-bottom:14px"></div>
-    </div>
+    <!-- كتل حالة الرفع نُقلت إلى أعلى صفحة «المخزون» ← #invUploadStatus (دفعة النقل الثانية) -->
 
     <div class="card stage-card">
       <div class="stage-head"><span class="stage-n">١</span><b>المستودع والفرع</b><span class="stage-sub">جدولان مستقلان — حدّث كلاً على حدة؛ يُوحّدان عند المطابقة (اتحاد بجمع الكميات)</span></div>
@@ -2016,7 +2017,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "eb8b160";
+const APP_VERSION = "15f923f";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2782,8 +2783,8 @@ function goPage(id, fromHash) {
     if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");   // حالة التنقّل تُعلَن
   });
   if (id === "home") { renderReadiness(); renderUploadStatus(); }
-  if (id === "db") { renderInvCards(); renderBranchCards(); if (typeof renderSalesPage === "function") renderSalesPage(); }   // renderSalesPage يملأ كتل حالة الرفع المنقولة (#dbUploadStatus) بالمعرّف — نفس استعلاماتها المنقولة، لا نوع جديد
-  if (id === "inventory") { renderInventoryPage(); renderActivityTable(); }
+  if (id === "db") { renderInvCards(); renderBranchCards(); }
+  if (id === "inventory") { renderInventoryPage(); renderActivityTable(); fillUploadStatus(); }
   if (id === "sales" && typeof renderSalesPage === "function") renderSalesPage();
   if (id === "options" && typeof renderOffsetsList === "function") renderOffsetsList();
   closeSidebar();
@@ -3591,6 +3592,15 @@ function salesQueryDetail(sku) {
   }).join("");
   const head = `<div class="sq-head"><b>${esc(name || sku)}</b> <span class="mono">${esc(sku)}</span>${barcode ? ` · باركود <span class="mono">${esc(barcode)}</span>` : ""}</div>`;
   return head + `<div class="twrap"><table class="sq-table"><thead><tr><th>الموقع</th><th>الكمية</th><th>شامل الضريبة</th><th>قبل الضريبة</th><th>مبيعات مقدّرة (الفترة)</th></tr></thead><tbody>${rows}<tr class="total"><td>الإجمالي</td><td>${salesNum(totQty)}</td><td class="q-na">—</td><td class="q-na">—</td><td class="q-na">—</td></tr></tbody></table></div>`;
+}
+// كتل حالة الرفع أعلى «المخزون» — دالّة مستقلّة ببوّابة دورها (🚫 لا تعتمد بوّابة شاشة المبيعات/canSeeSales):
+// المصادر (sales_uploads/movements/stock) مسموحة لـowner+admin فقط بين زوّار المخزون (viewer محجوب بـRLS ⇒ نُخفي لا نترك فارغاً بصمت؛ marketing لا يصل المخزون).
+// الحساب مُعاد من renderSalesPage (بلا بوّابة دور — يملأ الكتل بالمعرّف)؛ التغطية تبقى owner فقط داخله (admin مخفيّ).
+async function fillUploadStatus() {
+  const host = document.getElementById("invUploadStatus"); if (!host) return;
+  if (!(myRole === "owner" || myRole === "admin")) { host.style.display = "none"; return; }   // viewer/غيره: RLS يحجب المصادر — إخفاء صريح لا نصف صامت
+  host.style.display = "";
+  if (typeof renderSalesPage === "function") await renderSalesPage();
 }
 async function renderSalesPage() {
   renderSalesFilters(); salesSetDateLabel(); renderSalesAI();
