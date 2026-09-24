@@ -254,6 +254,18 @@ jobs:
         run: node tests/perf/sales-query.mjs --broken
       - name: G-SALES-QUERY — استعلام المنتج (الكود⇒الموقع بكميته · الخالي «غير موجود» · أسعار مباشرة · إجمالي)
         run: node tests/perf/sales-query.mjs
+      - name: Self-check — G-SALES-LOCS يرسب حين يسقط الحراج من التعداد
+        run: node tests/perf/sales-locs.mjs --broken
+      - name: G-SALES-LOCS — مواقع المبيعات ٤ فروع (زد ＋ الحراج) · المستودع خارجها · حراج التأسيس مستبعَد
+        run: node tests/perf/sales-locs.mjs
+      - name: Self-check — G-ZID-ISOLATION يرسب حين يمسّ رفع الحراج جدول زد
+        run: node tests/perf/zid-isolation.mjs --broken
+      - name: G-ZID-ISOLATION — رفع الحراج يكتب sales_branch_items وحده (لا branch_items/warehouse_items)
+        run: node tests/perf/zid-isolation.mjs
+      - name: Self-check — G-ZID-NO-EXTRA يرسب حين يتسرّب رمز الحراج لمسار زد
+        run: node tests/perf/zid-no-extra.mjs --broken
+      - name: G-ZID-NO-EXTRA — رمز غير-uuid لا يمرّ في mergeBranches/mergeInventory (مخرج زد بلا تغيير)
+        run: node tests/perf/zid-no-extra.mjs
       - name: Self-check — G-AI-PARITY يرسب حين تُكسَر قاعدة (يُدخل المستودع ⇒ رقم المساعد يتضخّم)
         run: node tests/perf/ai-parity.mjs --broken
       - name: Self-check — G-AI-PARITY يرسب حين يُعاد الرفض بدل بيان النقص (فترة أطول من المرصود)
