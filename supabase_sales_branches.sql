@@ -43,22 +43,30 @@ drop trigger if exists sales_branch_items_set_updated_at on public.sales_branch_
 create trigger sales_branch_items_set_updated_at before update on public.sales_branch_items
   for each row execute function public.set_updated_at();
 
--- 3) RLS — القراءة لكل موثّق · 🚨 الكتابة لـ owner حصراً (أضيق من branch_items عمداً: بيانات عرض حسّاسة)
+-- 3) RLS — القراءة لكل موثّق · 🚨 الكتابة لـ owner + admin (مطابقة branch_items: admin/محمد يرفع يومياً)
 alter table public.sales_branch_items enable row level security;
 drop policy if exists sales_branch_items_select_auth on public.sales_branch_items;
-drop policy if exists sales_branch_items_insert_ow   on public.sales_branch_items;
+drop policy if exists sales_branch_items_insert_ow   on public.sales_branch_items;   -- أُسقطت السياسات القديمة owner-only (_ow)
 drop policy if exists sales_branch_items_update_ow   on public.sales_branch_items;
 drop policy if exists sales_branch_items_delete_ow   on public.sales_branch_items;
+drop policy if exists sales_branch_items_insert_wr   on public.sales_branch_items;
+drop policy if exists sales_branch_items_update_wr   on public.sales_branch_items;
+drop policy if exists sales_branch_items_delete_wr   on public.sales_branch_items;
 create policy sales_branch_items_select_auth on public.sales_branch_items for select to authenticated using (true);
-create policy sales_branch_items_insert_ow   on public.sales_branch_items for insert to authenticated with check (public.get_my_role() = 'owner');
-create policy sales_branch_items_update_ow   on public.sales_branch_items for update to authenticated using (public.get_my_role() = 'owner') with check (public.get_my_role() = 'owner');
-create policy sales_branch_items_delete_ow   on public.sales_branch_items for delete to authenticated using (public.get_my_role() = 'owner');
+create policy sales_branch_items_insert_wr   on public.sales_branch_items for insert to authenticated with check (public.get_my_role() in ('owner','admin'));
+create policy sales_branch_items_update_wr   on public.sales_branch_items for update to authenticated using (public.get_my_role() in ('owner','admin')) with check (public.get_my_role() in ('owner','admin'));
+create policy sales_branch_items_delete_wr   on public.sales_branch_items for delete to authenticated using (public.get_my_role() in ('owner','admin'));
 
 -- 3ب) عزل marketing عن الجدول مباشرةً (كنظيره branch_items): يقرأ المبيعات عبر العرض sales_stock فقط، لا الجدول.
 --     سياسة restrictive تُدمَج AND: تمنع marketing وحده وتُبقي البقية.
 drop policy if exists sales_branch_items_nomkt_sel on public.sales_branch_items;
 create policy sales_branch_items_nomkt_sel on public.sales_branch_items
   as restrictive for select to authenticated using (public.get_my_role() is distinct from 'marketing');
+
+-- 3ج) sales_uploads: إضافة admin إلى القراءة — admin يكتب الرفعات ويحتاج قراءة آخر رفعة (اشتقاق period_days للفترة).
+--     بدونها period_days تفسد بصمت عند رفع الأدمن. (كان owner+marketing في supabase_marketing_role.sql؛ نوسّعه هنا idempotent.)
+drop policy if exists sales_uploads_select_ro on public.sales_uploads;
+create policy sales_uploads_select_ro on public.sales_uploads for select to authenticated using (public.get_my_role() in ('owner','marketing','admin'));
 
 -- 4) grants صريحة — لا شيء لـ anon
 revoke all on table public.sales_branch_items from anon;

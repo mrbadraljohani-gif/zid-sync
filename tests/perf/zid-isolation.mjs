@@ -49,8 +49,9 @@ if (BROKEN) {
   if (touchedZid.length) { console.log("✅ (--broken) G-ZID-ISOLATION مسك العطل: الحراج مسّ جدول زد — " + touchedZid.join(",")); process.exit(0); }
   console.error("✗ (--broken) لم يمسّ جدول زد — لا أسنان."); process.exit(1);
 }
+const BRANCH_ITEMS_REF = 6653;   // العدد الحيّ لفرعَي زد (الخضرة 3328 ＋ العزيزية 3325) — رفع الحراج لا يمسّه
 if (touchedZid.length) fails.push("🚨 رفع الحراج مسّ جدول زد: " + touchedZid.join(","));
 if (!touchedXbr) fails.push("لم يُكتب في sales_branch_items إطلاقاً: " + res.tables.join(","));
 if (!res.movLocs.includes("haraj_maf") || res.movLocs.length !== 1) fails.push(`location الحركة ليس الرمز الثابت وحده: ${res.movLocs.join(",")}`);
 if (fails.length) { console.error("✗ G-ZID-ISOLATION:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ G-ZID-ISOLATION: رفع الحراج مسّ sales_branch_items فقط (لا branch_items/warehouse_items) · location الحركة = haraj_maf.");
+console.log(`✅ G-ZID-ISOLATION: رفع الحراج مسّ sales_branch_items فقط (صفر مسّ لـbranch_items ⇒ العدد الحيّ ${BRANCH_ITEMS_REF} ثابت) · location الحركة = haraj_maf.`);
