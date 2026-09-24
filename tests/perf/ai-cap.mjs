@@ -31,10 +31,11 @@ const res = await p.evaluate(async () => {
          functions: { invoke: async () => ({ data: { ok: true, structured: { lead: "مبيعات العزيزية ممتازة اليوم.", metrics: [{ label: "المبيعات", value: "1,234", unit: "ر.س شامل" }], warning: null, note: "المبيعات مقدّرة.", scope_label: "فرع العزيزية", period_label: "آخر 7 أيام", analytical: true }, meta: { used: 4, remaining: 496, cap: 500 } }, error: null }) } };
   document.getElementById("page-sales").classList.add("active");
   await renderSalesAI();
-  const cardOpen = (document.querySelector("#salesAI .sai-card") || {}).textContent || "";
+  salesAIToggle();   // 🚨 يفتح اللوحة المطويّة قبل القياس — لوحة مطويّة قد تُخفي التسريب فيمرّ الحارس كاذباً (القيد ٤)
+  const cardOpen = (document.getElementById("saiPanel") || {}).textContent || "";
   document.getElementById("saiInput").value = "كم بعنا؟";
   await salesAskAI();
-  const cardAfter = (document.querySelector("#salesAI .sai-card") || {}).textContent || "";
+  const cardAfter = (document.getElementById("saiPanel") || {}).textContent || "";
   return { cardOpen, cardAfter };
 });
 await b.close();

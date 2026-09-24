@@ -42,8 +42,9 @@ const res = await p.evaluate(async () => {
   sb = { rpc: async () => ({ data: [{ used: 1, cap: 500 }], error: null }), functions: { invoke: async () => ({ data: cur, error: null }) } };
   document.getElementById("page-sales").classList.add("active");
   await renderSalesAI();
+  salesAIToggle();   // 🚨 يفتح اللوحة قبل القياس — لوحة مطويّة قد تعطي أبعاداً صفرية فيمرّ الحارس كاذباً (القيد ٤)
   const out = {};
-  for (const k of Object.keys(shapes)) { cur = shapes[k]; document.getElementById("saiInput").value = "س " + k; await salesAskAI(); out[k] = !!document.querySelector("#saiAnswer .sai-disc"); }
+  for (const k of Object.keys(shapes)) { cur = shapes[k]; document.getElementById("saiInput").value = "س " + k; await salesAskAI(); const d = document.querySelector("#saiAnswer .sai-disc"); out[k] = !!(d && d.getBoundingClientRect().height > 0); }   // مرئيّ فعلاً (بُعد > 0) لا مجرّد موجود
   return out;
 });
 await b.close();

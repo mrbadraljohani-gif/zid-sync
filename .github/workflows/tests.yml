@@ -246,6 +246,14 @@ jobs:
         run: node tests/perf/role-sales.mjs --broken
       - name: G-ROLE-SALES — عزل شاشة المبيعات بالدور (واجهة + بنية SQL؛ admin بلا شاشة · marketing عليها فقط)
         run: node tests/perf/role-sales.mjs
+      - name: Self-check — G-COMPACT-TOOLS يرسب على التخطيط القديم (لوحتان ظاهرتان افتراضياً)
+        run: node tests/perf/compact-tools.mjs --broken
+      - name: Self-check — G-COMPACT-TOOLS يرسب على اقتطاع المنسدلة (سلف overflow:hidden)
+        run: node tests/perf/compact-tools.mjs --broken-clip
+      - name: Self-check — G-COMPACT-TOOLS يرسب حين لا يفتح اللوحة قبل القياس (أبعاد صفرية)
+        run: node tests/perf/compact-tools.mjs --broken-collapsed
+      - name: G-COMPACT-TOOLS — شريط أدوات مُدمج (الترتيب فلاتر→أدوات→مؤشّرات · مطويّ افتراضاً · 50-60px · لمس≥32 · لا اقتطاع · لا إزاحة)
+        run: node tests/perf/compact-tools.mjs
       - name: Self-check — G-SALES-QUERY-READONLY يرسب حين يُحقن استعلام/كتابة في قسم الاستعلام
         run: node tests/sales-query-readonly.mjs --broken
       - name: G-SALES-QUERY-READONLY — قسم «استعلام عن منتج» عرضٌ فقط (salesCtx فقط · لا كتابة/قاعدة/زد)
