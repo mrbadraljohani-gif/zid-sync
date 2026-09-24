@@ -1223,10 +1223,12 @@
   .sq-drop .q-warn { color: var(--amber-tint, var(--amber)); }
   .sq-cnt { font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
   .sq-list { display: flex; flex-direction: column; gap: 6px; }
-  .sq-hit { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; width: 100%; text-align: start; background: rgba(255,255,255,.03); border: 1px solid var(--hair); border-radius: 10px; padding: 9px 11px; min-height: 34px; color: var(--text); cursor: pointer; font: inherit; }
+  .sq-hit { display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: start; background: rgba(255,255,255,.03); border: 1px solid var(--hair); border-radius: 10px; padding: 9px 11px; min-height: 34px; color: var(--text); cursor: pointer; font: inherit; }
   .sq-hit:hover, .sq-hit[aria-selected="true"] { border-color: var(--gold); background: rgba(255,255,255,.05); }
   .sq-hit:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-  .sq-hit .sq-tot { color: var(--muted); font-size: 12px; margin-inline-start: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .sq-hit-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
+  .sq-hit-nm { font-size: 12.5px; font-weight: 600; color: var(--text); flex: 1 1 auto; min-width: 0; line-height: 1.5; overflow-wrap: anywhere; }
+  .sq-hit .q-meta { margin-top: 0; }
   .sq-head { margin: 2px 0 10px; font-size: 14px; }
   .sq-head .mono { color: var(--muted); font-size: 12.5px; }
   .sq-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
@@ -2008,7 +2010,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "5515cef";
+const APP_VERSION = "0ef2b08";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3517,7 +3519,28 @@ function sqKey(e) {
   }
 }
 // مجموع الكميات عبر المواقع الخمسة (يشمل المستودع) — من salesCtx.stock نفسه، بلا استعلام ولا حساب جديد
-function sqTotalQty(sku) { let t = 0; for (const r of (salesCtx && salesCtx.stock || [])) { if (String(r.sku) !== String(sku)) continue; const q = numOrNull(r.qty); if (q != null) t += q; } return t; }
+// مصدر موحّد لتفصيل الصنف بالموقع من salesCtx.stock (المواقع الخمسة) — تستعمله المنسدلة (شارات) وجدول التفاصيل معاً (لا تكرار)
+function sqStockByLoc(sku) {
+  const locs = [["wh", "المستودع"], ...salesAllLocs().map(b => [b.id, b.name])];
+  const byLoc = new Map(); let name = "", barcode = "";
+  for (const r of (salesCtx && salesCtx.stock || [])) { if (String(r.sku) !== String(sku)) continue; if (!name && r.name) name = r.name; if (!barcode && r.barcode) barcode = r.barcode; byLoc.set(r.location, { qty: numOrNull(r.qty), incl: numOrNull(r.price_incl), excl: numOrNull(r.price_excl) }); }
+  return { locs, byLoc, name, barcode };
+}
+// صفّ شارات المنسدلة — يُعيد استعمال **تنسيق وتوكنات** شارات «بحث في المخزن» (.q-chip/.q-meta) لا مصدر بياناته
+// 🚨 المصدر salesCtx.stock (العرض sales_stock، خمسة مواقع منها الحراج) لا مسار زد (المستودع＋الفرع بلا حراج).
+function sqBadgeRow(sku) {
+  const { locs, byLoc } = sqStockByLoc(sku);
+  let total = 0; const srcChips = []; const inclSeen = [];
+  for (const [id, nm] of locs) {
+    const d = byLoc.get(id); const q = d && d.qty != null ? d.qty : 0;
+    if (d && d.incl != null) inclSeen.push(d.incl);
+    if (q > 0) { total += q; srcChips.push(`<span class="q-chip src ${id === "wh" ? "src-wh" : "src-br"}">${esc(nm)}: <bdi dir="ltr">${salesNum(q)}</bdi></span>`); }
+  }
+  const totalChip = `<span class="q-chip ${total > 0 ? "qty-in" : "qty-out"}">إجمالي: <bdi dir="ltr">${salesNum(total)}</bdi></span>`;
+  const price = inclSeen.length ? inclSeen[0] : null;   // price_incl (🚫 لا 1.15) — غالباً موحّد؛ تعذّره ⇒ «—»
+  const priceChip = `<span class="q-chip price">${price != null ? `<bdi dir="ltr">${salesNum(price)}</bdi> ر.س` : "—"}</span>`;
+  return `<div class="q-meta">${totalChip}${srcChips.join("")}${priceChip}</div>`;
+}
 function salesQueryRun(v) {
   const box = document.getElementById("sqResults"); if (!box) return;
   const q = normText(String(v || "").trim());
@@ -3532,10 +3555,10 @@ function salesQueryRun(v) {
   });
   sqActive = -1;
   if (!matches.length) { box.innerHTML = '<div class="q-warn">لا يوجد صنف يطابق بحثك في المخزون.</div>'; sqOpen(); return; }
-  if (matches.length === 1) { box.innerHTML = salesQueryDetail(matches[0].sku); sqOpen(); return; }   // نتيجة واحدة ⇒ الجدول مباشرةً
-  // القائمة المُدمجة: كل سطر = الاسم · الكود · الإجمالي (يشمل المستودع). لا أكثر — 🚫 لا صورة ولا شارة (sales_stock بلا صور)
+  // القائمة دائماً (كمرجع «بحث في المخزن») — كل نتيجة صفّ شارات؛ النقر ⇒ جدول التفاصيل (5 مواقع). لا قفزة تخطّي الشارات.
+  // كل سطر = الكود بارزاً ＋ الاسم، ثم صفّ شارات (إجمالي · مواقع بكمية>0 · السعر) — نفس تنسيق «بحث في المخزن»
   box.innerHTML = `<div class="sq-cnt">${matches.length} نتيجة — اختر صنفاً:</div><div class="sq-list">` + matches.slice(0, 50).map((e, i) =>
-    `<button type="button" class="sq-hit" role="option" id="sqOpt${i}" aria-selected="false" onclick="salesQueryPick('${esc(e.sku)}')"><b>${esc(e.name || e.sku)}</b> <span class="mono">${esc(e.sku)}</span><span class="sq-tot">الإجمالي (يشمل المستودع): ${salesNum(sqTotalQty(e.sku))}</span></button>`).join("") + `</div>`;
+    `<button type="button" class="sq-hit" role="option" id="sqOpt${i}" aria-selected="false" onclick="salesQueryPick('${esc(e.sku)}')"><div class="sq-hit-top"><span class="q-code" dir="ltr">${esc(e.sku)}</span><span class="sq-hit-nm">${esc(e.name || e.sku)}</span></div>${sqBadgeRow(e.sku)}</button>`).join("") + `</div>`;
   sqOpen();
 }
 function salesQueryPick(sku) { const box = document.getElementById("sqResults"); if (box) { box.innerHTML = salesQueryDetail(sku); sqOpen(); } }
@@ -3547,9 +3570,7 @@ document.addEventListener("click", (e) => {
   const ai = document.getElementById("salesAI"); if (ai && !path.includes(ai) && !saiPanelHasContent()) salesAIClose();
 });
 function salesQueryDetail(sku) {
-  const locs = [["wh", "المستودع"], ...salesAllLocs().map(b => [b.id, b.name])];   // خمسة مواقع بترتيب المستودع ثم الفروع
-  const byLoc = new Map(); let name = "", barcode = "";
-  for (const r of (salesCtx.stock || [])) { if (String(r.sku) !== String(sku)) continue; if (!name && r.name) name = r.name; if (!barcode && r.barcode) barcode = r.barcode; byLoc.set(r.location, { qty: numOrNull(r.qty), incl: numOrNull(r.price_incl), excl: numOrNull(r.price_excl) }); }
+  const { locs, byLoc, name, barcode } = sqStockByLoc(sku);   // نفس المصدر الموحّد للمنسدلة (المواقع الخمسة)
   // مبيعات مقدّرة في الفترة (متاحة بلا استعلام إضافيّ من salesCtx.movs) — المستودع «سحب» لا «بيع»
   const est = new Map();
   for (const m of (salesCtx.movs || [])) { if (String(m.sku) !== String(sku) || m.kind !== "estimated_sale") continue; if (salesBizTs(m.captured_at) < salesCtx.curSince) continue; est.set(m.location, (est.get(m.location) || 0) + (Number(m.value_est) || 0)); }

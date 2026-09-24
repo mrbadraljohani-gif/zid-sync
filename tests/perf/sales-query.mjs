@@ -40,6 +40,8 @@ const res = await p.evaluate(async () => {
   document.getElementById("page-sales").classList.add("active");
   await renderSalesPage();
   salesQueryRun("450822");
+  // التدفّق الجديد (دفعة د): المنسدلة تعرض قائمة دائماً؛ النقر ⇒ جدول التفاصيل (5 مواقع). ننقر النتيجة للوصول للجدول.
+  const opt = document.querySelector('#sqResults [role="option"]'); if (opt) opt.click();
   const box = document.getElementById("sqResults");
   const txt = (box.textContent || "").replace(/\s+/g, " ");
   const rowTxt = (nameRe) => { const tr = [...box.querySelectorAll("table tbody tr")].find(t => nameRe.test(t.textContent)); return tr ? (tr.textContent || "").replace(/\s+/g, " ").trim() : ""; };
