@@ -1756,7 +1756,7 @@
         <div class="inv-grp-lbl">الفروع</div>
         <span id="branchCards" style="display:contents"></span>
         <span id="salesBranchCards" style="display:contents"></span>
-        <button type="button" class="upload add-branch-card" onclick="addBranch()" title="أنشئ فرعاً جديداً">
+        <button type="button" class="upload add-branch-card" id="addBranchCard" onclick="addBranch()" title="أنشئ فرعاً جديداً" style="display:none">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
           <span class="abc-txt">فرع جديد</span>
         </button>
@@ -1960,7 +1960,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "efdba82";
+const APP_VERSION = "022004c";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -5081,12 +5081,13 @@ function renderSalesBranchCards() {
     const meta = m.count ? `القاعدة: <b>${m.count}</b> صنف · ${invAge(m.last || null)}` : "اضغط لاختيار الملف";
     return `<label class="upload branch-card" data-xbranch="${esc(x.id)}">
       <input type="file" accept=".xlsx,.xls,.csv" onchange="onMergeSalesBranch(this)">
-      <div class="utitle">${svg} ${esc(x.name)} <span class="totals-note">· لشاشة المبيعات</span></div>
+      <div class="utitle">${svg} ${esc(x.name)}</div>
       <div class="hint">ارفع ملف هذا الفرع — بنفس الأعمدة (كود · اسم · كمية · أسعار)</div>
       <div class="ustatus">${meta}</div>
       <div class="zid-sync-msg" id="xbrSync-${esc(x.id)}" style="display:none"></div>
     </label>`;
   }).join("");
+  const ab = document.getElementById("addBranchCard"); if (ab) ab.style.display = SHOW_ADD_BRANCH ? "" : "none";   // إخفاء «فرع جديد» بالعلم (لا حذف)
 }
 
 // إنشاء فرع جديد (اسم للعرض ＋ uuid مستقلّ) — دفعة ١أ
@@ -5261,6 +5262,8 @@ const INV_TABLE = { wh: "warehouse_items", branch: "branch_items", xbranch: "sal
 // 🚨 فرعا شاشة المبيعات المقدّرة فقط (خارج جدول branches ⇒ خارج invBranches/mergeInventory/run ⇒ لا يمسّان زد).
 //    رمزاهما سلسلتان (ليستا uuid) فلا تطابقان branches.id — حارس بذاته.
 const SALES_EXTRA_LOCS = [{ id: "haraj_maf", name: "الحراج مفروشات" }, { id: "haraj_reh", name: "الحراج رحلات" }];
+// إضافة فرع زد من الواجهة معطّلة بعلم SHOW_ADD_BRANCH — تُفعَّل بتغيير القيمة إلى true (المنطق/الدالّة/الجدول بلا مساس).
+const SHOW_ADD_BRANCH = false;
 let salesXbrMeta = {};   // {haraj_maf:{count,last}, …} — للعرض في بطاقات الرفع (مشتقّ من القاعدة، لا جدول ميتا)
 // تجميع صفوف الملف حسب الكود (نفس منطق mergeInventory داخل الملف): جمع الكمية ＋ نص المستودع=آخر غير فارغ / الفرع=أول غير فارغ
 function aggregateInv(list, mode) {
