@@ -316,6 +316,10 @@ jobs:
         run: node tests/ai-paginate.mjs --broken
       - name: G-AI-PAGINATE — الدالّة الطرفية تُصفّح القراءات >1000 صفّ (لا قصّ صامت عند max-rows)
         run: node tests/ai-paginate.mjs
+      - name: Self-check — G-AI-QUOTA-LOG يرسب حين يُرجَع 429 بلا قراءة جسمه (سجلّ بلا details/retryDelay)
+        run: node tests/ai-quota-log.mjs --broken
+      - name: G-AI-QUOTA-LOG — 429 يُسجّل الجسم ＋ details كاملاً ＋ retryDelay ＋ model ＋ keyLen (لا مفتاح/سؤال)
+        run: node tests/ai-quota-log.mjs
       - name: Self-check — G-AI-SCOPE يرسب حين يُنشأ حقل المساعد لغير owner
         run: node tests/perf/ai-scope.mjs --broken
       - name: G-AI-SCOPE — عزل المساعد (owner فقط · يستدعي الدالّة ويقرأ ai_usage فقط · لا كتابة/مساس بالمطابقة)

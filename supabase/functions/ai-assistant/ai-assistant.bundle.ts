@@ -644,9 +644,23 @@ async function geminiCall(model, key, sys, user, asJson) {
     contents: [{ role: "user", parts: [{ text: user }] }],
     generationConfig: { temperature: 0, ...(asJson ? { responseMimeType: "application/json" } : {}) },
   };
-  // 🚫 لا إعادة محاولة تستهلك الحصّة (429 يُعاد كما هو)
+  // 🚫 لا إعادة محاولة تستهلك الحصّة (429 يُعاد كما هو) — لكن نلتقط جسمه للتشخيص قبل الإرجاع
   const resp = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (resp.status === 429) return { quota: true };
+  if (resp.status === 429) {
+    // 🔎 جوجل تضع اسم الحصّة المتجاوَزة في error.details[] لا في message (QuotaFailure.quotaId · RetryInfo.retryDelay)
+    // 🚫 لا مفتاح ولا سؤال — طول المفتاح فقط. الجسم يُقرأ مرّة واحدة (resp.text لا يُقرأ مرّتين).
+    let raw = "";
+    try { raw = String(await resp.text() || ""); } catch { raw = "body unavailable"; }
+    let details = "", retryDelay = "";
+    try {
+      const j = JSON.parse(raw);
+      if (j?.error?.details) details = JSON.stringify(j.error.details);   // صغير وغير حسّاس — يُسجَّل كاملاً (لا يُقصّ)
+      const ri = (j?.error?.details || []).find((d) => d && d.retryDelay);
+      if (ri) retryDelay = String(ri.retryDelay);   // ثوانٍ ⇒ حدّ بالدقيقة (RPM) · ساعات ⇒ حدّ يوميّ (RPD)
+    } catch { /* جسم غير JSON — نكتفي بالمقتطف */ }
+    console.error(`ai-assistant gemini quota(429): model=${model} keyLen=${(key || "").length} retryDelay=${retryDelay || "—"} details=${details || "—"} body=${raw.replace(/\s+/g, " ").slice(0, 500)}`);
+    return { quota: true };
+  }
   if (!resp.ok) { let body = ""; try { body = String(await resp.text() || "").slice(0, 300); } catch {} return { error: `gemini ${resp.status}`, status: resp.status, body }; }   // ＋الحالة وجسم الرد للتشخيص
   const data = await resp.json();
   const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
@@ -730,7 +744,7 @@ Deno.serve(async (req) => {
   // ————— (Gemini #1) تصنيف — يُرسَل: نصّ السؤال فقط (عابر، لا يُخزَّن) · إعادة على الازدحام ＋ احتياطيّ —————
   const clsRes = await geminiRobust(GEMINI_MODEL, GEMINI_MODEL_FALLBACK, GEMINI_KEY, classifyInstruction(branchNames), question, true);
   if (clsRes.usedFallback && !("error" in clsRes)) console.error(`ai-assistant classify: استُعمل الموديل الاحتياطيّ ${clsRes.model} (ازدحام الأساسيّ)`);
-  if ("quota" in clsRes) return json({ ok: false, geminiQuota: true, error: `خدمة المساعد وصلت حدّها المجانيّ الآن — جرّب بعد قليل.` }, 200);
+  if ("quota" in clsRes) return json({ ok: false, geminiQuota: true, upstream_status: 429, error: `خدمة المساعد وصلت حدّها المجانيّ الآن — جرّب بعد قليل.` }, 200);
   if ("error" in clsRes) { logGeminiFail("classify", "http", clsRes, GEMINI_MODEL, (GEMINI_KEY || "").length); return json({ ok: false, busy: true, error: "خدمة المساعد مزدحمة مؤقّتاً — جرّب بعد قليل.", upstream_status: clsRes.status ?? null, fail_stage: "http" }, 200); }   // تدهور رشيق: 200 ok:false فتظهر الرسالة الصادقة لا خطأ اتصال
   let params = {}; let intentsRaw = [];
   try { const p = JSON.parse(stripFences(clsRes.text)); params = p; intentsRaw = Array.isArray(p.intents) ? p.intents : (p.intent ? [p.intent] : []); }
