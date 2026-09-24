@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
   const SUPABASE_ANON = Deno.env.get("SUPABASE_ANON_KEY");
   const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
   const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-1.5-flash";   // الاسم من السرّ لا من الكود (يتحقّق منه المالك)
-  const GEMINI_MODEL_FALLBACK = Deno.env.get("GEMINI_MODEL_FALLBACK") || "gemini-2.5-flash";   // احتياطيّ عند ازدحام الأساسيّ (503)
+  const GEMINI_MODEL_FALLBACK = Deno.env.get("GEMINI_MODEL_FALLBACK") || "gemini-3.1-flash-lite";   // احتياطيّ عند ازدحام الأساسيّ (503) — افتراضيّ حيّ (gemini-2.5-flash سُحب)
   if (!GEMINI_KEY) return json({ ok: false, error: "المساعد غير مهيّأ (GEMINI_API_KEY مفقود)" }, 500);
 
   const authHeader = req.headers.get("Authorization") || "";
