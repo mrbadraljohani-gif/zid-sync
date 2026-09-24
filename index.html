@@ -1960,7 +1960,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "db2d8a4";
+const APP_VERSION = "af298d7";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2963,10 +2963,13 @@ function renderInventoryPage() {
 let salesPeriod = "30", salesLoc = "all", salesSearch = "";
 // «اليوم» = أمس فعلاً (رفعة اليوم تعكس رصيد أمس؛ العرض بيوم العمل) — التسمية تطابق ما يُعرض
 const SALES_PERIODS = [["today", "أمس"], ["7", "7 أيام"], ["30", "30 يوماً"], ["365", "سنة"], ["all", "منذ البداية"]];
-function salesLocName(loc) { return loc === "wh" ? "المستودع" : (((invBranches || []).find(b => b.id === loc) || {}).name || loc); }
-function salesLocList() { return [["all", "جميع المواقع"], ["wh", "المستودع"], ...(invBranches || []).map(b => [b.id, b.name])]; }
-function salesLocColor(loc) { if (loc === "wh") return "--info"; const i = (invBranches || []).findIndex(b => b.id === loc); return ["--green", "--gold", "--amber", "--green-2"][i] || "--info"; }
-function salesLocIcon(loc) { return loc === "wh" ? ic("warehouse") : ic("branch"); }
+// 🚨 تعداد فروع **شاشة المبيعات وحدها** = فروع زد (invBranches) ＋ فرعا الحراج (SALES_EXTRA_LOCS).
+//    تقرأها كل مواضع الشاشة السبعة. 🚫 مسار زد (loadInventoryFromDB/mergeInventory/run) يبقى على invBranches وحده — لا يستدعي هذه إطلاقاً.
+function salesAllLocs() { return [...(invBranches || []).map(b => ({ id: b.id, name: b.name })), ...SALES_EXTRA_LOCS]; }
+function salesLocName(loc) { return loc === "wh" ? "المستودع" : ((salesAllLocs().find(b => b.id === loc) || {}).name || loc); }
+function salesLocList() { return [["all", "جميع المواقع"], ["wh", "المستودع"], ...salesAllLocs().map(b => [b.id, b.name])]; }
+function salesLocColor(loc) { if (loc === "wh") return "--info"; const i = salesAllLocs().findIndex(b => b.id === loc); return ["--green", "--gold", "--amber", "--green-2", "--danger", "--gold-2"][i] || "--info"; }
+function salesLocIcon(loc) { return loc === "wh" ? ic("warehouse") : ic("branch"); }   // أيقونة عامّة للفروع كلها (زد ＋ حراج) — بلا تعداد
 // ── التوقيت: كل يوم تقويميّ يُشتقّ بتوقيت الرياض (UTC+3، بلا صيفيّ) صراحةً — لا slice على UTC ولا توابع متصفّح القارئ ──
 const SALES_TZ_OFF = 3 * 3600000;
 function riyadhDay(ts) { const t = (typeof ts === "number" ? ts : Date.parse(ts)); if (!Number.isFinite(t)) return ""; return new Date(t + SALES_TZ_OFF).toISOString().slice(0, 10); }   // YYYY-MM-DD بالرياض
@@ -3037,7 +3040,7 @@ function salesSetDateLabel() {
 }
 function renderSalesLastUp(ups) {
   const el = document.getElementById("salesLastUp"); if (!el) return;
-  const locs = [["wh", "المستودع"], ...(invBranches || []).map(b => [b.id, b.name])];
+  const locs = [["wh", "المستودع"], ...salesAllLocs().map(b => [b.id, b.name])];
   const latest = new Map();
   for (const u of ups || []) { const t = Date.parse(u.captured_at); if (Number.isFinite(t) && (!latest.has(u.location) || t > latest.get(u.location))) latest.set(u.location, t); }
   const now = Date.now(), H = 3600000;
@@ -3242,7 +3245,7 @@ function renderSalesDetail() {
   const wrap = document.getElementById("salesDetail"), tabsEl = document.getElementById("salesTabs");
   if (!wrap || !salesCtx) return;
   const { movs, stock, curSince, prevSince, locsAll, latest } = salesCtx;
-  const branchLocs = salesCtx.branchLocs || locsAll.filter(l => l !== "wh");   // تبويبات المبيعات = الفروع فقط (المستودع في قسمه)
+  const branchLocs = salesCtx.branchLocs || salesAllLocs().map(b => b.id);   // تبويبات المبيعات = الفروع فقط (زد ＋ حراج؛ المستودع في قسمه)
   if (salesTab !== "all" && !branchLocs.includes(salesTab)) salesTab = "all";
   const maxUpd = Math.max(0, ...[...latest.values()]);
   tabsEl.innerHTML = [["all", "جميع الفروع"], ...branchLocs.map(l => [l, salesLocName(l)])].map(([v, n]) => `<button class="s4-tab${salesTab === v ? " on" : ""}" onclick="salesSetTab('${esc(String(v))}')">${esc(n)}</button>`).join("") + `<span class="s4-tab-upd">آخر تحديث للبيانات: ${maxUpd ? ageText(maxUpd) : "—"}</span>`;
@@ -3438,7 +3441,7 @@ async function renderSalesPage() {
     const baselineIds = new Set([...kindsByUp].filter(([, ks]) => ks.size > 0 && [...ks].every(k => k === "new")).map(([id]) => id));
     const movs = rawMovs.filter(m => !baselineIds.has(m.upload_id));
     const stock = await salesStockRows();
-    const locsAll = ["wh", ...(invBranches || []).map(b => b.id)];
+    const locsAll = ["wh", ...salesAllLocs().map(b => b.id)];   // شاشة المبيعات: المستودع ＋ فروع زد ＋ الحراج (مسار زد لا يستعمل هذه)
     // 🚨 النموذج: المستودع مخزن لا نقطة بيع. المبيعات = الفروع فقط · المخزون = الكل (يشمل المستودع).
     const branchLocs = locsAll.filter(l => l !== "wh");
     const isWhView = salesLoc === "wh";
