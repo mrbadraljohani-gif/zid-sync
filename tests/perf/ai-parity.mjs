@@ -27,6 +27,12 @@ const mv = (loc, sku, q, v) => ({ kind: "estimated_sale", delta: -q, value_est: 
 const movements = [mv("az", "A1", 500, 9772), mv("kh", "K1", 435, 26816), mv("wh", "W1", 445, 19680)];   // wh سحب — يجب استبعاده
 const uploads = [{ id: "U_az", location: "az", captured_at: now, suspect: false }, { id: "U_kh", location: "kh", captured_at: now, suspect: false }, { id: "U_wh", location: "wh", captured_at: now, suspect: false }];
 const stock = [{ location: "az", sku: "A1", name: "A1", qty: 100, price_incl: 20, price_excl: 17 }, { location: "kh", sku: "K1", name: "K1", qty: 200, price_incl: 30, price_excl: 26 }, { location: "wh", sku: "W1", name: "W1", qty: 1000, price_incl: 500, price_excl: 435 }];
+// 🚨 الدرس (الفخّ الذي أخفى القصّ شهراً): بيانات الحارس يجب أن تتجاوز كل سقف نظام حقيقيّ (1000/طلب).
+//    نُضخّم المخزون فوق السقف، وموك الشاشة يفرض سقف 1000/طلب (slice) فيُختبَر تصفيح الشاشة فعليّاً.
+const STOCK_FILL = 1200;   // إجمالي 1203 صفّاً > 1000
+for (let i = 0; i < STOCK_FILL; i++) stock.push({ location: "az", sku: "F" + i, name: "F" + i, qty: 1, price_incl: 10, price_excl: 8 });
+// قيمة المخزون المتوقّعة (all، يشمل المستودع): az(100*20 + 1200*10) + kh(200*30) + wh(1000*500) = 520000
+const EXPECT_INV = 520000;
 
 // ————— (أ) أرقام الشاشة (المتصفّح): period=all و period=7 —————
 function findChrome(){const c=["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",process.env.CHROME_PATH||"","/usr/bin/google-chrome-stable","/usr/bin/google-chrome"];for(const x of c)if(x&&existsSync(x))return x;for(const n of ["google-chrome-stable","google-chrome","chromium"])try{return execFileSync("bash",["-lc","command -v "+n]).toString().trim();}catch{}return"";}
@@ -39,12 +45,15 @@ const screen = await p.evaluate(async (fx) => {
   dbOnline = true; myRole = "owner"; authSession = { user: { email: "o@x.sa" } };
   invBranches = fx.branches; salesLoc = "all"; salesTab = "all"; salesSearch = "";
   db.sales = { uploads: async () => fx.uploads, movements: async (loc) => loc === "all" ? fx.movements : fx.movements.filter(m => m.location === loc), clearSuspect: async () => {} };
-  sb = { from: () => ({ select: () => ({ range: async (a) => ({ data: (a === 0 ? fx.stock : []), error: null }) }) }) };
+  // 🚨 الموك يفرض سقف الخادم: كل .range(from,to) يُرجع شريحة بحجمها فقط ⇒ تصفيح الشاشة (salesStockRows) يُختبَر فعليّاً على >1000
+  sb = { rpc: async () => ({ data: [{ used: 0, cap: 500 }], error: null }), from: () => ({ select: () => ({ range: async (from, to) => ({ data: fx.stock.slice(from, to + 1), error: null }) }) }) };
   try { goPage("home"); } catch (e) {}
   const rr = document.getElementById("result"); if (rr) rr.style.display = "block";
   document.getElementById("page-sales").classList.add("active");
   const read = async (per) => { salesPeriod = per; await renderSalesPage(); const el = document.querySelector('#salesKpis .kpi[data-k="sval"] b'); return el ? (el.textContent || "").replace(/[^\d]/g, "") : ""; };
-  return { all: await read("all"), p7: await read("7") };
+  const all = await read("all");
+  const invEl = document.querySelector('#salesKpis .kpi[data-k="sinv"] b'); const inv = invEl ? (invEl.textContent || "").replace(/[^\d]/g, "") : "";
+  return { all, p7: await read("7"), inv };
 }, { branches, movements, uploads, stock });
 await b.close();
 
@@ -73,7 +82,9 @@ const { observedWindowDays } = await import(pathToFileURL(join(AIDIR, "sales_com
 const nowMs = Date.parse(now);
 const data = { movements, uploads, stock, branches };
 const observedDays = observedWindowDays(movements, uploads, branches, nowMs);
-const valAll = String(Math.round(computeScope({ ...data, period: "all", location: "all", nowMs }).scope.val));
+const scopeAll = computeScope({ ...data, period: "all", location: "all", nowMs });
+const valAll = String(Math.round(scopeAll.scope.val));
+const invAll = String(Math.round(scopeAll.invScope.inv));   // قيمة المخزون (all، يشمل المستودع) على >1000 صفّ
 const res7 = runIntent("sales_summary", { params: { period: "7", location: "all" }, data, nowMs, observedDays });
 const val7 = res7 && res7.estimated_sales_incl != null ? String(res7.estimated_sales_incl) : "";
 // (٩-د) الوضع المركّب: نيّة ثانية (مقارنة المواقع) — إجماليّها يطابق الشاشة أيضاً (المستودع مستبعَد)
@@ -105,6 +116,10 @@ if (val7 !== screen.p7) fails.push(`تكافؤ ③ منكسر: المساعد (7
 if (!(res7 && res7.coverage_shortfall && res7.coverage_shortfall.requested_days === 7)) fails.push(`الفحص ③: بلا coverage_shortfall (بيان النقص) — «${JSON.stringify(res7 && res7.coverage_shortfall)}»`);
 // ④ المركّب: إجماليّ مقارنة المواقع == الشاشة (المستودع مستبعَد)
 if (valCmp !== screen.all) fails.push(`تكافؤ ④ (مركّب) منكسر: مقارنة المواقع ${valCmp} ≠ الشاشة ${screen.all}`);
+// ⑤ قيمة المخزون على >1000 صفّ (بيانات تتجاوز سقف النظام): الشاشة (بتصفيحها) == المساعد == المتوقّع
+if (invAll !== String(EXPECT_INV)) fails.push(`قيمة مخزون المساعد على >1000 صفّ ليست ${EXPECT_INV}: «${invAll}»`);
+if (screen.inv !== String(EXPECT_INV)) fails.push(`قيمة مخزون الشاشة (تصفيح >1000) ليست ${EXPECT_INV} — تصفيح الشاشة مقصوص؟: «${screen.inv}»`);
+if (screen.inv !== invAll) fails.push(`تكافؤ ⑤ (قيمة المخزون >1000) منكسر: الشاشة ${screen.inv} ≠ المساعد ${invAll}`);
 
 if (fails.length) { console.error("✗ G-AI-PARITY:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log(`✅ G-AI-PARITY: ① مفرد=الشاشة=${valAll} · ③ فترة 7 ⇒ ${val7} ＋ بيان نقص · ④ مركّب (مقارنة المواقع)=${valCmp}=الشاشة — كلّها المستودع مستبعَد.`);
+console.log(`✅ G-AI-PARITY: ① مفرد=${valAll} · ③ فترة 7 ⇒ ${val7} ＋ بيان نقص · ④ مركّب=${valCmp} · ⑤ قيمة المخزون على ${stock.length} صفّ (>سقف النظام)=الشاشة=المساعد=${invAll} — كلّها بتطابق تامّ.`);

@@ -310,8 +310,12 @@ jobs:
         run: node tests/perf/ai-parity.mjs --broken
       - name: Self-check — G-AI-PARITY يرسب حين يُعاد الرفض بدل بيان النقص (فترة أطول من المرصود)
         run: node tests/perf/ai-parity.mjs --broken-window
-      - name: G-AI-PARITY — تكافؤ المساعد مع الشاشة (نفس الرقم بالضبط ＋ فترة أطول ⇒ المرصود ＋ بيان نقص لا رفض)
+      - name: G-AI-PARITY — تكافؤ المساعد مع الشاشة (نفس الرقم بالضبط ＋ فترة أطول ⇒ المرصود ＋ بيان نقص لا رفض ＋ قيمة المخزون على >1000 صفّ)
         run: node tests/perf/ai-parity.mjs
+      - name: Self-check — G-AI-PAGINATE يرسب حين يعود الطلب الواحد (قصّ عند سقف الخادم)
+        run: node tests/ai-paginate.mjs --broken
+      - name: G-AI-PAGINATE — الدالّة الطرفية تُصفّح القراءات >1000 صفّ (لا قصّ صامت عند max-rows)
+        run: node tests/ai-paginate.mjs
       - name: Self-check — G-AI-SCOPE يرسب حين يُنشأ حقل المساعد لغير owner
         run: node tests/perf/ai-scope.mjs --broken
       - name: G-AI-SCOPE — عزل المساعد (owner فقط · يستدعي الدالّة ويقرأ ai_usage فقط · لا كتابة/مساس بالمطابقة)

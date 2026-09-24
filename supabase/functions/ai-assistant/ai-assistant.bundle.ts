@@ -763,13 +763,29 @@ Deno.serve(async (req) => {
   if (locRaw === "all" || locRaw === "wh") location = locRaw;
   else { const hit = branchList.find((b) => b.name === locRaw) || branchList.find((b) => b.name.includes(locRaw) || locRaw.includes(b.name)); location = hit ? hit.id : "all"; }
 
-  // جلب البيانات (كلّها صغيرة) بصلاحيّة owner
-  const [{ data: uploads }, movRes, stockRes] = await Promise.all([
+  // 🚨 تصفيح إلزاميّ: خادم PostgREST يقصّ أي طلب عند max-rows=1000 (مهما كان .limit) — الطلب الواحد كان يقصّ
+  //    sales_stock (12k) و sales_movements (5k) بصمت. نُصفّح بـ.range كما تفعل الشاشة، بسقف أمان يمنع اللانهاية والقصّ الصامت.
+  const PAGE = 1000, MAX_PAGES = 100;   // 100×1000 = 100k صفّ (أضعاف أي جدول) — سقف أمان لا حدّ بيانات
+  const fetchAll = async (makeQuery, label) => {
+    const out = [];
+    for (let i = 0; i < MAX_PAGES; i++) {
+      const from = i * PAGE;
+      const { data, error } = await makeQuery().range(from, from + PAGE - 1);
+      if (error) throw error;
+      const batch = data || [];
+      out.push(...batch);
+      if (batch.length < PAGE) return out;   // آخر دفعة (< حجم الصفحة)
+    }
+    console.error(`⚠ fetchAll(${label}): بلغ سقف ${MAX_PAGES} دورة (${MAX_PAGES * PAGE} صفّاً) — احتمال قصّ. زِد MAX_PAGES.`);   // 🚫 لا قصّ صامت
+    return out;
+  };
+  // جلب البيانات بصلاحيّة owner — uploads قليلة (طلب واحد)؛ movements/stock مُصفّحان (يتجاوزان 1000)
+  const [{ data: uploads }, movements, stock] = await Promise.all([
     sb.from("sales_uploads").select("id,location,captured_at,suspect").order("captured_at", { ascending: false }).limit(3000),
-    sb.from("sales_movements").select("sku,sku_name,location,captured_at,period_days,delta,kind,unit_price_incl,unit_price_excl,value_est,upload_id").limit(100000),
-    sb.from("sales_stock").select("location,sku,name,qty,price_incl,price_excl,barcode").limit(100000),
+    fetchAll(() => sb.from("sales_movements").select("sku,sku_name,location,captured_at,period_days,delta,kind,unit_price_incl,unit_price_excl,value_est,upload_id").order("captured_at", { ascending: false }), "sales_movements"),
+    fetchAll(() => sb.from("sales_stock").select("location,sku,name,qty,price_incl,price_excl,barcode"), "sales_stock"),
   ]);
-  const movements = movRes.data || [], stock = stockRes.data || [], ups = uploads || [];
+  const ups = uploads || [];
   const nowMs = Date.now();
   const observedDays = observedWindowDays(movements, ups, branchList, nowMs);   // فترة أطول من المرصود ⇒ بيان نقص (لا رفض)
   const data = { movements, uploads: ups, stock, branches: branchList };
