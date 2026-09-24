@@ -17,9 +17,10 @@ const BROKEN = process.argv.includes("--broken");
 const BROKEN_NAME = process.argv.includes("--broken-name");
 let html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 if (BROKEN) {
-  const A = 'if (hasBaseline(d.loc)) { baselineOnly++; return `<b>${esc(d.name)}</b> (رفعة تأسيس فقط — لا مقارنة بعد)`; }';
-  if (!html.includes(A)) { console.error("✗ (--broken) لم أجد صياغة التأسيس"); process.exit(2); }
-  html = html.replace(A, 'if (hasBaseline(d.loc)) { baselineOnly++; return `<b>${esc(d.name)}</b> (آخر رفعة ${ageText(lastUp(d.loc))})`; }');   // التناقض القديم
+  // ذيل خاطئ لمجموعة التأسيس: «حتى تُرفع ملفاتها» بدل «رفعة ثانية تُقارن بها» (الملف مرفوع أصلاً)
+  const A = 'if (base.length) segs.push(`${gN(base.length)} ${baseDesc(base.length)}: ${names(base)} — ${gArq(base.length)} تظهر حين تأتي رفعة ثانية تُقارن بها`);';
+  if (!html.includes(A)) { console.error("✗ (--broken) لم أجد مقطع التأسيس"); process.exit(2); }
+  html = html.replace(A, 'if (base.length) segs.push(`${gN(base.length)} ${baseDesc(base.length)}: ${names(base)} — ${gArq(base.length)} تظهر حين ${raiseFiles(base.length)}`);');   // ذيل «تُرفع ملفاتها» الخاطئ للتأسيس
 }
 if (BROKEN_NAME) {
   const A = '<td>${m.sku_name ? esc(m.sku_name) : \'<span class="q-na">—</span>\'}</td>';
@@ -69,21 +70,24 @@ await b.close();
 const fails = [];
 if (errs.length) fails.push("أخطاء JS: " + errs.join(" | "));
 
-// ج-١ فحص التناقض: التأسيس لا يحمل «آخر رفعة» ولا «بلا رفعة»؛ يحمل «رفعة تأسيس فقط»
-const contradiction = /بلا رفعة/.test(res.banner) && /آخر رفعة/.test(res.banner);
+// ج-١: المقطع التأسيسيّ (يحوي «تأسيسية») يحمل ذيل «رفعة ثانية تُقارن بها» — 🚫 لا «تُرفع ملفاتها» (الملف مرفوع أصلاً)
+const segOf = re => res.banner.split("؛").find(s => re.test(s)) || "";
+const baseSeg = segOf(/تأسيسية/);
 if (BROKEN) {
-  if (/آخر رفعة/.test(res.banner) && /تأسيس/.test(res.banner) === false) { console.log(`✅ (--broken) G-SALES-DISPLAY مسك التناقض: التأسيس عُرض «آخر رفعة X» بلا «تأسيس» («${res.banner.slice(0,90)}»).`); process.exit(0); }
-  // قد يظهر «آخر رفعة» مع بقاء صياغة أخرى؛ يكفي غياب «تأسيس فقط»
-  if (!/رفعة تأسيس فقط/.test(res.banner)) { console.log("✅ (--broken) G-SALES-DISPLAY مسك التناقض: غابت صياغة «رفعة تأسيس فقط»."); process.exit(0); }
-  console.error(`✗ (--broken) لم يظهر التناقض — لا أسنان («${res.banner.slice(0,90)}»).`); process.exit(1);
+  // مقطع التأسيس الصحيح لا يذكر «ملف» إطلاقاً (ذيله «رفعة ثانية تُقارن بها»)؛ العطل يُدخل ذيل رفع الملفات
+  if (/ملف/.test(baseSeg) || !/رفعة ثانية تُقارن بها/.test(baseSeg)) { console.log(`✅ (--broken) G-SALES-DISPLAY مسك الذيل الخاطئ: مقطع التأسيس حمل ذيل رفع الملفات («${baseSeg.trim().slice(0,90)}»).`); process.exit(0); }
+  console.error(`✗ (--broken) مقطع التأسيس لم يحمل الذيل الخاطئ — لا أسنان («${baseSeg.trim().slice(0,90)}»).`); process.exit(1);
 }
 if (BROKEN_NAME) {
   if (!res.heads.includes("اسم الصنف")) { console.log("✅ (--broken-name) G-SALES-DISPLAY مسك حذف عمود الاسم."); process.exit(0); }
   console.error("✗ (--broken-name) عمود الاسم بقي — لا أسنان."); process.exit(1);
 }
-// ج-١ الوضع السليم
-if (!/رفعة تأسيس فقط/.test(res.banner)) fails.push(`اللافتة لا تقول «رفعة تأسيس فقط» للحراج/العزيزية التأسيسيّة: «${res.banner.slice(0, 100)}»`);
-if (/العزيزية<\/b>? \(آخر رفعة/.test(res.banner) || /العزيزية.{0,4}آخر رفعة/.test(res.banner)) fails.push("اللافتة تناقض نفسها: العزيزية التأسيسيّة عُرضت «آخر رفعة»");
+// ج-١ الوضع السليم: مقطع تأسيسيّ موجود بالذيل الصحيح، بلا ذيل «تُرفع ملفاتها»، وبلا تكرار السبب بعد كل فرع
+if (!baseSeg) fails.push(`اللافتة بلا مقطع تأسيسيّ: «${res.banner.slice(0, 120)}»`);
+if (baseSeg && !/رفعة ثانية تُقارن بها/.test(baseSeg)) fails.push(`مقطع التأسيس بلا ذيل «رفعة ثانية تُقارن بها»: «${baseSeg.trim()}»`);
+if (baseSeg && /ملف/.test(baseSeg)) fails.push(`🚨 مقطع التأسيس يحمل ذيل رفع الملفات (الملف مرفوع أصلاً — الناقص رفعة ثانية): «${baseSeg.trim()}»`);
+// لا تكرار السبب: «تأسيسية» تظهر مرّة واحدة (في العنوان) لا بعد كل اسم فرع
+if ((res.banner.match(/تأسيسية/g) || []).length > 1) fails.push(`تكرار «تأسيسية» ${(res.banner.match(/تأسيسية/g) || []).length} مرّات (السبب يُذكر مرّة): «${res.banner.slice(0, 120)}»`);
 // ج-٣ العمود والقيَم
 if (!res.heads.includes("اسم الصنف")) fails.push(`جدول المختفي بلا عمود «اسم الصنف»: [${res.heads.join(", ")}]`);
 if (res.heads[0] !== "SKU" || res.heads[1] !== "اسم الصنف") fails.push(`ترتيب الأعمدة ليس SKU ثم اسم الصنف: [${res.heads.join(", ")}]`);
@@ -92,4 +96,4 @@ const noName = res.rows.find(r => r.some(c => c.includes("GONE2")));
 if (!named || !named.some(c => c.includes("مقلاة مفقودة"))) fails.push("صنف مختفٍ باسم لا يعرض اسمه");
 if (!noName || !noName.some(c => c.includes("—"))) fails.push("صنف مختفٍ بلا اسم لا يعرض «—» صراحةً");
 if (fails.length) { console.error("✗ G-SALES-DISPLAY:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ G-SALES-DISPLAY: ج-١ اللافتة «رفعة تأسيس فقط» بلا تناقض · ج-٣ عمود «اسم الصنف» (اسم موجود · «—» عند تعذّره).");
+console.log("✅ G-SALES-DISPLAY: ج-١ مقطع التأسيس بذيل «رفعة ثانية تُقارن بها» (لا «تُرفع ملفاتها»، السبب مرّة واحدة) · ج-٣ عمود «اسم الصنف» (اسم · «—»).");

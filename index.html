@@ -2016,7 +2016,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "7d5e833";
+const APP_VERSION = "eb8b160";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3691,20 +3691,26 @@ async function renderSalesPage() {
       if (missingLocs.length) {
         // 🚨 ج-١: ميّز الحالتين — موقع لم يرفع إطلاقاً ≠ موقع رفعته تأسيسية فقط (استُبعدت بحقّ من المقارنة).
         //    «بلا رفعة» مع «آخر رفعة منذ X» في سطر واحد تناقض؛ الحقيقة: تأسيس فقط ⇒ لا مقارنة بعد.
+        // 🚨 ميّز ثلاث حالات، واذكر السبب **مرّة واحدة** لكل مجموعة (لا تكراره بعد كل فرع)، والذيل بحسب الحالة:
+        //   لم يُرفع/خارج الفترة ⇒ «حتى تُرفع ملفاتها» · تأسيسيّ (الملف مرفوع، الناقص رفعة ثانية) ⇒ «حتى تأتي رفعة ثانية تُقارن بها».
         const lastUp = loc => { let mx = 0; for (const u of ups) if (u.location === loc) { const tt = Date.parse(u.captured_at); if (Number.isFinite(tt) && tt > mx) mx = tt; } return mx; };
         const hasBaseline = loc => ups.some(u => u.location === loc && baselineIds.has(u.id));
-        let baselineOnly = 0, neverUp = 0;
-        const parts = missingLocs.map(d => {
-          const last = lastUp(d.loc);
-          if (!last) { neverUp++; return `<b>${esc(d.name)}</b> (لم يُرفع بعد)`; }
-          if (hasBaseline(d.loc)) { baselineOnly++; return `<b>${esc(d.name)}</b> (رفعة تأسيس فقط — لا مقارنة بعد)`; }
-          return `<b>${esc(d.name)}</b> (آخر رفعة ${ageText(last)} — خارج الفترة)`;
-        }).join(" · ");
-        // العنوان يتبع الغالب فلا يناقض التفصيل: تأسيس فقط ⇒ «رفعة تأسيس» · وإلّا «بلا رفعة في الفترة»
-        const head = (baselineOnly && !neverUp) ? (missingLocs.length === 1 ? "فرع رفعته تأسيسية فقط" : missingLocs.length + " فروع رفعتها تأسيسية فقط")
-          : (missingLocs.length === 1 ? "فرع بلا رفعة في هذه الفترة" : missingLocs.length + " فروع بلا رفعة في هذه الفترة");
+        const never = [], base = [], old = [];
+        for (const d of missingLocs) { const last = lastUp(d.loc); if (!last) never.push(d.name); else if (hasBaseline(d.loc)) base.push(d.name); else old.push(d.name); }
+        // صرف المثنّى/الجمع حسب العدد الفعليّ
+        const gN = n => n === 1 ? "فرع" : n === 2 ? "فرعان" : `${n} فروع`;
+        const gArq = n => n === 1 ? "أرقامه" : n === 2 ? "أرقامهما" : "أرقامها";
+        const baseDesc = n => n === 1 ? "رفعته تأسيسية" : n === 2 ? "رفعتهما تأسيسية" : "رفعتها تأسيسية";
+        const neverDesc = n => n === 1 ? "لم يُرفع بعد" : n === 2 ? "لم يُرفعا بعد" : "لم تُرفع بعد";
+        const oldDesc = n => n === 1 ? "آخر رفعته خارج الفترة" : n === 2 ? "آخر رفعتهما خارج الفترة" : "آخر رفعتها خارج الفترة";
+        const raiseFiles = n => n === 1 ? "يُرفع ملفه" : n === 2 ? "تُرفع ملفاتهما" : "تُرفع ملفاتها";
+        const names = arr => arr.map(x => `<b>${esc(x)}</b>`).join(" · ");
+        const segs = [];
+        if (base.length) segs.push(`${gN(base.length)} ${baseDesc(base.length)}: ${names(base)} — ${gArq(base.length)} تظهر حين تأتي رفعة ثانية تُقارن بها`);
+        if (never.length) segs.push(`${gN(never.length)} ${neverDesc(never.length)}: ${names(never)} — ${gArq(never.length)} تظهر حين ${raiseFiles(never.length)}`);
+        if (old.length) segs.push(`${gN(old.length)} ${oldDesc(old.length)}: ${names(old)} — ${gArq(old.length)} تظهر حين ${raiseFiles(old.length)}`);
         missBanner.style.display = "flex";
-        missBanner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>${head}: ${parts} — أرقامها ما تظهر حتى تُرفع ملفاتها. <b>الإجمالي يشمل ${dataActive.length} من ${salesData.length} فروع.</b></span>`;
+        missBanner.innerHTML = `<span>${ic("warn", "ico-warn")}</span><span>${segs.join("؛ ")}. <b>الإجمالي يشمل ${dataActive.length} من ${salesData.length} فروع.</b></span>`;
       } else missBanner.style.display = "none";
     }
     // بانر المختفي (يعود عند التحميل؛ «عرض التفاصيل» قائمة حقيقية)
