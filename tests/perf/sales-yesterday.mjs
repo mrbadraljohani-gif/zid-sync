@@ -35,7 +35,7 @@ const res = await p.evaluate(async () => {
   const inYest = salesBizTs(capYest) >= since;        // رفعة أمس (business=أول أمس) يجب أن تخرج
   const yesterdayMidnight = Date.parse(salesBizDate(capToday) + "T00:00:00+03:00");
   const label = SALES_PERIODS.find(x => x[0] === "today")[1];
-  const others = SALES_PERIODS.filter(x => ["7", "30", "365"].includes(x[0])).map(x => x[1]);
+  const others = SALES_PERIODS.filter(x => ["7", "30", "all"].includes(x[0])).map(x => x[1]);   // «سنة» حُذفت؛ «منذ البداية» بقيت
   return { inToday, inYest, sinceMatchesYesterday: since === yesterdayMidnight, label, others, bizToday, bizYest };
 });
 await b.close();
@@ -46,7 +46,7 @@ if (!BROKEN) {
   if (!res.sinceMatchesYesterday) fails.push("نافذة «أمس» لا تبدأ من منتصف ليل business_date أمس");
   if (!res.inToday) fails.push("رفعة اليوم (business=أمس) خارج نافذة «أمس» — خطأ");
   if (res.inYest) fails.push("رفعة أمس (business=أول أمس) داخل نافذة «أمس» — يجب أن تخرج");
-  if (res.others.join("|") !== "7 أيام|30 يوماً|سنة") fails.push(`مدد 7/30/سنة تغيّرت: ${JSON.stringify(res.others)}`);
+  if (res.others.join("|") !== "7 أيام|30 يوماً|منذ البداية") fails.push(`مدد 7/30/منذ البداية تغيّرت: ${JSON.stringify(res.others)}`);
 }
 if (BROKEN) {
   if (fails.length || !res.inToday === false) { /* placeholder */ }

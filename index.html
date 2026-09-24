@@ -1241,6 +1241,40 @@
   .s4-brand .s4-ic { color: var(--info); display: inline-flex; }
   .s4-ctrl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .s4-daterange { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--border); border-radius: 9px; padding: 6px 11px; cursor: default; }
+  /* ============ تقويم اختيار المدى ============ */
+  .sales-cal-wrap { position: relative; display: inline-block; }
+  button.s4-daterange { cursor: pointer; font: inherit; color: var(--muted); min-height: 32px; }
+  button.s4-daterange:hover { border-color: var(--gold); color: var(--text); }
+  button.s4-daterange:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .cal-caret { color: var(--muted-2); font-size: 10px; }
+  .sales-cal-pop { position: absolute; top: calc(100% + 6px); inset-inline-start: 0; z-index: 60; width: 300px; max-width: calc(100vw - 30px); background: linear-gradient(var(--panel), var(--panel)), var(--bg); border: 1px solid var(--border-strong); border-radius: 14px; box-shadow: 0 18px 48px rgba(0,0,0,.5); padding: 12px; }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .cal-title { font-weight: 700; color: var(--text); font-size: 14px; }
+  .cal-nav { width: 32px; height: 32px; border-radius: 9px; background: rgba(255,255,255,.03); border: 1px solid var(--hair); color: var(--text); font-size: 18px; line-height: 1; cursor: pointer; }
+  .cal-nav:hover:not(:disabled) { border-color: var(--gold); }
+  .cal-nav:disabled { opacity: .35; cursor: not-allowed; }
+  .cal-nav:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 4px; }
+  .cal-dow span { text-align: center; font-size: 10px; color: var(--muted-2); padding: 2px 0; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cal-day { min-height: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--text); font: inherit; font-size: 13px; cursor: pointer; font-variant-numeric: tabular-nums; }
+  .cal-day.empty { visibility: hidden; cursor: default; }
+  .cal-day:hover:not(:disabled):not(.empty) { border-color: var(--gold); }
+  .cal-day:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .cal-day.disabled { color: var(--muted-2); opacity: .35; cursor: not-allowed; }
+  .cal-day.has { background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold-2); font-weight: 700; }   /* ذهبي فاتح = توجد بيانات */
+  .cal-day.inrange { background: color-mix(in srgb, var(--gold) 8%, transparent); border-radius: 0; }   /* ضمن المدى — شريط هادئ */
+  .cal-day.sel { background: var(--gold); color: #1A1206; font-weight: 800; border-color: var(--gold); }   /* محدَّد = تعبئة صلبة داكنة النصّ (تباين حادّ عن الفاتح) */
+  .cal-day.today:not(.sel) { outline: 1px dashed var(--gold-2); outline-offset: -3px; }   /* اليوم = حلقة مستقلّة لا تُربك */
+  .cal-legend { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 10.5px; color: var(--muted); }
+  .cal-legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .cal-legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+  .cal-legend .lg-has { background: color-mix(in srgb, var(--gold) 16%, transparent); }
+  .cal-legend .lg-sel { background: var(--gold); }
+  .cal-legend .lg-range { background: color-mix(in srgb, var(--gold) 8%, transparent); border: 1px solid var(--hair); }
+  .cal-legend .lg-today { background: transparent; outline: 1px dashed var(--gold-2); outline-offset: -2px; }
+  .cal-hint { margin-top: 6px; font-size: 10px; color: var(--muted-2); line-height: 1.5; }
+  @media (max-width: 400px) { .sales-cal-pop { inset-inline-start: auto; inset-inline-end: 0; width: min(300px, calc(100vw - 24px)); } }
   .s4-banner { display: flex; align-items: center; gap: 12px; background: color-mix(in srgb, var(--amber) 10%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 34%, transparent); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: var(--amber-tint); }
   .s4-banner .lnk { color: inherit; text-decoration: underline; cursor: pointer; margin-inline-start: auto; }
   .s4-banner .x { cursor: pointer; color: var(--muted); border: 0; background: none; font-size: 16px; line-height: 1; padding: 0 4px; }
@@ -1883,7 +1917,7 @@
   <section class="page" id="page-sales">
     <div class="s4-top">
       <div class="s4-brand"><span class="s4-ic"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><div><span class="stb-title">شاشة عرض المبيعات</span><span class="stb-badge">مبيعات مقدّرة</span><div class="stb-sub">نظرة سريعة على مبيعات المتجر ومخزونه — تقديريّة من الفروق بين الرفعات</div></div></div>
-      <div class="s4-ctrl"><span class="s4-daterange" id="salesDateLabel" aria-label="الفترة (عرض)"></span><span id="salesPeriodChips"></span><select id="salesLocSel" class="sales-loc-sel" onchange="salesSetLoc(this.value)" aria-label="الموقع"></select></div>
+      <div class="s4-ctrl"><span id="salesPeriodChips"></span><div class="sales-cal-wrap"><button type="button" class="s4-daterange" id="salesCalBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="salesCalPop" onclick="salesCalToggle()"><span id="salesDateLabel" aria-label="الفترة"></span></button><div id="salesCalPop" class="sales-cal-pop" role="dialog" aria-label="اختيار مدى التاريخ" hidden onkeydown="salesCalKey(event)"></div></div><select id="salesLocSel" class="sales-loc-sel" onchange="salesSetLoc(this.value)" aria-label="الموقع"></select></div>
     </div>
     <!-- شريط الأدوات المُدمج (أسفل الفلاتر قبل المؤشّرات): المساعد owner فقط ＋ البحث لكل مشاهدي المبيعات -->
     <div class="s4-tools" id="salesTools">
@@ -2017,7 +2051,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "615476d";
+const APP_VERSION = "3f3ae5f";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3018,8 +3052,10 @@ function renderInventoryPage() {
 // المؤشّر الرئيسيّ = estimated_sale (النقص في صنف باقٍ)؛ المختفي فئة منفصلة بسطر مستقلّ.
 // ============================================================================
 let salesPeriod = "30", salesLoc = "all", salesSearch = "";
-// «اليوم» = أمس فعلاً (رفعة اليوم تعكس رصيد أمس؛ العرض بيوم العمل) — التسمية تطابق ما يُعرض
-const SALES_PERIODS = [["today", "أمس"], ["7", "7 أيام"], ["30", "30 يوماً"], ["365", "سنة"], ["all", "منذ البداية"]];
+// المدى اليدويّ من التقويم (business_date YMD، start<=end) — بديلٌ عن salesPeriod حين يُضبَط (مصدر واحد للنطاق). null ⇒ زرّ سريع.
+let salesManualRange = null, salesCalMonth = null, salesCalFocus = null;   // شهر التقويم المعروض ＋ اليوم المركَّز (لوحة المفاتيح)
+// «اليوم» = أمس فعلاً (رفعة اليوم تعكس رصيد أمس؛ العرض بيوم العمل) — التسمية تطابق ما يُعرض. (حُذفت «سنة»؛ «منذ البداية» تبقى — الأكثر استعمالاً)
+const SALES_PERIODS = [["today", "أمس"], ["7", "7 أيام"], ["30", "30 يوماً"], ["all", "منذ البداية"]];
 // 🚨 تعداد فروع **شاشة المبيعات وحدها** = فروع زد (invBranches) ＋ فرعا الحراج (SALES_EXTRA_LOCS).
 //    تقرأها كل مواضع الشاشة السبعة. 🚫 مسار زد (loadInventoryFromDB/mergeInventory/run) يبقى على invBranches وحده — لا يستدعي هذه إطلاقاً.
 function salesAllLocs() { return [...(invBranches || []).map(b => ({ id: b.id, name: b.name })), ...SALES_EXTRA_LOCS]; }
@@ -3046,10 +3082,18 @@ function bizRangeLabel(endYmd, span) {
 }
 function salesRange(period) {
   const now = Date.now(), day = 86400000;
-  if (period === "all") return { sinceIso: null, prevSinceIso: null };
+  // 🚨 المدى اليدويّ (التقويم) له الأولويّة — مصدر واحد للنطاق. طرفاه business_date، والنافذة [start, end] شاملة الطرفين.
+  //    untilIso = منتصف ليل يوم عمل end بالرياض (حدّ أعلى) · prevSince = start − طول المدى (إضافة ٢: السابقة [start−len, start) بحدّين).
+  if (salesManualRange) {
+    const { start, end } = salesManualRange;
+    const startTs = Date.parse(start + "T00:00:00+03:00"), endTs = Date.parse(end + "T00:00:00+03:00");
+    const lenDays = Math.round((Date.parse(end + "T12:00:00Z") - Date.parse(start + "T12:00:00Z")) / day) + 1;   // شامل الطرفين
+    return { sinceIso: new Date(startTs).toISOString(), untilIso: new Date(endTs).toISOString(), prevSinceIso: new Date(Date.parse(shiftYmd(start, -lenDays) + "T00:00:00+03:00")).toISOString() };
+  }
+  if (period === "all") return { sinceIso: null, prevSinceIso: null, untilIso: null };
   let since, span;
   if (period === "today") { since = Date.parse(shiftYmd(riyadhDay(now), -1) + "T00:00:00+03:00"); span = day; } else { const d = Number(period); span = d * day; since = now - span; }   // «أمس» = business_date ليوم أمس (اليوم السابق للرفعة) لا يوم الرفعة
-  return { sinceIso: new Date(since).toISOString(), prevSinceIso: new Date(since - span).toISOString() };
+  return { sinceIso: new Date(since).toISOString(), prevSinceIso: new Date(since - span).toISOString(), untilIso: null };   // زرّ سريع: النهاية «الآن» (untilIso=null)
 }
 // التجميع: القيمة والوحدات من estimated_sale فقط؛ المختفي منفصل؛ «تحرّكت» = أي حركة (فريدة موقع|كود)
 function salesAgg(rows) {
@@ -3076,24 +3120,114 @@ function salesTrend(cur, prev) {   // مقارنة بالفترة السابقة
 }
 function renderSalesFilters() {
   const pc = document.getElementById("salesPeriodChips");
-  if (pc) pc.innerHTML = SALES_PERIODS.map(([v, l]) => `<button class="exp-chip${salesPeriod === v ? " on" : ""}" onclick="salesSetPeriod('${v}')">${l}</button>`).join(" ");
+  // الزرّ السريع نشط فقط حين لا مدى يدويّ (المصدر الواحد: يدويّ يُلغي إبراز الأزرار)
+  if (pc) pc.innerHTML = SALES_PERIODS.map(([v, l]) => `<button class="exp-chip${(!salesManualRange && salesPeriod === v) ? " on" : ""}" onclick="salesSetPeriod('${v}')">${l}</button>`).join(" ");
   const sel = document.getElementById("salesLocSel");
   if (sel) sel.innerHTML = salesLocList().map(([v, l]) => `<option value="${esc(String(v))}"${salesLoc === v ? " selected" : ""}>${esc(l)}</option>`).join("");
 }
-function salesSetPeriod(p) { salesPeriod = p; renderSalesPage(); }
+function salesSetPeriod(p) { salesManualRange = null; salesPeriod = p; renderSalesPage(); }   // زرّ سريع يُلغي المدى اليدويّ (مصدر واحد)
 function salesSetLoc(l) { salesLoc = l; renderSalesPage(); }
 // (هويّة الجلسة نُقلت إلى قائمة المستخدم بالشريط العلويّ — sideUserEmail ＋ sideUserRole)
 // تسمية مدى الفترة (عرضٌ لا اختيار) — تُحسب من الشريحة النشطة
 function salesSetDateLabel() {
   const el = document.getElementById("salesDateLabel"); if (!el) return;
   const cal = `<svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>`;
-  if (salesPeriod === "all") { el.innerHTML = `${cal} كل التاريخ`; return; }
+  const caret = ` <span class="cal-caret" aria-hidden="true">▾</span>`;
+  if (salesManualRange) {   // مدى يدويّ من التقويم — from ← to (يوم واحد إن تساويا)
+    const { start, end } = salesManualRange;
+    el.innerHTML = start === end ? `${cal} ${fmtDayLabel(start)}${caret}` : `${cal} ${fmtDayLabel(start)} ← ${fmtDayLabel(end)}${caret}`;
+    return;
+  }
+  if (salesPeriod === "all") { el.innerHTML = `${cal} كل التاريخ${caret}`; return; }
   // طرفا المدى بيوم العمل (business_date): آخره «أمس» (اليوم السابق للرفعة)، لا يوم الرفعة — فلا تناقض مع الرسم
   const endBiz = shiftYmd(riyadhDay(Date.now()), -1);
-  if (salesPeriod === "today") { el.innerHTML = `${cal} أمس · ${fmtDayLabel(endBiz)}`; return; }
+  if (salesPeriod === "today") { el.innerHTML = `${cal} أمس · ${fmtDayLabel(endBiz)}${caret}`; return; }
   const pl = (SALES_PERIODS.find(x => x[0] === salesPeriod) || [, salesPeriod])[1];
   const startBiz = shiftYmd(endBiz, -(Number(salesPeriod) - 1));
-  el.innerHTML = `${cal} آخر ${pl} · ${fmtDayLabel(startBiz)} ← ${fmtDayLabel(endBiz)}`;
+  el.innerHTML = `${cal} آخر ${pl} · ${fmtDayLabel(startBiz)} ← ${fmtDayLabel(endBiz)}${caret}`;
+}
+// ============ تقويم اختيار المدى (business_date) — 🚫 لا مكتبة · العلامات من ups (كل الرفعات، بلا استعلام) ============
+// مجموعة أيام العمل التي لها رفعة (من ups، غير مقصوص) — «ذهبي = توجد بيانات». حدود البيانات (أول/آخر) للـdisabled.
+function salesAvailableDates() {
+  const s = new Set(); const ups = (salesCtx && salesCtx.ups) || [];
+  for (const u of ups) { const d = salesBizDate(u.captured_at); if (d) s.add(d); }   // 🚨 business_date بالمسار الموحّد (لا slice/UTC)
+  return s;
+}
+function salesDataBounds() {   // [أول، آخر] business_date له رفعة — للتنقّل وdisabled
+  const ds = [...salesAvailableDates()].sort(); return ds.length ? { min: ds[0], max: ds[ds.length - 1] } : null;
+}
+function salesCalToggle() {
+  const pop = document.getElementById("salesCalPop"), btn = document.getElementById("salesCalBtn"); if (!pop) return;
+  if (!pop.hidden) { salesCalClose(); return; }
+  const b = salesDataBounds();
+  // الشهر المعروض: شهر end الحاليّ (يدويّ) أو آخر يوم بيانات أو الشهر الحاليّ
+  const anchor = salesManualRange ? salesManualRange.end : (b ? b.max : riyadhDay(Date.now()));
+  salesCalMonth = anchor.slice(0, 7); salesCalFocus = anchor;
+  pop.hidden = false; if (btn) btn.setAttribute("aria-expanded", "true");
+  renderSalesCalendar();
+  const foc = pop.querySelector('.cal-day[tabindex="0"]'); if (foc) foc.focus();
+}
+function salesCalClose() { const pop = document.getElementById("salesCalPop"), btn = document.getElementById("salesCalBtn"); if (pop) pop.hidden = true; if (btn) { btn.setAttribute("aria-expanded", "false"); btn.focus(); } salesCalPickStart = null; }
+function salesCalNav(deltaMonth) {
+  const b = salesDataBounds(); if (!b) return;
+  const [y, m] = salesCalMonth.split("-").map(Number); const nd = new Date(Date.UTC(y, m - 1 + deltaMonth, 1));
+  const ym = nd.toISOString().slice(0, 7);
+  // لا تتجاوز شهر أول/آخر بيانات (شهر يقع بالكامل خارج الحدود ممنوع)
+  if (ym < b.min.slice(0, 7) || ym > b.max.slice(0, 7)) return;
+  salesCalMonth = ym; renderSalesCalendar();
+}
+let salesCalPickStart = null;   // أول ضغطة (بداية مؤقّتة) بانتظار الثانية
+function salesPickDay(ymd) {
+  const b = salesDataBounds(); if (!b || ymd < b.min || ymd > b.max) return;   // خارج الحدود ⇒ متجاهَل (disabled)
+  if (!salesCalPickStart) { salesCalPickStart = ymd; salesCalFocus = ymd; renderSalesCalendar(); return; }   // الضغطة الأولى = البداية
+  let start = salesCalPickStart, end = ymd; if (end < start) { const t = start; start = end; end = t; }   // ترتيب: start<=end دائماً (اختيار أقدم ⇒ بداية)
+  salesCalPickStart = null; salesManualRange = { start, end }; salesCalClose(); renderSalesPage();   // المصدر الواحد للنطاق
+}
+function salesCalKey(e) {
+  const cur = salesCalFocus || salesCalMonth + "-01"; let d = null;
+  if (e.key === "ArrowLeft") d = 1; else if (e.key === "ArrowRight") d = -1; else if (e.key === "ArrowUp") d = -7; else if (e.key === "ArrowDown") d = 7;   // RTL: يسار=التالي · يمين=السابق
+  else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); salesPickDay(cur); return; }
+  else if (e.key === "Escape") { e.preventDefault(); salesCalClose(); return; }
+  else return;
+  e.preventDefault();
+  const b = salesDataBounds(); let nx = shiftYmd(cur, d);
+  if (b && (nx < b.min || nx > b.max)) return;   // لا تتجاوز حدود البيانات
+  salesCalFocus = nx; if (nx.slice(0, 7) !== salesCalMonth) salesCalMonth = nx.slice(0, 7);
+  renderSalesCalendar();
+  const foc = document.querySelector('#salesCalPop .cal-day[tabindex="0"]'); if (foc) foc.focus();
+}
+function renderSalesCalendar() {
+  const pop = document.getElementById("salesCalPop"); if (!pop) return;
+  if (!salesCalMonth) salesCalMonth = (salesCalFocus || riyadhDay(Date.now())).slice(0, 7);   // دفاعيّ: الشهر يُضبَط في salesCalToggle عادةً
+  const avail = salesAvailableDates(), b = salesDataBounds();
+  const [y, m] = salesCalMonth.split("-").map(Number);
+  const first = new Date(Date.UTC(y, m - 1, 1)), dim = new Date(Date.UTC(y, m, 0)).getUTCDate(), startDow = first.getUTCDay();   // الأحد=0
+  // المدى المعروض للتظليل: اليدويّ المثبَّت أو البداية المؤقّتة (ضغطة أولى)
+  const selStart = salesCalPickStart || (salesManualRange && salesManualRange.start), selEnd = salesCalPickStart ? salesCalPickStart : (salesManualRange && salesManualRange.end);
+  const today = riyadhDay(Date.now());
+  const DOW = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+  const prevOk = b && salesCalMonth.slice(0, 7) > b.min.slice(0, 7), nextOk = b && salesCalMonth.slice(0, 7) < b.max.slice(0, 7);
+  let cells = "";
+  for (let i = 0; i < startDow; i++) cells += `<span class="cal-day empty" aria-hidden="true"></span>`;
+  for (let dnum = 1; dnum <= dim; dnum++) {
+    const ymd = `${y}-${String(m).padStart(2, "0")}-${String(dnum).padStart(2, "0")}`;
+    const disabled = !b || ymd < b.min || ymd > b.max;
+    const has = avail.has(ymd);
+    const isStart = ymd === selStart, isEnd = ymd === selEnd, inRange = selStart && selEnd && ymd > (selStart < selEnd ? selStart : selEnd) && ymd < (selStart < selEnd ? selEnd : selStart);
+    const isToday = ymd === today;
+    const isFocus = ymd === (salesCalFocus || "");
+    const cls = ["cal-day", disabled ? "disabled" : "", has ? "has" : "", (isStart || isEnd) ? "sel" : "", inRange ? "inrange" : "", isToday ? "today" : ""].filter(Boolean).join(" ");
+    const aria = `${dnum} ${SALES_AR_MONTHS[m - 1]} ${y}، ${disabled ? "خارج البيانات" : (has ? "تتوفّر بيانات" : "لا توجد رفعة")}`;
+    cells += `<button type="button" class="${cls}" role="gridcell" aria-label="${aria}"${disabled ? " disabled aria-disabled=\"true\"" : ""}${(isStart || isEnd) ? " aria-selected=\"true\"" : ""} tabindex="${(!disabled && isFocus) ? 0 : -1}" onclick="salesPickDay('${ymd}')">${dnum}</button>`;
+  }
+  pop.innerHTML =
+    `<div class="cal-head"><button type="button" class="cal-nav" onclick="salesCalNav(-1)"${prevOk ? "" : " disabled"} aria-label="الشهر السابق">›</button>`
+    + `<span class="cal-title">${SALES_AR_MONTHS[m - 1]} ${y}</span>`
+    + `<button type="button" class="cal-nav" onclick="salesCalNav(1)"${nextOk ? "" : " disabled"} aria-label="الشهر التالي">‹</button></div>`
+    + `<div class="cal-dow">${DOW.map(d => `<span>${d.slice(0, 3)}</span>`).join("")}</div>`
+    + `<div class="cal-grid" role="grid">${cells}</div>`
+    + `<div class="cal-legend"><span><i class="lg-has"></i> بيانات</span><span><i class="lg-sel"></i> محدَّد</span><span><i class="lg-range"></i> ضمن المدى</span><span><i class="lg-today"></i> اليوم</span></div>`
+    + `<div class="cal-hint">اضغط يوماً للبداية ثمّ يوماً للنهاية · يوم واحد = اضغطه مرّتين</div>`;
 }
 function renderSalesLastUp(ups) {
   const el = document.getElementById("salesLastUp"); if (!el) return;
@@ -3242,9 +3376,11 @@ async function salesShowDisappeared() {
   if (box.style.display !== "none") { box.style.display = "none"; return; }
   box.style.display = "block";
   try {
-    const { prevSinceIso, sinceIso } = salesRange(salesPeriod);
+    const { prevSinceIso, sinceIso, untilIso } = salesRange(salesPeriod);
     const movs = await db.sales.movements(salesLoc === "all" ? "all" : salesLoc, prevSinceIso || sinceIso);
-    const dis = movs.filter(m => m.kind === "disappeared");
+    let dis = movs.filter(m => m.kind === "disappeared");
+    // القارئ الثاني (إضافة ١): المدى اليدويّ يفرض [start,end] هنا صراحةً (الزرّ السريع بلا حدّ أعلى ⇒ سلوكه ثابت)
+    if (untilIso) { const s = Date.parse(sinceIso), u = Date.parse(untilIso); dis = dis.filter(m => { const t = salesBizTs(m.captured_at); return t >= s && t <= u; }); }
     if (!dis.length) { box.innerHTML = `<div class="stc-empty">لا أصناف مختفية في هذه الفترة.</div>`; return; }
     // اسم الصنف من الحركة نفسها (m.sku_name، مخزَّن وقت الرصد) — 🚫 لا استعلام إضافيّ؛ تعذّره ⇒ «—» صراحةً (الصنف مفقود من المخزن فاسمه غير متاح في sales_stock)
     box.innerHTML = `<div class="card"><div class="s4-ch-head"><h2>أصناف اختفت من الملفات (غائبة عن المخزن) — مستبعدة من المبيعات المقدّرة</h2></div><div class="twrap"><table class="upd-table"><thead><tr><th>SKU</th><th>اسم الصنف</th><th>الموقع</th><th>الكمية الأخيرة</th></tr></thead><tbody>`
@@ -3575,6 +3711,7 @@ document.addEventListener("click", (e) => {
   const path = (e.composedPath && e.composedPath()) || [];
   const st = document.getElementById("salesSearchTool"); if (st && !path.includes(st)) sqClose();
   const ai = document.getElementById("salesAI"); if (ai && !path.includes(ai) && !saiPanelHasContent()) salesAIClose();
+  const cw = document.querySelector(".sales-cal-wrap"), cp = document.getElementById("salesCalPop"); if (cw && cp && !cp.hidden && !path.includes(cw)) { cp.hidden = true; const cb = document.getElementById("salesCalBtn"); if (cb) cb.setAttribute("aria-expanded", "false"); salesCalPickStart = null; }
 });
 function salesQueryDetail(sku) {
   const { locs, byLoc, name, barcode } = sqStockByLoc(sku);   // نفس المصدر الموحّد للمنسدلة (المواقع الخمسة)
@@ -3610,11 +3747,13 @@ async function renderSalesPage() {
     const ups = await db.sales.uploads();
     renderSalesLastUp(ups);
     const suspectIds = new Set(ups.filter(u => u.suspect === true).map(u => u.id));
-    const { sinceIso, prevSinceIso } = salesRange(salesPeriod);
+    const { sinceIso, prevSinceIso, untilIso } = salesRange(salesPeriod);
     const curSince = sinceIso ? Date.parse(sinceIso) : -Infinity, prevSince = prevSinceIso ? Date.parse(prevSinceIso) : null;
+    const curUntil = untilIso ? Date.parse(untilIso) : Infinity;   // حدّ أعلى للنافذة (المدى اليدويّ)؛ الزرّ السريع = الآن (Infinity)
     // (أ) رفعة التأسيس = رفعة **كل حركاتها kind='new'** (تهيئة محتوىً لا ترتيباً — الأولى لكل موقع تكون كذلك حتماً لأنّ prevSyncedAt=null).
     //     تُكشف بالمحتوى لا بالترتيب، فلا تُستبعَد رفعةٌ عاديّة هي الأقدم في النافذة. وتُستبعَد من كل حساب/مقارنة/معدّل.
-    const rawMovs = (await db.sales.movements("all", prevSinceIso || sinceIso)).filter(m => !suspectIds.has(m.upload_id));
+    // 🚨 قصّ الحدّ الأعلى مرّة واحدة هنا (business_date <= curUntil) ⇒ كل مصفّيات «>= curSince» أدناه تصير [curSince, curUntil] بلا مسّها (صفر تغيير في التجميع).
+    const rawMovs = (await db.sales.movements("all", prevSinceIso || sinceIso)).filter(m => !suspectIds.has(m.upload_id) && salesBizTs(m.captured_at) <= curUntil);
     const kindsByUp = new Map(); for (const m of rawMovs) { let s = kindsByUp.get(m.upload_id); if (!s) { s = new Set(); kindsByUp.set(m.upload_id, s); } s.add(m.kind); }
     const baselineIds = new Set([...kindsByUp].filter(([, ks]) => ks.size > 0 && [...ks].every(k => k === "new")).map(([id]) => id));
     const movs = rawMovs.filter(m => !baselineIds.has(m.upload_id));
@@ -3638,7 +3777,7 @@ async function renderSalesPage() {
     const invLocsShown = salesLoc === "all" ? locsAll : [salesLoc];                       // المخزون: يشمل المستودع في «الكل»
     const showWhSection = salesLoc === "all" || isWhView;                                  // قسم المستودع: في «الكل» (أسفل) و«المستودع» (رئيسيّ)
     // (ج) موقع «مرفوع في الفترة» = له رفعة غير تأسيسية داخل النافذة الحالية (وإلا: نسي الموظف رفعه)
-    const uploadedInPeriod = new Set(ups.filter(u => !baselineIds.has(u.id) && salesBizTs(u.captured_at) >= curSince).map(u => u.location));
+    const uploadedInPeriod = new Set(ups.filter(u => !baselineIds.has(u.id) && salesBizTs(u.captured_at) >= curSince && salesBizTs(u.captured_at) <= curUntil).map(u => u.location));
     const prevBaselineOnly = prevSince != null && ups.some(u => baselineIds.has(u.id) && salesBizTs(u.captured_at) >= prevSince && salesBizTs(u.captured_at) < curSince) && !ups.some(u => !baselineIds.has(u.id) && salesBizTs(u.captured_at) >= prevSince && salesBizTs(u.captured_at) < curSince);
     // فحص الفراغ: أي حركة بيع (فروع) أو حركة مستودع (لقسمه) داخل الفترة
     const anyRelevant = movs.filter(m => salesBizTs(m.captured_at) >= curSince && (salesShown.includes(m.location) || (showWhSection && m.location === "wh")));
@@ -3761,7 +3900,7 @@ async function renderSalesPage() {
     // §ب-٢ب-٢ب: تبويب الموقع ＋ تفصيله ＋ الجداول الثلاثة
     const latest = new Map(); for (const u of ups) { const t = Date.parse(u.captured_at); if (Number.isFinite(t) && (!latest.has(u.location) || t > latest.get(u.location))) latest.set(u.location, t); }
     if (salesTab !== "all" && !branchLocs.includes(salesTab)) salesTab = "all";   // تبويبات المبيعات فروع فقط
-    salesCtx = { movs, stock, curSince, prevSince, locsAll, branchLocs, latest };
+    salesCtx = { movs, stock, curSince, prevSince, curUntil, locsAll, branchLocs, latest, ups };   // ups (كل الرفعات، غير مقصوص) لعلامات التقويم ＋ curUntil لحدّ النافذة
     renderSalesDetail();
     // (٣) قسم المستودع — سحب لا بيع (في «الكل» أسفلَ · في «المستودع» رئيسيّاً)
     const whLast = (function () { let mx = 0; for (const u of ups) if (u.location === "wh") { const t = Date.parse(u.captured_at); if (Number.isFinite(t) && t > mx) mx = t; } return mx; })();

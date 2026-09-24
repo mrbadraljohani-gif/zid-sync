@@ -41,7 +41,7 @@ const res = await p.evaluate(async () => {
   const topMoved = txt(document.querySelector('#salesKpis .kpi[data-k="smoved"] b'));
   const cmp = document.getElementById("salesCmp");
   const totalMovedCell = txt(cmp.querySelector("tbody tr.total td:nth-child(4)"));   // عمود «متحركة»
-  const totNote = txt(cmp.querySelector("tbody tr.total .tot-note"));
+  const totNote = txt(cmp.querySelector("tbody tr.total td.n .tot-note"));   // ملاحظة العابر في عمود «متحرّكة» (td.n) — لا «يشمل N من N» في خليّة الإجمالي (cmp-loc)
   // شريط التفصيل «متحرّكة» (تبويب جميع المواقع)
   const detailMoved = txt(document.querySelector('#salesDetail .s4-dstrip [data-k="smoved"] b'));
   return { topMoved, totalMovedCell, totNote, detailMoved };
