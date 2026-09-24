@@ -46,9 +46,9 @@ const res = await p.evaluate(async () => {
   const cmp = document.getElementById("salesCmp");
   const rowsTxt = [...cmp.querySelectorAll("tbody tr")].map(txt);
   const totalVal = (cmp.querySelector("tbody tr.total td.n bdi") || {}).textContent || "";
-  const miss = txt(document.getElementById("salesMissBanner"));
-  const missShown = (document.getElementById("salesMissBanner") || {}).style.display !== "none";
-  return { rowsTxt, totalVal, miss, missShown };
+  // دفعة هـ: بيان الاستبعاد بقي في الشاشة كسطر «يشمل N من N فروع» في صفّ الإجمالي (اللافتة نُقلت لصفحة الرفع)
+  const totNote = txt(cmp.querySelector("tbody tr.total .tot-note"));
+  return { rowsTxt, totalVal, totNote };
 });
 await b.close();
 const fails = [];
@@ -58,7 +58,7 @@ if (!BROKEN) {
   if (!res.rowsTxt.some(t => /لا رفعة في هذه الفترة/.test(t))) fails.push("صفّ المستودع بلا «لا رفعة في هذه الفترة»");
   if (res.rowsTxt.some(t => /-100/.test(t))) fails.push("ظهرت نسبة «-100%» لموقع بلا رفعة");
   if (res.totalVal.replace(/[^\d]/g, "") !== "600") fails.push(`الإجمالي ليس مجموع المرفوعة وحدها (600): «${res.totalVal}»`);
-  if (!(res.missShown && /رفعة/.test(res.miss) && /الإجمالي يشمل/.test(res.miss))) fails.push(`صمّام الغياب ناقص (ماذا/كم): «${res.miss}»`);
+  if (!(/يشمل/.test(res.totNote) && /1/.test(res.totNote) && /4/.test(res.totNote))) fails.push(`بيان الاستبعاد ناقص في صفّ الإجمالي (يشمل 1 من 4 فروع): «${res.totNote}»`);
 }
 if (BROKEN) {
   const hasZeroRow = res.rowsTxt.some(t => /-100/.test(t)) || !res.rowsTxt.some(t => /لا رفعة/.test(t));

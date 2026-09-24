@@ -61,11 +61,12 @@ if (!M.linkForbidden) fails.push("marketing: linkForbidden=false (تسرّب —
 if (V.salesLink || V.afterSales === "sales") fails.push("viewer: يرى/يفتح المبيعات (يجب محجوباً)");
 if (!V.linkForbidden) fails.push("viewer: linkForbidden=false");
 // طبقة القاعدة (ساكن)
-if (!/get_my_role\(\) in \(''owner'',''marketing''\)/.test(sql)) fails.push("SQL: قراءة المبيعات ليست owner+marketing");
+// دفعة هـ: قراءة المبيعات صارت owner+marketing+admin (admin يرفع يوميّاً فيقرأ) — الكتابة تبقى owner+admin
+if (!/get_my_role\(\) in \(''owner'',''marketing'',''admin''\)/.test(sql)) fails.push("SQL: قراءة المبيعات ليست owner+marketing+admin");
 if (/select_ro on public.%I for select to authenticated using \(true\)/.test(sql)) fails.push("SQL: بقيت using(true) على المبيعات");
 if (!/for insert to authenticated with check \(public.get_my_role\(\) in \(''owner'',''admin''\)\)/.test(sql)) fails.push("SQL: إدراج المبيعات ليس owner+admin");
 if (!/as restrictive for select to authenticated using \(public.get_my_role\(\) is distinct from ''marketing''\)/.test(sql)) fails.push("SQL: لا سياسة restrictive تعزل marketing عن بقيّة الجداول");
-if (!/security_invoker = false/.test(sql) || !/where public.get_my_role\(\) in \('owner','marketing'\)/.test(sql)) fails.push("SQL: عرض sales_stock ليس security_invoker=false مقيّداً بالدور");
+if (!/security_invoker = false/.test(sql) || !/where public.get_my_role\(\) in \('owner','marketing','admin'\)/.test(sql)) fails.push("SQL: عرض sales_stock ليس security_invoker=false مقيّداً بالدور (owner+marketing+admin)");
 if (BROKEN) {
   if (fails.length) { console.log("✅ (--broken) G-ROLE-SALES مسك العطل: " + fails[0]); process.exit(0); }
   console.error("✗ (--broken) لم يرسب بعد إظهار المبيعات لـadmin — لا أسنان."); process.exit(1);

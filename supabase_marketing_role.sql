@@ -36,7 +36,8 @@ begin
     execute format('drop policy if exists %I_delete_wr   on public.%I', t, t);
     execute format('drop policy if exists %I_update_ow   on public.%I', t, t);
     execute format('drop policy if exists %I_delete_ow   on public.%I', t, t);
-    execute format('create policy %I_select_ro on public.%I for select to authenticated using (public.get_my_role() in (''owner'',''marketing''))', t, t);
+    -- +admin للقراءة (دفعة هـ): محمد يرفع ملفات المبيعات يوميّاً فتمرّ عليه أصلاً؛ الحجب كان فخّ فشل صامت لا أماناً. الكتابة تبقى owner+admin كما هي.
+    execute format('create policy %I_select_ro on public.%I for select to authenticated using (public.get_my_role() in (''owner'',''marketing'',''admin''))', t, t);
     execute format('create policy %I_insert_wr on public.%I for insert to authenticated with check (public.get_my_role() in (''owner'',''admin''))', t, t);
     execute format('create policy %I_update_ow on public.%I for update to authenticated using (public.get_my_role() = ''owner'') with check (public.get_my_role() = ''owner'')', t, t);
     execute format('create policy %I_delete_ow on public.%I for delete to authenticated using (public.get_my_role() = ''owner'')', t, t);
@@ -54,7 +55,7 @@ with (security_invoker = false) as
     union all
     select branch_id::text as location, code as sku, name, qty, price_incl from public.branch_items
   ) s
-  where public.get_my_role() in ('owner','marketing');
+  where public.get_my_role() in ('owner','marketing','admin');   -- +admin (دفعة هـ) — والتعريف الحيّ الكامل في supabase_sales_branches.sql (يُنفَّذ بعده)
 revoke all on public.sales_stock from authenticated, anon;
 grant select on public.sales_stock to authenticated;
 

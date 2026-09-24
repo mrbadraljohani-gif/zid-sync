@@ -1778,6 +1778,15 @@
     <div class="page-head"><span class="ph-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14-4.5L4 9"/><path d="M4 5v4h4"/><path d="M4 13a8 8 0 0 0 14 4.5L20 15"/><path d="M20 19v-4h-4"/></svg></span><div class="ph-txt"><h2>تحديث قاعدة البيانات</h2><p>المخزن (مستودع/فرع) ومنتجات زد مرآةً في القاعدة — حدّث كلاً عند الحاجة</p></div></div>
     <div id="resyncWarn" class="zid-stale-warn" style="display:none;margin-bottom:14px"></div>
 
+    <!-- منطقة حالة الرفع (منقولة من شاشة المبيعات، دفعة هـ): بلا رفعة · المفقود · آخر رفعة/التغطية -->
+    <!-- تُملأ بالمعرّف من renderSalesPage/salesShowDisappeared (يُستدعيان عند فتح الصفحة) — صفر تغيير منطق، عرضٌ منقول -->
+    <div id="dbUploadStatus">
+      <div class="sales-lastup" id="salesLastUp">—</div>
+      <div class="s4-banner miss" id="salesMissBanner" style="display:none"></div>
+      <div class="s4-banner" id="salesBanner" style="display:none"></div>
+      <div id="salesDisBox" style="display:none;margin-bottom:14px"></div>
+    </div>
+
     <div class="card stage-card">
       <div class="stage-head"><span class="stage-n">١</span><b>المستودع والفرع</b><span class="stage-sub">جدولان مستقلان — حدّث كلاً على حدة؛ يُوحّدان عند المطابقة (اتحاد بجمع الكميات)</span></div>
       <!-- بطاقات ديناميكية: المستودع ＋ بطاقة لكلّ فرع (من invBranches) ＋ زرّ «＋ فرع» — لفّ الأسطر لا التمرير -->
@@ -1892,10 +1901,7 @@
     <div id="salesBody" style="display:none">
       <div class="dash-kpis sales-kpis" id="salesKpis"></div>
       <div class="s4-banner miss" id="salesBranchWarn" style="display:none"></div>
-      <div class="s4-banner miss" id="salesMissBanner" style="display:none"></div>
-      <div class="s4-banner" id="salesBanner" style="display:none"></div>
-      <div id="salesDisBox" style="display:none;margin-bottom:14px"></div>
-      <div class="sales-lastup" id="salesLastUp">—</div>
+      <!-- كتل حالة الرفع (بلا رفعة · المفقود · آخر رفعة/التغطية) نُقلت إلى صفحة «تحديث قاعدة البيانات» ← #dbUploadStatus (دفعة هـ) -->
       <div class="s4-mid">
         <div class="card s4-cmp"><h2>مقارنة المواقع</h2><div class="twrap" id="salesCmp"></div></div>
         <div class="card"><div class="s4-ch-head"><h2>المبيعات المقدّرة عبر الزمن (قيمة)</h2><span class="s4-dd">يومياً</span></div><div id="salesChart"></div><div class="s4-chart-note">كل نقطة تمثّل مبيعات اليوم السابق لرفعتها (بتوقيت الرياض) · النقطة المجوّفة ○ تغطّي أكثر من يوم · الألوان كنقاط المواقع في الجدول</div></div>
@@ -2010,7 +2016,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "0ef2b08";
+const APP_VERSION = "7d5e833";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2776,7 +2782,7 @@ function goPage(id, fromHash) {
     if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");   // حالة التنقّل تُعلَن
   });
   if (id === "home") { renderReadiness(); renderUploadStatus(); }
-  if (id === "db") { renderInvCards(); renderBranchCards(); }
+  if (id === "db") { renderInvCards(); renderBranchCards(); if (typeof renderSalesPage === "function") renderSalesPage(); }   // renderSalesPage يملأ كتل حالة الرفع المنقولة (#dbUploadStatus) بالمعرّف — نفس استعلاماتها المنقولة، لا نوع جديد
   if (id === "inventory") { renderInventoryPage(); renderActivityTable(); }
   if (id === "sales" && typeof renderSalesPage === "function") renderSalesPage();
   if (id === "options" && typeof renderOffsetsList === "function") renderOffsetsList();
@@ -3665,8 +3671,9 @@ async function renderSalesPage() {
     // «المرصود» بتعريف واحد = أطول فترة موقع مرصودة (daysMax) ＋ عدّاد الرفعات منفصلاً (١-د)
     const observedDays = scope.daysMax, upCountScope = new Set(curBranch.map(m => m.upload_id)).size;
     // 🚨 يُكتب في عنصر مستقلّ بالاستبدال لا الإلحاق (lu.innerHTML += بعد await يتراكم عند تشغيلين متداخلين ⇒ تكرار)
+    // 🚨 دفعة هـ: التغطية معدّل مبيعات بالريال ⇒ owner و marketing فقط (تُخفى عن admin في صفحة الرفع) — قرار عرض لا صلاحية
     const covEl = document.getElementById("salesCoverage");
-    if (covEl) covEl.innerHTML = ` &nbsp;·&nbsp; التغطية: معدّل <b>${scRate != null ? salesNum(scRate) : "—"}</b>/يوم · المرصود <b>${observedDays ? Math.round(observedDays * 10) / 10 : "—"}</b> يوم · <b>${upCountScope}</b> رفعة${salesCovInsufficient(observedDays) ? ` <span class="s4-lu-warn" title="المعدّل اليوميّ من فترة أقصر من ١٤ يوماً غير موثوق للتنبّؤ (التغطية والنفاد مبوّبان)">⚠ الفترة قصيرة — التوقّع ما زال غير دقيق</span>` : ""}`;
+    if (covEl) covEl.innerHTML = (myRole === "owner" || myRole === "marketing") ? ` &nbsp;·&nbsp; التغطية: معدّل <b>${scRate != null ? salesNum(scRate) : "—"}</b>/يوم · المرصود <b>${observedDays ? Math.round(observedDays * 10) / 10 : "—"}</b> يوم · <b>${upCountScope}</b> رفعة${salesCovInsufficient(observedDays) ? ` <span class="s4-lu-warn" title="المعدّل اليوميّ من فترة أقصر من ١٤ يوماً غير موثوق للتنبّؤ (التغطية والنفاد مبوّبان)">⚠ الفترة قصيرة — التوقّع ما زال غير دقيق</span>` : ""}` : "";
     const kpi = (k, icon, num, lbl, sub, trend, tip, sub2, unit) => `<div class="card kpi" data-k="${k}"${tip ? ` title="${esc(tip)}"` : ""}><span class="kpi-ic">${icon}</span><b><bdi dir="ltr">${num}</bdi>${unit ? `<span class="kpi-unit">${unit}</span>` : ""}</b><span class="kpi-lbl">${lbl}</span><span class="kpi-sub">${sub}</span>${sub2 ? `<span class="kpi-sub2">${sub2}</span>` : ""}${trend || ""}</div>`;
     const scopeLbl = salesLoc === "all" ? "جميع المواقع" : salesLocName(salesLoc);
     const movedComparable = movedPrev != null && scope.pdaysMax > 0 && observedDays > 0;
@@ -3725,7 +3732,9 @@ async function renderSalesPage() {
     const totCovVals = dataActive.map(d => d.coverage).filter(c => c != null);
     const totCov = totCovVals.length ? Math.round(totCovVals.reduce((a, b) => a + b, 0) / totCovVals.length) : null;
     const branchInvTotal = salesData.reduce((s, d) => s + (d.invValue || 0), 0);   // إجمالي الجدول = مخزون الفروع (المستودع في بطاقة KPI لا الجدول)
-    const totRow = `<tr class="total"><td class="cmp-loc">الإجمالي</td>${salesCell(scope.val, "--gold")}<td class="n"><bdi dir="ltr">${salesNum(scope.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(totUnique)}</bdi>${crossLoc > 0 ? `<span class="tot-note" title="مجموع الأعمدة ${colMovedSum} يفوق الفريد لأن ${crossLoc} صنفاً تحرّك في أكثر من موقع">أصناف فريدة — ${crossLoc} في أكثر من موقع</span>` : ""}</td><td class="n">${money(branchInvTotal)}</td><td class="n">${salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "scc-tr", prevBaselineOnly)}</td></tr>`;
+    // القاعدة المقدّسة ٨: بيان الاستبعاد يبقى في الشاشة — سطر ثانويّ في صفّ الإجمالي (بلا لون تحذير/أيقونة/لافتة)، فقط حين N<الكل
+    const inclNote = dataActive.length < salesData.length ? `<span class="tot-note">يشمل ${dataActive.length} من ${salesData.length} فروع</span>` : "";
+    const totRow = `<tr class="total"><td class="cmp-loc">الإجمالي${inclNote}</td>${salesCell(scope.val, "--gold")}<td class="n"><bdi dir="ltr">${salesNum(scope.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(totUnique)}</bdi>${crossLoc > 0 ? `<span class="tot-note" title="مجموع الأعمدة ${colMovedSum} يفوق الفريد لأن ${crossLoc} صنفاً تحرّك في أكثر من موقع">أصناف فريدة — ${crossLoc} في أكثر من موقع</span>` : ""}</td><td class="n">${money(branchInvTotal)}</td><td class="n">${salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "scc-tr", prevBaselineOnly)}</td></tr>`;
     document.getElementById("salesCmp").innerHTML = `<table><thead><tr><th>الموقع</th><th class="n">المبيعات <span class="incl-tag">شامل</span></th><th class="n">الوحدات</th><th class="n">متحركة</th><th class="n">قيمة المخزون <span class="incl-tag">شامل</span></th><th class="n">التغيّر</th></tr></thead><tbody>${rows}${totRow}</tbody></table>`;
     // الأسطر (بلا سعر · مشبوهة) — المختفي في البانر
     const notes = [];

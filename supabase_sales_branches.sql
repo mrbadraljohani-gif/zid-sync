@@ -87,7 +87,7 @@ with (security_invoker = false) as
     union all
     select branch_id::text as location, code as sku, name, qty, price_incl, price_excl, barcode from public.sales_branch_items
   ) s
-  where public.get_my_role() in ('owner','marketing');
+  where public.get_my_role() in ('owner','marketing','admin');   -- +admin (دفعة هـ): محمد يرفع الإكسل يوميّاً فيقرأ نفس محتوى branch_items؛ الحجب كان أماناً شكليّاً يخلق فشلاً صامتاً
 grant select on public.sales_stock to authenticated;   -- إضافيّ idempotent؛ 🚫 لا نلمس صلاحية backup_ro
 revoke all on public.sales_stock from anon;             -- لا شيء لـ anon (مواءمة للقاعدة الحيّة — نفس نهج ai_usage)
 
