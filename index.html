@@ -2090,7 +2090,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "9adbc39";
+const APP_VERSION = "7b974dc";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2274,6 +2274,10 @@ const db = {
   // سجل النشاط (activity_log) — الأساس المستقبلي للإشعارات
   activity: {
     async insert(event_type, zid_sku, details) { const { error } = await sb.from("activity_log").insert({ event_type, zid_sku: zid_sku != null ? String(zid_sku) : null, details: details || null }); if (error) throw error; },
+    async bulkInsert(rows) {   // ٣-ب: تسجيل تحوّلات run() دفعةً — append-only، دفعات 500
+      const norm = (rows || []).filter(Boolean).map(r => ({ event_type: r.event_type, zid_sku: r.zid_sku != null ? String(r.zid_sku) : null, details: r.details || null }));
+      for (let i = 0; i < norm.length; i += 500) { const { error } = await sb.from("activity_log").insert(norm.slice(i, i + 500)); if (error) throw error; }
+    },
     async getRecent(limit) { const { data, error } = await sb.from("activity_log").select("event_type,zid_sku,details,created_by,created_at").order("created_at", { ascending: false }).limit(limit || 50); if (error) throw error; return data || []; },
     async getByType(type, limit) { let q = sb.from("activity_log").select("event_type,zid_sku,details,created_by,created_at").order("created_at", { ascending: false }).limit(limit || 200); if (type) q = q.eq("event_type", type); const { data, error } = await q; if (error) throw error; return data || []; },
     // أحداث صنف واحد (زمنيّ) — مصفّى بالـsku **في القاعدة** ＋ تصفيح (حدّ الخادم 1000). عند الطلب فقط.
@@ -2706,7 +2710,10 @@ function blockedOffline() {   // true ⇒ العملية محجوبة (مع تو
 // كل كتابة: القاعدة أولاً، وعند النجاح فقط تحديث الذاكرة (بلا localStorage)
 function requireOwner() { if (linkForbidden()) { showToast("🔒 الربط صلاحية المالك — غير متاح لهذا الحساب."); throw new Error("not-owner"); } }
 async function dbSetMapping(sku, code, source) { requireOnline(); requireOwner(); await db.mappings.upsert(sku, code, source); manualMap[String(sku)] = normCode(code); updateDbBadge(); logActivity("link_added", sku, { code: normCode(code), source: source || "manual" }); }
-async function dbSetMappings(pairs, source) { requireOnline(); requireOwner(); const rows = pairs.map(p => ({ zid_sku: String(p.sku), warehouse_code: normCode(p.code), source: source || "manual" })); await db.mappings.bulkUpsert(rows); for (const p of pairs) manualMap[String(p.sku)] = normCode(p.code); updateDbBadge(); logActivity("link_added", pairs.length === 1 ? pairs[0].sku : null, { count: pairs.length, source: source || "manual" }); }
+async function dbSetMappings(pairs, source) { requireOnline(); requireOwner(); const rows = pairs.map(p => ({ zid_sku: String(p.sku), warehouse_code: normCode(p.code), source: source || "manual" })); await db.mappings.bulkUpsert(rows); for (const p of pairs) manualMap[String(p.sku)] = normCode(p.code); updateDbBadge();
+  // البند ٤: صفّ سجلّ لكلّ صنف بـzid_sku (لا صفّ null واحد) — fire-and-forget، فشله لا يمسّ الربط
+  if (pairs.length === 1) logActivity("link_added", pairs[0].sku, { code: normCode(pairs[0].code), source: source || "manual" });
+  else if (dbOnline && sb && db.activity.bulkInsert) db.activity.bulkInsert(pairs.map(p => ({ event_type: "link_added", zid_sku: String(p.sku), details: { code: normCode(p.code), source: source || "manual", batch: true } }))).catch(() => {}); }
 // إلغاء الربط: unlinkedSet تستثنيه من قاعدة «الغائب»، وboundSet يُخفيه من «يحتاج ربط»
 // عبر okItem — بلا حذفه منها يعود الصنف إلى القائمة **غير مرئي**.
 async function dbDelMapping(sku) {
@@ -6502,6 +6509,39 @@ function run(reprocess) {
     // التقاط الأرقام نفسها المعروضة أعلاه (بلا إعادة حساب) لتقرأها صفحة المخزون
     lastRunSummary = { qtyCount, priceCount, distItemCount, distGroupCount, noChangeDropped, republishCount, zeroLowCount, autoUnpubCount: lastAutoUnpubSimple.length + lastAutoUnpubParents.length };   // (٢-ب) وُسِّع لتحمل بطاقة المخزون كامل الملخّص — التقاط حالة بحت (نفس الأرقام المكتوبة في السطر الأخضر، بلا إعادة حساب)
     lastClassify = { ...cls, total: cls.matched + cls.unmatched + cls.collided + cls.absent + cls.parent };   // توزيع منتجات زد للرسم الدائري — المجموع == عدد المنتجات المصنَّفة تماماً (كل منتج دلو واحد)
+
+    // ═══ ٣-ب: تسجيل التحوّلات في سجل النشاط — إضافيّ محض، بعد بناء الملفّين، لا يُقرأ في مسار القرار ═══
+    // يُشتقّ من البِنى النهائيّة (updatedList/zeroDoor/finalQtyByRaw/autoUnpub/lastParentPublish/lastReactivated) — صفر تغيير في منطق run().
+    // يُسجَّل في المطابقة الكاملة فقط (!reprocess) فلا تُكرَّر التحوّلات مع كل قرار حيّ؛ التحوّلات فقط لا الحالات (المتغيّر بلا تغيير لا يُسجَّل).
+    if (!reprocess && dbOnline && sb) {
+      try {
+        const runLog = [];
+        const zidQtyOf = rk => { const row = rowByRawSku[rk]; return (row && iQty >= 0) ? curQtyNum(row[iQty]) : null; };
+        // ① تصفير الكمية (كل الأبواب) — before = كمية زد الحالية · after = 0 · السبب من zeroDoor؛ 0 أصلاً ⇒ لا تحوّل
+        const zeroReason = { low: "قيمة منخفضة", waiting: "غير متوفر ⏳", absent: "غائب عن المخزن", matched0: "مطابَق بكمية 0" };
+        for (const rk in zeroDoor) {
+          if (finalQtyByRaw[rk] !== 0) continue;                       // أُعيد تفعيله ⇒ ليس تصفيراً
+          const before = zidQtyOf(rk);
+          if (before === 0 || before == null) continue;                // 0 أصلاً (يُسقطه stripNoChangeQty) ⇒ لا تحوّل
+          runLog.push({ event_type: "qty_zeroed", zid_sku: rk, details: { before, after: 0, reason: zeroReason[zeroDoor[rk]] || zeroDoor[rk] } });
+        }
+        // ② السعر ＋ إعادة النشر (من updatedList — يحمل الأعلام والقيَم؛ المستبعَد خارج الملفّين)
+        updatedList.forEach(u => {
+          if (u.excluded) return;
+          if (u.priceChanged && u.oldPrice != null && u.newPrice != null && Number(u.oldPrice) !== Number(u.newPrice))
+            runLog.push({ event_type: "price_changed", zid_sku: u.sku, details: { before: Number(u.oldPrice), after: Number(u.newPrice) } });
+          if (u.republish) runLog.push({ event_type: "republished", zid_sku: u.sku, details: { before: "غير منشور", after: "منشور" } });
+        });
+        // ③ الإخفاء التلقائي البسيط (Yes→No) — السبب من lastAutoUnpubSimple.src
+        lastAutoUnpubSimple.forEach(x => runLog.push({ event_type: "unpublished", zid_sku: x.sku, details: { before: "منشور", after: "غير منشور", reason: zeroReason[x.src] || x.src } }));
+        // ④ الآباء: نشر مُنقَل (No→Yes) ＋ إخفاء بالإجماع (Yes→No)
+        lastParentPublish.forEach(p => runLog.push({ event_type: "republished", zid_sku: p.sku, details: { before: "غير منشور", after: "منشور", role: "أب" } }));
+        lastAutoUnpubParents.forEach(p => runLog.push({ event_type: "unpublished", zid_sku: p.sku, details: { before: "منشور", after: "غير منشور", reason: "كل الأبناء صفر", role: "أب" } }));
+        // ⑤ العودة للمخزن (من خطاف الرفع — lastReactivated بالـsku الخام)
+        (lastReactivated || []).forEach(r => { const s = r && (r.sku || r.skuN); if (s) runLog.push({ event_type: "returned_stock", zid_sku: String(s), details: {} }); });
+        if (runLog.length && db.activity && db.activity.bulkInsert) db.activity.bulkInsert(runLog).catch(() => {});   // fire-and-forget — فشل الكتابة لا يُفشل run()
+      } catch (e) { /* التسجيل إضافيّ محض — أي خطأ فيه لا يمسّ المطابقة */ }
+    }
 
     // سطر الملخّص الأخضر (النجاح) نُقل إلى صفحة المخزون (#invSummaryLine)؛ الرئيسية تحتفظ بفرع الفشل فقط (صمام ملاصق لزرّي التنزيل)
     const invLine = document.getElementById("invSummaryLine");
