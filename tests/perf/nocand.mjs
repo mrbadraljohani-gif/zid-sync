@@ -33,7 +33,11 @@ const res = await p.evaluate(() => {
   const grn = { z: { sku: "Z-OK", name: "كرسي ارضي M2", price: 100, qty: 5, published: "Yes" }, best: { code: "70373", name: "كرسي ارضي M2", price: 100, qty: 5, score: 100, exactName: true, sizeM: true, priceM: true, sim: 1 }, exactUnique: true, isAbsent: false, wasLinked: false };
   grn.chosen = grn.best;
   const grnHtml = batchCardHTML(grn, "bt-g", "");
-  return { redHtml, grnHtml };
+  // البند ٢: بطاقة غائبة لها كود سابق (mappedCode) — تعرض الكود ＋ «—» للموقع/الاختفاء ＋ إحالة
+  const abs = { z: { sku: "Z-ABS", name: "حبل Daslo - احمر", price: 55, qty: 2, published: "Yes", mappedCode: "99999" }, best: null, isAbsent: true, wasLinked: false };
+  abs.chosen = null;
+  const absHtml = batchCardHTML(abs, "bt-rd", "");
+  return { redHtml, grnHtml, absHtml };
 });
 await b.close();
 const fails = [];
@@ -52,5 +56,11 @@ if (!/data-uid="[^"]*"[^>]*\sdisabled/.test(red) && !/\sdisabled[^>]*data-uid=/.
 if (!/70373/.test(grn)) fails.push("② المرشّح الموثوق (70373) غير معروض في الأخضر");
 if (!/كرسي ارضي M2/.test(grn)) fails.push("② اسم المرشّح الموثوق غير معروض");
 if (/data-uid="[^"]*"[^>]*\sdisabled/.test(grn) || /\sdisabled[^>]*data-uid=/.test(grn)) fails.push("② صندوق الأخضر معطّل (يجب أن يبقى مفعّلاً)");
+// البند ٢: الغائب يعرض الكود السابق ＋ «—» للموقع/الاختفاء ＋ سطر الإحالة
+const abs = res.absHtml;
+if (!/الكود السابق:\s*<span dir="ltr">99999/.test(abs)) fails.push("البند٢: الكود السابق (99999) غير معروض في البطاقة الغائبة");
+if (!/آخر موقع:\s*<span class="q-na">—/.test(abs)) fails.push("البند٢: «آخر موقع: —» غائبة");
+if (!/اختفى:\s*<span class="q-na">—/.test(abs)) fails.push("البند٢: «اختفى: —» غائبة");
+if (!/حركة الصنف/.test(abs)) fails.push("البند٢: سطر الإحالة إلى «حركة الصنف» غائب");
 if (fails.length) { console.error("✗ G-NOCAND:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ G-NOCAND: الأحمر بلا مرشّح ضعيف ＋ رسالة ＋ صندوق معطّل · الأخضر الموثوق مرشّحه معروض وصندوقه مفعّل (لم يتغيّر).");
+console.log("✅ G-NOCAND: الأحمر بلا مرشّح ضعيف ＋ صندوق معطّل · الأخضر الموثوق سليم · الغائب يعرض الكود السابق ＋ «—» ＋ إحالة «حركة الصنف».");
