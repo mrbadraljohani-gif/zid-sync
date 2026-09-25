@@ -33,7 +33,7 @@ const ml = fnSrc("matchLine");
 check(/CONF_LBL/.test(script) && ml.includes("CONF_LBL"), "الثقة عبر matchLine ＋ CONF_LBL (تسمية نصّية صريحة)");
 check(["مطابقة مؤكدة", "مطابقة محتملة", "بلا مرشّح موثوق"].every(t => script.includes(t)), "درجات الثقة الثلاث بتسميات عربية صريحة");
 check(!ml.includes("🟢") && !ml.includes("🟡") && !ml.includes("🔴"), "matchLine بلا إيموجي ثقة ملوّنة");
-check(fnSrc("batchCardHTML").includes("matchLine(r, chkCls)"), "البطاقة تعرض صفّ المطابقة ظاهراً (لا tooltip — الجوال بلا تحويم)");
+check(fnSrc("batchCardHTML").includes("matchLine(r, chkCls"), "البطاقة تعرض صفّ المطابقة ظاهراً (لا tooltip — الجوال بلا تحويم)");   // تقبل وسيطاً إضافياً (weakUnreliable) — تحرس المعنى لا القوس
 check(!bar.includes("🟢") && !bar.includes("🟡") && !bar.includes("🔴"), "unifiedBar بلا إيموجي ثقة ملوّنة");
 check(!/DOT_OK|DOT_MID|DOT_BAD/.test(bar), "§دفعة٣: الشريط بلا نقاط ثقة — عدّادان فقط (يحتاج ربط · غير متوفر)");
 

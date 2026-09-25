@@ -764,6 +764,8 @@
   .batch-card.lost { border-color: color-mix(in srgb, var(--amber-tint) 60%, transparent); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--amber-tint) 72%, transparent); }
   .bt-card-chk { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 12.5px; color: var(--gold-2); cursor: pointer; padding: 5px 10px; border: 1px solid var(--border-strong); border-radius: 9px; margin-bottom: 4px; }
   .bt-card-chk input { width: 16px; height: 16px; accent-color: var(--gold-2); }
+  .bt-card-chk.disabled { opacity: .45; cursor: not-allowed; color: var(--muted-2); }   /* بلا مرشّح موثوق ⇒ الاعتماد معطّل حتى اختيار صريح */
+  .bt-card-chk.disabled input { cursor: not-allowed; }
   .bt-hint { color: var(--muted); font-size: 12px; }
   .bt-combo { position: relative; margin-top: 7px; }
   .bt-search { width: 100%; box-sizing: border-box; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 4px 7px; font-size: 11px; }
@@ -2051,7 +2053,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "3f3ae5f";
+const APP_VERSION = "9902258";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -4697,9 +4699,10 @@ function flushUnified() {
 }
 
 // بطاقة الربط الدفعي — بنفس شكل بطاقات «جديد يحتاج قراراً» (صورة ＋ 3 أعمدة منظّمة) ＋ تحديد ＋ بحث هجين ＋ ⏳/✕
-function batchWhInner(r) {
+function batchWhInner(r, unreliable) {
   const c = r.chosen;
-  if (!c) return `<div class="mc-none">لا مرشّح — ابحث بالأسفل لاختيار صنف من المستودع</div>`;
+  // 🚨 البند ١: بلا مرشّح موثوق (أحمر، بلا اختيار يدويّ) ⇒ 🚫 لا نعرض المرشّح الضعيف في موضع المرشّح — يغري بربط فاسد
+  if (!c || unreliable) return `<div class="mc-none">لا مرشّح موثوق — ابحث يدوياً لاختيار صنف من المستودع</div>`;
   return `<div class="mc-name">${esc(c.name) || "—"}</div>` +
     `<div class="mc-sku">باركود المستودع: <span dir="ltr">${esc(String(c.code))}</span></div>` +
     `<div class="mc-sub">سعر المستودع: ${priceInt(c.price) ?? "—"} ر.س · الكمية: <b>${esc(String(c.qty ?? "—"))}</b></div>` +
@@ -4718,12 +4721,12 @@ function srcLineCompact(code) {
 }
 // صفّ «نسبة المطابقة» — درجة الثقة ＋ أسبابها بأرقام حقيقية (مقاس/سعر/تشابه اسم)، ظاهرة لا في tooltip.
 const CONF_LBL = { "bt-g": ["مطابقة مؤكدة", "cf-g"], "bt-y": ["مطابقة محتملة", "cf-y"], "bt-rd": ["بلا مرشّح موثوق", "cf-r"] };
-function matchLine(r, chkCls) {
+function matchLine(r, chkCls, unreliable) {
   const [lbl, cls] = CONF_LBL[chkCls] || CONF_LBL["bt-rd"];
   const c = r.chosen;
-  // بلا مرشّح ⇒ لا صفّ مطابقة إطلاقاً: عمود المستودع يقول «لا مرشّح — ابحث بالأسفل» فعلاً،
+  // بلا مرشّح (أو غير موثوق) ⇒ لا صفّ مطابقة: عمود المستودع يقول «لا مرشّح موثوق — ابحث يدوياً» فعلاً،
   // وإضافة «بلا مرشّح موثوق» تحته تكرار دلالي يقرأه المستخدم مرّتين.
-  if (!c) return "";
+  if (!c || unreliable) return "";
   const why = reasonText(c);
   return `<span class="cf ${cls}">${lbl}</span>` + (why ? ` <span class="mc-why">${esc(why)}</span>` : "");
 }
@@ -4738,9 +4741,11 @@ function batchCardHTML(r, chkCls, famAttr) {
         <div class="mc-sku">SKU: <span dir="ltr">${esc(String(r.z.sku))}</span>${lostTag(r)}${unlinkTag(r)}${(famIndex && famIndex.parentOfSku(r.z.sku)) ? `<span class="col-tag" title="متغيّر — أبوه (من ترتيب تصدير زد)">متغيّر · أبوه <span dir="ltr">${esc(String(famIndex.parentOfSku(r.z.sku)))}</span></span>` : ""}</div>
         <div class="mc-sub">سعر زد: ${zp ?? "—"} ر.س · الكمية: <b>${esc(String(r.z.qty ?? "—"))}</b> ${pubBadge(r.z)}</div>
       </div></div></div>`;
+  // 🚨 البند ١: أحمر (بلا مرشّح موثوق) ولم يُختَر يدوياً بعد ⇒ لا مرشّح معروض ＋ صندوق معطّل. الاختيار اليدويّ (comboPick) يجعل chosen≠best ⇒ يظهر ويُفعَّل.
+  const weakUnreliable = chkCls === "bt-rd" && (!r.chosen || r.chosen === r.best);
   const wh = `<div class="mc-wh"><span class="mc-tag whs">WAREHOUSE</span>
-      <div id="whd-${uid}">${batchWhInner(r)}</div>
-      <div class="mc-match" id="m-${uid}">${matchLine(r, chkCls)}</div>
+      <div id="whd-${uid}">${batchWhInner(r, weakUnreliable)}</div>
+      <div class="mc-match" id="m-${uid}">${matchLine(r, chkCls, weakUnreliable)}</div>
       <div class="bt-combo"><input class="bt-search" id="s-${uid}" aria-label="ابحث في المستودع بالكود أو الاسم لربط هذا الصنف" role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="غيّر/ابحث في المستودع بالكود أو الاسم…" oninput="comboSearch('${uid}')" onfocus="comboOpen('${uid}')" onkeydown="comboKey('${uid}',event)"></div>
     </div>`;
   // «غير متوفر» قرار تصنيف يُخلي الصفّ من «يحتاج ربط» — فاعل **دائماً** حتى لو انعدم أثر التصدير (مصفّر/مخفي أصلاً · متغيّر).
@@ -4748,10 +4753,10 @@ function batchCardHTML(r, chkCls, famAttr) {
   const noop = waitNoopReason(r.z);
   const waitBtn = `<button class="mc-btn wait" onclick="batchExclude('${uid}','wait')" title="${noop ? "قرار: يخرج من «يحتاج ربط» — " + esc(noop) + " (بلا تغيير تصدير)" : "سجّله «غير متوفر حالياً»"}">${ic("hourglass","ico-warn")} غير متوفر</button>` + (noop ? `<div class="wait-note">${esc(noop)} — يُسجَّل قراراً</div>` : "");
   const actions = `<div class="mc-actions">
-      <label class="bt-card-chk"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${chkCls === "bt-g" ? "checked" : ""}><span>اعتماد الربط</span></label>
+      <label class="bt-card-chk${weakUnreliable ? " disabled" : ""}"><input type="checkbox" class="${chkCls}" data-uid="${uid}" ${famAttr} ${chkCls === "bt-g" ? "checked" : ""} ${weakUnreliable ? "disabled" : ""}><span>اعتماد الربط</span></label>
       ${waitBtn}
     </div>`;
-  const search = esc(normText(String(r.z.sku) + " " + (r.z.name || "") + " " + (c ? String(c.code) + " " + (c.name || "") : "")));
+  const search = esc(normText(String(r.z.sku) + " " + (r.z.name || "") + " " + ((c && !weakUnreliable) ? String(c.code) + " " + (c.name || "") : "")));   // المرشّح الضعيف غير الموثوق خارج فهرس البحث أيضاً (لا ربط وهميّ)
   return `<div class="mcard batch-card${r.wasLinked ? " lost" : ""}" data-status="need" data-sku="${esc(String(r.z.sku))}" data-search="${search}" title="${tip}">${zid}${wh}${actions}</div>`;
 }
 // 🟢 المؤكد — الكل محدد افتراضياً؛ الاعتماد للمحدد فقط
@@ -4820,9 +4825,9 @@ function comboPick(uid, code) {
   const w = lastWhList.find(x => normCode(x.code) === normCode(code)) || (r.scored || []).find(s => normCode(s.code) === normCode(code));
   if (!w) return;
   r.chosen = { code: w.code, name: w.name, price: w.price, qty: w.qty, sizeM: !!(extractSize(r.z.name) && extractSize(w.name) && extractSize(r.z.name) === extractSize(w.name)), priceM: priceMatch(r.z.price, w.price), sim: nameSimilarity(r.z.name, w.name) };
-  const whd = document.getElementById("whd-" + uid); if (whd) whd.innerHTML = batchWhInner(r);   // عمود المستودع في البطاقة
+  const whd = document.getElementById("whd-" + uid); if (whd) whd.innerHTML = batchWhInner(r, false);   // اختيار يدويّ صريح ⇒ موثوق (يظهر المرشّح)
   const ml = document.getElementById("m-" + uid);   // اختيار يدوي ⇒ الثقة تصير «مؤكدة» بأسباب المرشّح المثبَّت
-  if (ml) ml.innerHTML = matchLine(r, "bt-g");
+  if (ml) ml.innerHTML = matchLine(r, "bt-g", false);
   hideBtDrop();
   const inp = document.getElementById("s-" + uid); if (inp) inp.value = "";
   // ⚠ #batchBody حاوية اللوحة القديمة المحذوفة — القائمة الموحّدة تُرسم في #unBody.

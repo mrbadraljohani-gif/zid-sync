@@ -136,6 +136,10 @@ jobs:
         run: node tests/perf/match-tighten.mjs --broken
       - name: G-TIGHTEN (T1) — أخضر=تطابق اسم تامّ وحيد فقط (BP162/BP164+alias لا يصير أخضر)
         run: node tests/perf/match-tighten.mjs
+      - name: Self-check — G-NOCAND يرسب حين يُعرَض مرشّح ضعيف مع «بلا مرشّح موثوق»
+        run: node tests/perf/nocand.mjs --broken
+      - name: G-NOCAND — «بلا مرشّح موثوق» بلا مرشّح ضعيف ＋ اعتماد معطّل · الموثوق لم يتغيّر
+        run: node tests/perf/nocand.mjs
       - name: Self-check — حارس G-EXPUNLINK يرسب بخلط «رابط محفوظ» بالمطابَق بالكود
         run: node tests/perf/explorer-unlink.mjs --broken
       - name: G-EXPUNLINK — المستكشف يعزل الرابط المحفوظ (mappings) للإلغاء الدفعيّ
