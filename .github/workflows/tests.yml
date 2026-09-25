@@ -140,6 +140,10 @@ jobs:
         run: node tests/perf/nocand.mjs --broken
       - name: G-NOCAND — «بلا مرشّح موثوق» بلا مرشّح ضعيف ＋ اعتماد معطّل · الموثوق لم يتغيّر
         run: node tests/perf/nocand.mjs
+      - name: Self-check — G-ITEM-HISTORY يرسب حين تُعرض نتيجة فارغة بلا رسالة
+        run: node tests/perf/item-history.mjs --broken
+      - name: G-ITEM-HISTORY — «حركة الصنف» صفر استعلام عند التحميل · الضغط يستعلم · الفارغة برسالة · حجب viewer
+        run: node tests/perf/item-history.mjs
       - name: Self-check — حارس G-EXPUNLINK يرسب بخلط «رابط محفوظ» بالمطابَق بالكود
         run: node tests/perf/explorer-unlink.mjs --broken
       - name: G-EXPUNLINK — المستكشف يعزل الرابط المحفوظ (mappings) للإلغاء الدفعيّ
