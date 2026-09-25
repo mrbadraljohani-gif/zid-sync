@@ -146,7 +146,9 @@ jobs:
         run: node tests/perf/item-history.mjs
       - name: Self-check — G-RUN-LOG يرسب حين يُسجَّل المصفَّر أصلاً (حالة لا تحوّل)
         run: node tests/perf/run-log.mjs --broken
-      - name: G-RUN-LOG — تسجيل تحوّلات run() (تصفير/سعر/نشر/عودة) بـbefore←after · تحوّلات فقط · ربط دفعيّ/صنف · فشل الكتابة لا يُفشل run
+      - name: Self-check — G-RUN-LOG يرسب حين يكون .catch صامتاً بلا أثر (البند ١)
+        run: node tests/perf/run-log.mjs --broken-silent
+      - name: G-RUN-LOG — تسجيل تحوّلات run() (تصفير/سعر/نشر/عودة) بـbefore←after · تحوّلات فقط · ربط دفعيّ/صنف · فشل الكتابة يترك أثراً ولا يُفشل run
         run: node tests/perf/run-log.mjs
       - name: Self-check — حارس G-EXPUNLINK يرسب بخلط «رابط محفوظ» بالمطابَق بالكود
         run: node tests/perf/explorer-unlink.mjs --broken

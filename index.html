@@ -2090,7 +2090,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "7b974dc";
+const APP_VERSION = "031c3f6";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2713,7 +2713,7 @@ async function dbSetMapping(sku, code, source) { requireOnline(); requireOwner()
 async function dbSetMappings(pairs, source) { requireOnline(); requireOwner(); const rows = pairs.map(p => ({ zid_sku: String(p.sku), warehouse_code: normCode(p.code), source: source || "manual" })); await db.mappings.bulkUpsert(rows); for (const p of pairs) manualMap[String(p.sku)] = normCode(p.code); updateDbBadge();
   // البند ٤: صفّ سجلّ لكلّ صنف بـzid_sku (لا صفّ null واحد) — fire-and-forget، فشله لا يمسّ الربط
   if (pairs.length === 1) logActivity("link_added", pairs[0].sku, { code: normCode(pairs[0].code), source: source || "manual" });
-  else if (dbOnline && sb && db.activity.bulkInsert) db.activity.bulkInsert(pairs.map(p => ({ event_type: "link_added", zid_sku: String(p.sku), details: { code: normCode(p.code), source: source || "manual", batch: true } }))).catch(() => {}); }
+  else if (dbOnline && sb && db.activity.bulkInsert) db.activity.bulkInsert(pairs.map(p => ({ event_type: "link_added", zid_sku: String(p.sku), details: { code: normCode(p.code), source: source || "manual", batch: true } }))).catch(e => console.warn("link_added batch log فشل (لا يمسّ الربط):", e)); }
 // إلغاء الربط: unlinkedSet تستثنيه من قاعدة «الغائب»، وboundSet يُخفيه من «يحتاج ربط»
 // عبر okItem — بلا حذفه منها يعود الصنف إلى القائمة **غير مرئي**.
 async function dbDelMapping(sku) {
@@ -6539,8 +6539,8 @@ function run(reprocess) {
         lastAutoUnpubParents.forEach(p => runLog.push({ event_type: "unpublished", zid_sku: p.sku, details: { before: "منشور", after: "غير منشور", reason: "كل الأبناء صفر", role: "أب" } }));
         // ⑤ العودة للمخزن (من خطاف الرفع — lastReactivated بالـsku الخام)
         (lastReactivated || []).forEach(r => { const s = r && (r.sku || r.skuN); if (s) runLog.push({ event_type: "returned_stock", zid_sku: String(s), details: {} }); });
-        if (runLog.length && db.activity && db.activity.bulkInsert) db.activity.bulkInsert(runLog).catch(() => {});   // fire-and-forget — فشل الكتابة لا يُفشل run()
-      } catch (e) { /* التسجيل إضافيّ محض — أي خطأ فيه لا يمسّ المطابقة */ }
+        if (runLog.length && db.activity && db.activity.bulkInsert) db.activity.bulkInsert(runLog).catch(e => console.warn("run-log bulkInsert فشل (لا يمسّ المطابقة):", e));   // fire-and-forget — فشل الكتابة لا يُفشل run()، لكن يترك أثراً
+      } catch (e) { console.warn("run-log block فشل (لا يمسّ المطابقة):", e); }   // التسجيل إضافيّ محض — أي خطأ فيه لا يُفشل run لكنه يُسجَّل في الكونسول
     }
 
     // سطر الملخّص الأخضر (النجاح) نُقل إلى صفحة المخزون (#invSummaryLine)؛ الرئيسية تحتفظ بفرع الفشل فقط (صمام ملاصق لزرّي التنزيل)

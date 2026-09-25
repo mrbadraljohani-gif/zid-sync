@@ -18,11 +18,17 @@ import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const BROKEN = process.argv.includes("--broken");
+const BROKEN_SILENT = process.argv.includes("--broken-silent");
 let html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 if (BROKEN) {
   const A = "if (before === 0 || before == null) continue;";
   if (!html.includes(A)) { console.error("✗ (--broken) لم أجد حارس «before===0» في تسجيل التصفير"); process.exit(2); }
   html = html.replace(A, "if (before == null) continue;");   // يسمح بتسجيل المصفَّر أصلاً (حالة لا تحوّل)
+}
+if (BROKEN_SILENT) {
+  const A = 'db.activity.bulkInsert(runLog).catch(e => console.warn("run-log bulkInsert فشل (لا يمسّ المطابقة):", e))';
+  if (!html.includes(A)) { console.error("✗ (--broken-silent) لم أجد .catch مع الأثر"); process.exit(2); }
+  html = html.replace(A, "db.activity.bulkInsert(runLog).catch(() => {})");   // .catch صامت بلا أثر (البند ١ المكسور)
 }
 function findChrome(){const c=["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",process.env.CHROME_PATH||"","/usr/bin/google-chrome-stable","/usr/bin/google-chrome"];for(const x of c)if(x&&existsSync(x))return x;for(const n of ["google-chrome-stable","google-chrome","chromium"])try{return execFileSync("bash",["-lc","command -v "+n]).toString().trim();}catch{}return"";}
 
@@ -106,16 +112,22 @@ const port = server.address().port;
 const b = await puppeteer.launch({ executablePath: findChrome(), headless: "new", args: ["--no-sandbox", "--disable-gpu"] });
 const p = await b.newPage();
 const perr = []; p.on("pageerror", e => perr.push(String(e).slice(0, 160)));
+const warns = []; p.on("console", m => { const t = m.type(); if (t === "warn" || t === "warning" || t === "error") warns.push(m.text()); });
 await p.setRequestInterception(true);
 p.on("request", req => { const u = req.url(); if (u.startsWith("http://127.0.0.1:" + port)) return req.continue(); if (/^https?:/.test(u)) return req.abort(); req.continue(); });
 await p.goto("http://127.0.0.1:" + port + "/", { waitUntil: "load" });
 const res = await p.evaluate(inpage, cfg);
+await new Promise(r => setTimeout(r, 250));   // تفريغ أحداث console (الأثر من .catch يصل node بعد عودة evaluate)
 await b.close(); server.close();
 
 const abz = res.zeroed.find(z => z.sku === "ABZ");
 if (BROKEN) {
   if (abz) { console.log("✅ (--broken) G-RUN-LOG مسك العطل: المصفَّر أصلاً (ABZ before=0) سُجّل qty_zeroed — حالة لا تحوّل."); process.exit(0); }
   console.error("✗ (--broken) لم يُسجَّل ABZ — لا أسنان. " + JSON.stringify(res.zeroed)); process.exit(1);
+}
+if (BROKEN_SILENT) {
+  if (!warns.some(w => /run-log/.test(w))) { console.log("✅ (--broken-silent) G-RUN-LOG مسك العطل: .catch صامت بلا أثر في الكونسول."); process.exit(0); }
+  console.error("✗ (--broken-silent) ظهر أثر رغم .catch الصامت — لا أسنان. " + JSON.stringify(warns)); process.exit(1);
 }
 const fails = [];
 if (perr.length) fails.push("أخطاء JS: " + perr.join(" | "));
@@ -135,5 +147,6 @@ if (res.linkNull) fails.push("⑧ صفّ ربط دفعيّ بـzid_sku=null (ي�
 if (!(res.linkRows.some(r => String(r.sku) === "L1") && res.linkRows.some(r => String(r.sku) === "L2"))) fails.push("⑧ صفّا الربط لا يحملان L1/L2");
 if (res.err2) fails.push("⑨ فشل الكتابة أفشل run: " + res.err2);
 if (!res.files2 || res.files2.qty < 1) fails.push("⑨ الملفّان لم يُبنيا رغم رمي insert (fire-and-forget مكسور)");
+if (!warns.some(w => /run-log/.test(w))) fails.push("⑨ فشل الكتابة لم يترك أثراً في الكونسول (البند ١: .catch صامت — يجب console.warn)");
 if (fails.length) { console.error("✗ G-RUN-LOG:\n  " + fails.join("\n  ") + "\n  dump: " + JSON.stringify(res)); process.exit(1); }
 console.log("✅ G-RUN-LOG: تصفير/سعر/نشر/عودة مسجَّلة بـbefore←after · المصفَّر أصلاً والكمية العاديّة لا تُسجَّل · الربط الدفعيّ صفّ/صنف · فشل الكتابة لا يُفشل run.");
