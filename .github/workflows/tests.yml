@@ -262,6 +262,10 @@ jobs:
         run: node tests/perf/sales-chart.mjs --broken-toggle
       - name: G-SALES-CHART — مفتاح تفاعليّ ＋ ألوان/أشكال متمايزة ＋ محاور مقروءة ＋ تلميح
         run: node tests/perf/sales-chart.mjs
+      - name: Self-check — G-SALES-NOPRICE يرسب حين يعود «0 ر.س» للموقع بلا سعر
+        run: node tests/perf/sales-noprice-cmp.mjs --broken
+      - name: G-SALES-NOPRICE — «0 ر.س» تكذب ⇒ «— بلا سعر»/«جزئيّ» في جدول المقارنة
+        run: node tests/perf/sales-noprice-cmp.mjs
       - name: Self-check — G-TAX-STOCK يرسب حين يُحسب الصنف بلا price_excl صفراً
         run: node tests/perf/sales-tax-stock.mjs --broken
       - name: G-TAX-STOCK — قيمة المخزون قبل الضريبة من price_excl؛ الناقص مستبعَد بعدّاد

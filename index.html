@@ -2146,7 +2146,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "0d4d3eb";
+const APP_VERSION = "781337e";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3234,13 +3234,13 @@ function salesRange(period) {
 // التجميع: القيمة والوحدات من estimated_sale فقط؛ المختفي منفصل؛ «تحرّكت» = أي حركة (فريدة موقع|كود)
 function salesAgg(rows) {
   // moved = زوج موقع|كود (لعمود الجدول per-location) · movedSku = كود فريد عبر المواقع (منتج واحد ولو تحرّك في فرعين)
-  const a = { estValue: 0, estValueExcl: 0, units: 0, moved: new Set(), movedSku: new Set(), noPrice: 0, disCount: 0, disValue: 0, byLoc: new Map() };
+  const a = { estValue: 0, estValueExcl: 0, units: 0, moved: new Set(), movedSku: new Set(), noPrice: 0, noPriceSku: new Set(), disCount: 0, disValue: 0, byLoc: new Map() };
   for (const m of rows || []) {
     a.moved.add(m.location + "|" + m.sku); a.movedSku.add(String(m.sku));
     if (m.kind === "estimated_sale") {
       const u = Math.abs(Number(m.delta) || 0); a.units += u;
       const L = a.byLoc.get(m.location) || { value: 0, valueExcl: 0, units: 0 }; L.units += u;
-      if (m.value_est != null) { a.estValue += Number(m.value_est) || 0; L.value += Number(m.value_est) || 0; } else a.noPrice++;
+      if (m.value_est != null) { a.estValue += Number(m.value_est) || 0; L.value += Number(m.value_est) || 0; } else { a.noPrice++; a.noPriceSku.add(String(m.sku)); }   // ＋أصناف البيع بلا سعر (لوسم «جزئيّ» في جدول المقارنة — عرض بحت)
       if (m.unit_price_excl != null) { const ve = u * (Number(m.unit_price_excl) || 0); a.estValueExcl += ve; L.valueExcl += ve; }   // «قبل الضريبة» من unit_price_excl المخزَّن (لا اشتقاق)
       a.byLoc.set(m.location, L);
     } else if (m.kind === "disappeared") { a.disCount++; if (m.value_est != null) a.disValue += Number(m.value_est) || 0; }
@@ -4120,15 +4120,25 @@ async function renderSalesPage() {
     // جدول المقارنة — الوحدة ملتصقة برقمها بخطّ عربيّ (لا mono يقطّع «يوم») · «المبيعات» بشريط حصّة خلفيّ بلون الموقع.
     const money = v => `<bdi dir="ltr">${salesNum(v)}</bdi><span class="cmp-u">ر.س</span>`;   // «5,685,194 ر.س»
     const covCell = c => c == null ? "—" : (c > 3650 ? `<span class="cmp-slow">بطيء</span>` : `<bdi dir="ltr">${c}</bdi><span class="cmp-u">يوم</span>`);   // «855 يوم» (يوم بخطّ عربيّ)
-    const salesCell = (v, colorVar) => { const pct = scope.val > 0 ? Math.max(0, Math.min(100, Math.round(v / scope.val * 100))) : 0; return `<td class="n cmp-sales"><span class="cmp-bar" style="width:${pct}%;background:color-mix(in srgb, var(${colorVar}) 26%, transparent)"></span><span class="cmp-front">${money(v)}</span></td>`; };
+    // «0 ر.س» تكذب حين باع الموقع بلا سعر معروف. القاعدة (عرضٌ بحت، صفر تغيير في أي معادلة):
+    //   • units>0 وكل البيع بلا سعر (val===0) ⇒ «— بلا سعر» (الشرطة صدق، الصفر يوحي «لم يبع»)
+    //   • بيع صفر فعلاً (لا حركات بيع، units===0) ⇒ «0 ر.س» كما هو
+    //   • مختلط (val>0 مع أصناف بلا سعر) ⇒ المجموع المعروف ＋ «جزئيّ — N صنفاً بلا سعر»
+    const salesCell = (v, units, npSku, colorVar) => {
+      const pct = scope.val > 0 ? Math.max(0, Math.min(100, Math.round(v / scope.val * 100))) : 0;
+      let inner;
+      if (units > 0 && v === 0 && npSku > 0) inner = `— <span class="cmp-u">بلا سعر</span>`;
+      else { inner = money(v); if (v > 0 && npSku > 0) inner += `<span class="tot-note">جزئيّ — ${npSku} صنفاً بلا سعر</span>`; }
+      return `<td class="n cmp-sales"><span class="cmp-bar" style="width:${pct}%;background:color-mix(in srgb, var(${colorVar}) 26%, transparent)"></span><span class="cmp-front">${inner}</span></td>`;
+    };
     const rowT = (name, colorVar, d, cls, noUpload) => noUpload
       ? `<tr class="${cls || ""} noup"><td class="cmp-loc">${colorVar ? `<span class="dot" style="background:var(${colorVar})"></span>` : ""}${esc(name)}</td><td class="n noupc" colspan="5">لا رفعة في هذه الفترة</td></tr>`
-      : `<tr class="${cls || ""}"><td class="cmp-loc">${colorVar ? `<span class="dot" style="background:var(${colorVar})"></span>` : ""}${esc(name)}</td>${salesCell(d.val, colorVar || "--info")}<td class="n"><bdi dir="ltr">${salesNum(d.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(d.moved)}</bdi></td><td class="n">${money(d.inv)}</td><td class="n">${salesRateTrend(d.val, d.daysCovered, d.pval, d.prevDaysCovered, "scc-tr", prevBaselineOnly)}</td></tr>`;
+      : `<tr class="${cls || ""}"><td class="cmp-loc">${colorVar ? `<span class="dot" style="background:var(${colorVar})"></span>` : ""}${esc(name)}</td>${salesCell(d.val, d.units, d.npSku, colorVar || "--info")}<td class="n"><bdi dir="ltr">${salesNum(d.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(d.moved)}</bdi></td><td class="n">${money(d.inv)}</td><td class="n">${salesRateTrend(d.val, d.daysCovered, d.pval, d.prevDaysCovered, "scc-tr", prevBaselineOnly)}</td></tr>`;
     let colMovedSum = 0, movedUniqueAll = new Set();
     const rows = salesData.map(d => {   // الفروع فقط — المستودع خارج جدول المبيعات
       if (!uploadedInPeriod.has(d.loc)) return rowT(d.name, salesLocColor(d.loc), null, "", true);
       colMovedSum += d.agg.moved.size; for (const s of d.agg.movedSku) movedUniqueAll.add(s);
-      const r = { val: d.agg.estValue, units: d.agg.units, moved: d.agg.moved.size, inv: d.invValue || 0, cov: d.coverage, pval: d.pagg.estValue, daysCovered: d.daysCovered, prevDaysCovered: d.prevDaysCovered };
+      const r = { val: d.agg.estValue, units: d.agg.units, npSku: d.agg.noPriceSku.size, moved: d.agg.moved.size, inv: d.invValue || 0, cov: d.coverage, pval: d.pagg.estValue, daysCovered: d.daysCovered, prevDaysCovered: d.prevDaysCovered };
       return rowT(d.name, salesLocColor(d.loc), r, "");
     }).join("");
     const totUnique = movedUniqueAll.size, crossLoc = colMovedSum - totUnique;
@@ -4137,7 +4147,8 @@ async function renderSalesPage() {
     const branchInvTotal = salesData.reduce((s, d) => s + (d.invValue || 0), 0);   // إجمالي الجدول = مخزون الفروع (المستودع في بطاقة KPI لا الجدول)
     // القاعدة المقدّسة ٨: بيان الاستبعاد يبقى في الشاشة — سطر ثانويّ في صفّ الإجمالي (بلا لون تحذير/أيقونة/لافتة)، فقط حين N<الكل
     const inclNote = dataActive.length < salesData.length ? `<span class="tot-note">يشمل ${dataActive.length} من ${salesData.length} فروع</span>` : "";
-    const totRow = `<tr class="total"><td class="cmp-loc">الإجمالي${inclNote}</td>${salesCell(scope.val, "--gold")}<td class="n"><bdi dir="ltr">${salesNum(scope.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(totUnique)}</bdi>${crossLoc > 0 ? `<span class="tot-note" title="مجموع الأعمدة ${colMovedSum} يفوق الفريد لأن ${crossLoc} صنفاً تحرّك في أكثر من موقع">أصناف فريدة — ${crossLoc} في أكثر من موقع</span>` : ""}</td><td class="n">${money(branchInvTotal)}</td><td class="n">${salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "scc-tr", prevBaselineOnly)}</td></tr>`;
+    const totNoPriceSku = new Set(); dataActive.forEach(d => d.agg.noPriceSku.forEach(s => totNoPriceSku.add(s)));   // اتحاد أصناف البيع بلا سعر عبر الفروع المرفوعة (لوسم الإجمالي)
+    const totRow = `<tr class="total"><td class="cmp-loc">الإجمالي${inclNote}</td>${salesCell(scope.val, scope.units, totNoPriceSku.size, "--gold")}<td class="n"><bdi dir="ltr">${salesNum(scope.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(totUnique)}</bdi>${crossLoc > 0 ? `<span class="tot-note" title="مجموع الأعمدة ${colMovedSum} يفوق الفريد لأن ${crossLoc} صنفاً تحرّك في أكثر من موقع">أصناف فريدة — ${crossLoc} في أكثر من موقع</span>` : ""}</td><td class="n">${money(branchInvTotal)}</td><td class="n">${salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "scc-tr", prevBaselineOnly)}</td></tr>`;
     document.getElementById("salesCmp").innerHTML = `<table><thead><tr><th>الموقع</th><th class="n">المبيعات <span class="incl-tag">شامل</span></th><th class="n">الوحدات</th><th class="n">متحركة</th><th class="n">قيمة المخزون <span class="incl-tag">شامل</span></th><th class="n">التغيّر</th></tr></thead><tbody>${rows}${totRow}</tbody></table>`;
     // الأسطر (بلا سعر · مشبوهة) — المختفي في البانر
     const notes = [];
@@ -6757,7 +6768,7 @@ function run(reprocess) {
         const runLog = [];
         const zidQtyOf = rk => { const row = rowByRawSku[rk]; return (row && iQty >= 0) ? curQtyNum(row[iQty]) : null; };
         // ① تصفير الكمية (كل الأبواب) — before = كمية زد الحالية · after = 0 · السبب من zeroDoor؛ 0 أصلاً ⇒ لا تحوّل
-        const zeroReason = { low: "قيمة منخفضة", waiting: "غير متوفر", absent: "غائب عن المخزن", matched0: "مطابَق بكمية 0" };   // 🚫 لا إيموجي في نصّ يُخزَّن (reason في activity_log)
+        const zeroReason = { low: "قيمة منخفضة", waiting: "غير متوفر ⏳", absent: "غائب عن المخزن", matched0: "مطابَق بكمية 0" };   // emoji-guard-ignore: نصّ بيانات مخزَّن في activity_log (لا واجهة) — ⏳ علامة مجال قاعدة الرخص/الانتظار، جزء من reason في dedup_key
         for (const rk in zeroDoor) {
           if (finalQtyByRaw[rk] !== 0) continue;                       // أُعيد تفعيله ⇒ ليس تصفيراً
           const before = zidQtyOf(rk);

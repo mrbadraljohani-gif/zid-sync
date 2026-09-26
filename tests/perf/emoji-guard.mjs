@@ -23,6 +23,10 @@ const hits = [];
 const lines = src.split("\n");
 for (let i = 0; i < lines.length; i++) {
   let ln = lines[i];
+  // استثناء صريح موثّق: سطر عليه علامة emoji-guard-ignore (في تعليقه) = نصّ **بيانات مخزَّنة** لا واجهة
+  // (مثل reason في activity_log). الحارس للواجهة لا للبيانات؛ 🚫 لا تغيّر نصّاً مخزَّناً لإرضاء الحارس.
+  // العلامة في تعليق // يبقى في lines[i] (تُجرَّد فقط في ln المحلّي) فيُفحَص الخام هنا.
+  if (/emoji-guard-ignore/.test(ln)) continue;
   // جرّد تعليق السطر // …  (تجنّب http:// و https://)
   const c = ln.search(/(^|[^:/])\/\/(?!\/)/);
   if (c >= 0) { const at = ln.indexOf("//", c); if (!/https?:$/.test(ln.slice(0, at))) ln = ln.slice(0, at); }
