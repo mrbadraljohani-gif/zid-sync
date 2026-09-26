@@ -140,9 +140,13 @@ jobs:
         run: node tests/perf/nocand.mjs --broken
       - name: G-NOCAND — «بلا مرشّح موثوق» بلا مرشّح ضعيف ＋ اعتماد معطّل · الموثوق لم يتغيّر
         run: node tests/perf/nocand.mjs
-      - name: Self-check — G-ITEM-HISTORY يرسب حين تُعرض نتيجة فارغة بلا رسالة
+      - name: Self-check — G-ITEM-HISTORY يرسب حين الثانويّ مطويّ والأوّل فارغ (بطاقة تبدو خالية)
         run: node tests/perf/item-history.mjs --broken
-      - name: G-ITEM-HISTORY — «حركة الصنف» صفر استعلام عند التحميل · الضغط يستعلم · الفارغة برسالة · حجب viewer
+      - name: Self-check — G-ITEM-HISTORY يرسب حين قسم فارغ بلا تفسير
+        run: node tests/perf/item-history.mjs --broken-expl
+      - name: Self-check — G-ITEM-HISTORY يرسب حين لا تُجمّع الأحداث المتطابقة
+        run: node tests/perf/item-history.mjs --broken-group
+      - name: G-ITEM-HISTORY — قسمان · فتح تلقائيّ عند فراغ الأوّل · تجميع ×N · الفراغ مُفسَّر · آخر موقع مشتقّ · عدّادان منفصلان · حجب viewer
         run: node tests/perf/item-history.mjs
       - name: Self-check — G-RUN-LOG يرسب حين يُسجَّل المصفَّر أصلاً (حالة لا تحوّل)
         run: node tests/perf/run-log.mjs --broken
