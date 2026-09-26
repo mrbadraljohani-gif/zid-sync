@@ -1359,7 +1359,7 @@
   .s4-tbl-head .s4-more:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   .s4-tbl table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .s4-tbl thead th { background: var(--panel-2); }
-  .s4-tbl th { font-size: 10.5px; color: var(--muted); font-weight: 600; letter-spacing: .2px; padding: 9px 10px; border-bottom: 1px solid var(--border-strong); text-align: start; white-space: nowrap; vertical-align: middle; }
+  .s4-tbl th { font-size: 10.5px; color: var(--muted); font-weight: 600; letter-spacing: .2px; padding: 9px 10px; border-bottom: 1px solid var(--border-strong); text-align: start; white-space: normal; vertical-align: bottom; line-height: 1.35; }   /* الرأس يلتفّ على سطرين (لا قصّ «سعر التك…») ومحاذاة سفليّة متّسقة */
   .s4-tbl td { padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
   .s4-tbl tbody tr:last-child td { border-bottom: 0; }
   .s4-tbl tbody tr:hover td { background: rgba(255,255,255,.02); }
@@ -2121,7 +2121,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "97d76cd";
+const APP_VERSION = "bf93ace";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3554,8 +3554,8 @@ function renderSalesDetail() {
   const prev = prevSince != null ? movs.filter(m => { const t = salesBizTs(m.captured_at); return t >= prevSince && t < curSince && tabLocs.includes(m.location); }) : [];
   const a = salesAgg(cur), pa = salesAgg(prev);
   const srows = stock.filter(r => tabLocs.includes(r.location));
-  let inv = 0, invExcl = 0, invExclMiss = 0, totUnits = 0; const qtyBySku = new Map(), priceBySku = new Map(), costBySku = new Map();
-  for (const r of srows) { const qn = numOrNull(r.qty), pn = numOrNull(r.price_incl), pe = numOrNull(r.price_excl), cn = numOrNull(r.cost_price); if (qn != null) { totUnits += qn; qtyBySku.set(r.sku, (qtyBySku.get(r.sku) || 0) + qn); } if (qn != null && pn != null) { inv += qn * pn; if (!priceBySku.has(r.sku)) priceBySku.set(r.sku, pn); } if (qn != null && pe != null) invExcl += qn * pe; else if (qn != null && pe == null) invExclMiss++; if (cn != null && !costBySku.has(r.sku)) costBySku.set(r.sku, cn); }
+  let inv = 0, invExcl = 0, invExclMiss = 0, totUnits = 0; const qtyBySku = new Map(), priceBySku = new Map(), costBySku = new Map(), nameBySku = new Map();
+  for (const r of srows) { const qn = numOrNull(r.qty), pn = numOrNull(r.price_incl), pe = numOrNull(r.price_excl), cn = numOrNull(r.cost_price); if (r.name && !nameBySku.has(r.sku)) nameBySku.set(r.sku, r.name);   /* الاسم من المخزون (لا من الحركات — الراكد بلا حركة فاسمه يغيب لو اعتمدنا sMap) */ if (qn != null) { totUnits += qn; qtyBySku.set(r.sku, (qtyBySku.get(r.sku) || 0) + qn); } if (qn != null && pn != null) { inv += qn * pn; if (!priceBySku.has(r.sku)) priceBySku.set(r.sku, pn); } if (qn != null && pe != null) invExcl += qn * pe; else if (qn != null && pe == null) invExclMiss++; if (cn != null && !costBySku.has(r.sku)) costBySku.set(r.sku, cn); }
   const perUp = new Map(); for (const m of cur) if (m.period_days != null && !perUp.has(m.upload_id)) perUp.set(m.upload_id, Number(m.period_days) || 0);
   let daysCov = 0; for (const v of perUp.values()) daysCov += v;
   const perUpP = new Map(); for (const m of prev) if (m.period_days != null && !perUpP.has(m.upload_id)) perUpP.set(m.upload_id, Number(m.period_days) || 0);
@@ -3577,12 +3577,12 @@ function renderSalesDetail() {
     + ds("scov", covGateD ? "—" : (coverage != null ? String(coverage) : "—"), "متوسط أيام التغطية", covGateD ? "" : "يوم", covGateD ? salesCovGateSub(daysCov) : "الكمية ÷ معدّل البيع اليوميّ")
     + `</div>`
     + `<div class="s4-3tables"></div>`;
-  salesCtx._tab = { cur, qtyBySku, priceBySku, costBySku, daysCov, upCount, tabLocs };
+  salesCtx._tab = { cur, qtyBySku, priceBySku, costBySku, nameBySku, daysCov, upCount, tabLocs };
   renderSalesTables();
 }
 function renderSalesTables() {
   const host = document.querySelector("#salesDetail .s4-3tables"); if (!host || !salesCtx || !salesCtx._tab) return;
-  const { cur, qtyBySku, priceBySku, costBySku, daysCov, upCount, tabLocs } = salesCtx._tab;
+  const { cur, qtyBySku, priceBySku, costBySku, nameBySku, daysCov, upCount, tabLocs } = salesCtx._tab;
   const q = normText(salesSearch || "");   // normText يُنهي بـtrim ⇒ مسافات فقط = "" ⇒ لا فلترة
   const bcBySku = new Map(); for (const r of (salesCtx.stock || [])) if (r && r.sku != null && r.barcode != null && String(r.barcode).trim() !== "") bcBySku.set(String(r.sku), String(r.barcode));   // باركود المخزون الحاليّ (null/فارغ لا يُدرَج ⇒ لا يطابق شيئاً)
   const match = (sku, nm) => !q || normText(String(sku || "") + " " + String(nm || "") + " " + (bcBySku.get(String(sku)) || "")).includes(q);
@@ -3600,14 +3600,14 @@ function renderSalesTables() {
   if (!gate) {
     const now = Date.now();
     const otherStatus = sku => { const others = (salesCtx.branchLocs || []).filter(l => !tabLocs.includes(l)); if (!others.length) return "—"; const sold = salesCtx.movs.some(m => m.kind === "estimated_sale" && m.sku === sku && others.includes(m.location) && salesBizTs(m.captured_at) >= salesCtx.curSince); return sold ? "سريع في فرع آخر" : "راكد/غائب"; };   // الفروع الأخرى فقط (المستودع ليس بيعاً)
-    const raka = [...qtyBySku.entries()].map(([sku, qty]) => { const ls = lastSale.get(sku), days = ls ? Math.round((now - ls) / 86400000) : null, nm = (sMap.get(sku) || {}).name || "", pr = priceBySku.get(sku), ct = costBySku.get(sku); return { sku, name: nm, qty, days, unit: pr != null ? pr : null, cost: ct != null ? ct : null, val: pr != null ? qty * pr : null }; })
+    const raka = [...qtyBySku.entries()].map(([sku, qty]) => { const ls = lastSale.get(sku), days = ls ? Math.round((now - ls) / 86400000) : null, nm = nameBySku.get(sku) || (sMap.get(sku) || {}).name || "", pr = priceBySku.get(sku), ct = costBySku.get(sku); return { sku, name: nm, qty, days, unit: pr != null ? pr : null, cost: ct != null ? ct : null, val: pr != null ? qty * pr : null }; })   /* الاسم من المخزون أولاً (الراكد بلا حركة) ثمّ الحركات */
       .filter(x => x.qty > 0 && (x.days == null || x.days >= S4_NOSALE_DAYS) && match(x.sku, x.name)).sort((a, b) => (b.days || 99999) - (a.days || 99999));   // الدخول: أطول ركوداً (لا يتغيّر)
     const rakaTop = salesQtyDesc(salesCap(raka, "raka"), x => x.qty);   // العرض: الكمية تنازلياً · كسر التعادل بأيام الركود
     rakaHasMore = raka.length > 10;
     rakaTbl = rakaTop.length
-      ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الكمية</th><th class="n">آخر حركة</th><th class="n">سعر التكلفة</th><th class="n">السعر <span class="incl-tag">شامل</span></th><th class="n">القيمة <span class="incl-tag">شامل</span></th><th>في المواقع الأخرى</th></tr></thead><tbody>${rakaTop.map((x, i) => `<tr><td>${i + 1}</td><td class="nm"><span class="nmclamp" title="${esc(x.name)}">${esc(x.name) || "—"}</span></td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.days == null ? "لا بيع" : "منذ " + x.days + " يوم"}</td><td class="n cost-c"><bdi dir="ltr">${x.cost == null ? "—" : salesNum(x.cost)}</bdi></td><td class="n"><bdi dir="ltr">${x.unit == null ? "—" : salesNum(x.unit)}</bdi></td><td class="n"><bdi dir="ltr">${x.val == null ? "—" : salesNum(x.val)}</bdi></td><td class="oth">${esc(otherStatus(x.sku))}</td></tr>`).join("")}</tbody></table>`
+      ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الكمية</th><th class="n">آخر حركة</th><th class="n">سعر التكلفة</th><th class="n">السعر <span class="incl-tag">شامل</span></th><th class="n">القيمة <span class="incl-tag">شامل</span></th><th>في المواقع الأخرى</th></tr></thead><tbody>${rakaTop.map((x, i) => `<tr><td>${i + 1}</td><td class="nm"><span class="nmclamp" title="${esc(x.name)}">${x.name ? esc(x.name) : '<span class="q-na">بلا اسم في المخزون</span>'}</span></td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.days == null ? "لا بيع" : "منذ " + x.days + " يوم"}</td><td class="n cost-c"><bdi dir="ltr">${x.cost == null ? "—" : salesNum(x.cost)}</bdi></td><td class="n"><bdi dir="ltr">${x.unit == null ? "—" : salesNum(x.unit)}</bdi></td><td class="n"><bdi dir="ltr">${x.val == null ? "—" : salesNum(x.val)}</bdi></td><td class="oth">${esc(otherStatus(x.sku))}</td></tr>`).join("")}</tbody></table>`
       : `<div class="s4-gate">ما فيه أصناف راكدة هنا.</div>`;
-    const nafadAll = [...qtyBySku.entries()].map(([sku, qty]) => { const s = sMap.get(sku), sold = s ? s.u : 0, dr = daysCov > 0 ? sold / daysCov : 0, cov = dr > 0 ? Math.round(qty / dr) : null; return { sku, name: (s || {}).name || "", qty, cov }; })
+    const nafadAll = [...qtyBySku.entries()].map(([sku, qty]) => { const s = sMap.get(sku), sold = s ? s.u : 0, dr = daysCov > 0 ? sold / daysCov : 0, cov = dr > 0 ? Math.round(qty / dr) : null; return { sku, name: nameBySku.get(sku) || (s || {}).name || "", qty, cov }; })   /* الاسم من المخزون أولاً */
       .filter(x => x.qty > 0 && x.cov != null && x.cov < S4_NAFAD_DAYS && match(x.sku, x.name)).sort((a, b) => a.cov - b.cov);
     const nafad = salesCap(nafadAll, "nafad");   // 🚫 لا يُعاد ترتيبه بالكمية — ترتيبه دلاليّ (الأقرب نفاداً أولاً = تغطية تصاعدياً)؛ مذكور في التقرير
     nafadHasMore = nafadAll.length > 10;

@@ -430,6 +430,12 @@ jobs:
         run: node tests/perf/upload-record.mjs --broken
       - name: G-UPLOAD-RECORD — سجلّ الرفعة واقعة لا تحليل (رفعة مطابقة تُسجَّل sales_uploads بلا sales_movements · فشل الرأس ⇒ توست＋throw)
         run: node tests/perf/upload-record.mjs
+      - name: Self-check — G-RAKA-NAME يرسب حين يُجلب اسم الراكد من الحركات (يغيب للراكد بلا حركة)
+        run: node tests/perf/raka-name.mjs --broken
+      - name: Self-check — G-RAKA-NAME يرسب حين رأس الجدول nowrap (يُقصّ)
+        run: node tests/perf/raka-name.mjs --broken-hdr
+      - name: G-RAKA-NAME — «أكثر راكدة» اسم المنتج من المخزون (لا عمود فارغ) · الرؤوس تلتفّ سطرين · بلا قصّ أفقيّ
+        run: node tests/perf/raka-name.mjs
       - name: Self-check — G-ADMIN-NOUPLOAD يرسب حين تُخفى «بلا رفعة» عن admin
         run: node tests/perf/admin-noupload.mjs --broken
       - name: G-ADMIN-NOUPLOAD — admin يرى «بلا رفعة» (أسماء) من sales_uploads وحده · صفر استعلام مبيعات · المفقود مخفيّ
