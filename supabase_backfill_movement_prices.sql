@@ -42,12 +42,14 @@ wh_price as (   -- المستوى ٣: المستودع أولاً ثمّ أوّ�
     union all select code, price_incl, price_excl, 1 as prio, branch_id::text as ord from public.branch_items
   ) z
   where price_incl is not null or price_excl is not null   -- تجاهل صفوف بلا سعر فلا تُختار كأولوية فارغة فوق فرع مسعّر
-  order by code, prio, ord
+  order by code, (price_incl is not null) desc, prio, ord   -- توفّر الشامل أولاً (فلا نأخذ صافي المستودع فوق شامل الفرع)، ثمّ المستودع، ثمّ ترتيب الفرع
 )
 select m.location,
        count(*)                                                              as rows_none,
-       count(*) filter (where op.code is not null or wp.code is not null)     as fixable,     -- له سعر في مصدر ما
-       count(*) filter (where op.code is null and wp.code is null)            as still_none    -- لا سعر ⇒ يبقى none
+       count(*) filter (where (op.price_incl is not null or op.price_excl is not null)
+                           or (wp.price_incl is not null or wp.price_excl is not null))       as fixable,     -- له سعر في مصدر ما (توفّر السعر لا مجرّد وجود صفّ الموقع)
+       count(*) filter (where (op.price_incl is null and op.price_excl is null)
+                          and (wp.price_incl is null and wp.price_excl is null))              as still_none    -- لا سعر في أي مصدر ⇒ يبقى none
 from public.sales_movements m
 left join own_price op on op.location = m.location and op.code = m.sku
 left join wh_price  wp on wp.code = m.sku
@@ -75,12 +77,12 @@ wh_price as (
     union all select code, price_incl, price_excl, 1 as prio, branch_id::text as ord from public.branch_items
   ) z
   where price_incl is not null or price_excl is not null
-  order by code, prio, ord
+  order by code, (price_incl is not null) desc, prio, ord   -- توفّر الشامل أولاً، ثمّ المستودع، ثمّ ترتيب الفرع (مطابق لخطوة المعاينة)
 ),
 resolved as (   -- اختيار مستوى كامل (٢ ثمّ ٣): إن كان لجدول الموقع سعر أُخذ منه incl＋excl معاً، وإلّا من المستودع/زد (المستودع أولاً)
   select m.id, m.delta,
-    case when op.code is not null then op.price_incl else wp.price_incl end as incl,
-    case when op.code is not null then op.price_excl else wp.price_excl end as excl
+    case when (op.price_incl is not null or op.price_excl is not null) then op.price_incl else wp.price_incl end as incl,   -- صفّ موقعٍ بلا سعر لا يحجب المستوى ٣
+    case when (op.price_incl is not null or op.price_excl is not null) then op.price_excl else wp.price_excl end as excl
   from public.sales_movements m
   left join own_price op on op.location = m.location and op.code = m.sku
   left join wh_price  wp on wp.code = m.sku
