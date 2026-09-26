@@ -414,6 +414,10 @@ jobs:
         run: node tests/perf/cost-price.mjs --broken
       - name: G-COST — سعر التكلفة يُكشف (لا يُخلط بالبيع) ويُخزَّن خاماً (100 لا 115) · اختياريّ · بلا جدول الحراج
         run: node tests/perf/cost-price.mjs
+      - name: Self-check — G-SQ-COST يرسب حين تظهر شارة التكلفة لدور غير owner/marketing
+        run: node tests/perf/sq-cost.mjs --broken
+      - name: G-SQ-COST — شارة «تكلفة» بجوار «شامل» في منسدلة البحث · المستودع أولاً (لا متوسّط) · «—» بلا تكلفة · owner/marketing فقط
+        run: node tests/perf/sq-cost.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)

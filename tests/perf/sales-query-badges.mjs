@@ -59,10 +59,11 @@ await b.close();
 const fails = [];
 if (errs.length) fails.push("أخطاء JS: " + errs.join(" | "));
 const num = s => { const m = String(s).replace(/[^\d]/g, ""); return m ? +m : null; };
+const isPriceOrCost = x => x.startsWith("شامل") || x.startsWith("تكلفة");   // شارتا السعر/التكلفة — لا تُعَدّان موقعاً
 const parse = (badges) => {
   const total = num((badges.find(x => x.includes("إجمالي")) || "").replace("إجمالي", ""));
-  const locs = badges.filter(x => !x.includes("إجمالي") && !x.includes("ر.س") && x.includes(":")).map(x => num(x.split(":")[1]));
-  const price = badges.find(x => x.includes("ر.س")) || (badges.find(x => x.trim() === "—"));
+  const locs = badges.filter(x => !x.includes("إجمالي") && !isPriceOrCost(x) && x.includes(":")).map(x => num(x.split(":")[1]));
+  const price = badges.find(x => x.startsWith("شامل"));   // شارة السعر صارت «شامل: …»
   return { total, locs, sum: locs.reduce((a, c) => a + (c || 0), 0), price };
 };
 // ④ مجموع المواقع = الإجمالي — على كل صنف
@@ -82,7 +83,7 @@ const hrjBadges = (res.hrj[0] || { badges: [] }).badges.join(" | ");
 if (!/الحراج مفروشات/.test(hrjBadges)) fails.push(`② شارة الحراج غائبة (المصدر ليس sales_stock؟): ${hrjBadges}`);
 // ③ موقع واحد ⇒ شارتان (إجمالي ＋ موقع) ＋ السعر = ثلاث شارات، بلا شارة موقع ثانية
 const soloBadges = (res.solo[0] || { badges: [] }).badges;
-const soloLocChips = soloBadges.filter(x => x.includes(":") && !x.includes("إجمالي")).length;
+const soloLocChips = soloBadges.filter(x => x.includes(":") && !x.includes("إجمالي") && !isPriceOrCost(x)).length;
 if (soloLocChips !== 1) fails.push(`③ صنف موقع واحد له ${soloLocChips} شارات موقع (المتوقّع 1): ${soloBadges.join(" | ")}`);
 // السعر: 50277 ⇒ 240 · NOPX ⇒ «—»
 const p50277 = parse((res.b50277[0] || { badges: [] }).badges).price || "";
