@@ -89,7 +89,7 @@ if (!BROKEN) {
   if (!/سعر الوحدة/.test(res.sellersHdr)) fails.push("عمود «سعر الوحدة» غير موجود في رأس «الأكثر مبيعاً»");
   if (/القيمة/.test(res.sellersHdr)) fails.push("عمود «القيمة» ما زال في «الأكثر مبيعاً» (يجب حذفه)");
   if (res.firstSellerUnit.replace(/[^\d]/g, "") !== "100") fails.push(`سعر الوحدة (آخر عمود) للأعلى ليس 100: «${res.firstSellerUnit}»`);
-  if (!/مرتّب حسب إجمالي قيمة المبيعات/.test(res.sortSub)) fails.push(`سطر أساس الترتيب غائب: «${res.sortSub}»`);
+  if (!/الدخول حسب قيمة المبيعات · العرض حسب الوحدات تنازلياً/.test(res.sortSub)) fails.push(`سطر أساس الترتيب غائب: «${res.sortSub}»`);
   // البحث بالباركود ＋ القيدان
   if (res.bcRows !== 1 || !/طقم مفارش/.test(res.bcTxt)) fails.push(`البحث بباركود A1 لم يعطِ صفّاً واحداً بعينه (صفوف=${res.bcRows} · «${res.bcTxt}»)`);
   if (res.clearedRows !== res.baseRows) fails.push(`مسح الحقل لم يُعِد العدد كاملاً (${res.clearedRows}≠${res.baseRows})`);

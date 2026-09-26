@@ -1351,6 +1351,9 @@
   .s4-tbl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
   .s4-tbl-head h3 { font-size: 13.5px; display: flex; align-items: center; gap: 7px; } .s4-tbl-head .s4-ti { color: var(--gold-2); display: inline-flex; }
   .s4-tbl-head .all-lnk { font-size: 11px; color: var(--info); cursor: pointer; }
+  .s4-tbl-head .s4-more { background: none; border: 1px solid color-mix(in srgb, var(--info) 35%, transparent); border-radius: 8px; font-family: inherit; min-height: 32px; padding: 0 12px; display: inline-flex; align-items: center; }
+  .s4-tbl-head .s4-more:hover { background: color-mix(in srgb, var(--info) 10%, transparent); }
+  .s4-tbl-head .s4-more:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   .s4-tbl table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .s4-tbl thead th { background: var(--panel-2); }
   .s4-tbl th { font-size: 10.5px; color: var(--muted); font-weight: 600; letter-spacing: .2px; padding: 9px 10px; border-bottom: 1px solid var(--border-strong); text-align: start; white-space: nowrap; vertical-align: middle; }
@@ -2106,7 +2109,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "d369108";
+const APP_VERSION = "f096c76";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3509,8 +3512,16 @@ const S4_STAGNANT_MIN_DAYS = 14, S4_NAFAD_DAYS = 30, S4_NOSALE_DAYS = 14;
 function salesCovInsufficient(days) { return (Number(days) || 0) < S4_STAGNANT_MIN_DAYS; }
 const salesCovGateSub = days => `يلزم ${S4_STAGNANT_MIN_DAYS} يوماً من الرصد (المرصود: ${Math.round((Number(days) || 0) * 10) / 10} يوم)`;
 function salesSetTab(t) { salesTab = t; salesShowAll = {}; if (salesCtx) renderSalesDetail(); }
-function salesToggleAll(k) { salesShowAll[k] = !salesShowAll[k]; renderSalesTables(); }   // «عرض الكل» ⇄ أعلى 10 (لا زرّ معطّل)
-const salesCap = (list, k) => salesShowAll[k] ? list : list.slice(0, 10);
+function salesToggleAll(k) {   // «إظهار المزيد» (10⇄20) — قصّ عرض فقط، صفر طلبات جديدة
+  salesShowAll[k] = !salesShowAll[k];
+  if (k === "whsuhb") { if (salesCtx && salesCtx._wh) renderWarehouseSection(salesCtx._wh.whData, salesCtx._wh.movs, salesCtx._wh.curSince, salesCtx._wh.whUploaded, salesCtx._wh.whLast); }
+  else renderSalesTables();
+}
+const salesCap = (list, k) => salesShowAll[k] ? list.slice(0, 20) : list.slice(0, 10);   // الافتراضي 10 · التوسيع 20 (لا «الكل») — قصّ عرض
+// ترتيب العرض بالكمية تنازلياً · كسر التعادل بالمعيار الأصلي: القائمة مرتّبة أصلاً بمعيارها والفرز مستقرّ (stable) فيبقى ترتيبها عند التساوي
+const salesQtyDesc = (list, qtyOf) => list.slice().sort((a, b) => (Number(qtyOf(b)) || 0) - (Number(qtyOf(a)) || 0));
+// زرّ «إظهار المزيد/عرض أقل» — هدف لمس ≥32px ＋ aria-expanded/controls (يظهر فقط حين القائمة > 10)
+const salesMoreBtn = (key, controlsId) => `<button type="button" class="all-lnk s4-more" aria-expanded="${!!salesShowAll[key]}" aria-controls="${controlsId}" onclick="salesToggleAll('${key}')">${salesShowAll[key] ? "عرض أقل" : "إظهار المزيد"}</button>`;
 function onSalesTblSearch(v) { salesSearch = v || ""; renderSalesTables(); }   // يفلتر الجداول فقط (قيمة الحدث — لا getElementById لعنصر ديناميكيّ)
 function salesToggleSearch() {   // المكبّر داخل جدول «الأكثر مبيعاً» ⇄ حقل بحث (باركود/اسم)
   salesSearchOpen = !salesSearchOpen; if (!salesSearchOpen) salesSearch = "";
@@ -3565,47 +3576,54 @@ function renderSalesTables() {
   const match = (sku, nm) => !q || normText(String(sku || "") + " " + String(nm || "") + " " + (bcBySku.get(String(sku)) || "")).includes(q);
   const sMap = new Map(), lastSale = new Map();
   for (const m of cur) { if (m.kind !== "estimated_sale") continue; const e = sMap.get(m.sku) || { sku: m.sku, name: m.sku_name || "", u: 0, v: 0, p: null, pt: null }; e.u += Math.abs(Number(m.delta) || 0); if (m.value_est != null) e.v += Number(m.value_est) || 0; if (m.sku_name && !e.name) e.name = m.sku_name; const t = Date.parse(m.captured_at) || 0; if (m.unit_price_incl != null && (e.pt == null || t >= e.pt)) { e.p = Number(m.unit_price_incl); e.pt = t; }   /* سعر الوحدة المثبَّت في الحركة (أحدثها) — لا سعر المخزون الحالي */ sMap.set(m.sku, e); if (!lastSale.has(m.sku) || t > lastSale.get(m.sku)) lastSale.set(m.sku, t); }
-  const sellers = salesCap([...sMap.values()].filter(x => match(x.sku, x.name)).sort((a, b) => b.v - a.v), "sellers");
+  const sellersFull = [...sMap.values()].filter(x => match(x.sku, x.name)).sort((a, b) => b.v - a.v);   // الدخول: قيمة تنازلياً (لا يتغيّر)
+  const sellers = salesQtyDesc(salesCap(sellersFull, "sellers"), x => x.u);   // العرض: الوحدات تنازلياً · كسر التعادل بالقيمة
+  const sellersHasMore = sellersFull.length > 10;
   const sellersTbl = sellers.length
     ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الوحدات</th><th class="n">سعر الوحدة <span class="incl-tag">شامل</span></th></tr></thead><tbody>${sellers.map((x, i) => `<tr><td>${i + 1}</td><td class="nm"><span class="nmclamp" title="${esc(x.name)}">${esc(x.name) || "—"}</span></td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.u)}</bdi></td><td class="n"><bdi dir="ltr">${x.p == null ? "—" : salesNum(x.p)}</bdi></td></tr>`).join("")}</tbody></table>`
     : `<div class="s4-gate">ما فيه مبيعات مقدّرة في هذه الفترة.</div>`;
   const gate = daysCov < S4_STAGNANT_MIN_DAYS;
   const gateMsg = `<div class="s4-gate">بدري علينا نحكم بدقّة — نحتاج ${S4_STAGNANT_MIN_DAYS} يوم من الرصد.<br>حتى الآن: ${upCount} رفعة · ${Math.round(daysCov * 10) / 10} يوم</div>`;
-  let rakaTbl = gateMsg, nafadTbl = gateMsg;
+  let rakaTbl = gateMsg, nafadTbl = gateMsg, rakaHasMore = false, nafadHasMore = false;
   if (!gate) {
     const now = Date.now();
     const otherStatus = sku => { const others = (salesCtx.branchLocs || []).filter(l => !tabLocs.includes(l)); if (!others.length) return "—"; const sold = salesCtx.movs.some(m => m.kind === "estimated_sale" && m.sku === sku && others.includes(m.location) && salesBizTs(m.captured_at) >= salesCtx.curSince); return sold ? "سريع في فرع آخر" : "راكد/غائب"; };   // الفروع الأخرى فقط (المستودع ليس بيعاً)
     const raka = [...qtyBySku.entries()].map(([sku, qty]) => { const ls = lastSale.get(sku), days = ls ? Math.round((now - ls) / 86400000) : null, nm = (sMap.get(sku) || {}).name || "", pr = priceBySku.get(sku); return { sku, name: nm, qty, days, unit: pr != null ? pr : null, val: pr != null ? qty * pr : null }; })
-      .filter(x => x.qty > 0 && (x.days == null || x.days >= S4_NOSALE_DAYS) && match(x.sku, x.name)).sort((a, b) => (b.days || 99999) - (a.days || 99999));
-    const rakaTop = salesCap(raka, "raka");
+      .filter(x => x.qty > 0 && (x.days == null || x.days >= S4_NOSALE_DAYS) && match(x.sku, x.name)).sort((a, b) => (b.days || 99999) - (a.days || 99999));   // الدخول: أطول ركوداً (لا يتغيّر)
+    const rakaTop = salesQtyDesc(salesCap(raka, "raka"), x => x.qty);   // العرض: الكمية تنازلياً · كسر التعادل بأيام الركود
+    rakaHasMore = raka.length > 10;
     rakaTbl = rakaTop.length
       ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الكمية</th><th class="n">آخر حركة</th><th class="n">سعر الوحدة <span class="incl-tag">شامل</span></th><th class="n">القيمة <span class="incl-tag">شامل</span></th><th>في المواقع الأخرى</th></tr></thead><tbody>${rakaTop.map((x, i) => `<tr><td>${i + 1}</td><td class="nm"><span class="nmclamp" title="${esc(x.name)}">${esc(x.name) || "—"}</span></td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.days == null ? "لا بيع" : "منذ " + x.days + " يوم"}</td><td class="n"><bdi dir="ltr">${x.unit == null ? "—" : salesNum(x.unit)}</bdi></td><td class="n"><bdi dir="ltr">${x.val == null ? "—" : salesNum(x.val)}</bdi></td><td class="oth">${esc(otherStatus(x.sku))}</td></tr>`).join("")}</tbody></table>`
       : `<div class="s4-gate">ما فيه أصناف راكدة هنا.</div>`;
     const nafadAll = [...qtyBySku.entries()].map(([sku, qty]) => { const s = sMap.get(sku), sold = s ? s.u : 0, dr = daysCov > 0 ? sold / daysCov : 0, cov = dr > 0 ? Math.round(qty / dr) : null; return { sku, name: (s || {}).name || "", qty, cov }; })
       .filter(x => x.qty > 0 && x.cov != null && x.cov < S4_NAFAD_DAYS && match(x.sku, x.name)).sort((a, b) => a.cov - b.cov);
-    const nafad = salesCap(nafadAll, "nafad");
+    const nafad = salesCap(nafadAll, "nafad");   // 🚫 لا يُعاد ترتيبه بالكمية — ترتيبه دلاليّ (الأقرب نفاداً أولاً = تغطية تصاعدياً)؛ مذكور في التقرير
+    nafadHasMore = nafadAll.length > 10;
     nafadTbl = nafad.length
       ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الكمية</th><th class="n">أيام التغطية</th></tr></thead><tbody>${nafad.map((x, i) => `<tr><td>${i + 1}</td><td class="nm"><span class="nmclamp" title="${esc(x.name)}">${esc(x.name) || "—"}</span></td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.cov} يوم</td></tr>`).join("")}</tbody></table>`
       : `<div class="s4-gate">ما فيه مخاطر نفاد قريبة.</div>`;
   }
-  const cardT = (icon, title, inner, key, gated, sub) => `<div class="card s4-tbl"><div class="s4-tbl-head"><h3><span class="s4-ti">${icon}</span>${title}</h3>${gated ? "" : `<span class="all-lnk" onclick="salesToggleAll('${key}')">${salesShowAll[key] ? "عرض أقل" : "عرض الكل"}</span>`}</div>${sub ? `<div class="s4-tbl-sub">${sub}</div>` : ""}<div class="twrap">${inner}</div></div>`;
+  const cardT = (icon, title, inner, key, gated, sub, hasMore) => { const cid = "s4tbl-" + key; return `<div class="card s4-tbl"><div class="s4-tbl-head"><h3><span class="s4-ti">${icon}</span>${title}</h3>${(gated || !hasMore) ? "" : salesMoreBtn(key, cid)}</div>${sub ? `<div class="s4-tbl-sub">${sub}</div>` : ""}<div class="twrap" id="${cid}">${inner}</div></div>`; };
   // جدول «الأكثر مبيعاً»: أيقونة مكبّر في الرأس ⇄ حقل بحث منسدل (باركود/اسم) — يفلتر الجداول الثلاثة
   const srchIc = `<svg class="ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`;
-  const sellersHead = `<div class="s4-tbl-head"><h3><span class="s4-ti">${ic("spark")}</span>أكثر 10 منتجات مبيعاً</h3><span class="s4-hd-actions"><button type="button" class="s4-srch-btn${salesSearchOpen ? " on" : ""}" onclick="salesToggleSearch()" aria-label="بحث في المنتجات" aria-expanded="${salesSearchOpen}">${srchIc}</button><span class="all-lnk" onclick="salesToggleAll('sellers')">${salesShowAll.sellers ? "عرض أقل" : "عرض الكل"}</span></span></div>`;
+  const sellersHead = `<div class="s4-tbl-head"><h3><span class="s4-ti">${ic("spark")}</span>أكثر 10 منتجات مبيعاً</h3><span class="s4-hd-actions"><button type="button" class="s4-srch-btn${salesSearchOpen ? " on" : ""}" onclick="salesToggleSearch()" aria-label="بحث في المنتجات" aria-expanded="${salesSearchOpen}">${srchIc}</button>${sellersHasMore ? salesMoreBtn("sellers", "s4tbl-sellers") : ""}</span></div>`;
   const sellersSrch = salesSearchOpen ? `<div class="s4-inline-srch"><input type="search" placeholder="الكود أو اسم الصنف …" value="${esc(salesSearch)}" oninput="onSalesTblSearch(this.value)" aria-label="بحث في المنتجات"></div><div class="s4-srch-hint">يفلتر الجداول الثلاثة</div>` : "";
-  const sellersCard = `<div class="card s4-tbl">${sellersHead}<div class="s4-tbl-sub">مرتّب حسب إجمالي قيمة المبيعات (تُحسب داخلياً)</div>${sellersSrch}<div class="twrap">${sellersTbl}</div></div>`;
-  host.innerHTML = sellersCard + cardT(ic("inbox"), "أكثر 10 منتجات راكدة", rakaTbl, "raka", gate, "مرتّب حسب أطول ركود · «القيمة» = قيمة المخزون الراكد (المال المجمّد) لا سعر الوحدة") + cardT(ic("hourglass"), "مخاطر النفاد (أقل من 30 يوماً)", nafadTbl, "nafad", gate, "مرتّب حسب أقلّ أيام تغطية (الأقرب نفاداً أولاً)");
+  const sellersCard = `<div class="card s4-tbl">${sellersHead}<div class="s4-tbl-sub">الدخول حسب قيمة المبيعات · العرض حسب الوحدات تنازلياً</div>${sellersSrch}<div class="twrap" id="s4tbl-sellers">${sellersTbl}</div></div>`;
+  host.innerHTML = sellersCard + cardT(ic("inbox"), "أكثر 10 منتجات راكدة", rakaTbl, "raka", gate, "الدخول حسب أطول ركود · العرض حسب الكمية تنازلياً · «القيمة» = قيمة المخزون الراكد", rakaHasMore) + cardT(ic("hourglass"), "مخاطر النفاد (أقل من 30 يوماً)", nafadTbl, "nafad", gate, "مرتّب حسب أقلّ أيام تغطية (الأقرب نفاداً أولاً)", nafadHasMore);
   if (salesSearchOpen) { const inp = host.querySelector(".s4-inline-srch input"); if (inp) { inp.focus(); const v = inp.value; try { inp.setSelectionRange(v.length, v.length); } catch (e) {} } }   // إعادة التركيز بعد إعادة البناء (لا يُفقد المؤشّر مع كل حرف)
 }
 // (٣) قسم المستودع — سحب لا بيع: أكثر سحباً ＋ قيمة المخزون ＋ أصناف متحرّكة ＋ إجمالي الأصناف (بلا مبيعات/معدّل/تغطية/راكد)
 function renderWarehouseSection(whData, movs, curSince, whUploaded, whLast) {
   const host = document.getElementById("salesWhSection"); if (!host) return;
+  if (salesCtx) salesCtx._wh = { whData, movs, curSince, whUploaded, whLast };   // للتوسيع (إظهار المزيد) بلا إعادة جلب
   if (!whData) { host.style.display = "none"; host.innerHTML = ""; return; }
   host.style.display = "block";
   const cur = (movs || []).filter(m => m.location === "wh" && salesBizTs(m.captured_at) >= curSince);
   const wMap = new Map();   // أكثر سحباً = estimated_sale (نقص المستودع = سحب) مجمّع بالكود
   for (const m of cur) { if (m.kind !== "estimated_sale") continue; const e = wMap.get(m.sku) || { sku: m.sku, name: m.sku_name || "", u: 0, v: 0, p: null, pt: null }; e.u += Math.abs(Number(m.delta) || 0); if (m.value_est != null) e.v += Number(m.value_est) || 0; if (m.sku_name && !e.name) e.name = m.sku_name; const t = Date.parse(m.captured_at) || 0; if (m.unit_price_incl != null && (e.pt == null || t >= e.pt)) { e.p = Number(m.unit_price_incl); e.pt = t; } wMap.set(m.sku, e); }
-  const top = [...wMap.values()].sort((a, b) => b.v - a.v).slice(0, 10);
+  const wFull = [...wMap.values()].sort((a, b) => b.v - a.v);   // الدخول: قيمة السحب تنازلياً (لا يتغيّر)
+  const top = salesQtyDesc(salesCap(wFull, "whsuhb"), x => x.u);   // العرض: الكمية تنازلياً · كسر التعادل بقيمة السحب
+  const whHasMore = wFull.length > 10;
   const a = whData.agg, inv = whData.invValue || 0, invExcl = whData.invValueExcl || 0, invMiss = whData.invExclMissing || 0;
   // (١-ج للمستودع): بلا رفعة في الفترة ⇒ «لا رفعة» للأجزاء المعتمدة على الفترة (متحرّكة/سحب)؛ المخزون وإجمالي الأصناف رصيد حاليّ يبقى.
   const noUp = !whUploaded;
@@ -3624,7 +3642,7 @@ function renderWarehouseSection(whData, movs, curSince, whUploaded, whLast) {
   const suhbSub = noUp ? "" : `<div class="s4-tbl-sub">مرتّب حسب إجمالي قيمة السحب (تُحسب داخلياً)</div>`;
   host.innerHTML = `<div class="s4-dhead" style="margin-top:8px"><span class="s4-ic">${ic("warehouse")}</span><div><b style="font-size:16px">المستودع</b><div style="font-size:11px;color:var(--muted)">سحب من المخزن (لا بيع) — يذهب لوجهات متعدّدة بعضها خارج النظام</div></div></div>`
     + strip
-    + `<div class="card s4-tbl" style="margin-top:14px"><div class="s4-tbl-head"><h3><span class="s4-ti">${ic("spark")}</span>أكثر 10 أصناف سحباً</h3></div>${suhbSub}<div class="twrap">${inner}</div></div>`;
+    + `<div class="card s4-tbl" style="margin-top:14px"><div class="s4-tbl-head"><h3><span class="s4-ti">${ic("spark")}</span>أكثر 10 أصناف سحباً</h3>${(noUp || !whHasMore) ? "" : salesMoreBtn("whsuhb", "s4tbl-whsuhb")}</div>${suhbSub}<div class="twrap" id="s4tbl-whsuhb">${inner}</div></div>`;
 }
 // ============ المساعد الذكيّ لشاشة المبيعات (owner فقط) ============
 // 🚨 القيد ①: غير مُنشأ أصلاً لغير owner (لا مخفيّ بـCSS). القيد ③: الرصيد المتبقّي معروض دائماً.

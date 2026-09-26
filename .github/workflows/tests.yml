@@ -406,6 +406,10 @@ jobs:
         run: node tests/perf/sales-sellers-width.mjs --broken
       - name: G-SELLERS-WIDTH — اسم «أكثر مبيعاً» ≥120px ＋ رؤوس «شامل» ＋ جدول المقارنة بلا تغطية
         run: node tests/perf/sales-sellers-width.mjs
+      - name: Self-check — G-SALES-SORT يرسب حين يُلغى فرز العرض بالكمية
+        run: node tests/perf/sales-sort.mjs --broken
+      - name: G-SALES-SORT — الكمية تنازلياً في مبيعاً/راكدة/سحباً · إظهار المزيد 10→20→10 · صفر استعلام عند التوسيع
+        run: node tests/perf/sales-sort.mjs
       - name: Self-check — حارس التجاوز يرسب على الكود المعطوب
         run: node tests/perf/overflow-guard.mjs --broken
       - name: Horizontal-overflow + sticky-opaque guard @360/390 (viewport حقيقي)
