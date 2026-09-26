@@ -1466,6 +1466,8 @@
   .q-chip.price { color: var(--gold-2); border-color: color-mix(in srgb, var(--gold) 40%, transparent); background: color-mix(in srgb, var(--gold) 8%, transparent); }
   /* التكلفة: توكن محايد ثانويّ (الذهبيّ محجوز للسعر) — نصّ --muted على سطح خفيف قائم */
   .q-chip.cost { color: var(--cost); border-color: var(--border-strong); background: rgba(255,255,255,.04); }   /* نصّ التكلفة أحمر (--cost) · الخلفية تبقى السطح الخفيف — لا خلفية حمراء */
+  /* تنبيه «لم تُرفع اليوم» — إعلاميّ هادئ (أمبريّ)، لا يمنع تنزيلاً */
+  .inv-stale-note { margin: 10px 0; padding: 9px 13px; border-radius: 12px; font-size: 12.5px; line-height: 1.7; color: var(--amber-tint); background: color-mix(in srgb, var(--amber) 10%, transparent); border: 1px solid var(--amber-tint); }
   .s4-tbl td.cost-c { color: var(--cost); }   /* عمود «سعر التكلفة» في «الراكدة» */
   .kpi[data-k="sinv"] > b { color: var(--cost); }   /* رقم «قيمة المخزون (تكلفة)» — النصّ فقط، بلا خلفية */
   .q-chip.cost-diff { border-style: dashed; text-decoration: underline dotted; text-underline-offset: 2px; }
@@ -1733,6 +1735,8 @@
     </div>
     <!-- ④  الملفات (الفعل الختامي) -->
     <div id="verifyMsg" style="display:none"></div>
+    <div id="invStaleNote" class="inv-stale-note" style="display:none"></div><!-- تنبيه «لم تُرفع اليوم» — إعلاميّ فقط، لا يمنع التنزيل -->
+
     <div class="dl-row">
       <a class="dl-card" id="dlQty" download="zid_quantities_update.xlsx">
         <span class="dl-ic"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20.5h14"/></svg></span>
@@ -2115,7 +2119,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "885d31d";
+const APP_VERSION = "60a483d";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -6047,9 +6051,9 @@ function invStaleToday() {
   for (const b of (invBranches || [])) { const ms = b.synced_at ? Date.parse(b.synced_at) : null; if (!ms || riyadhDay(ms) !== today) miss.push({ name: b.name || String(b.id), ms }); }
   return miss;
 }
-function invStaleMsg(miss) {   // رسالة تذكر اسم كل موقع ناقص وتاريخ آخر رفعة له — 🚫 لا رسالة عامّة بلا اسم
+function invStaleMsg(miss) {   // تنبيه إعلاميّ فقط (🚫 لا يمنع تنزيلاً) — يذكر اسم كل موقع ناقص وتاريخ آخر رفعة له، بلا رسالة عامّة
   const parts = (miss || []).map(m => `${m.name} (آخر رفعة: ${m.ms ? ageText(m.ms) : "لم تُرفع قطّ"})`);
-  return `⚠ المدخل ناقص: مواقع لم تُرفع اليوم — ${parts.join(" · ")}. أوقفتُ التنزيل تفادياً لتصفير أصناف موجودة في الرفّ. ارفع ملف كل موقع ناقص اليوم ثم «طابق وأنشئ».`;
+  return `⚠ لم تُرفع اليوم: ${parts.join(" · ")} — الملفان قد يكونان ناقصَين لهذه المواقع.`;
 }
 function showInvIncomplete() {
   showErr("");
@@ -6592,10 +6596,9 @@ function run(reprocess) {
     const vq = verifyQuantities(qtyRows);
     const vp = verifyPrices(priceRows, priceOrig, H, autoUnpub);   // يمرّر Yes→No للإخفاء الآلي (بسيط/آباء عبر كل الأبواب)
     const vm = document.getElementById("verifyMsg");
-    const staleLocs = invStaleToday();   // مواقع لم تُرفع اليوم (المستودع ＋ فروع زد) — تقفل التنزيل بلا اختراع مصدر
     const wireDl = (id, ok, aoa, count, reason) => {
       const el = document.getElementById(id);
-      if (ok && count > 0 && dbOnline && !invMergeIncomplete() && !histIncomplete && staleLocs.length === 0) {   // بلا اتصال · موحّد مبتور · تاريخ ناقص · موقع لم يُرفع اليوم ⇒ لا تنزيل
+      if (ok && count > 0 && dbOnline && !invMergeIncomplete() && !histIncomplete) {   // بلا اتصال · موحّد مبتور · تاريخ ناقص ⇒ لا تنزيل (🚫 لا يُقفَل بموقع لم يُرفع اليوم — تراجع مقصود بأمر بدر)
         el.href = URL.createObjectURL(mkBlob(aoa)); el.classList.remove("disabled");
         el.onclick = ev => {
           if (id === "dlQty" && (!absentZeroGateOk(lastZeroRatio) || !zeroGateOk(lastZeroRatio))) { ev.preventDefault(); return false; }   // ②-ب (updated=0 ∧ غيابيّ) ثم ② (نسبة 60%) — أيّهما يوقف يمنع
@@ -6606,7 +6609,9 @@ function run(reprocess) {
     };
     wireDl("dlQty", vq.ok, qtyRows, qtyCount, "بعد تحميل ملف الكميات");
     wireDl("dlPrice", vp.ok, priceRows, priceCount, "بعد تحميل ملف الأسعار");
-    if (staleLocs.length && !invMergeIncomplete()) { const vmS = document.getElementById("verifyMsg"); if (vmS) { vmS.className = "verify-fail"; vmS.style.display = "block"; vmS.textContent = invStaleMsg(staleLocs); } }   // رسالة تذكر اسم كل موقع ناقص (بعد قفل التنزيل)
+    // كشف «لم تُرفع اليوم» — تنبيه إعلاميّ فقط (🚫 لا يمنع تنزيلاً ولا يعطّل زراً)؛ يُعرض في #invStaleNote بلون تحذير هادئ
+    { const staleLocs = invStaleToday(), sn = document.getElementById("invStaleNote");
+      if (sn) { if (staleLocs.length && !invMergeIncomplete()) { sn.style.display = "block"; sn.textContent = invStaleMsg(staleLocs); } else { sn.style.display = "none"; sn.textContent = ""; } } }
     document.getElementById("qtyN").textContent = qtyCount;
     document.getElementById("priceN").textContent = priceCount;
     // التقاط الأرقام نفسها المعروضة أعلاه (بلا إعادة حساب) لتقرأها صفحة المخزون
@@ -7369,7 +7374,6 @@ function toggleAllTest() {
 function downloadSelected() {
   if (blockedOffline()) return;
   if (invMergeIncomplete()) { showToast("⚠ الموحّد ناقص — أعِد التحميل (طابق وأنشئ / حدّث الصفحة) قبل التنزيل."); return; }   // منع صريح على أزرار التجربة أيضاً
-  { const st = invStaleToday(); if (st.length) { showToast("⚠ مواقع لم تُرفع اليوم: " + st.map(m => m.name).join(" · ") + " — ارفعها قبل التنزيل."); return; } }   // منع تنزيل التجربة عند نقص موقع اليوم
   if (!testSelected.size) { showErr("حدّد صنفاً واحداً على الأقل من القائمة أولاً."); return; }
   const iSkuP = stData.header.indexOf("sku");
   const inSel = sk => testSelected.has(String(sk));
@@ -7417,7 +7421,6 @@ function downloadSelected() {
 function downloadOne(skuN) {
   if (blockedOffline()) return;
   if (invMergeIncomplete()) { showToast("⚠ الموحّد ناقص — أعِد التحميل (طابق وأنشئ / حدّث الصفحة) قبل التنزيل."); return; }   // منع صريح على أزرار التجربة أيضاً
-  { const st = invStaleToday(); if (st.length) { showToast("⚠ مواقع لم تُرفع اليوم: " + st.map(m => m.name).join(" · ") + " — ارفعها قبل التنزيل."); return; } }   // منع تنزيل التجربة عند نقص موقع اليوم
   const target = normCode(skuN);
   const iSkuP = stData.header.indexOf("sku");
   const files = [];

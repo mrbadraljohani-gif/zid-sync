@@ -424,7 +424,7 @@ jobs:
         run: node tests/perf/cost-color.mjs
       - name: Self-check — G-INV-COMPLETE يرسب حين يتجاهل حارس الاكتمال الفروع
         run: node tests/perf/inv-complete-today.mjs --broken
-      - name: G-INV-COMPLETE — اكتمال المدخل لكل موقع ولليوم (المستودع＋فروع زد، بلا الحراج) · التنزيل مقفل مع اسم الموقع الناقص
+      - name: G-INV-COMPLETE — كشف «لم تُرفع اليوم» (المستودع＋فروع زد، بلا الحراج) تنبيهٌ إعلاميّ لا قفل · التنزيل مفتوح دائماً
         run: node tests/perf/inv-complete-today.mjs
       - name: Self-check — G-ADMIN-NOUPLOAD يرسب حين تُخفى «بلا رفعة» عن admin
         run: node tests/perf/admin-noupload.mjs --broken
