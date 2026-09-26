@@ -2119,7 +2119,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "60a483d";
+const APP_VERSION = "d3f12c9";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -5940,40 +5940,42 @@ function moveIsAnomaly(disappeared, prevCount) {
   return (disappeared / prevCount * 100) > MOVE_VALVE_PCT;
 }
 // التسجيل — غير حاجب (fire-and-forget): فشله لا يعطّل الرفع إطلاقاً. يُستدعى **بعد نجاح** bulkUpsert فقط.
-async function recordMovements(uploadId, kind, existMap, rows, branchId, fileName, prevSyncedAt) {
-  if (!(dbOnline && sb)) return;
+// تحليل الحركات — حساب بحت (بلا كتابة قاعدة): يُرجع {movs, note, suspect, skip}. يشمل توست الكودين المتشابهين وحوار الشذوذ.
+function analyzeMovements(existMap, rows, location, captured_at, prevSyncedAt) {
+  const movs = computeMovements(existMap, rows, location, captured_at, prevSyncedAt);
+  const strip = c => String(c).replace(/^0+/, "");   // كشف فقط، بلا تطبيع مخزَّن
+  const gone = movs.filter(m => m.kind === "disappeared").map(m => m.sku);
+  const appeared = new Set(movs.filter(m => m.kind === "new").map(m => strip(m.sku)));
+  const sim = gone.filter(c => appeared.has(strip(c)));
+  let note = sim.length ? `⚠ كودان متشابهان: ${sim.slice(0, 3).join(" · ")} اختفى ونظيره ظهر — راجع ملفك` : null;
+  if (note) showToast(note);
+  const prevCount = existMap.size; let suspect = false, skip = false;
+  if (moveIsAnomaly(gone.length, prevCount)) {   // شاذّ ⇒ سجّل ووسم (لا تخطٍّ نهائيّ — إعادة الرفع لا تستعيد المفقود)
+    const pct = Math.round(gone.length / prevCount * 1000) / 10;
+    const ok = confirm(
+      `توقّف: سيُسجَّل ${gone.length} اختفاءً = ${pct}% من مخزون هذا الموقع (${prevCount}).\n\n` +
+      `الطبيعي عندك أقلّ من 4%. هذا يقع عادةً حين يكون الملف ناقصاً.\n` +
+      `المخزون كُتب فعلاً — هذا يخصّ سجلّ المبيعات المقدّرة وحده.\n\n` +
+      `«موافق» = تسجيل الحركات ووسمها «مشبوهة» (تُستبعد من الإجماليّ حتى تراجعها في الشاشة).\n` +
+      `«إلغاء» = تخطّي تسجيل الحركات (رأس الرفعة يُسجَّل دائماً — المخزون كُتب فعلاً).`
+    );
+    if (!ok) { note = (note ? note + " · " : "") + `تُخطّي تسجيل الحركات: اختفاء شاذّ (${gone.length}/${prevCount})`; skip = true; }
+    else { suspect = true; note = (note ? note + " · " : "") + `اختفاء شاذّ (${gone.length}/${prevCount}) — موسومة مشبوهة`; }
+  }
+  return { movs, note, suspect, skip };
+}
+// 🚨 سجلّ الرفعة = **واقعة** (فعل الرفع) لا تحليلاً: يُدرَج صفّ sales_uploads دائماً عند نجاح الرفع (حتى بلا حركات).
+//    await ＋ تنبيه مرئيّ عند الفشل — 🚫 لا fire-and-forget ولا catch صامت (يعتمد عليه المستخدم في «هل رُفع اليوم؟»).
+async function recordUpload(uploadId, location, captured_at, fileName, itemCount, note, suspect) {
+  if (!(dbOnline && sb)) return false;
+  const { error } = await sb.from("sales_uploads").insert({ id: uploadId, location, captured_at, file_name: fileName || null, item_count: itemCount, source: "sync", note: note || null, suspect: !!suspect });
+  if (error) { showToast("⚠ تعذّر تسجيل الرفعة (" + (error.message || error) + ") — أعد المحاولة."); throw error; }
+  return true;
+}
+// الحركات = **تحليل** (نتيجة): fire-and-forget ＋ console.warn (مقبول لتحليل، لا لواقعة).
+async function recordMovements(uploadId, movs) {
+  if (!(dbOnline && sb) || !movs || !movs.length) return;
   try {
-    const location = kind === "wh" ? "wh" : branchId, captured_at = new Date().toISOString();
-    const movs = computeMovements(existMap, rows, location, captured_at, prevSyncedAt);
-    // تنبيه الكودين المتشابهين (كشف فقط، بلا تطبيع مخزَّن): اختفى ونظيره ظهر بعد إزالة الأصفار البادئة
-    const strip = c => String(c).replace(/^0+/, "");
-    const gone = movs.filter(m => m.kind === "disappeared").map(m => m.sku);
-    const appeared = new Set(movs.filter(m => m.kind === "new").map(m => strip(m.sku)));
-    const sim = gone.filter(c => appeared.has(strip(c)));
-    let note = sim.length ? `⚠ كودان متشابهان: ${sim.slice(0, 3).join(" · ")} اختفى ونظيره ظهر — راجع ملفك` : null;
-    if (note) showToast(note);
-    const prevCount = existMap.size;
-    let suspect = false;
-    if (moveIsAnomaly(gone.length, prevCount)) {   // شاذّ ⇒ سجّل ووسم (لا تخطٍّ نهائيّ — إعادة الرفع لا تستعيد المفقود)
-      const pct = Math.round(gone.length / prevCount * 1000) / 10;
-      const ok = confirm(
-        `توقّف: سيُسجَّل ${gone.length} اختفاءً = ${pct}% من مخزون هذا الموقع (${prevCount}).\n\n` +
-        `الطبيعي عندك أقلّ من 4%. هذا يقع عادةً حين يكون الملف ناقصاً.\n` +
-        `المخزون كُتب فعلاً — هذا يخصّ سجلّ المبيعات المقدّرة وحده.\n\n` +
-        `«موافق» = تسجيل الحركات ووسمها «مشبوهة» (تُستبعد من الإجماليّ حتى تراجعها في الشاشة).\n` +
-        `«إلغاء» = تخطّي التسجيل نهائياً (لا يُستعاد — المخزون كُتب فعلاً).`
-      );
-      if (!ok) {   // تخطٍّ نهائيّ — رأس الرفعة فقط بملاحظة (أثر للتدقيق)
-        note = (note ? note + " · " : "") + `تُخطّي التسجيل: اختفاء شاذّ (${gone.length}/${prevCount})`;
-        await sb.from("sales_uploads").insert({ id: uploadId, location, captured_at, file_name: fileName || null, item_count: rows.length, source: "sync", note });
-        return;
-      }
-      suspect = true;
-      note = (note ? note + " · " : "") + `اختفاء شاذّ (${gone.length}/${prevCount}) — موسومة مشبوهة`;
-    }
-    if (!movs.length) return;
-    const { error: ue } = await sb.from("sales_uploads").insert({ id: uploadId, location, captured_at, file_name: fileName || null, item_count: rows.length, source: "sync", note, suspect });
-    if (ue) throw ue;
     const withId = movs.map(m => Object.assign({ upload_id: uploadId }, m));
     for (let i = 0; i < withId.length; i += 500) { const { error } = await sb.from("sales_movements").insert(withId.slice(i, i + 500)); if (error) throw error; }
   } catch (e) { console.warn("recordMovements:", e); }
@@ -6013,7 +6015,13 @@ async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
     }
     if (!isXbr) { resyncNeeded[kind] = invPolluted(rows); renderResyncWarn(); }   // الملف الجديد (بالرأس المُلتقط) يُصفّي التلوّث إن حواه شامل (لا يخصّ xbranch)
     if (!isXbr) logActivity(isBr ? "branch_sync_full" : "warehouse_sync_full", null, { added, updated, deleted: toDelete.length, total: newCodes.length, file: fileName || "", location: isBr ? branchId : "wh", upload_id: uploadId });
-    recordMovements(uploadId, kind, existMap, rows, branchId, fileName, prevSyncedAt);   // لوحة المبيعات: تسجيل صامت **بعد نجاح** الكتابة (fire-and-forget، معزول — location=الرمز الثابت لـxbranch)
+    // لوحة المبيعات (بعد نجاح كتابة المخزون): سجّل **واقعة الرفعة دائماً** (await ＋ تنبيه مرئيّ)، والحركات fire-and-forget.
+    try {
+      const salesLoc = kind === "wh" ? "wh" : branchId, capNow = new Date().toISOString();
+      const anz = analyzeMovements(existMap, rows, salesLoc, capNow, prevSyncedAt);
+      await recordUpload(uploadId, salesLoc, capNow, fileName, rows.length, anz.note, anz.suspect);   // الطابع يعكس فعل الرفع لا نتيجته
+      if (!anz.skip) recordMovements(uploadId, anz.movs);   // الحركات نتيجة — fire-and-forget
+    } catch (e) { /* recordUpload أظهر التنبيه؛ لا نُفشل الرفع نفسه (المخزون كُتب) ولا نُدرج حركات يتيمة */ }
     return { added, updated, deleted: toDelete.length, total: newCodes.length };
   } finally { setBusy(msgId, false); }
 }
@@ -6040,16 +6048,30 @@ async function loadInventoryFromDB() {
 function invMergeIncomplete() {
   return !!(mergeWh && invMeta && Number(invMeta.branch_count) > 0 && mergeBranches.length === 0);
 }
-// اكتمال المدخل **لكل موقع ولليوم**: المواقع المتوقَّعة = المستودع (invMeta.wh_synced_at) ＋ فروع زد (invBranches[].synced_at).
-// 🚫 فرعا الحراج (SALES_EXTRA_LOCS) خارج الحساب — لا علاقة لهما بمزامنة زد. يُرجع أسماء المواقع التي لم تُرفع اليوم (بتوقيت الرياض).
-// مصدر التاريخ لكل موقع موجود ومنفصل (لا يُخترَع): wh_synced_at للمستودع · branches.synced_at لكل فرع.
-function invStaleToday() {
-  if (!invMeta) return [];   // لا ميتا (جلسة دون اتصال من البداية) ⇒ لا حكم — كـinvMergeIncomplete
+// اكتمال المدخل **لكل موقع ولليوم**: المواقع المتوقَّعة = المستودع ＋ فروع زد (invBranches). 🚫 فرعا الحراج (SALES_EXTRA_LOCS) خارج الحساب.
+// 🚨 المصدر موحّد مع كتلة «آخر رفعة» = **sales_uploads** (خريطة latest = location→ms) — لا invMeta/branches (تفادي مصدرين متناقضين أمام المستخدم).
+// يأخذ الخريطة (تُبنى من db.sales.uploads في renderStaleNote/renderSalesLastUp)؛ خريطة فارغة/غائبة ⇒ لا حكم (كـinvMergeIncomplete).
+function invStaleToday(latest) {
+  if (!latest || !latest.size) return [];
   const today = riyadhDay(Date.now()), miss = [];
-  const whMs = invMeta.wh_synced_at ? Date.parse(invMeta.wh_synced_at) : null;
-  if (!whMs || riyadhDay(whMs) !== today) miss.push({ name: "المستودع", ms: whMs });
-  for (const b of (invBranches || [])) { const ms = b.synced_at ? Date.parse(b.synced_at) : null; if (!ms || riyadhDay(ms) !== today) miss.push({ name: b.name || String(b.id), ms }); }
+  const chk = (id, name) => { const ms = latest.has(id) ? latest.get(id) : null; if (!ms || riyadhDay(ms) !== today) miss.push({ name, ms }); };
+  chk("wh", "المستودع");
+  for (const b of (invBranches || [])) chk(b.id, b.name || String(b.id));   // فروع زد فقط — الحراج غير مذكور فلا يدخل
   return miss;
+}
+// خريطة أحدث رفعة لكل موقع من sales_uploads (نفس منطق renderSalesLastUp) — مصدر موحّد
+function salesUploadsLatest(ups) {
+  const latest = new Map();
+  for (const u of (ups || [])) { const t = Date.parse(u.captured_at); if (Number.isFinite(t) && (!latest.has(u.location) || t > latest.get(u.location))) latest.set(u.location, t); }
+  return latest;
+}
+// تنبيه «لم تُرفع اليوم» في #invStaleNote (إعلاميّ فقط) — يقرأ sales_uploads (نفس مصدر الكتلة)؛ async ليجلب الطوابع بلا تعطيل run
+async function renderStaleNote() {
+  const sn = document.getElementById("invStaleNote"); if (!sn) return;
+  let ups = []; try { if (dbOnline && sb) ups = await db.sales.uploads(); } catch (e) { return; }
+  const stale = invStaleToday(salesUploadsLatest(ups));
+  if (stale.length && !invMergeIncomplete()) { sn.style.display = "block"; sn.textContent = invStaleMsg(stale); }
+  else { sn.style.display = "none"; sn.textContent = ""; }
 }
 function invStaleMsg(miss) {   // تنبيه إعلاميّ فقط (🚫 لا يمنع تنزيلاً) — يذكر اسم كل موقع ناقص وتاريخ آخر رفعة له، بلا رسالة عامّة
   const parts = (miss || []).map(m => `${m.name} (آخر رفعة: ${m.ms ? ageText(m.ms) : "لم تُرفع قطّ"})`);
@@ -6609,9 +6631,7 @@ function run(reprocess) {
     };
     wireDl("dlQty", vq.ok, qtyRows, qtyCount, "بعد تحميل ملف الكميات");
     wireDl("dlPrice", vp.ok, priceRows, priceCount, "بعد تحميل ملف الأسعار");
-    // كشف «لم تُرفع اليوم» — تنبيه إعلاميّ فقط (🚫 لا يمنع تنزيلاً ولا يعطّل زراً)؛ يُعرض في #invStaleNote بلون تحذير هادئ
-    { const staleLocs = invStaleToday(), sn = document.getElementById("invStaleNote");
-      if (sn) { if (staleLocs.length && !invMergeIncomplete()) { sn.style.display = "block"; sn.textContent = invStaleMsg(staleLocs); } else { sn.style.display = "none"; sn.textContent = ""; } } }
+    renderStaleNote();   // كشف «لم تُرفع اليوم» من sales_uploads — تنبيه إعلاميّ فقط (🚫 لا يمنع تنزيلاً)؛ async fire-and-forget لا يعطّل run
     document.getElementById("qtyN").textContent = qtyCount;
     document.getElementById("priceN").textContent = priceCount;
     // التقاط الأرقام نفسها المعروضة أعلاه (بلا إعادة حساب) لتقرأها صفحة المخزون

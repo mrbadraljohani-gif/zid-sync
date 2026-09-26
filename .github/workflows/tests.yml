@@ -424,8 +424,12 @@ jobs:
         run: node tests/perf/cost-color.mjs
       - name: Self-check — G-INV-COMPLETE يرسب حين يتجاهل حارس الاكتمال الفروع
         run: node tests/perf/inv-complete-today.mjs --broken
-      - name: G-INV-COMPLETE — كشف «لم تُرفع اليوم» (المستودع＋فروع زد، بلا الحراج) تنبيهٌ إعلاميّ لا قفل · التنزيل مفتوح دائماً
+      - name: G-INV-COMPLETE — كشف «لم تُرفع اليوم» من sales_uploads (موحّد مع الكتلة) تنبيهٌ إعلاميّ لا قفل · التنزيل مفتوح دائماً
         run: node tests/perf/inv-complete-today.mjs
+      - name: Self-check — G-UPLOAD-RECORD يرسب حين يُقيَّد سجلّ الرفعة بوجود حركات
+        run: node tests/perf/upload-record.mjs --broken
+      - name: G-UPLOAD-RECORD — سجلّ الرفعة واقعة لا تحليل (رفعة مطابقة تُسجَّل sales_uploads بلا sales_movements · فشل الرأس ⇒ توست＋throw)
+        run: node tests/perf/upload-record.mjs
       - name: Self-check — G-ADMIN-NOUPLOAD يرسب حين تُخفى «بلا رفعة» عن admin
         run: node tests/perf/admin-noupload.mjs --broken
       - name: G-ADMIN-NOUPLOAD — admin يرى «بلا رفعة» (أسماء) من sales_uploads وحده · صفر استعلام مبيعات · المفقود مخفيّ
