@@ -566,6 +566,8 @@
   .zid-sync-msg.ok { color: var(--green-2); border-color: color-mix(in srgb, var(--green) 40%, transparent); background: color-mix(in srgb, var(--green) 10%, transparent); }
   .zid-sync-msg.ok b { color: var(--green); }
   .zid-sync-msg.fail { color: var(--gold-2); border-color: var(--border-strong); background: color-mix(in srgb, var(--gold) 12%, transparent); }
+  /* تنبيه ملخّص الرفع (ملف مطابق / تعذّر تسجيل الرفعة) — أمبريّ هادئ، لا يمنع الرفع، لون قائم */
+  .zid-sync-warn { margin-top: 8px; font-size: 12px; font-weight: 600; line-height: 1.65; color: var(--amber-tint); border: 1px solid var(--amber-tint); border-radius: 9px; padding: 8px 11px; background: color-mix(in srgb, var(--amber) 10%, transparent); }
   .zid-stale-warn { margin-bottom: 14px; font-size: 13px; font-weight: 700; line-height: 1.7; color: var(--gold-2);
     background: color-mix(in srgb, var(--gold) 12%, transparent); border: 1px solid var(--border-strong); border-radius: 10px; padding: 11px 14px; }
   .zid-age-head { font-size: 12px; font-weight: 700; color: var(--muted); margin-inline-start: 10px; }
@@ -2119,7 +2121,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "d3f12c9";
+const APP_VERSION = "97d76cd";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -5479,7 +5481,7 @@ async function onMergeWh(inp) {
     if (dbOnline && sb) {
       try {
         const r = await syncInventoryToDB("wh", mergeWh, header, f.name);
-        const sm = document.getElementById("whSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg ok"; sm.innerHTML = `✓ مزامنة المستودع: جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — الإجمالي ${r.total} صنف`; }
+        const sm = document.getElementById("whSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg ok"; sm.innerHTML = `✓ مزامنة المستودع: جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — الإجمالي ${r.total} صنف` + syncExtras(r, "المستودع"); }
         await loadInventoryFromDB();   // ← أعِد بناء المستودع ＋ **كل الفروع** من القاعدة، فلا يبقى الموحّد مبتوراً بلا فروع في جلسة لم تُرفع فيها فروع (علّة سابقة لـ١أ)
       } catch (e) { const sm = document.getElementById("whSyncMsg"); if (sm) { sm.style.display = "block"; sm.className = "zid-sync-msg fail"; sm.innerHTML = "⚠ تعذّرت مزامنة المستودع: " + esc(e.message || String(e)) + " — يُستخدم الملف مباشرة."; } }
     }
@@ -5508,7 +5510,7 @@ async function onMergeBranch(inp) {
     if (dbOnline && sb) {
       try {
         const r = await syncInventoryToDB("branch", agg, header, f.name, branchId);   // ← محصور بـbranch_id (لا يمسّ فرعاً آخر)
-        if (syncEl) { syncEl.style.display = "block"; syncEl.className = "zid-sync-msg ok"; syncEl.innerHTML = `✓ جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — ${r.total} صنف`; }
+        if (syncEl) { syncEl.style.display = "block"; syncEl.className = "zid-sync-msg ok"; syncEl.innerHTML = `✓ جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — ${r.total} صنف` + syncExtras(r, brName); }
         await loadInventoryFromDB();   // أعِد بناء **كل** الفروع من القاعدة (اتحاد حقيقي عبر mergeInventory)
       } catch (e) {
         if (syncEl) { syncEl.style.display = "block"; syncEl.className = "zid-sync-msg fail"; syncEl.innerHTML = "⚠ تعذّرت المزامنة: " + esc(e.message || String(e)); }
@@ -5565,7 +5567,7 @@ async function onMergeSalesBranch(inp) {
     if (!(await invOverlapGate("sales_branch_items", code, agg.map(r => r.code), `الفرع «${locName}»`))) { showToast("أُلغي الرفع — الفرع السابق كما هو."); inp.value = ""; return; }   // حماية الملف الخاطئ
     try {
       const r = await syncInventoryToDB("xbranch", agg, header, f.name, code);   // ← sales_branch_items وحده (معزول)
-      if (syncEl) { syncEl.style.display = "block"; syncEl.className = "zid-sync-msg ok"; syncEl.innerHTML = `✓ جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — ${r.total} صنف`; }
+      if (syncEl) { syncEl.style.display = "block"; syncEl.className = "zid-sync-msg ok"; syncEl.innerHTML = `✓ جديد <b>${r.added}</b> · محدَّث <b>${r.updated}</b> · حُذف <b>${r.deleted}</b> — ${r.total} صنف` + syncExtras(r, locName); }
     } catch (e) {
       if (syncEl) { syncEl.style.display = "block"; syncEl.className = "zid-sync-msg fail"; syncEl.innerHTML = "⚠ تعذّرت المزامنة: " + esc(e.message || String(e)); }
       inp.value = ""; return;
@@ -5969,7 +5971,7 @@ function analyzeMovements(existMap, rows, location, captured_at, prevSyncedAt) {
 async function recordUpload(uploadId, location, captured_at, fileName, itemCount, note, suspect) {
   if (!(dbOnline && sb)) return false;
   const { error } = await sb.from("sales_uploads").insert({ id: uploadId, location, captured_at, file_name: fileName || null, item_count: itemCount, source: "sync", note: note || null, suspect: !!suspect });
-  if (error) { showToast("⚠ تعذّر تسجيل الرفعة (" + (error.message || error) + ") — أعد المحاولة."); throw error; }
+  if (error) { console.warn("recordUpload:", error); return false; }   // 🚫 لا throw ولا رسالة فشل عامّة — البيانات مُخزَّنة؛ المُستدعي يعرض «حُفظت البيانات · تعذّر تسجيل الرفعة» بـuploadOk
   return true;
 }
 // الحركات = **تحليل** (نتيجة): fire-and-forget ＋ console.warn (مقبول لتحليل، لا لواقعة).
@@ -5979,6 +5981,13 @@ async function recordMovements(uploadId, movs) {
     const withId = movs.map(m => Object.assign({ upload_id: uploadId }, m));
     for (let i = 0; i < withId.length; i += 500) { const { error } = await sb.from("sales_movements").insert(withId.slice(i, i + 500)); if (error) throw error; }
   } catch (e) { console.warn("recordMovements:", e); }
+}
+// تنبيهات ملخّص الرفع لكل موقع (تُضاف لرسالة النجاح) — 🚫 لا تمنع الرفع · لون تحذير قائم · بلا إيموجي لوني شارد
+function syncExtras(r, locName) {
+  let h = "";
+  if (r && r.identical) h += `<div class="zid-sync-warn">⚠ ${esc(locName)}: هذا الملف مطابق تماماً للرفعة السابقة (${r.prevSyncedAt ? ageText(Date.parse(r.prevSyncedAt)) : "—"}) — لم تتغيّر أي كمية. تأكّد أنك صدّرت ملفاً جديداً من الكاشير.</div>`;   // بند ١: رفعة بلا حركات
+  if (r && r.uploadOk === false) h += `<div class="zid-sync-warn">حُفظت بيانات ${esc(locName)} في القاعدة ✓ · لكن تعذّر تسجيل الرفعة في السجلّ ⚠ — «آخر رفعة» قد تظهر قديمة. أعد الرفع لتصحيحها.</div>`;   // بند ٢: فصل «البيانات محفوظة» عن «تسجيل الرفعة فشل»
+  return h;
 }
 async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
   const isBr = kind === "branch", isXbr = kind === "xbranch", scope = (isBr || isXbr) ? branchId : null;   // xbranch: فرعا شاشة المبيعات (scope = الرمز الثابت)
@@ -6015,14 +6024,17 @@ async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
     }
     if (!isXbr) { resyncNeeded[kind] = invPolluted(rows); renderResyncWarn(); }   // الملف الجديد (بالرأس المُلتقط) يُصفّي التلوّث إن حواه شامل (لا يخصّ xbranch)
     if (!isXbr) logActivity(isBr ? "branch_sync_full" : "warehouse_sync_full", null, { added, updated, deleted: toDelete.length, total: newCodes.length, file: fileName || "", location: isBr ? branchId : "wh", upload_id: uploadId });
-    // لوحة المبيعات (بعد نجاح كتابة المخزون): سجّل **واقعة الرفعة دائماً** (await ＋ تنبيه مرئيّ)، والحركات fire-and-forget.
+    // لوحة المبيعات (بعد نجاح كتابة المخزون): سجّل **واقعة الرفعة دائماً**، والحركات fire-and-forget.
+    // identical = رفعة بلا حركات (ملف مطابق) · uploadOk = نجح تسجيل الرفعة (البيانات مُخزَّنة أياً كان).
+    let identical = false, uploadOk = true;
+    const salesLoc = kind === "wh" ? "wh" : branchId, capNow = new Date().toISOString();
     try {
-      const salesLoc = kind === "wh" ? "wh" : branchId, capNow = new Date().toISOString();
       const anz = analyzeMovements(existMap, rows, salesLoc, capNow, prevSyncedAt);
-      await recordUpload(uploadId, salesLoc, capNow, fileName, rows.length, anz.note, anz.suspect);   // الطابع يعكس فعل الرفع لا نتيجته
-      if (!anz.skip) recordMovements(uploadId, anz.movs);   // الحركات نتيجة — fire-and-forget
-    } catch (e) { /* recordUpload أظهر التنبيه؛ لا نُفشل الرفع نفسه (المخزون كُتب) ولا نُدرج حركات يتيمة */ }
-    return { added, updated, deleted: toDelete.length, total: newCodes.length };
+      identical = (anz.movs.length === 0 && !anz.skip);   // صفر حركة فعليّة (لا تخطٍّ شاذّ)
+      uploadOk = await recordUpload(uploadId, salesLoc, capNow, fileName, rows.length, anz.note, anz.suspect);   // الطابع يعكس فعل الرفع لا نتيجته
+      if (uploadOk && !anz.skip) recordMovements(uploadId, anz.movs);   // 🚫 لا حركات يتيمة إن فشل تسجيل الرأس
+    } catch (e) { uploadOk = false; console.warn("recordUpload/analyze:", e); }   // 🚫 البيانات مُخزَّنة؛ لا رسالة فشل عامّة — المُستدعي يفصل الأمرين
+    return { added, updated, deleted: toDelete.length, total: newCodes.length, identical, uploadOk, prevSyncedAt };
   } finally { setBusy(msgId, false); }
 }
 async function loadInventoryMeta() { if (!sb) return; try { invMeta = await db.inventory.getMeta(); } catch (e) { console.warn("inv meta:", e); } try { invBranches = await db.branches.getAll(); renderBranchCards(); } catch (e) { console.warn("branches:", e); } try { salesXbrMeta = await db.salesBranches.meta(); } catch (e) { console.warn("xbr meta:", e); } renderSalesBranchCards(); renderReadiness(); renderUploadStatus(); checkReady(); }
