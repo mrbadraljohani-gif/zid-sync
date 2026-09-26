@@ -1483,6 +1483,17 @@
   .ih-note { background: color-mix(in srgb, var(--amber) 10%, transparent); border: 1px solid var(--amber-tint); border-radius: 10px; padding: 9px 11px; font-size: 11.5px; color: var(--amber-tint); line-height: 1.65; }
   .ih-note b { color: var(--amber-tint); font-weight: 800; }
   .ih-viewer { background: color-mix(in srgb, var(--danger) 9%, transparent); border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-radius: 10px; padding: 8px 11px; font-size: 11.5px; color: var(--danger); }
+  .ih-sec { display: flex; flex-direction: column; gap: 9px; }
+  .ih-sec-primary { border-inline-start: 3px solid var(--gold); padding-inline-start: 10px; }
+  .ih-sec-title { display: flex; align-items: center; gap: 7px; font-weight: 800; font-size: 13px; color: var(--gold-2); }
+  .ih-sec-title .ico { width: 16px; height: 16px; }
+  .ih-unlinked { background: color-mix(in srgb, var(--muted) 12%, transparent); border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  details.ih-more { border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); padding: 4px 2px; }
+  details.ih-more > summary { list-style: none; cursor: pointer; padding: 7px 10px; color: var(--muted); }
+  details.ih-more > summary::-webkit-details-marker { display: none; }
+  details.ih-more > summary::before { content: "▸"; display: inline-block; margin-inline-end: 6px; color: var(--muted-2); transition: transform .15s; }
+  details.ih-more[open] > summary::before { transform: rotate(90deg); }
+  details.ih-more > .ih-time, details.ih-more > .ih-viewer, details.ih-more > .q-empty { margin: 4px 10px 8px; }
   .ih-time { position: relative; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 9px; }
   .ih-time::before { content: ""; position: absolute; inset-inline-start: 5px; top: 4px; bottom: 4px; width: 2px; background: var(--border); border-radius: 2px; }
   .ih-ev { position: relative; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 11px; min-width: 0; }
@@ -2090,7 +2101,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "031c3f6";
+const APP_VERSION = "efc832a";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -7618,6 +7629,7 @@ function riyadhDateTime(iso) {         // نفس SALES_TZ_OFF الموحّد —
   const d = new Date(t + SALES_TZ_OFF);
   return d.toISOString().slice(0, 10) + " " + d.toISOString().slice(11, 16);
 }
+const ihRound1 = n => Math.round((Number(n) || 0) * 10) / 10;   // منزلة عشرية واحدة (كبقية الشاشة) — لا رقم خام
 function ihWho(by) {
   const me = (authSession && authSession.user && authSession.user.id) || null;
   if (!by) return "—"; return by === me ? "أنت" : "مستخدم آخر";
@@ -7652,7 +7664,7 @@ function ihMovEvent(m) {
   const qb = m.qty_before, qa = m.qty_after;
   const ba = (qb != null && qa != null) ? `<div class="ih-ev-ba"><span class="ba-b">${esc(String(qb))}</span> ← <span class="ba-a">${esc(String(qa))}</span> <span class="ba-b">(${delta > 0 ? "+" : ""}${delta})</span></div>` : "";
   const when = m.captured_at ? riyadhDateTime(m.captured_at) : "—";
-  const span = (Number(m.period_days) > 1) ? ` · على ${m.period_days} يوم` : "";
+  const span = (Number(m.period_days) > 1) ? ` · على ${ihRound1(m.period_days)} يوم` : "";
   return `<div class="ih-ev ${cl}"><div class="ih-ev-top"><span class="act-ico">${icoSvg}</span><span class="ih-ev-t">${esc(t)}</span> <span class="ih-ev-loc">${esc(loc)}</span><span class="ih-ev-when" dir="ltr">${when}${esc(span)}</span></div>${ba}</div>`;
 }
 function runItemHistory() {
@@ -7697,8 +7709,13 @@ async function ihLoad(sku) {
 }
 function renderItemTimeline(sku, z, events, movs, mvBlocked) {
   const box = document.getElementById("ihResults"), cnt = document.getElementById("ihQCount"); if (!box) return;
-  // حالة الصنف الآن (من buildZidIndex — بلا استعلام إضافيّ)
   const linked = !!(manualMap && manualMap[sku]);
+  // قسمان منفصلان: ① قرارات الأداة في زد (activity_log) · ② حركة المخزون للسياق (sales_movements)
+  const primEvents = (events || []).slice().sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0));
+  const movSorted = (movs || []).slice().sort((a, b) => (Date.parse(b.captured_at) || 0) - (Date.parse(a.captured_at) || 0));
+  // «آخر موقع» يُشتقّ من أحدث حدث موقعيّ في الخطّ نفسه (بلا استعلام) — وإلا «غير معروف» (لا إحالة)
+  const lastLoc = (!mvBlocked && movSorted.length) ? salesLocName(movSorted[0].location) : null;
+  // حالة الصنف الآن (من buildZidIndex — بلا استعلام إضافيّ)
   const stateBits = [];
   stateBits.push(`<span>الصنف: <b>${esc(z ? (z.name || sku) : sku)}</b> <span dir="ltr" style="color:var(--muted)">${esc(String(sku))}</span></span>`);
   stateBits.push(`<span>مربوط: <b>${linked ? "نعم → " + esc(String(manualMap[sku])) : "لا"}</b></span>`);
@@ -7707,20 +7724,24 @@ function renderItemTimeline(sku, z, events, movs, mvBlocked) {
     stateBits.push(`<span>الكمية: <b>${z.qty == null || z.qty === "" ? "—" : esc(String(z.qty))}</b></span>`);
     if (z.price != null && z.price !== "") stateBits.push(`<span>السعر: <b>${priceInt(z.price)} ر.س</b></span>`);
   }
-  stateBits.push(`<span>آخر موقع: <b>—</b> <span style="color:var(--muted-2)">(استعمل «بحث في المخزن»)</span></span>`);
-  // دمج الحدثين في خطّ واحد تنازليّ (بالوقت)
-  const merged = [];
-  (events || []).forEach(r => merged.push({ ts: Date.parse(r.created_at) || 0, html: ihActEvent(r) }));
-  (movs || []).forEach(m => merged.push({ ts: Date.parse(m.captured_at) || 0, html: ihMovEvent(m) }));
-  merged.sort((a, b) => b.ts - a.ts);
-  if (cnt) cnt.textContent = merged.length ? `${merged.length} حدث` : "";
-  const disclaimer = `<div class="ih-note"><b>لا يشمل هذا الخطّ:</b> الأحداث المسجَّلة قبل ${IH_LOG_SINCE} غير موجودة (بدأ التسجيل الموسّع من هذا التاريخ). حركة الكمية والاختفاء من رفعات المخزون فقط. <b>ما قبل التفعيل غير مسجَّل.</b></div>`;
-  const viewerNote = mvBlocked ? `<div class="ih-viewer">بعض الأحداث (حركة الكمية والاختفاء) محجوبة عن دورك — الخطّ منقوص.</div>` : "";
+  stateBits.push(`<span>آخر موقع: <b>${lastLoc ? esc(lastLoc) : "غير معروف"}</b></span>`);
+  if (cnt) cnt.textContent = (primEvents.length + movSorted.length) ? `${primEvents.length + movSorted.length} حدث` : "";
   const state = `<div class="ih-state">${stateBits.join("")}</div>`;
-  const timeline = merged.length
-    ? `<div class="ih-time">${merged.map(x => x.html).join("")}</div>`
-    : `<div class="q-empty">لا أحداث مسجَّلة لهذا الصنف بعد ${IH_LOG_SINCE}.</div>`;
-  box.innerHTML = state + disclaimer + viewerNote + timeline;
+  const disclaimer = `<div class="ih-note"><b>لا يشمل هذا الخطّ:</b> الأحداث المسجَّلة قبل ${IH_LOG_SINCE} غير موجودة (بدأ التسجيل الموسّع من هذا التاريخ). <b>ما قبل التفعيل غير مسجَّل.</b></div>`;
+  // ① القسم الأبرز: ما فعلته الأداة بالصنف في زد
+  let primBody = "";
+  if (!linked) primBody += `<div class="ih-unlinked">هذا الصنف غير مربوط بمنتج زد — فلم تتّخذ الأداة فيه أي قرار نشر أو تسعير.</div>`;
+  if (primEvents.length) primBody += `<div class="ih-time">${primEvents.map(ihActEvent).join("")}</div>`;
+  else if (linked) primBody += `<div class="q-empty">هذا الصنف مربوط، لكن لم تُسجَّل الأداة أي قرار فيه بعد ${IH_LOG_SINCE}.</div>`;
+  const primary = `<div class="ih-sec ih-sec-primary"><div class="ih-sec-title">${ICO.store ? ic("store") : ""} في متجر زد — قرارات الأداة</div>${primBody}</div>`;
+  // ② القسم الثانويّ (مطويّ افتراضياً): حركة المخزون للسياق
+  let secBody;
+  if (mvBlocked) secBody = `<div class="ih-viewer">حركة المخزون محجوبة عن دورك.</div>`;
+  else if (movSorted.length) secBody = `<div class="ih-time">${movSorted.map(ihMovEvent).join("")}</div>`;
+  else secBody = `<div class="q-empty">لا حركة مخزون مسجَّلة لهذا الصنف.</div>`;
+  const secCount = mvBlocked ? "" : ` (${movSorted.length})`;
+  const secondary = `<details class="ih-more"><summary class="ih-sec-title">${ICO.warehouse ? ic("warehouse") : ""} حركة المخزون (للسياق)${secCount}</summary>${secBody}</details>`;
+  box.innerHTML = state + disclaimer + primary + secondary;
 }
 
 // منطق الربط اليدوي (يبقى في الكود) — صار دالة قابلة لإعادة الاستخدام بمعاملات بلا اعتماد على واجهة ③ المُزالة
