@@ -2109,7 +2109,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "8b36b72";
+const APP_VERSION = "8f07a20";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3838,6 +3838,13 @@ async function fillUploadStatus() {
   const host = document.getElementById("invUploadStatus"); if (!host) return;
   if (!(myRole === "owner" || myRole === "admin")) { host.style.display = "none"; return; }   // viewer/غيره: RLS يحجب المصادر — إخفاء صريح لا نصف صامت
   host.style.display = "";
+  // دفعة ٣: admin بلا بيانات مبيعات (RLS يقصر sales_movements/sales_stock على owner+marketing) — حالة الرفع من sales_uploads فقط.
+  //   🚫 لا نستعلم sales_movements/sales_stock لـadmin (صفر صفّ مبيعات في استجابة الشبكة، لا مجرّد 0 من RLS). كتل التحليل تُخفى صراحةً (تحتاج حركات محجوبة).
+  if (myRole === "admin") {
+    try { if (dbOnline && sb) renderSalesLastUp(await db.sales.uploads()); } catch (e) {}   // sales_uploads = سجلّ رفعات (طوابع) لا بيانات مبيعات
+    ["salesMissBanner", "salesBanner", "salesDisBox"].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = "none"; });
+    return;
+  }
   if (typeof renderSalesPage === "function") await renderSalesPage();
 }
 async function renderSalesPage() {
