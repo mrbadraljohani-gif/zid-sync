@@ -5,7 +5,9 @@
 //   ③ موقع مختلط (val>0 مع أصناف بلا سعر) ⇒ المجموع المعروف ＋ «جزئيّ — N صنفاً بلا سعر».
 //   ④ صفّ الإجمالي يتبع القاعدة نفسها (جزئيّ بعدد الاتحاد).
 //   ⑤ عرضٌ بحت: الوحدات/المتحرّكة/المخزون بلا مساس (كل موقع أرقامه ثابتة).
-// --broken: يُلغى فرع «— بلا سعر» ⇒ الموقع بلا سعر يعود «0 ر.س» ⇒ يرسب.
+//   ⑥ قيمة مصدرها 'backfill_stock' (تصحيح أثريّ) ⇒ وسم «تقديريّ» (لا رقم مرصود).
+// --broken:    يُلغى فرع «— بلا سعر» ⇒ الموقع بلا سعر يعود «0 ر.س» ⇒ يرسب.
+// --broken-bf: يُلغى وسم «تقديريّ» ⇒ قيمة التصحيح الأثريّ تبدو رصداً ⇒ يرسب.
 // ============================================================================
 import { readFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -13,12 +15,17 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const BROKEN = process.argv.includes("--broken");
+const MODE = process.argv.includes("--broken") ? "np" : process.argv.includes("--broken-bf") ? "bf" : "";
+const BROKEN = !!MODE;
 let html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
-if (BROKEN) {
+if (MODE === "np") {
   const A = 'if (units > 0 && v === 0 && npSku > 0) inner = `— <span class="cmp-u">بلا سعر</span>`;';
   if (!html.includes(A)) { console.error("✗ (--broken) لم أجد فرع «— بلا سعر»"); process.exit(2); }
   html = html.replace(A, "if (false) inner = null;");   // يعود «0 ر.س» (العطل)
+} else if (MODE === "bf") {
+  const A = 'if (v > 0 && bfSku > 0) inner += `<span class="tot-note" title="جزء من القيمة قُدِّر أثريّاً من سعر المخزون الحاليّ (لا سعر رصد لحظيّ) — ${bfSku} صنفاً">تقديريّ</span>`;';
+  if (!html.includes(A)) { console.error("✗ (--broken-bf) لم أجد وسم «تقديريّ»"); process.exit(2); }
+  html = html.replace(A, ";");   // بلا وسم (العطل)
 }
 function findChrome(){const c=["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",process.env.CHROME_PATH||"","/usr/bin/google-chrome-stable","/usr/bin/google-chrome"];for(const x of c)if(x&&existsSync(x))return x;for(const n of ["google-chrome-stable","google-chrome","chromium"])try{return execFileSync("bash",["-lc","command -v "+n]).toString().trim();}catch{}return"";}
 const b = await puppeteer.launch({ executablePath: findChrome(), headless: "new", args: ["--no-sandbox"] });
@@ -36,8 +43,9 @@ const res = await p.evaluate(async () => {
   const cap = iso(now - day);   // رفعة واحدة لكل موقع (business_date قبلها)
   // az: بيعان مسعّران · kh: بيعان بلا سعر · haraj_reh: مسعّر ＋ بلا سعر · haraj_maf: شراء فقط (بلا بيع)
   const S = (loc, sku, delta, vinc) => ({ kind: "estimated_sale", delta, value_est: vinc == null ? null : Math.abs(delta) * vinc, unit_price_incl: vinc, unit_price_excl: vinc == null ? null : vinc - 5, location: loc, sku, sku_name: sku, upload_id: "U_" + loc, captured_at: cap, period_days: 1 });
+  const BF = (loc, sku, delta, vinc) => ({ ...S(loc, sku, delta, vinc), price_source: "backfill_stock" });   // بند ٦: قيمة أثريّة
   const movs = [
-    S("az", "A1", -3, 100), S("az", "A2", -2, 50),
+    S("az", "A1", -3, 100), S("az", "A2", -2, 50), BF("az", "A3", -1, 40),
     S("kh", "K1", -4, null), S("kh", "K2", -1, null),
     S("haraj_reh", "R1", -2, 80), S("haraj_reh", "R2", -5, null),
     { kind: "purchase", delta: 5, value_est: null, unit_price_incl: null, unit_price_excl: null, location: "haraj_maf", sku: "M1", sku_name: "M1", upload_id: "U_haraj_maf", captured_at: cap, period_days: 1 },
@@ -56,16 +64,19 @@ const res = await p.evaluate(async () => {
 await b.close();
 
 if (BROKEN) {
-  // العطل: الخضرة (كل بيعها بلا سعر) تعرض «0» بدل «— بلا سعر»
-  const caught = res.kh && !/بلا سعر/.test(res.kh.txt) && /\b0\b/.test(res.kh.txt);
-  if (caught) { console.log("✅ (--broken) G-SALES-NOPRICE مسك العطل: الموقع بلا سعر يعرض «0 ر.س» بدل «— بلا سعر»."); process.exit(0); }
-  console.error("✗ (--broken) لم يُرصَد العطل — لا أسنان. " + JSON.stringify(res)); process.exit(1);
+  const caught = MODE === "np"
+    ? (res.kh && !/بلا سعر/.test(res.kh.txt) && /\b0\b/.test(res.kh.txt))   // الخضرة تعرض «0» بدل «— بلا سعر»
+    : (res.az && !/تقديريّ/.test(res.az.txt));                              // العزيزية (فيها أثريّ) بلا وسم «تقديريّ»
+  if (caught) { console.log(`✅ (--${MODE === "np" ? "broken" : "broken-bf"}) G-SALES-NOPRICE مسك العطل.`); process.exit(0); }
+  console.error(`✗ (${MODE}) لم يُرصَد العطل — لا أسنان. ` + JSON.stringify(res)); process.exit(1);
 }
 const fails = [];
 if (errs.length) fails.push("أخطاء JS: " + errs.join(" | "));
 if (!res.kh) fails.push("الخضرة غائبة عن الجدول (تجهيزة)");
 else { if (!/بلا سعر/.test(res.kh.txt)) fails.push(`① الخضرة (كل بيعها بلا سعر) لا تعرض «بلا سعر»: «${res.kh.txt}»`); if (!/—/.test(res.kh.txt)) fails.push(`① الخضرة بلا شرطة: «${res.kh.txt}»`); if (res.kh.units === "0") fails.push("① الخضرة units=0 (يجب أن تبيع فعلاً)"); }
-if (!res.az || /بلا سعر|جزئيّ/.test(res.az.txt) || !/\d/.test(res.az.txt)) fails.push(`② العزيزية (كلها مسعّرة) يجب أن تعرض مبلغاً نظيفاً: «${res.az && res.az.txt}»`);
+if (!res.az || /بلا سعر|جزئيّ/.test(res.az.txt) || !/\d/.test(res.az.txt)) fails.push(`② العزيزية يجب أن تعرض مبلغاً (لا «بلا سعر»/«جزئيّ»): «${res.az && res.az.txt}»`);
+if (!res.az || !/تقديريّ/.test(res.az.txt)) fails.push(`⑥ العزيزية (فيها قيمة أثريّة backfill_stock) يجب أن تحمل وسم «تقديريّ»: «${res.az && res.az.txt}»`);
+if (!/تقديريّ/.test(res.tot)) fails.push(`⑥ الإجمالي يجب أن يحمل «تقديريّ»: «${res.tot}»`);
 if (!res.maf) fails.push("③ الحراج مفروشات غائب");
 else if (/بلا سعر/.test(res.maf.txt) || !/\b0\b/.test(res.maf.txt)) fails.push(`② الحراج مفروشات (بلا بيع) يجب «0 ر.س»: «${res.maf.txt}»`);
 if (!res.reh || !/جزئيّ/.test(res.reh.txt) || !/1\s*صنف/.test(res.reh.txt)) fails.push(`③ الحراج رحلات (مختلط) يجب «جزئيّ — 1 صنفاً بلا سعر»: «${res.reh && res.reh.txt}»`);

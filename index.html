@@ -2146,7 +2146,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "781337e";
+const APP_VERSION = "74d2ddf";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3234,12 +3234,13 @@ function salesRange(period) {
 // التجميع: القيمة والوحدات من estimated_sale فقط؛ المختفي منفصل؛ «تحرّكت» = أي حركة (فريدة موقع|كود)
 function salesAgg(rows) {
   // moved = زوج موقع|كود (لعمود الجدول per-location) · movedSku = كود فريد عبر المواقع (منتج واحد ولو تحرّك في فرعين)
-  const a = { estValue: 0, estValueExcl: 0, units: 0, moved: new Set(), movedSku: new Set(), noPrice: 0, noPriceSku: new Set(), disCount: 0, disValue: 0, byLoc: new Map() };
+  const a = { estValue: 0, estValueExcl: 0, units: 0, moved: new Set(), movedSku: new Set(), noPrice: 0, noPriceSku: new Set(), backfillSku: new Set(), disCount: 0, disValue: 0, byLoc: new Map() };
   for (const m of rows || []) {
     a.moved.add(m.location + "|" + m.sku); a.movedSku.add(String(m.sku));
     if (m.kind === "estimated_sale") {
       const u = Math.abs(Number(m.delta) || 0); a.units += u;
       const L = a.byLoc.get(m.location) || { value: 0, valueExcl: 0, units: 0 }; L.units += u;
+      if (m.price_source === "backfill_stock") a.backfillSku.add(String(m.sku));   // بند ٦: قيمة مصدرها تصحيح أثريّ (سعر مخزون حاليّ لبيع ماضٍ) ⇒ وسم «تقديريّ» — لا رقم مرصود
       if (m.value_est != null) { a.estValue += Number(m.value_est) || 0; L.value += Number(m.value_est) || 0; } else { a.noPrice++; a.noPriceSku.add(String(m.sku)); }   // ＋أصناف البيع بلا سعر (لوسم «جزئيّ» في جدول المقارنة — عرض بحت)
       if (m.unit_price_excl != null) { const ve = u * (Number(m.unit_price_excl) || 0); a.estValueExcl += ve; L.valueExcl += ve; }   // «قبل الضريبة» من unit_price_excl المخزَّن (لا اشتقاق)
       a.byLoc.set(m.location, L);
@@ -4124,21 +4125,22 @@ async function renderSalesPage() {
     //   • units>0 وكل البيع بلا سعر (val===0) ⇒ «— بلا سعر» (الشرطة صدق، الصفر يوحي «لم يبع»)
     //   • بيع صفر فعلاً (لا حركات بيع، units===0) ⇒ «0 ر.س» كما هو
     //   • مختلط (val>0 مع أصناف بلا سعر) ⇒ المجموع المعروف ＋ «جزئيّ — N صنفاً بلا سعر»
-    const salesCell = (v, units, npSku, colorVar) => {
+    const salesCell = (v, units, npSku, bfSku, colorVar) => {
       const pct = scope.val > 0 ? Math.max(0, Math.min(100, Math.round(v / scope.val * 100))) : 0;
       let inner;
       if (units > 0 && v === 0 && npSku > 0) inner = `— <span class="cmp-u">بلا سعر</span>`;
       else { inner = money(v); if (v > 0 && npSku > 0) inner += `<span class="tot-note">جزئيّ — ${npSku} صنفاً بلا سعر</span>`; }
+      if (v > 0 && bfSku > 0) inner += `<span class="tot-note" title="جزء من القيمة قُدِّر أثريّاً من سعر المخزون الحاليّ (لا سعر رصد لحظيّ) — ${bfSku} صنفاً">تقديريّ</span>`;   // بند ٦: 🚫 لا يُعرض كرقم مرصود
       return `<td class="n cmp-sales"><span class="cmp-bar" style="width:${pct}%;background:color-mix(in srgb, var(${colorVar}) 26%, transparent)"></span><span class="cmp-front">${inner}</span></td>`;
     };
     const rowT = (name, colorVar, d, cls, noUpload) => noUpload
       ? `<tr class="${cls || ""} noup"><td class="cmp-loc">${colorVar ? `<span class="dot" style="background:var(${colorVar})"></span>` : ""}${esc(name)}</td><td class="n noupc" colspan="5">لا رفعة في هذه الفترة</td></tr>`
-      : `<tr class="${cls || ""}"><td class="cmp-loc">${colorVar ? `<span class="dot" style="background:var(${colorVar})"></span>` : ""}${esc(name)}</td>${salesCell(d.val, d.units, d.npSku, colorVar || "--info")}<td class="n"><bdi dir="ltr">${salesNum(d.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(d.moved)}</bdi></td><td class="n">${money(d.inv)}</td><td class="n">${salesRateTrend(d.val, d.daysCovered, d.pval, d.prevDaysCovered, "scc-tr", prevBaselineOnly)}</td></tr>`;
+      : `<tr class="${cls || ""}"><td class="cmp-loc">${colorVar ? `<span class="dot" style="background:var(${colorVar})"></span>` : ""}${esc(name)}</td>${salesCell(d.val, d.units, d.npSku, d.bfSku, colorVar || "--info")}<td class="n"><bdi dir="ltr">${salesNum(d.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(d.moved)}</bdi></td><td class="n">${money(d.inv)}</td><td class="n">${salesRateTrend(d.val, d.daysCovered, d.pval, d.prevDaysCovered, "scc-tr", prevBaselineOnly)}</td></tr>`;
     let colMovedSum = 0, movedUniqueAll = new Set();
     const rows = salesData.map(d => {   // الفروع فقط — المستودع خارج جدول المبيعات
       if (!uploadedInPeriod.has(d.loc)) return rowT(d.name, salesLocColor(d.loc), null, "", true);
       colMovedSum += d.agg.moved.size; for (const s of d.agg.movedSku) movedUniqueAll.add(s);
-      const r = { val: d.agg.estValue, units: d.agg.units, npSku: d.agg.noPriceSku.size, moved: d.agg.moved.size, inv: d.invValue || 0, cov: d.coverage, pval: d.pagg.estValue, daysCovered: d.daysCovered, prevDaysCovered: d.prevDaysCovered };
+      const r = { val: d.agg.estValue, units: d.agg.units, npSku: d.agg.noPriceSku.size, bfSku: d.agg.backfillSku.size, moved: d.agg.moved.size, inv: d.invValue || 0, cov: d.coverage, pval: d.pagg.estValue, daysCovered: d.daysCovered, prevDaysCovered: d.prevDaysCovered };
       return rowT(d.name, salesLocColor(d.loc), r, "");
     }).join("");
     const totUnique = movedUniqueAll.size, crossLoc = colMovedSum - totUnique;
@@ -4148,7 +4150,8 @@ async function renderSalesPage() {
     // القاعدة المقدّسة ٨: بيان الاستبعاد يبقى في الشاشة — سطر ثانويّ في صفّ الإجمالي (بلا لون تحذير/أيقونة/لافتة)، فقط حين N<الكل
     const inclNote = dataActive.length < salesData.length ? `<span class="tot-note">يشمل ${dataActive.length} من ${salesData.length} فروع</span>` : "";
     const totNoPriceSku = new Set(); dataActive.forEach(d => d.agg.noPriceSku.forEach(s => totNoPriceSku.add(s)));   // اتحاد أصناف البيع بلا سعر عبر الفروع المرفوعة (لوسم الإجمالي)
-    const totRow = `<tr class="total"><td class="cmp-loc">الإجمالي${inclNote}</td>${salesCell(scope.val, scope.units, totNoPriceSku.size, "--gold")}<td class="n"><bdi dir="ltr">${salesNum(scope.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(totUnique)}</bdi>${crossLoc > 0 ? `<span class="tot-note" title="مجموع الأعمدة ${colMovedSum} يفوق الفريد لأن ${crossLoc} صنفاً تحرّك في أكثر من موقع">أصناف فريدة — ${crossLoc} في أكثر من موقع</span>` : ""}</td><td class="n">${money(branchInvTotal)}</td><td class="n">${salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "scc-tr", prevBaselineOnly)}</td></tr>`;
+    const totBfSku = new Set(); dataActive.forEach(d => d.agg.backfillSku.forEach(s => totBfSku.add(s)));   // اتحاد أصناف التصحيح الأثريّ (بند ٦)
+    const totRow = `<tr class="total"><td class="cmp-loc">الإجمالي${inclNote}</td>${salesCell(scope.val, scope.units, totNoPriceSku.size, totBfSku.size, "--gold")}<td class="n"><bdi dir="ltr">${salesNum(scope.units)}</bdi></td><td class="n"><bdi dir="ltr">${salesNum(totUnique)}</bdi>${crossLoc > 0 ? `<span class="tot-note" title="مجموع الأعمدة ${colMovedSum} يفوق الفريد لأن ${crossLoc} صنفاً تحرّك في أكثر من موقع">أصناف فريدة — ${crossLoc} في أكثر من موقع</span>` : ""}</td><td class="n">${money(branchInvTotal)}</td><td class="n">${salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "scc-tr", prevBaselineOnly)}</td></tr>`;
     document.getElementById("salesCmp").innerHTML = `<table><thead><tr><th>الموقع</th><th class="n">المبيعات <span class="incl-tag">شامل</span></th><th class="n">الوحدات</th><th class="n">متحركة</th><th class="n">قيمة المخزون <span class="incl-tag">شامل</span></th><th class="n">التغيّر</th></tr></thead><tbody>${rows}${totRow}</tbody></table>`;
     // الأسطر (بلا سعر · مشبوهة) — المختفي في البانر
     const notes = [];
@@ -6016,7 +6019,21 @@ function invShrinkCheck(kind, newCount, branchId) {
 // العتبة والأرضية مقيستان من بيانات المستخدم: 8% (ضِعف الطبيعي 4.1% · نصف الأدنى الشاذّ 15%) · أرضية 10.
 // ============================================================================
 const MOVE_VALVE_PCT = 8, MOVE_VALVE_FLOOR = 10;
-function computeMovements(existMap, rows, location, capturedAt, prevSyncedAt) {
+// سلّم السعر للحركة الحاضرة في الملف (شفافية: price_source يسجّل المستوى المستعمَل، لا مجرّد incl/excl):
+//   ١) صفّ الملف r (incl/excl) · ٢) جدول الموقع نفسه old من existMap (db_loc/db_loc_excl) ·
+//   ٣) المستودع/فروع زد fallbackPrices — قراءةُ سعرٍ فقط بمطابقة الكود (db_wh/db_wh_excl) · ٤) none.
+// أولوية ٢ على ٣: سعر الصنف في موقعه أدقّ من سعره في المستودع. 🚨 disappeared لا يمرّ هنا (يقرأ من القاعدة أصلاً — سليم).
+function priceLadder(r, code, existMap, fallbackPrices) {
+  let incl = numOrNull(r.price_incl), excl = numOrNull(r.price_excl);
+  if (incl != null) return { incl, excl, ps: "incl" };
+  if (excl != null) return { incl, excl, ps: "excl" };
+  const o = existMap.get(code);   // ٢ جدول الموقع نفسه
+  if (o) { const oi = numOrNull(o.price_incl), oe = numOrNull(o.price_excl); if (oi != null) return { incl: oi, excl: oe, ps: "db_loc" }; if (oe != null) return { incl: null, excl: oe, ps: "db_loc_excl" }; }
+  const f = fallbackPrices && fallbackPrices.get(code);   // ٣ المستودع/فروع زد (قراءة فقط، 🚫 لا الحراج)
+  if (f) { const fi = numOrNull(f.price_incl), fe = numOrNull(f.price_excl); if (fi != null) return { incl: fi, excl: fe, ps: "db_wh" }; if (fe != null) return { incl: null, excl: fe, ps: "db_wh_excl" }; }
+  return { incl: null, excl: null, ps: "none" };   // ٤
+}
+function computeMovements(existMap, rows, location, capturedAt, prevSyncedAt, fallbackPrices) {
   const movs = [], newSet = new Set(rows.map(r => String(r.code)));
   const pDays = prevSyncedAt ? (Date.parse(capturedAt) - Date.parse(prevSyncedAt)) / 86400000 : null;
   for (const r of rows) {
@@ -6024,8 +6041,8 @@ function computeMovements(existMap, rows, location, capturedAt, prevSyncedAt) {
     const oldQ = had ? (numOrNull(existMap.get(code).qty) != null ? numOrNull(existMap.get(code).qty) : 0) : null;   // القديم صار صفّاً كاملاً {qty,name,price_*}
     const delta = had ? (newQ - oldQ) : newQ;
     if (delta === 0) continue;   // دلتا الصفر لا تُدرَج (＋قيد القاعدة delta<>0 طبقة ثانية)
-    const incl = numOrNull(r.price_incl), excl = numOrNull(r.price_excl);
-    const unit = incl != null ? incl : (excl != null ? excl : null), ps = incl != null ? "incl" : (excl != null ? "excl" : "none");
+    const { incl, excl, ps } = priceLadder(r, code, existMap, fallbackPrices);   // ١ ملف ← ٢ جدول الموقع ← ٣ المستودع/زد ← ٤ none (المستوى مسجَّل في ps)
+    const unit = incl != null ? incl : (excl != null ? excl : null);
     const kind = !had ? "new" : (delta < 0 ? "estimated_sale" : "purchase");   // المخزَّن ثابت؛ المعنى يُفسَّر بالموقع عند العرض: فرع⇒بيع مقدّر/استلام · مستودع⇒سحب/توريد (location==='wh')
     movs.push({ sku: code, sku_name: r.name || null, location, captured_at: capturedAt,
       period_start: had ? (prevSyncedAt || null) : null, period_days: had ? pDays : null,
@@ -6053,8 +6070,8 @@ function moveIsAnomaly(disappeared, prevCount) {
 }
 // التسجيل — غير حاجب (fire-and-forget): فشله لا يعطّل الرفع إطلاقاً. يُستدعى **بعد نجاح** bulkUpsert فقط.
 // تحليل الحركات — حساب بحت (بلا كتابة قاعدة): يُرجع {movs, note, suspect, skip}. يشمل توست الكودين المتشابهين وحوار الشذوذ.
-function analyzeMovements(existMap, rows, location, captured_at, prevSyncedAt) {
-  const movs = computeMovements(existMap, rows, location, captured_at, prevSyncedAt);
+function analyzeMovements(existMap, rows, location, captured_at, prevSyncedAt, fallbackPrices) {
+  const movs = computeMovements(existMap, rows, location, captured_at, prevSyncedAt, fallbackPrices);
   const strip = c => String(c).replace(/^0+/, "");   // كشف فقط، بلا تطبيع مخزَّن
   const gone = movs.filter(m => m.kind === "disappeared").map(m => m.sku);
   const appeared = new Set(movs.filter(m => m.kind === "new").map(m => strip(m.sku)));
@@ -6138,8 +6155,21 @@ async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
     // identical = رفعة بلا حركات (ملف مطابق) · uploadOk = نجح تسجيل الرفعة (البيانات مُخزَّنة أياً كان).
     let identical = false, uploadOk = true;
     const salesLoc = kind === "wh" ? "wh" : branchId, capNow = new Date().toISOString();
+    // سلّم السعر — المستوى ٣ (المستودع/فروع زد): يُقرأ **فقط** حين صفٌّ بلا سعر ملفّ ولا سعر جدول الموقع.
+    // 🚨 عزل الحراج: قراءةُ سعرٍ فقط من warehouse_items ＋ branch_items (زد) بمطابقة الكود — 🚫 لا sales_branch_items · لا ربط · لا كتابة.
+    let fallbackPrices = null;
+    const needFallback = rows.some(r => { const c = String(r.code); if (numOrNull(r.price_incl) != null || numOrNull(r.price_excl) != null) return false; const o = existMap.get(c); return !(o && (numOrNull(o.price_incl) != null || numOrNull(o.price_excl) != null)); });
+    if (needFallback) {
+      fallbackPrices = new Map();
+      try {
+        for (const t of ["warehouse_items", "branch_items"]) {   // 🚫 لا sales_branch_items (عزل الحراج)
+          const fr = await db.inventory.getAllCodes(t, null);
+          for (const x of fr) { const c = String(x.code); const e = fallbackPrices.get(c); if (!e) fallbackPrices.set(c, { price_incl: x.price_incl, price_excl: x.price_excl }); else { if (numOrNull(e.price_incl) == null && numOrNull(x.price_incl) != null) e.price_incl = x.price_incl; if (numOrNull(e.price_excl) == null && numOrNull(x.price_excl) != null) e.price_excl = x.price_excl; } }
+        }
+      } catch (e) { fallbackPrices = null; console.warn("fallbackPrices:", e); }   // فشل القراءة ⇒ لا احتياطيّ (لا يعطّل الرفع)
+    }
     try {
-      const anz = analyzeMovements(existMap, rows, salesLoc, capNow, prevSyncedAt);
+      const anz = analyzeMovements(existMap, rows, salesLoc, capNow, prevSyncedAt, fallbackPrices);
       identical = (anz.movs.length === 0 && !anz.skip);   // صفر حركة فعليّة (لا تخطٍّ شاذّ)
       uploadOk = await recordUpload(uploadId, salesLoc, capNow, fileName, rows.length, anz.note, anz.suspect);   // الطابع يعكس فعل الرفع لا نتيجته
       if (uploadOk && !anz.skip) recordMovements(uploadId, anz.movs);   // 🚫 لا حركات يتيمة إن فشل تسجيل الرأس
