@@ -18,7 +18,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const MODE = process.argv.includes("--broken") ? "open" : process.argv.includes("--broken-expl") ? "expl" : process.argv.includes("--broken-group") ? "group" : "";
+const MODE = process.argv.includes("--broken") ? "open" : process.argv.includes("--broken-expl") ? "expl" : process.argv.includes("--broken-group") ? "group" : process.argv.includes("--broken-msg") ? "msg" : process.argv.includes("--broken-sec") ? "sec" : "";
 const BROKEN = !!MODE;
 let html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 if (MODE === "open") {
@@ -26,13 +26,21 @@ if (MODE === "open") {
   if (!html.includes(A)) { console.error("✗ (--broken) لم أجد الفتح التلقائيّ"); process.exit(2); }
   html = html.replace(A, 'const autoOpen = "";');   // لا فتح تلقائيّ ⇒ الثانويّ مطويّ ولو الأوّل فارغ
 } else if (MODE === "expl") {
-  const A = 'else if (linked) primBody += `<div class="q-empty">هذا الصنف مربوط، لكن لم تُسجَّل الأداة أي قرار فيه بعد ${IH_LOG_SINCE}.</div>`;';
+  const A = ': `<div class="q-empty">هذا الصنف مربوط، لكن لم تُسجَّل الأداة أي قرار فيه بعد ${IH_LOG_SINCE}.</div>`;';
   if (!html.includes(A)) { console.error("✗ (--broken-expl) لم أجد فرع «مربوط بلا قرارات»"); process.exit(2); }
-  html = html.replace(A, 'else if (linked) primBody += "";');
+  html = html.replace(A, ': "";');   // مربوط بلا قرارات ⇒ قسم فارغ بلا تفسير
 } else if (MODE === "group") {
   const A = 'const g = ihGroupConsecutive(primEvents, r => { const d = r.details || {}; return `${r.event_type}|${d.before}|${d.after}|${d.reason || ""}|${d.code || ""}|${d.role || ""}`; });';
   if (!html.includes(A)) { console.error("✗ (--broken-group) لم أجد تجميع القسم الأوّل"); process.exit(2); }
   html = html.replace(A, 'const g = primEvents.map(r => ({ item: r, count: 1 }));');   // بلا تجميع ⇒ تكرار
+} else if (MODE === "msg") {   // #5: تُعرض رسالة «لا قرار» مع وجود أحداث (الشرط الخاطئ القديم: حالة الربط لا وجود الأحداث)
+  const A = 'if (!linked) primBody += `<div class="ih-unlinked">منتج زد بلا ربط بالمخزن — لذلك تُصفّره الأداة وتُخفيه (غائب عن المخزن).</div>`;';
+  if (!html.includes(A)) { console.error("✗ (--broken-msg) لم أجد بيان «غير مربوط مع أحداث»"); process.exit(2); }
+  html = html.replace(A, 'if (!linked) primBody += `<div class="ih-unlinked">هذا الصنف غير مربوط بمنتج زد — فلم تتّخذ الأداة فيه أي قرار نشر أو تسعير.</div>`;');
+} else if (MODE === "sec") {   // #9: قسم ثانويّ فارغ بلا نصّ ولا محتوى
+  const A = 'else secBody = `<div class="q-empty">${linked ? "لا حركة مخزون مسجَّلة في الفترة." : "هذا SKU زد لا كود مخزن — فلا حركة مخزون تخصّه."}</div>`;';
+  if (!html.includes(A)) { console.error("✗ (--broken-sec) لم أجد نصّ القسم الثانويّ الفارغ"); process.exit(2); }
+  html = html.replace(A, 'else secBody = "";');
 }
 function findChrome(){const c=["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",process.env.CHROME_PATH||"","/usr/bin/google-chrome-stable","/usr/bin/google-chrome"];for(const x of c)if(x&&existsSync(x))return x;for(const n of ["google-chrome-stable","google-chrome","chromium"])try{return execFileSync("bash",["-lc","command -v "+n]).toString().trim();}catch{}return"";}
 const b = await puppeteer.launch({ executablePath: findChrome(), headless: "new", args: ["--no-sandbox"] });
@@ -99,8 +107,33 @@ const res = await p.evaluate(async () => {
   const vt = document.getElementById("ihResults").textContent;
   const viewerNote = vt.includes("محجوبة عن دورك"); const lastLocUnknown = vt.includes("غير معروف");
 
+  // E) غير مربوط + أحداث (تصفير) + الحالة تناقض (z.qty=5≠0) + دور المؤلّف admin (#5/#6/#7)
+  manualMap = {}; myRole = "owner"; ihRolesCache = new Map([["u2", "admin"]]); zidSyncedAt = Date.now() - 2 * 86400000;
+  sb = mkSb([{ event_type: "qty_zeroed", zid_sku: "Z1", details: { before: 25, after: 0, reason: "غائب عن المخزن" }, created_by: "u2", created_at: isoAgo(3.6e6) }], []);
+  runItemHistory(); await new Promise(r => setTimeout(r, 70));
+  box = document.getElementById("ihResults");
+  const eHasEvents = !!box.querySelector(".ih-sec-primary .ih-ev");
+  const eNoWrongMsg = !box.textContent.includes("فلم تتّخذ الأداة فيه أي قرار");   // #5: الرسالة الخاطئة غائبة مع وجود أحداث
+  const eUnlinkedExplain = box.textContent.includes("منتج زد بلا ربط بالمخزن");    // #5: شرح التصفير للغير مربوط
+  const eMirror = box.textContent.includes("مرآة زد");                             // #6: وسم المرآة
+  const eMismatch = box.textContent.includes("لم يصل زد بعد");                     // #6: تنبيه الفجوة
+  const eRole = box.textContent.includes("مشرف");                                  // #7: دور صاحب الحدث (admin)
+  // «لا قسم بلا نصّ ولا محتوى» (#9): كل قسم فيه إمّا .ih-ev أو نصّ تفسيريّ
+  const noEmptySection = [...box.querySelectorAll(".ih-sec-primary, details.ih-more")].every(s => s.querySelector(".ih-ev") || (s.textContent || "").replace(/\s+/g, "").length > "فيمتجرزدقراراتالأداةحركةالمخزون".length);
+
+  // F) نصّ القسم الثانويّ الفارغ صريح ومتمايز (#9): غير مربوط ⇒ «لا كود مخزن» · مربوط ⇒ «لا حركة في الفترة»
+  manualMap = {}; sb = mkSb([{ event_type: "qty_zeroed", zid_sku: "Z1", details: { before: 25, after: 0, reason: "غائب" }, created_by: "u1", created_at: isoAgo(1e4) }], []);
+  runItemHistory(); await new Promise(r => setTimeout(r, 70));
+  const secTextUnlinked = document.getElementById("ihResults").textContent.includes("لا كود مخزن");
+  manualMap = { "Z1": "W100" }; sb = mkSb([{ event_type: "price_changed", zid_sku: "Z1", details: { before: 90, after: 100 }, created_by: "u1", created_at: isoAgo(1e4) }], []);
+  runItemHistory(); await new Promise(r => setTimeout(r, 70));
+  const secBox = document.getElementById("ihResults");
+  const secTextLinked = secBox.textContent.includes("لا حركة مخزون مسجَّلة في الفترة");
+  const secNotEmpty = [...secBox.querySelectorAll("details.ih-more")].every(s => (s.textContent || "").replace(/\s+/g, "").length > "حركةالمخزون(للسياق)(0)".length);   // القسم الثانويّ ليس فارغاً
+
   return { atLoad, afterSubmit, primEvA, hasX3, collapsedWhenFull, cntA, hasPrimary, hasSecondary, hasDisclaimer,
-           autoOpenWhenEmpty, unlinkedBanner, movVisible, purchaseShown, lastLocOk, noRawDecimal, linkedEmptyMsg, viewerNote, lastLocUnknown };
+           autoOpenWhenEmpty, unlinkedBanner, movVisible, purchaseShown, lastLocOk, noRawDecimal, linkedEmptyMsg, viewerNote, lastLocUnknown,
+           eHasEvents, eNoWrongMsg, eUnlinkedExplain, eMirror, eMismatch, eRole, noEmptySection, secTextUnlinked, secTextLinked, secNotEmpty };
 });
 await b.close();
 
@@ -108,6 +141,8 @@ if (BROKEN) {
   if (MODE === "open" && !res.autoOpenWhenEmpty) { console.log("✅ (--broken) G-ITEM-HISTORY مسك العطل: القسم الأوّل فارغ والثانويّ مطويّ ⇒ بطاقة تبدو خالية وفيها بيانات."); process.exit(0); }
   if (MODE === "expl" && !res.linkedEmptyMsg) { console.log("✅ (--broken-expl) G-ITEM-HISTORY مسك العطل: قسم «قرارات الأداة» فارغ بلا تفسير."); process.exit(0); }
   if (MODE === "group" && res.primEvA !== 1) { console.log(`✅ (--broken-group) G-ITEM-HISTORY مسك العطل: الأحداث المتطابقة مكرّرة (${res.primEvA}) لا مجمّعة.`); process.exit(0); }
+  if (MODE === "msg" && !res.eNoWrongMsg) { console.log("✅ (--broken-msg) G-ITEM-HISTORY مسك العطل (#5): رسالة «لا قرار» ظهرت مع وجود أحداث."); process.exit(0); }
+  if (MODE === "sec" && (!res.secNotEmpty || res.secTextLinked === false)) { console.log("✅ (--broken-sec) G-ITEM-HISTORY مسك العطل (#9): قسم ثانويّ بلا نصّ ولا محتوى."); process.exit(0); }
   console.error("✗ (" + MODE + ") لم يُرصَد العطل — لا أسنان. " + JSON.stringify(res)); process.exit(1);
 }
 const fails = [];
@@ -131,5 +166,19 @@ if (!res.viewerNote) fails.push("⑥ بيان الحجب عن viewer غائب");
 if (!res.lastLocUnknown) fails.push("⑥ آخر موقع ليس «غير معروف» عند الحجب");
 if (!/حدث للصنف/.test(res.cntA)) fails.push(`⑩ عدّاد الصنف المختار لا يقول «حدث للصنف»: «${res.cntA}»`);
 if (!html.includes("أصناف مطابقة")) fails.push("⑩ عدّاد البحث «أصناف مطابقة» غائب عن الكود");
+// #5: صنف غير مربوط له أحداث ⇒ تُعرض الأحداث وشرحها، ولا تظهر رسالة «لا قرار»
+if (!res.eHasEvents) fails.push("#5 صنف غير مربوط له أحداث لم تُعرض");
+if (!res.eNoWrongMsg) fails.push("#5 رسالة «لا قرار» ظهرت مع وجود أحداث (الشرط يفحص الربط لا الأحداث)");
+if (!res.eUnlinkedExplain) fails.push("#5 شرح «منتج زد بلا ربط بالمخزن — تُصفّره وتُخفيه» غائب");
+// #6: وسم المرآة + تنبيه الفجوة حين يخالف آخرُ قرارٍ الحالةَ المعروضة
+if (!res.eMirror) fails.push("#6 وسم «الحالة من مرآة زد» غائب");
+if (!res.eMismatch) fails.push("#6 تنبيه «آخر قرار … لم يصل زد بعد» غائب رغم التناقض");
+// #7: دور صاحب الحدث معروض (admin ⇒ «مشرف»)
+if (!res.eRole) fails.push("#7 دور صاحب الحدث غير معروض («مشرف» لـadmin)");
+// #9: لا قسم بلا نصّ ولا محتوى + نصّ الفراغ متمايز
+if (!res.noEmptySection) fails.push("#9 قسم ظهر بلا نصّ ولا محتوى");
+if (!res.secTextUnlinked) fails.push("#9 نصّ «هذا SKU زد لا كود مخزن» غائب (غير مربوط بلا حركة)");
+if (!res.secTextLinked) fails.push("#9 نصّ «لا حركة مخزون مسجَّلة في الفترة» غائب (مربوط بلا حركة)");
+if (!res.secNotEmpty) fails.push("#9 القسم الثانويّ ظهر فارغاً بلا نصّ");
 if (fails.length) { console.error("✗ G-ITEM-HISTORY:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ G-ITEM-HISTORY: صفر استعلام عند التحميل · قسمان · فتح تلقائيّ عند فراغ الأوّل · تجميع ×N · الفراغ مُفسَّر · آخر موقع مشتقّ · الزيادة معروضة · لا عشريّ خام · عدّادان منفصلان · حجب viewer.");
+console.log("✅ G-ITEM-HISTORY: قسمان · فتح تلقائيّ · تجميع ×N · #5 الرسالة عند غياب الأحداث فقط · #6 وسم المرآة ＋ تنبيه الفجوة · #7 دور صاحب الحدث · #9 لا قسم بلا نصّ · عدّادان · حجب viewer.");

@@ -146,13 +146,19 @@ jobs:
         run: node tests/perf/item-history.mjs --broken-expl
       - name: Self-check — G-ITEM-HISTORY يرسب حين لا تُجمّع الأحداث المتطابقة
         run: node tests/perf/item-history.mjs --broken-group
-      - name: G-ITEM-HISTORY — قسمان · فتح تلقائيّ عند فراغ الأوّل · تجميع ×N · الفراغ مُفسَّر · آخر موقع مشتقّ · عدّادان منفصلان · حجب viewer
+      - name: Self-check — G-ITEM-HISTORY يرسب حين تظهر رسالة «لا قرار» مع وجود أحداث (#5)
+        run: node tests/perf/item-history.mjs --broken-msg
+      - name: Self-check — G-ITEM-HISTORY يرسب حين قسم ثانويّ بلا نصّ (#9)
+        run: node tests/perf/item-history.mjs --broken-sec
+      - name: G-ITEM-HISTORY — قسمان · فتح تلقائيّ · تجميع ×N · #5 الرسالة عند غياب الأحداث · #6 وسم المرآة＋تنبيه الفجوة · #7 الدور · #9 لا قسم بلا نصّ · عدّادان · حجب viewer
         run: node tests/perf/item-history.mjs
       - name: Self-check — G-RUN-LOG يرسب حين يُسجَّل المصفَّر أصلاً (حالة لا تحوّل)
         run: node tests/perf/run-log.mjs --broken
       - name: Self-check — G-RUN-LOG يرسب حين يكون .catch صامتاً بلا أثر (البند ١)
         run: node tests/perf/run-log.mjs --broken-silent
-      - name: G-RUN-LOG — تسجيل تحوّلات run() (تصفير/سعر/نشر/عودة) بـbefore←after · تحوّلات فقط · ربط دفعيّ/صنف · فشل الكتابة يترك أثراً ولا يُفشل run
+      - name: Self-check — G-RUN-LOG يرسب حين يُلغى درع الجلسة (تكرار نفس التحوّل)
+        run: node tests/perf/run-log.mjs --broken-dedup
+      - name: G-RUN-LOG — تحوّلات run() بـbefore←after · تحوّلات فقط · ربط دفعيّ/صنف · منع التكرار (dedup_key＋mirror_ts＋درع الجلسة) · فشل الكتابة يترك أثراً ولا يُفشل run
         run: node tests/perf/run-log.mjs
       - name: Self-check — حارس G-EXPUNLINK يرسب بخلط «رابط محفوظ» بالمطابَق بالكود
         run: node tests/perf/explorer-unlink.mjs --broken

@@ -1507,6 +1507,10 @@
   .ih-ev-who { font-size: 10.5px; color: var(--muted-2); margin-top: 3px; }
   .ih-ev-loc { color: var(--gold-2); font-weight: 700; }
   .ih-count { display: inline-block; font-size: 10.5px; font-weight: 800; color: var(--amber-tint); background: color-mix(in srgb, var(--amber) 12%, transparent); border: 1px solid var(--amber-tint); border-radius: 8px; padding: 0 6px; margin-inline-start: 4px; vertical-align: middle; }
+  .ih-mirror { font-size: 11px; color: var(--muted-2); padding: 2px 2px 0; }
+  .ih-mirror b { color: var(--muted); font-weight: 700; }
+  .ih-mismatch { background: color-mix(in srgb, var(--amber) 12%, transparent); border: 1px solid var(--amber-tint); border-radius: 10px; padding: 9px 11px; font-size: 12px; color: var(--amber-tint); line-height: 1.65; }
+  .ih-mismatch b { color: var(--amber-tint); font-weight: 800; }
   .repo-box { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
   .repo-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px; background: none; border: none; cursor: pointer; font-family: inherit; padding: 0; text-align: start;
     font-size: 11.5px; font-weight: 800; color: var(--gold); letter-spacing: .1em; text-transform: uppercase; }
@@ -2102,7 +2106,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "82ab7cb";
+const APP_VERSION = "d369108";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2150,6 +2154,7 @@ let exclPreview = null;                // معاينة قاعدة مفتوحة: 
 let posExceptions = new Set();         // SKU خام مستثنى من النسب الموضعيّ (لا يرث كود الأب — يصير «يحتاج ربط») — المصدر: القاعدة positional_exceptions
 let lastPosMatch = { active: 0, excepted: 0 };   // للسطر الملخّص: مطابقات موضعية نشطة · مفكوكة
 let boundSet = new Set();
+let runLogSentKeys = new Set();   // ٣-ب منع التكرار: dedup_keyات أُرسلت هذه الجلسة (درع الجلسة قبل القاعدة) — تحمل mirror_ts فتتجدّد عند تغيّر المرآة
 let lastWhList = [], lastWhTokenIndex = null, lastUnmatchedRaw = [], lastUnmatched = [];
 let suggCache = new Map();   // ذاكرة اقتراحات (skuN ⇒ اقتراح) تُبنى مرة لكل معالجة لتسريع تبديل الفلاتر
 let lastUpdated = [], currentFilter = "unmatched";
@@ -2287,8 +2292,13 @@ const db = {
   activity: {
     async insert(event_type, zid_sku, details) { const { error } = await sb.from("activity_log").insert({ event_type, zid_sku: zid_sku != null ? String(zid_sku) : null, details: details || null }); if (error) throw error; },
     async bulkInsert(rows) {   // ٣-ب: تسجيل تحوّلات run() دفعةً — append-only، دفعات 500
-      const norm = (rows || []).filter(Boolean).map(r => ({ event_type: r.event_type, zid_sku: r.zid_sku != null ? String(r.zid_sku) : null, details: r.details || null }));
-      for (let i = 0; i < norm.length; i += 500) { const { error } = await sb.from("activity_log").insert(norm.slice(i, i + 500)); if (error) throw error; }
+      const norm = (rows || []).filter(Boolean).map(r => { const o = { event_type: r.event_type, zid_sku: r.zid_sku != null ? String(r.zid_sku) : null, details: r.details || null }; if (r.dedup_key) o.dedup_key = r.dedup_key; return o; });
+      const useDedup = norm.some(r => r.dedup_key);   // منع التكرار على مستوى القاعدة: ON CONFLICT (dedup_key) DO NOTHING (فهرس فريد)
+      for (let i = 0; i < norm.length; i += 500) {
+        const slice = norm.slice(i, i + 500);
+        const { error } = useDedup ? await sb.from("activity_log").upsert(slice, { onConflict: "dedup_key", ignoreDuplicates: true }) : await sb.from("activity_log").insert(slice);
+        if (error) throw error;
+      }
     },
     async getRecent(limit) { const { data, error } = await sb.from("activity_log").select("event_type,zid_sku,details,created_by,created_at").order("created_at", { ascending: false }).limit(limit || 50); if (error) throw error; return data || []; },
     async getByType(type, limit) { let q = sb.from("activity_log").select("event_type,zid_sku,details,created_by,created_at").order("created_at", { ascending: false }).limit(limit || 200); if (type) q = q.eq("event_type", type); const { data, error } = await q; if (error) throw error; return data || []; },
@@ -2298,6 +2308,7 @@ const db = {
   // أدوار المستخدمين (user_roles)
   roles: {
     async mine() { const { data, error } = await sb.rpc("get_my_role"); if (error) throw error; return data || null; },
+    async all() { const { data, error } = await sb.from("user_roles").select("user_id,role"); if (error) throw error; return data || []; },   // RLS: select لكل موثّق — لعرض دور صاحب كل حدث في «حركة الصنف» (لا بريد)
     async setRole(user_id, role) { const { error } = await sb.from("user_roles").upsert({ user_id, role }, { onConflict: "user_id" }); if (error) throw error; },
   },
   // المرحلة 4: المخزن في القاعدة (جدولان: warehouse_items / branch_items) — table يُمرَّر
@@ -6551,7 +6562,14 @@ function run(reprocess) {
         lastAutoUnpubParents.forEach(p => runLog.push({ event_type: "unpublished", zid_sku: p.sku, details: { before: "منشور", after: "غير منشور", reason: "كل الأبناء صفر", role: "أب" } }));
         // ⑤ العودة للمخزن (من خطاف الرفع — lastReactivated بالـsku الخام)
         (lastReactivated || []).forEach(r => { const s = r && (r.sku || r.skuN); if (s) runLog.push({ event_type: "returned_stock", zid_sku: String(s), details: {} }); });
-        if (runLog.length && db.activity && db.activity.bulkInsert) db.activity.bulkInsert(runLog).catch(e => console.warn("run-log bulkInsert فشل (لا يمسّ المطابقة):", e));   // fire-and-forget — فشل الكتابة لا يُفشل run()، لكن يترك أثراً
+        // منع التكرار (البند أ): مفتاح تفرّد = zid_sku|type|before|after|reason|mirror_ts. mirror_ts = طابع مزامنة مرآة زد
+        // (zidSyncedAt) — لا يتغيّر حتى تُعاد مزامنة المرآة، فالتحوّل نفسه على المرآة نفسها لا يُسجَّل مرّتين.
+        // درع الجلسة (runLogSentKeys) يمنع الإرسال المكرّر داخل الجلسة؛ والفهرس الفريد على dedup_key يمنعه عبر الجلسات/الأجهزة.
+        const mirrorTs = String(zidSyncedAt || "");
+        const keyed = runLog.map(e => { const d = e.details || {}; const dedup_key = `${e.zid_sku}|${e.event_type}|${d.before}|${d.after}|${d.reason || ""}|${mirrorTs}`; return { ...e, dedup_key, details: { ...d, mirror_ts: mirrorTs } }; });
+        const fresh = keyed.filter(e => !runLogSentKeys.has(e.dedup_key));
+        fresh.forEach(e => runLogSentKeys.add(e.dedup_key));
+        if (fresh.length && db.activity && db.activity.bulkInsert) db.activity.bulkInsert(fresh).catch(e => console.warn("run-log bulkInsert فشل (لا يمسّ المطابقة):", e));   // fire-and-forget — فشل الكتابة لا يُفشل run()، لكن يترك أثراً
       } catch (e) { console.warn("run-log block فشل (لا يمسّ المطابقة):", e); }   // التسجيل إضافيّ محض — أي خطأ فيه لا يُفشل run لكنه يُسجَّل في الكونسول
     }
 
@@ -7631,9 +7649,13 @@ function riyadhDateTime(iso) {         // نفس SALES_TZ_OFF الموحّد —
   return d.toISOString().slice(0, 10) + " " + d.toISOString().slice(11, 16);
 }
 const ihRound1 = n => Math.round((Number(n) || 0) * 10) / 10;   // منزلة عشرية واحدة (كبقية الشاشة) — لا رقم خام
+let ihRolesCache = null;   // Map(user_id → role) — يُجلب مرّة عند أوّل عرض «حركة الصنف» (user_roles صغير، RLS يسمح بقراءته)؛ لعرض دور صاحب الحدث
 function ihWho(by) {
   const me = (authSession && authSession.user && authSession.user.id) || null;
-  if (!by) return "—"; return by === me ? "أنت" : "مستخدم آخر";
+  if (by && me && by === me) return myRole ? `أنت · ${roleLabel(myRole)}` : "أنت";
+  if (!by) return "—";
+  const r = ihRolesCache && ihRolesCache.get(by);
+  return r ? roleLabel(r) : "مستخدم آخر";   // دور غير محمّل ⇒ «مستخدم آخر» (لا استعلام لكل حدث · لا بريد لطرف خارجيّ)
 }
 function ihEvClass(cl) { return cl === "ico-ok" ? "ok" : cl === "ico-warn" ? "warn" : cl === "ico-bad" ? "bad" : cl === "ico-info" ? "info" : ""; }
 // before ← after من details حسب النوع (يعرض «—» متى غاب — لا يخترع)
@@ -7714,6 +7736,7 @@ async function ihLoad(sku) {
   const box = document.getElementById("ihResults"), cnt = document.getElementById("ihQCount"); if (!box) return;
   box.innerHTML = '<div class="q-empty">⏳ جلب خطّ الحركة…</div>'; if (cnt) cnt.textContent = "";
   const z = buildZidIndex().find(x => String(x.sku) === String(sku)) || null;
+  if (ihRolesCache == null && dbOnline && sb) { try { ihRolesCache = new Map((await db.roles.all()).map(r => [r.user_id, r.role])); } catch (e) { ihRolesCache = new Map(); } }   // مرّة لكل جلسة (best-effort) — لعرض دور صاحب الحدث
   let events = [], movs = [], mvBlocked = false;
   try { events = await db.activity.getBySku(sku); }
   catch (e) { box.innerHTML = '<div class="q-warn">تعذّر جلب سجل النشاط: ' + esc(e.message || String(e)) + '</div>'; return; }
@@ -7741,26 +7764,44 @@ function renderItemTimeline(sku, z, events, movs, mvBlocked) {
   stateBits.push(`<span>آخر موقع: <b>${lastLoc ? esc(lastLoc) : "غير معروف"}</b></span>`);
   if (cnt) cnt.textContent = (primEvents.length + movSorted.length) ? `${primEvents.length + movSorted.length} حدث للصنف` : "";   // عدّاد أحداث الصنف — منفصل عن «N أصناف مطابقة» للبحث
   const state = `<div class="ih-state">${stateBits.join("")}</div>`;
+  // (#6) وسم أنّ الحالة أعلاه من مرآة زد لا من زد الحيّ ＋ تاريخ آخر مزامنة
+  const mirrorTag = `<div class="ih-mirror">الحالة أعلاه من <b>مرآة زد</b> — آخر مزامنة: <b>${zidSyncedAt ? esc(ageText(zidSyncedAt)) : "غير معروفة"}</b>${zidSyncedAt ? ` (${esc(riyadhDateTime(new Date(zidSyncedAt).toISOString()))})` : ""}</div>`;
+  // (#6) تنبيه حين يخالف آخرُ قرارٍ مسجَّل الحالةَ المعروضة (المرآة لم تُحدَّث بعد بعد الاستيراد)
+  const contras = [];
+  if (z && primEvents.length) {
+    const lastZero = primEvents.find(r => r.event_type === "qty_zeroed");
+    if (lastZero && z.qty != null && z.qty !== "" && Number(z.qty) !== 0) contras.push("صُفِّرت الكمية إلى 0");
+    const lastPub = primEvents.find(r => r.event_type === "unpublished" || r.event_type === "republished");
+    if (lastPub && lastPub.event_type === "unpublished" && z.pub) contras.push("أُخفيت (غير منشور)");
+    if (lastPub && lastPub.event_type === "republished" && !z.pub) contras.push("أُعيد نشرها (منشور)");
+  }
+  const mismatch = contras.length ? `<div class="ih-mismatch">⚠️ آخر قرار للأداة: <b>${esc(contras.join(" · "))}</b> — ولم يصل زد بعد. استورد ملف الكميات في لوحة زد ثم أعد مزامنة المرآة.</div>` : "";
   const disclaimer = `<div class="ih-note"><b>لا يشمل هذا الخطّ:</b> الأحداث المسجَّلة قبل ${IH_LOG_SINCE} غير موجودة (بدأ التسجيل الموسّع من هذا التاريخ). <b>ما قبل التفعيل غير مسجَّل.</b></div>`;
   // ① القسم الأبرز: ما فعلته الأداة بالصنف في زد — الأحداث المتطابقة المتتالية مجمّعة «×N» (عرض فقط)
+  // (#5) رسالة «غير مربوط» تظهر فقط حين لا أحداث؛ ومع وجود أحداث لصنف غير مربوط ⇒ شرحٌ لسبب التصفير/الإخفاء لا نفيُ القرار.
   let primBody = "";
-  if (!linked) primBody += `<div class="ih-unlinked">هذا الصنف غير مربوط بمنتج زد — فلم تتّخذ الأداة فيه أي قرار نشر أو تسعير.</div>`;
   if (primEvents.length) {
+    if (!linked) primBody += `<div class="ih-unlinked">منتج زد بلا ربط بالمخزن — لذلك تُصفّره الأداة وتُخفيه (غائب عن المخزن).</div>`;
     const g = ihGroupConsecutive(primEvents, r => { const d = r.details || {}; return `${r.event_type}|${d.before}|${d.after}|${d.reason || ""}|${d.code || ""}|${d.role || ""}`; });
     primBody += `<div class="ih-time">${g.map(x => ihActEvent(x.item, x.count)).join("")}</div>`;
-  } else if (linked) primBody += `<div class="q-empty">هذا الصنف مربوط، لكن لم تُسجَّل الأداة أي قرار فيه بعد ${IH_LOG_SINCE}.</div>`;
+  } else {
+    primBody += !linked
+      ? `<div class="ih-unlinked">هذا الصنف غير مربوط بمنتج زد — فلم تتّخذ الأداة فيه أي قرار نشر أو تسعير.</div>`
+      : `<div class="q-empty">هذا الصنف مربوط، لكن لم تُسجَّل الأداة أي قرار فيه بعد ${IH_LOG_SINCE}.</div>`;
+  }
   const primary = `<div class="ih-sec ih-sec-primary"><div class="ih-sec-title">${ICO.store ? ic("store") : ""} في متجر زد — قرارات الأداة</div>${primBody}</div>`;
   // ② القسم الثانويّ: حركة المخزون للسياق — يُفتح تلقائياً إن كان القسم الأوّل بلا أحداث (لا بطاقة تبدو فارغة وفيها بيانات)
+  // (#9) نصّ فارغ صريح دائماً: SKU زد بلا ربط بالمخزن ⇒ لا كود يخصّه · مربوط بلا حركات ⇒ لا حركة في الفترة.
   let secBody;
   if (mvBlocked) secBody = `<div class="ih-viewer">حركة المخزون محجوبة عن دورك.</div>`;
   else if (movSorted.length) {
     const gm = ihGroupConsecutive(movSorted, m => `${m.kind}|${m.location}|${m.qty_before}|${m.qty_after}|${m.delta}`);
     secBody = `<div class="ih-time">${gm.map(x => ihMovEvent(x.item, x.count)).join("")}</div>`;
-  } else secBody = `<div class="q-empty">لا حركة مخزون مسجَّلة لهذا الصنف.</div>`;
+  } else secBody = `<div class="q-empty">${linked ? "لا حركة مخزون مسجَّلة في الفترة." : "هذا SKU زد لا كود مخزن — فلا حركة مخزون تخصّه."}</div>`;
   const secCount = mvBlocked ? "" : ` (${movSorted.length})`;
   const autoOpen = primEvents.length === 0 ? " open" : "";   // القسم الأوّل بلا أحداث ⇒ افتح الثاني (الطيّ يبقى فقط حين الأوّل ممتلئ)
   const secondary = `<details class="ih-more"${autoOpen}><summary class="ih-sec-title">${ICO.warehouse ? ic("warehouse") : ""} حركة المخزون (للسياق)${secCount}</summary>${secBody}</details>`;
-  box.innerHTML = state + disclaimer + primary + secondary;
+  box.innerHTML = state + mirrorTag + mismatch + disclaimer + primary + secondary;
 }
 
 // منطق الربط اليدوي (يبقى في الكود) — صار دالة قابلة لإعادة الاستخدام بمعاملات بلا اعتماد على واجهة ③ المُزالة

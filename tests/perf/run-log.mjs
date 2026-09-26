@@ -19,6 +19,7 @@ import puppeteer from "puppeteer-core";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const BROKEN = process.argv.includes("--broken");
 const BROKEN_SILENT = process.argv.includes("--broken-silent");
+const BROKEN_DEDUP = process.argv.includes("--broken-dedup");
 let html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 if (BROKEN) {
   const A = "if (before === 0 || before == null) continue;";
@@ -26,9 +27,14 @@ if (BROKEN) {
   html = html.replace(A, "if (before == null) continue;");   // يسمح بتسجيل المصفَّر أصلاً (حالة لا تحوّل)
 }
 if (BROKEN_SILENT) {
-  const A = 'db.activity.bulkInsert(runLog).catch(e => console.warn("run-log bulkInsert فشل (لا يمسّ المطابقة):", e))';
+  const A = 'db.activity.bulkInsert(fresh).catch(e => console.warn("run-log bulkInsert فشل (لا يمسّ المطابقة):", e))';
   if (!html.includes(A)) { console.error("✗ (--broken-silent) لم أجد .catch مع الأثر"); process.exit(2); }
-  html = html.replace(A, "db.activity.bulkInsert(runLog).catch(() => {})");   // .catch صامت بلا أثر (البند ١ المكسور)
+  html = html.replace(A, "db.activity.bulkInsert(fresh).catch(() => {})");   // .catch صامت بلا أثر (البند ١ المكسور)
+}
+if (BROKEN_DEDUP) {
+  const A = "const fresh = keyed.filter(e => !runLogSentKeys.has(e.dedup_key));";
+  if (!html.includes(A)) { console.error("✗ (--broken-dedup) لم أجد درع الجلسة"); process.exit(2); }
+  html = html.replace(A, "const fresh = keyed;");   // بلا درع الجلسة ⇒ إعادة إرسال نفس التحوّل كل تشغيلة
 }
 function findChrome(){const c=["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",process.env.CHROME_PATH||"","/usr/bin/google-chrome-stable","/usr/bin/google-chrome"];for(const x of c)if(x&&existsSync(x))return x;for(const n of ["google-chrome-stable","google-chrome","chromium"])try{return execFileSync("bash",["-lc","command -v "+n]).toString().trim();}catch{}return"";}
 
@@ -54,14 +60,16 @@ const cfg = {
 
 async function inpage(cfg) {
   const captured = [];
+  const cap = (table, payload) => { if (table === "activity_log") (Array.isArray(payload) ? payload : [payload]).forEach(r => captured.push(r)); };
   const mk = (table) => { const c = {
-    select() { return c; }, upsert: async () => ({ error: null }), delete() { return c; },
-    insert: async (payload) => { if (table === "activity_log") { (Array.isArray(payload) ? payload : [payload]).forEach(r => captured.push(r)); } return { error: null }; },
+    select() { return c; }, delete() { return c; },
+    upsert: async (payload) => { cap(table, payload); return { error: null }; },   // مسار dedup: upsert(onConflict) — لا بدّ من التقاطه
+    insert: async (payload) => { cap(table, payload); return { error: null }; },
     eq: async () => ({ error: null }), in: async () => ({ error: null }), order() { return c; }, range: async () => ({ data: [], error: null }),
   }; return c; };
   try { window.confirm = () => true; } catch (e) {}
   try { sb = { from: mk, auth: { getSession: async () => ({ data: { session: null } }) } }; } catch (e) {}
-  try { dbOnline = true; myRole = "owner"; histIncomplete = false; } catch (e) {}
+  try { dbOnline = true; myRole = "owner"; histIncomplete = false; zidSyncedAt = 1700000000000; runLogSentKeys = new Set(); } catch (e) {}
   window.XLSX = { utils: { aoa_to_sheet: () => ({}), book_new: () => ({}), book_append_sheet: () => {}, sheet_to_json: () => [] }, write: () => new Uint8Array(0), read: () => ({}) };
   stData = cfg.stData; whRows = cfg.whRows; lastMerge = merge_(cfg.codes);
   manualMap = {}; matchedHistory = new Set(cfg.history || []);
@@ -76,6 +84,17 @@ async function inpage(cfg) {
   try { run(false); } catch (e) { err = (err ? err + " | " : "") + "run:" + e; }
   await new Promise(r => setTimeout(r, 120));   // انتظار bulkInsert (fire-and-forget)
   const filesAfterRun = { qty: (lastQtyRows || []).length, price: (lastPriceRows || []).length };
+  const afterRun1 = captured.length;
+  const hasDedupKey = captured.some(r => r.event_type === "qty_zeroed" && r.dedup_key && String(r.dedup_key).includes("|1700000000000"));   // dedup_key يحمل mirror_ts
+  const hasMirrorTs = captured.some(r => r.event_type === "qty_zeroed" && r.details && r.details.mirror_ts === "1700000000000");
+  // منع التكرار (البند أ): تشغيلة ثانية بنفس المرآة ⇒ درع الجلسة يمنع أي إرسال جديد
+  try { run(false); } catch (e) {}
+  await new Promise(r => setTimeout(r, 120));
+  const afterRun2 = captured.length;   // يجب == afterRun1 (لا تكرار)
+  // تغيّر المرآة ⇒ mirror_ts جديد ⇒ يُسجَّل من جديد
+  try { zidSyncedAt = 1800000000000; run(false); } catch (e) {}
+  await new Promise(r => setTimeout(r, 120));
+  const afterMirrorChange = captured.length;   // يجب > afterRun2
 
   // ⑧ الربط الدفعيّ: صفّ لكلّ صنف بـzid_sku
   const beforeLink = captured.length;
@@ -83,10 +102,11 @@ async function inpage(cfg) {
   await new Promise(r => setTimeout(r, 60));
   const linkRows = captured.slice(beforeLink).filter(r => r.event_type === "link_added");
 
-  // ⑨ فشل الكتابة لا يُفشل run: insert يرمي ⇒ run يبني الملفّين
+  // ⑨ فشل الكتابة لا يُفشل run: الكتابة ترمي ⇒ run يبني الملفّين (mirror_ts جديد ليتجاوز درع الجلسة فتُحاوَل الكتابة فعلاً)
   let err2 = null, files2 = null;
   try {
-    sb = { from: (t) => { const c = { select() { return c; }, upsert: async () => ({ error: null }), delete() { return c; }, insert: async () => { throw new Error("boom"); }, eq: async () => ({ error: null }), in: async () => ({ error: null }), order() { return c; }, range: async () => ({ data: [], error: null }) }; return c; }, auth: { getSession: async () => ({ data: { session: null } }) } };
+    zidSyncedAt = 1900000000000;
+    sb = { from: (t) => { const c = { select() { return c; }, upsert: async () => { throw new Error("boom"); }, delete() { return c; }, insert: async () => { throw new Error("boom"); }, eq: async () => ({ error: null }), in: async () => ({ error: null }), order() { return c; }, range: async () => ({ data: [], error: null }) }; return c; }, auth: { getSession: async () => ({ data: { session: null } }) } };
     run(false);
     await new Promise(r => setTimeout(r, 120));
     files2 = { qty: (lastQtyRows || []).length, price: (lastPriceRows || []).length };
@@ -95,7 +115,7 @@ async function inpage(cfg) {
   const byType = t => captured.filter(r => r.event_type === t);
   const find = (t, sku) => captured.find(r => r.event_type === t && String(r.zid_sku) === sku) || null;
   return {
-    err, filesAfterRun, err2, files2,
+    err, filesAfterRun, err2, files2, afterRun1, afterRun2, afterMirrorChange, hasDedupKey, hasMirrorTs,
     zeroed: byType("qty_zeroed").map(r => ({ sku: r.zid_sku, before: r.details && r.details.before, after: r.details && r.details.after, reason: r.details && r.details.reason })),
     priceChanged: byType("price_changed").map(r => ({ sku: r.zid_sku, before: r.details && r.details.before, after: r.details && r.details.after })),
     republished: byType("republished").map(r => String(r.zid_sku)),
@@ -129,6 +149,10 @@ if (BROKEN_SILENT) {
   if (!warns.some(w => /run-log/.test(w))) { console.log("✅ (--broken-silent) G-RUN-LOG مسك العطل: .catch صامت بلا أثر في الكونسول."); process.exit(0); }
   console.error("✗ (--broken-silent) ظهر أثر رغم .catch الصامت — لا أسنان. " + JSON.stringify(warns)); process.exit(1);
 }
+if (BROKEN_DEDUP) {
+  if (res.afterRun2 > res.afterRun1) { console.log(`✅ (--broken-dedup) G-RUN-LOG مسك العطل: تشغيلة ثانية بنفس المرآة أعادت الإرسال (${res.afterRun1}→${res.afterRun2}).`); process.exit(0); }
+  console.error("✗ (--broken-dedup) لم تتكرّر رغم إلغاء الدرع — لا أسنان. " + JSON.stringify(res)); process.exit(1);
+}
 const fails = [];
 if (perr.length) fails.push("أخطاء JS: " + perr.join(" | "));
 if (res.err) fails.push("⑦ run رمى: " + res.err);
@@ -148,5 +172,10 @@ if (!(res.linkRows.some(r => String(r.sku) === "L1") && res.linkRows.some(r => S
 if (res.err2) fails.push("⑨ فشل الكتابة أفشل run: " + res.err2);
 if (!res.files2 || res.files2.qty < 1) fails.push("⑨ الملفّان لم يُبنيا رغم رمي insert (fire-and-forget مكسور)");
 if (!warns.some(w => /run-log/.test(w))) fails.push("⑨ فشل الكتابة لم يترك أثراً في الكونسول (البند ١: .catch صامت — يجب console.warn)");
+// ⑩ منع التكرار (البند أ): dedup_key ＋ mirror_ts · تشغيلة ثانية بنفس المرآة لا تُعيد الإرسال · تغيّر المرآة يُعيده
+if (!res.hasDedupKey) fails.push("⑩ dedup_key لا يحمل mirror_ts");
+if (!res.hasMirrorTs) fails.push("⑩ details.mirror_ts غائب");
+if (res.afterRun2 !== res.afterRun1) fails.push(`⑩ تشغيلة ثانية بنفس المرآة كرّرت التسجيل (${res.afterRun1}→${res.afterRun2}) — درع الجلسة لا يعمل`);
+if (!(res.afterMirrorChange > res.afterRun2)) fails.push(`⑩ تغيّر المرآة لم يُعِد التسجيل (${res.afterRun2}→${res.afterMirrorChange}) — mirror_ts لا يفكّ التكرار`);
 if (fails.length) { console.error("✗ G-RUN-LOG:\n  " + fails.join("\n  ") + "\n  dump: " + JSON.stringify(res)); process.exit(1); }
 console.log("✅ G-RUN-LOG: تصفير/سعر/نشر/عودة مسجَّلة بـbefore←after · المصفَّر أصلاً والكمية العاديّة لا تُسجَّل · الربط الدفعيّ صفّ/صنف · فشل الكتابة لا يُفشل run.");
