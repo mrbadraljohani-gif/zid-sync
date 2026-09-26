@@ -43,9 +43,9 @@ const res = await p.evaluate(async () => {
   const cap = iso(now - day);   // رفعة واحدة لكل موقع (business_date قبلها)
   // az: بيعان مسعّران · kh: بيعان بلا سعر · haraj_reh: مسعّر ＋ بلا سعر · haraj_maf: شراء فقط (بلا بيع)
   const S = (loc, sku, delta, vinc) => ({ kind: "estimated_sale", delta, value_est: vinc == null ? null : Math.abs(delta) * vinc, unit_price_incl: vinc, unit_price_excl: vinc == null ? null : vinc - 5, location: loc, sku, sku_name: sku, upload_id: "U_" + loc, captured_at: cap, period_days: 1 });
-  const BF = (loc, sku, delta, vinc) => ({ ...S(loc, sku, delta, vinc), price_source: "backfill_stock" });   // بند ٦: قيمة أثريّة
+  const BF = (loc, sku, delta, vinc, src) => ({ ...S(loc, sku, delta, vinc), price_source: src || "backfill_stock" });   // بند ٦: قيمة أثريّة (شامل ＋ صافٍ)
   const movs = [
-    S("az", "A1", -3, 100), S("az", "A2", -2, 50), BF("az", "A3", -1, 40),
+    S("az", "A1", -3, 100), S("az", "A2", -2, 50), BF("az", "A3", -1, 40), BF("az", "A4", -1, 30, "backfill_stock_excl"),
     S("kh", "K1", -4, null), S("kh", "K2", -1, null),
     S("haraj_reh", "R1", -2, 80), S("haraj_reh", "R2", -5, null),
     { kind: "purchase", delta: 5, value_est: null, unit_price_incl: null, unit_price_excl: null, location: "haraj_maf", sku: "M1", sku_name: "M1", upload_id: "U_haraj_maf", captured_at: cap, period_days: 1 },

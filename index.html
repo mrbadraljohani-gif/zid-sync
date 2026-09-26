@@ -2146,7 +2146,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "74d2ddf";
+const APP_VERSION = "f537819";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3240,7 +3240,7 @@ function salesAgg(rows) {
     if (m.kind === "estimated_sale") {
       const u = Math.abs(Number(m.delta) || 0); a.units += u;
       const L = a.byLoc.get(m.location) || { value: 0, valueExcl: 0, units: 0 }; L.units += u;
-      if (m.price_source === "backfill_stock") a.backfillSku.add(String(m.sku));   // بند ٦: قيمة مصدرها تصحيح أثريّ (سعر مخزون حاليّ لبيع ماضٍ) ⇒ وسم «تقديريّ» — لا رقم مرصود
+      if (String(m.price_source || "").indexOf("backfill_stock") === 0) a.backfillSku.add(String(m.sku));   // بند ٦: قيمة مصدرها تصحيح أثريّ (backfill_stock ＋ backfill_stock_excl) ⇒ وسم «تقديريّ» — لا رقم مرصود
       if (m.value_est != null) { a.estValue += Number(m.value_est) || 0; L.value += Number(m.value_est) || 0; } else { a.noPrice++; a.noPriceSku.add(String(m.sku)); }   // ＋أصناف البيع بلا سعر (لوسم «جزئيّ» في جدول المقارنة — عرض بحت)
       if (m.unit_price_excl != null) { const ve = u * (Number(m.unit_price_excl) || 0); a.estValueExcl += ve; L.valueExcl += ve; }   // «قبل الضريبة» من unit_price_excl المخزَّن (لا اشتقاق)
       a.byLoc.set(m.location, L);
