@@ -32,7 +32,7 @@ const res = await p.evaluate(async () => {
   const mv = (loc, sku, q, v) => ({ kind: "estimated_sale", delta: -q, value_est: v, unit_price_incl: v / q, unit_price_excl: Math.round(v / q / 1.15), location: loc, sku, sku_name: sku, upload_id: "U_" + loc, captured_at: now, period_days: 5 });
   // العزيزية 9,772 (units 500) · الخضرة 26,816 (units 435) · المستودع 19,680 (units 445) — سحب لا بيع
   const movs = [mv("az", "A1", 500, 9772), mv("kh", "K1", 435, 26816), mv("wh", "W1", 445, 19680)];
-  const stock = [{ location: "az", sku: "A1", name: "A1", qty: 100, price_incl: 20, price_excl: 17 }, { location: "kh", sku: "K1", name: "K1", qty: 200, price_incl: 30, price_excl: 26 }, { location: "wh", sku: "W1", name: "W1", qty: 1000, price_incl: 500, price_excl: 435 }];
+  const stock = [{ location: "az", sku: "A1", name: "A1", qty: 100, price_incl: 20, price_excl: 17, cost_price: 10 }, { location: "kh", sku: "K1", name: "K1", qty: 200, price_incl: 30, price_excl: 26, cost_price: 20 }, { location: "wh", sku: "W1", name: "W1", qty: 1000, price_incl: 500, price_excl: 435, cost_price: 300 }];
   db.sales = { uploads: async () => [{ id: "U_az", location: "az", captured_at: now, suspect: false }, { id: "U_kh", location: "kh", captured_at: now, suspect: false }, { id: "U_wh", location: "wh", captured_at: now, suspect: false }], movements: async (loc) => loc === "all" ? movs : movs.filter(m => m.location === loc), clearSuspect: async () => {} };
   sb = { from: () => ({ select: () => ({ range: async (a) => ({ data: (a === 0 ? stock : []), error: null }) }) }) };
   try { goPage("home"); } catch (e) {}
@@ -58,7 +58,7 @@ if (errs.length) fails.push("أخطاء JS: " + errs.join(" | "));
 if (!BROKEN) {
   if (res.sval !== "36588") fails.push(`المبيعات ليست مجموع الفرعين 36,588 (المستودع مستبعَد): «${res.sval}»`);
   if (res.sunits !== "935") fails.push(`قطع بيعت ليست 935 (500+435): «${res.sunits}»`);
-  if (res.sinv !== "508000") fails.push(`قيمة المخزون لا تشمل الثلاثة (2000+6000+500000=508,000): «${res.sinv}»`);
+  if (res.sinv !== "305000") fails.push(`قيمة المخزون (تكلفة) لا تشمل الثلاثة (100×10+200×20+1000×300=305,000): «${res.sinv}»`);
   if (res.whInCmp) fails.push("المستودع ظهر في جدول المبيعات");
   if (res.whInChart) fails.push("المستودع ظهر في رسم المبيعات");
   if (!res.whSectionShown) fails.push("قسم المستودع لا يظهر في «الكل»");

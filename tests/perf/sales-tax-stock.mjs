@@ -43,7 +43,7 @@ const res = await p.evaluate(async () => {
   const txt = el => (el ? (el.textContent || "").replace(/\s+/g, " ").trim() : "");
   const sinv = document.querySelector('#salesKpis .kpi[data-k="sinv"]');
   const sub2 = txt(sinv && sinv.querySelector(".kpi-sub2"));
-  const missTxt = txt(sinv && sinv.querySelector(".kpi-miss"));
+  const missTxt = txt(sinv && sinv.querySelector(".kpi-sub2 .kpi-miss"));   // عدّاد «قبل الضريبة» في السطر الفرعيّ (لا عدّاد التكلفة في السطر الرئيسيّ)
   return { sub2, missTxt };
 });
 await b.close();
@@ -51,8 +51,8 @@ const fails = [];
 if (errs.length) fails.push("أخطاء JS: " + errs.join(" | "));
 const num = s => { const m = String(s).match(/\d[\d,]*/); return m ? parseInt(m[0].replace(/,/g, ""), 10) : null; };
 if (!BROKEN) {
-  if (!/قبل الضريبة/.test(res.sub2)) fails.push("لا سطر «قبل الضريبة» للمخزون");
-  if (num(res.sub2) !== 1200) fails.push(`«قبل الضريبة» ليست مجموع ذوات excl فقط (1200): «${res.sub2}»`);
+  if (!/بسعر البيع بدون ضريبة/.test(res.sub2)) fails.push("لا سطر «بسعر البيع بدون ضريبة» للمخزون");
+  if (num(res.sub2) !== 1200) fails.push(`«بدون ضريبة» ليست مجموع ذوات excl فقط (1200): «${res.sub2}»`);
   if (!/1/.test(res.missTxt) || !/بلا سعر قبل الضريبة/.test(res.missTxt)) fails.push(`عدّاد المستبعَدة غائب/خاطئ (توقّعت 1): «${res.missTxt}»`);
 }
 if (BROKEN) {

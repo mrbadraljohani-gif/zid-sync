@@ -2109,7 +2109,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "f096c76";
+const APP_VERSION = "8b36b72";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3330,8 +3330,8 @@ function renderSalesLastUp(ups) {
 // لقطة المخزون من العرض sales_stock (لا الجداول الأساس ⇒ يعمل لـmarketing) — مُصفّحة، قراءة واحدة لكل الأعمدة
 async function salesStockRows() {
   const out = [], page = 1000; let from = 0;
-  for (;;) { const { data, error } = await sb.from("sales_stock").select("location,sku,name,qty,price_incl,price_excl,barcode").range(from, from + page - 1); if (error) throw error; out.push(...(data || [])); if (!data || data.length < page) break; from += page; }
-  return out;
+  for (;;) { const { data, error } = await sb.from("sales_stock").select("location,sku,name,qty,price_incl,price_excl,barcode,cost_price").range(from, from + page - 1); if (error) throw error; out.push(...(data || [])); if (!data || data.length < page) break; from += page; }
+  return out;   // cost_price = null لغير owner/marketing (العرض يقصره بـcase) — لا يصل متصفّح غيرهما
 }
 // سلسلة زمنية يومية لقيمة البيع المقدّر (للرسم الخطّي)
 function salesSeries(cur) {
@@ -3346,7 +3346,7 @@ function salesColData(loc, movs, stock, curSince, prevSince) {
   const prev = prevSince != null ? lm.filter(m => { const t = salesBizTs(m.captured_at); return t >= prevSince && t < curSince; }) : [];
   const a = salesAgg(cur), pa = salesAgg(prev);
   const srows = stock.filter(r => r.location === loc);
-  let invValue = 0, invValueExcl = 0, invExclMissing = 0, totalUnits = 0; for (const r of srows) { const q = numOrNull(r.qty), p = numOrNull(r.price_incl), pe = numOrNull(r.price_excl); if (q != null) totalUnits += q; if (q != null && p != null) invValue += q * p; if (q != null && pe != null) invValueExcl += q * pe; else if (q != null && pe == null) invExclMissing++; }   // «قبل الضريبة» من price_excl مباشرةً؛ صنف بلا سعر excl يُستبعَد ويُعدّ (لا صفر بصمت)
+  let invValue = 0, invValueExcl = 0, invExclMissing = 0, totalUnits = 0, invCost = 0, invCostMissing = 0; for (const r of srows) { const q = numOrNull(r.qty), p = numOrNull(r.price_incl), pe = numOrNull(r.price_excl), c = numOrNull(r.cost_price); if (q != null) totalUnits += q; if (q != null && p != null) invValue += q * p; if (q != null && pe != null) invValueExcl += q * pe; else if (q != null && pe == null) invExclMissing++; if (q != null && c != null) invCost += q * c; else if (q != null && c == null) invCostMissing++; }   // «قبل الضريبة» من price_excl · التكلفة من cost_price خام؛ صنف بلا سعر يُستبعَد ويُعدّ (لا صفر بصمت)
   // أيام التغطية المرصودة = Σ period_days المتمايزة لكل رفعة (لا عدد الرفعات)
   const perUp = new Map(); for (const m of cur) if (m.period_days != null && !perUp.has(m.upload_id)) perUp.set(m.upload_id, Number(m.period_days) || 0);
   let daysCovered = 0; for (const d of perUp.values()) daysCovered += d;
@@ -3355,7 +3355,7 @@ function salesColData(loc, movs, stock, curSince, prevSince) {
   const dailyRate = daysCovered > 0 ? a.units / daysCovered : null;           // الوحدات ÷ period_days المجموعة (لا عدد الرفعات)
   const coverage = (dailyRate && dailyRate > 0) ? Math.round(totalUnits / dailyRate) : null;   // الكمية ÷ المعدّل اليوميّ
   const hasUpload = cur.length > 0 || daysCovered > 0;   // للتمييز «رُفع بلا مبيعات» عن «لم يُرفع» — يُدقَّق فوقه بـuploadedInPeriod
-  return { loc, name: salesLocName(loc), agg: a, pagg: pa, invValue: srows.length ? invValue : null, invValueExcl: srows.length ? invValueExcl : null, invExclMissing, totalItems: srows.length, totalUnits, daysCovered, prevDaysCovered, dailyRate, coverage, hasUpload, series: salesSeries(cur) };
+  return { loc, name: salesLocName(loc), agg: a, pagg: pa, invValue: srows.length ? invValue : null, invValueExcl: srows.length ? invValueExcl : null, invExclMissing, invCost: srows.length ? invCost : null, invCostMissing, totalItems: srows.length, totalUnits, daysCovered, prevDaysCovered, dailyRate, coverage, hasUpload, series: salesSeries(cur) };
 }
 const salesShort = n => { n = Number(n) || 0; return Math.abs(n) >= 1000 ? Math.round(n / 100) / 10 + "K" : String(Math.round(n)); };
 function scTrend(c, p) { if (p == null) return ""; if (!p) return c ? `<span class="scc-tr flat" title="لا توجد فترة سابقة يُقارَن بها هذا الرقم بعد">لا فترة سابقة للمقارنة</span>` : `<span class="scc-tr flat">—</span>`; const r = Math.round((c - p) / p * 100); return `<span class="scc-tr ${r > 0 ? "up" : r < 0 ? "down" : "flat"}">${r > 0 ? "+" : ""}${r}% عن السابق</span>`; }
@@ -3542,8 +3542,8 @@ function renderSalesDetail() {
   const prev = prevSince != null ? movs.filter(m => { const t = salesBizTs(m.captured_at); return t >= prevSince && t < curSince && tabLocs.includes(m.location); }) : [];
   const a = salesAgg(cur), pa = salesAgg(prev);
   const srows = stock.filter(r => tabLocs.includes(r.location));
-  let inv = 0, invExcl = 0, invExclMiss = 0, totUnits = 0; const qtyBySku = new Map(), priceBySku = new Map();
-  for (const r of srows) { const qn = numOrNull(r.qty), pn = numOrNull(r.price_incl), pe = numOrNull(r.price_excl); if (qn != null) { totUnits += qn; qtyBySku.set(r.sku, (qtyBySku.get(r.sku) || 0) + qn); } if (qn != null && pn != null) { inv += qn * pn; if (!priceBySku.has(r.sku)) priceBySku.set(r.sku, pn); } if (qn != null && pe != null) invExcl += qn * pe; else if (qn != null && pe == null) invExclMiss++; }
+  let inv = 0, invExcl = 0, invExclMiss = 0, totUnits = 0; const qtyBySku = new Map(), priceBySku = new Map(), costBySku = new Map();
+  for (const r of srows) { const qn = numOrNull(r.qty), pn = numOrNull(r.price_incl), pe = numOrNull(r.price_excl), cn = numOrNull(r.cost_price); if (qn != null) { totUnits += qn; qtyBySku.set(r.sku, (qtyBySku.get(r.sku) || 0) + qn); } if (qn != null && pn != null) { inv += qn * pn; if (!priceBySku.has(r.sku)) priceBySku.set(r.sku, pn); } if (qn != null && pe != null) invExcl += qn * pe; else if (qn != null && pe == null) invExclMiss++; if (cn != null && !costBySku.has(r.sku)) costBySku.set(r.sku, cn); }
   const perUp = new Map(); for (const m of cur) if (m.period_days != null && !perUp.has(m.upload_id)) perUp.set(m.upload_id, Number(m.period_days) || 0);
   let daysCov = 0; for (const v of perUp.values()) daysCov += v;
   const perUpP = new Map(); for (const m of prev) if (m.period_days != null && !perUpP.has(m.upload_id)) perUpP.set(m.upload_id, Number(m.period_days) || 0);
@@ -3565,12 +3565,12 @@ function renderSalesDetail() {
     + ds("scov", covGateD ? "—" : (coverage != null ? String(coverage) : "—"), "متوسط أيام التغطية", covGateD ? "" : "يوم", covGateD ? salesCovGateSub(daysCov) : "الكمية ÷ معدّل البيع اليوميّ")
     + `</div>`
     + `<div class="s4-3tables"></div>`;
-  salesCtx._tab = { cur, qtyBySku, priceBySku, daysCov, upCount, tabLocs };
+  salesCtx._tab = { cur, qtyBySku, priceBySku, costBySku, daysCov, upCount, tabLocs };
   renderSalesTables();
 }
 function renderSalesTables() {
   const host = document.querySelector("#salesDetail .s4-3tables"); if (!host || !salesCtx || !salesCtx._tab) return;
-  const { cur, qtyBySku, priceBySku, daysCov, upCount, tabLocs } = salesCtx._tab;
+  const { cur, qtyBySku, priceBySku, costBySku, daysCov, upCount, tabLocs } = salesCtx._tab;
   const q = normText(salesSearch || "");   // normText يُنهي بـtrim ⇒ مسافات فقط = "" ⇒ لا فلترة
   const bcBySku = new Map(); for (const r of (salesCtx.stock || [])) if (r && r.sku != null && r.barcode != null && String(r.barcode).trim() !== "") bcBySku.set(String(r.sku), String(r.barcode));   // باركود المخزون الحاليّ (null/فارغ لا يُدرَج ⇒ لا يطابق شيئاً)
   const match = (sku, nm) => !q || normText(String(sku || "") + " " + String(nm || "") + " " + (bcBySku.get(String(sku)) || "")).includes(q);
@@ -3588,12 +3588,12 @@ function renderSalesTables() {
   if (!gate) {
     const now = Date.now();
     const otherStatus = sku => { const others = (salesCtx.branchLocs || []).filter(l => !tabLocs.includes(l)); if (!others.length) return "—"; const sold = salesCtx.movs.some(m => m.kind === "estimated_sale" && m.sku === sku && others.includes(m.location) && salesBizTs(m.captured_at) >= salesCtx.curSince); return sold ? "سريع في فرع آخر" : "راكد/غائب"; };   // الفروع الأخرى فقط (المستودع ليس بيعاً)
-    const raka = [...qtyBySku.entries()].map(([sku, qty]) => { const ls = lastSale.get(sku), days = ls ? Math.round((now - ls) / 86400000) : null, nm = (sMap.get(sku) || {}).name || "", pr = priceBySku.get(sku); return { sku, name: nm, qty, days, unit: pr != null ? pr : null, val: pr != null ? qty * pr : null }; })
+    const raka = [...qtyBySku.entries()].map(([sku, qty]) => { const ls = lastSale.get(sku), days = ls ? Math.round((now - ls) / 86400000) : null, nm = (sMap.get(sku) || {}).name || "", pr = priceBySku.get(sku), ct = costBySku.get(sku); return { sku, name: nm, qty, days, unit: pr != null ? pr : null, cost: ct != null ? ct : null, val: pr != null ? qty * pr : null }; })
       .filter(x => x.qty > 0 && (x.days == null || x.days >= S4_NOSALE_DAYS) && match(x.sku, x.name)).sort((a, b) => (b.days || 99999) - (a.days || 99999));   // الدخول: أطول ركوداً (لا يتغيّر)
     const rakaTop = salesQtyDesc(salesCap(raka, "raka"), x => x.qty);   // العرض: الكمية تنازلياً · كسر التعادل بأيام الركود
     rakaHasMore = raka.length > 10;
     rakaTbl = rakaTop.length
-      ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الكمية</th><th class="n">آخر حركة</th><th class="n">سعر الوحدة <span class="incl-tag">شامل</span></th><th class="n">القيمة <span class="incl-tag">شامل</span></th><th>في المواقع الأخرى</th></tr></thead><tbody>${rakaTop.map((x, i) => `<tr><td>${i + 1}</td><td class="nm"><span class="nmclamp" title="${esc(x.name)}">${esc(x.name) || "—"}</span></td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.days == null ? "لا بيع" : "منذ " + x.days + " يوم"}</td><td class="n"><bdi dir="ltr">${x.unit == null ? "—" : salesNum(x.unit)}</bdi></td><td class="n"><bdi dir="ltr">${x.val == null ? "—" : salesNum(x.val)}</bdi></td><td class="oth">${esc(otherStatus(x.sku))}</td></tr>`).join("")}</tbody></table>`
+      ? `<table><thead><tr><th>#</th><th>المنتج</th><th>SKU</th><th class="n">الكمية</th><th class="n">آخر حركة</th><th class="n">سعر التكلفة</th><th class="n">السعر <span class="incl-tag">شامل</span></th><th class="n">القيمة <span class="incl-tag">شامل</span></th><th>في المواقع الأخرى</th></tr></thead><tbody>${rakaTop.map((x, i) => `<tr><td>${i + 1}</td><td class="nm"><span class="nmclamp" title="${esc(x.name)}">${esc(x.name) || "—"}</span></td><td class="mono"><span dir="ltr">${esc(x.sku)}</span></td><td class="n"><bdi dir="ltr">${salesNum(x.qty)}</bdi></td><td class="n badt">${x.days == null ? "لا بيع" : "منذ " + x.days + " يوم"}</td><td class="n"><bdi dir="ltr">${x.cost == null ? "—" : salesNum(x.cost)}</bdi></td><td class="n"><bdi dir="ltr">${x.unit == null ? "—" : salesNum(x.unit)}</bdi></td><td class="n"><bdi dir="ltr">${x.val == null ? "—" : salesNum(x.val)}</bdi></td><td class="oth">${esc(otherStatus(x.sku))}</td></tr>`).join("")}</tbody></table>`
       : `<div class="s4-gate">ما فيه أصناف راكدة هنا.</div>`;
     const nafadAll = [...qtyBySku.entries()].map(([sku, qty]) => { const s = sMap.get(sku), sold = s ? s.u : 0, dr = daysCov > 0 ? sold / daysCov : 0, cov = dr > 0 ? Math.round(qty / dr) : null; return { sku, name: (s || {}).name || "", qty, cov }; })
       .filter(x => x.qty > 0 && x.cov != null && x.cov < S4_NAFAD_DAYS && match(x.sku, x.name)).sort((a, b) => a.cov - b.cov);
@@ -3767,7 +3767,7 @@ function sqKey(e) {
 function sqStockByLoc(sku) {
   const locs = [["wh", "المستودع"], ...salesAllLocs().map(b => [b.id, b.name])];
   const byLoc = new Map(); let name = "", barcode = "";
-  for (const r of (salesCtx && salesCtx.stock || [])) { if (String(r.sku) !== String(sku)) continue; if (!name && r.name) name = r.name; if (!barcode && r.barcode) barcode = r.barcode; byLoc.set(r.location, { qty: numOrNull(r.qty), incl: numOrNull(r.price_incl), excl: numOrNull(r.price_excl) }); }
+  for (const r of (salesCtx && salesCtx.stock || [])) { if (String(r.sku) !== String(sku)) continue; if (!name && r.name) name = r.name; if (!barcode && r.barcode) barcode = r.barcode; byLoc.set(r.location, { qty: numOrNull(r.qty), incl: numOrNull(r.price_incl), excl: numOrNull(r.price_excl), cost: numOrNull(r.cost_price) }); }
   return { locs, byLoc, name, barcode };
 }
 // صفّ شارات المنسدلة — يُعيد استعمال **تنسيق وتوكنات** شارات «بحث في المخزن» (.q-chip/.q-meta) لا مصدر بياناته
@@ -3823,13 +3823,13 @@ function salesQueryDetail(sku) {
   let totQty = 0;
   const rows = locs.map(([id, nm]) => {
     const d = byLoc.get(id);
-    if (!d) return `<tr><td>${esc(nm)}</td><td class="q-na">غير موجود</td><td class="q-na">—</td><td class="q-na">—</td>${estCell(id)}</tr>`;
+    if (!d) return `<tr><td>${esc(nm)}</td><td class="q-na">غير موجود</td><td class="q-na">—</td><td class="q-na">—</td><td class="q-na">—</td>${estCell(id)}</tr>`;
     if (d.qty != null) totQty += d.qty;
     const money = (x, why) => x != null ? salesNum(x) + " ر.س" : `<span class="q-na" title="${why}">—</span>`;
-    return `<tr><td>${esc(nm)}</td><td>${d.qty != null ? salesNum(d.qty) : '<span class="q-na">—</span>'}</td><td>${money(d.incl, "لا سعر شامل مسجّل")}</td><td>${money(d.excl, "لا سعر قبل الضريبة مسجّل")}</td>${estCell(id)}</tr>`;
+    return `<tr><td>${esc(nm)}</td><td>${d.qty != null ? salesNum(d.qty) : '<span class="q-na">—</span>'}</td><td>${money(d.incl, "لا سعر شامل مسجّل")}</td><td>${money(d.cost, "لا سعر تكلفة مسجّل")}</td><td>${money(d.excl, "لا سعر قبل الضريبة مسجّل")}</td>${estCell(id)}</tr>`;
   }).join("");
   const head = `<div class="sq-head"><b>${esc(name || sku)}</b> <span class="mono">${esc(sku)}</span>${barcode ? ` · باركود <span class="mono">${esc(barcode)}</span>` : ""}</div>`;
-  return head + `<div class="twrap"><table class="sq-table"><thead><tr><th>الموقع</th><th>الكمية</th><th>شامل الضريبة</th><th>قبل الضريبة</th><th>مبيعات مقدّرة (الفترة)</th></tr></thead><tbody>${rows}<tr class="total"><td>الإجمالي</td><td>${salesNum(totQty)}</td><td class="q-na">—</td><td class="q-na">—</td><td class="q-na">—</td></tr></tbody></table></div>`;
+  return head + `<div class="twrap"><table class="sq-table"><thead><tr><th>الموقع</th><th>الكمية</th><th>السعر شامل الضريبة</th><th>سعر التكلفة</th><th>قبل الضريبة</th><th>مبيعات مقدّرة (الفترة)</th></tr></thead><tbody>${rows}<tr class="total"><td>الإجمالي</td><td>${salesNum(totQty)}</td><td class="q-na">—</td><td class="q-na">—</td><td class="q-na">—</td><td class="q-na">—</td></tr></tbody></table></div>`;
 }
 // كتل حالة الرفع أعلى «المخزون» — دالّة مستقلّة ببوّابة دورها (🚫 لا تعتمد بوّابة شاشة المبيعات/canSeeSales):
 // المصادر (sales_uploads/movements/stock) مسموحة لـowner+admin فقط بين زوّار المخزون (viewer محجوب بـRLS ⇒ نُخفي لا نترك فارغاً بصمت؛ marketing لا يصل المخزون).
@@ -3913,7 +3913,7 @@ async function renderSalesPage() {
       return s;
     }, { val: 0, valExcl: 0, units: 0, noPrice: 0, disC: 0, disV: 0, valRate: 0, unitRate: 0, pvalRate: 0, punitRate: 0, daysMax: 0, pdaysMax: 0, cov: 0, covN: 0 });
     // المخزون: كل مواقع العرض (يشمل المستودع في «الكل») — مستقلّ عن رفع الفترة (المخزون لقطة حاليّة)
-    const invScope = invData.reduce((s, d) => { s.inv += (d.invValue || 0); s.invExcl += (d.invValueExcl || 0); s.invExclMiss += (d.invExclMissing || 0); return s; }, { inv: 0, invExcl: 0, invExclMiss: 0 });
+    const invScope = invData.reduce((s, d) => { s.inv += (d.invValue || 0); s.invExcl += (d.invValueExcl || 0); s.invExclMiss += (d.invExclMissing || 0); s.invCost += (d.invCost || 0); s.invCostMiss += (d.invCostMissing || 0); s.invItems += (d.totalItems || 0); return s; }, { inv: 0, invExcl: 0, invExclMiss: 0, invCost: 0, invCostMiss: 0, invItems: 0 });
     const curBranch = movs.filter(m => salesBizTs(m.captured_at) >= curSince && salesShown.includes(m.location) && uploadedInPeriod.has(m.location));
     const movedNow = new Set(curBranch.map(m => String(m.sku))).size;   // (١-أ) كود فريد عبر الفروع
     const movedPrev = prevSince != null ? new Set(movs.filter(m => { const t = salesBizTs(m.captured_at); return t >= prevSince && t < curSince && salesShown.includes(m.location) && uploadedInPeriod.has(m.location); }).map(m => String(m.sku))).size : null;
@@ -3933,7 +3933,7 @@ async function renderSalesPage() {
       kpi("sval", ic("spark"), salesNum(scope.val), `المبيعات المقدّرة (${branchLbl})`, `الفروع فقط — المستودع يظهر ضمن المخزون <span class="incl-tag">شامل</span>`, salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "قيمة تقديرية للمبيع في الفروع = مجموع (نقص كمية كل صنف × سعر وحدته المثبَّت). لا تشمل المستودع ولا الأصناف المختفية.", `قبل الضريبة <bdi dir="ltr">${salesNum(scope.valExcl)}</bdi> ر.س <span class="incl-tag">صافي</span>`, "ر.س") +
       kpi("sunits", ic("inbox"), salesNum(scope.units), "قطع بيعت (مقدّر)", "مجموع النقص في كميات أصناف الفروع", salesRateSpan(scope.unitRate, prevSince != null ? scope.punitRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax), "عدد القطع التي نقصت من مخزون الفروع خلال الفترة — كل نقص بيعٌ مقدّر (المستودع مستبعَد).", "", "قطعة") +
       kpi("smoved", ic("branch"), salesNum(movedNow), "منتجات متحرّكة", "أصناف تغيّرت كميتها في الفروع", salesCountSpan(movedNow, movedPrev, observedDays, scope.pdaysMax, "kpi-trend", prevBaselineOnly), "عدد أصناف الفروع الفريدة التي سُجّلت لها حركة كمية — منتج تحرّك في فرعين يُعدّ مرّة (المستودع مستبعَد).", "", "صنف") +
-      kpi("sinv", ic("warehouse"), salesNum(invScope.inv), "قيمة المخزون الحالية", `قيمة كل المخزون الآن (جميع الأصناف) <span class="incl-tag">شامل</span>`, "", "الكمية الحالية × سعرها لكل صنف — يشمل المستودع (مخزون فعليّ)، بخلاف المبيعات.", `قبل الضريبة <bdi dir="ltr">${salesNum(invScope.invExcl)}</bdi> ر.س <span class="incl-tag">صافي</span>${invScope.invExclMiss ? ` · <span class="kpi-miss" title="أصناف بلا سعر قبل الضريبة في العرض — مستبعدة من هذا الرقم لا محسوبة صفراً">${salesNum(invScope.invExclMiss)} صنفاً بلا سعر قبل الضريبة — مستبعدة</span>` : ""}${invTag}`, "ر.س");
+      kpi("sinv", ic("warehouse"), ((invScope.invItems - invScope.invCostMiss) > 0) ? salesNum(invScope.invCost) : "—", "قيمة المخزون (تكلفة)", `الكمية × سعر التكلفة الخام (بلا ضريبة)${invScope.invCostMiss ? ` · <span class="kpi-miss" title="أصناف بلا سعر تكلفة — مستبعدة لا محسوبة صفراً">محسوبة على ${salesNum(invScope.invItems - invScope.invCostMiss)} صنفاً من ${salesNum(invScope.invItems)} لهم تكلفة</span>` : ""}`, "", "قيمة المخزون بسعر التكلفة الخام (الكمية × cost_price) — يشمل المستودع. صنف بلا تكلفة مستبعَد لا محسوب صفراً.", `بسعر البيع بدون ضريبة <bdi dir="ltr">${salesNum(invScope.invExcl)}</bdi> ر.س <span class="incl-tag">صافي</span>${invScope.invExclMiss ? ` · <span class="kpi-miss" title="أصناف بلا سعر قبل الضريبة في العرض — مستبعدة من هذا الرقم لا محسوبة صفراً">${salesNum(invScope.invExclMiss)} صنفاً بلا سعر قبل الضريبة — مستبعدة</span>` : ""}${invTag}`, "ر.س");
     // (حُذف كرت «متوسط أيام التغطية» من الصفّ العلويّ — المتوسط يستر الحرج؛ القرار في جدول «مخاطر النفاد» بالأصناف)
     // (ج) صمّام الموقع الغائب — ماذا/لماذا/ما العمل
     const missBanner = document.getElementById("salesMissBanner");
@@ -5329,8 +5329,10 @@ const HEAD_PATTERNS = {
   code:    x => x.includes("كود") || x.includes("code") || x.includes("sku") || (x.includes("رقم") && x.includes("صنف")),
   name:    x => x.includes("اسم") || x.includes("name"),
   qty:     x => x.includes("كميه") || x.includes("qty") || x.includes("quantity"),   // normHead: ة→ه فـ«الكمية»/«الكميه» كلاهما «كميه»
-  excl:    x => (x.includes("قبل") && x.includes("ضريب")) || (x.includes("سعر") && x.includes("قبل")) || x.includes("excl"),
-  incl:    x => x.includes("سامل") || x.includes("incl") || x.includes("price") || (x.includes("سعر") && !x.includes("قبل")),
+  // 🚨 التكلفة تُستثنى من أنماط السعر: «سعر التكلفة» فيه «سعر» و«cost_price» فيه «price» فلولا الاستثناء لالتُقطت سعرَ بيع
+  excl:    x => !x.includes("تكلف") && !x.includes("cost") && ((x.includes("قبل") && x.includes("ضريب")) || (x.includes("سعر") && x.includes("قبل")) || x.includes("excl")),
+  incl:    x => !x.includes("تكلف") && !x.includes("cost") && (x.includes("سامل") || x.includes("incl") || x.includes("price") || (x.includes("سعر") && !x.includes("قبل"))),
+  cost:    x => x.includes("تكلف") || x.includes("cost"),   // «التكلفة/التكلفه» (normHead: ة→ه) · cost · cost_price
   barcode: x => x.includes("باركود") || x.includes("باركور"),   // «باركور» يعالج خطأ «الباركورد» الشائع
 };
 const INV_HEAD_ACCEPTED = {   // للعرض في رسالة الرفض
@@ -5343,7 +5345,7 @@ function detectInvCols(first) {
   const h = first.map(normHead);
   const find = key => h.findIndex(HEAD_PATTERNS[key]);
   let ci = find("code"), ni = find("name"), qi = find("qty");
-  const ii = find("incl"), ei = find("excl");
+  const ii = find("incl"), ei = find("excl"), cti = find("cost");   // cti = التكلفة (اختياريّ، بلا fallback)
   let bi = find("barcode");
   // بعض الأنظمة تسمّي عمود الكود «الباركورد»/«باركود». الأولوية للكود الأساسي (كود/رقم صنف/code/sku)؛
   // فإن غاب واستُعمل عمود الباركود كوداً — فهو كود لا باركود (bi=-1، فلا يُنسَخ الكود في خانة الباركود).
@@ -5351,7 +5353,7 @@ function detectInvCols(first) {
   const found = { code: ci >= 0, name: ni >= 0, qty: qi >= 0, incl: ii >= 0, excl: ei >= 0, barcode: bi >= 0 };
   const head = { code: ci >= 0 ? first[ci] : null, qty: qi >= 0 ? first[qi] : null, incl: ii >= 0 ? first[ii] : null, excl: ei >= 0 ? first[ei] : null, barcode: bi >= 0 ? first[bi] : null };
   if (ci < 0) ci = 0; if (ni < 0) ni = 1; if (qi < 0) qi = 2;   // fallback موضعي — للملف بلا رأس فقط؛ الرأس الموجود يُحرَس في invColError
-  return { ci, ni, qi, ii, ei, bi, found, head };
+  return { ci, ni, qi, ii, ei, bi, cti, found, head };
 }
 // حارس الرفع: رأس موجود لكن عمود جوهري (كود/كمية/سعر) غير مكتشَف ⇒ رسالة رفض غنيّة (وإلا null)
 function invColError(colMap, headers, fileName, fileLabel) {
@@ -5379,9 +5381,9 @@ function parseInvRows(aoa) {
   if (!aoa || !aoa.length) return [];
   const first = (aoa[0] || []).map(c => String(c == null ? "" : c).trim());
   const looksHeader = invLooksHeader(first);
-  let ci = 0, ni = 1, qi = 2, ii = -1, ei = -1, bi = -1, start = 0;
-  if (looksHeader) { start = 1; const m = detectInvCols(first); ci = m.ci; ni = m.ni; qi = m.qi; ii = m.ii; ei = m.ei; bi = m.bi; }
-  else if ((aoa[0] || []).length >= 5) { ii = 3; ei = 4; }   // مختصر بلا رأس وكامل ⇒ موضعي
+  let ci = 0, ni = 1, qi = 2, ii = -1, ei = -1, bi = -1, cti = -1, start = 0;
+  if (looksHeader) { start = 1; const m = detectInvCols(first); ci = m.ci; ni = m.ni; qi = m.qi; ii = m.ii; ei = m.ei; bi = m.bi; cti = m.cti; }
+  else if ((aoa[0] || []).length >= 5) { ii = 3; ei = 4; }   // مختصر بلا رأس وكامل ⇒ موضعي (التكلفة تحتاج رأساً صريحاً)
   const out = [];
   let totalsSkipped = 0;   // صفوف مجاميع مُستبعَدة (تنبيه في سطر الاستيراد)
   for (let r = start; r < aoa.length; r++) {
@@ -5393,6 +5395,7 @@ function parseInvRows(aoa) {
     out.push({
       code, name,
       qty: qi >= 0 ? row[qi] : "", incl: ii >= 0 ? row[ii] : "", excl: ei >= 0 ? row[ei] : "",
+      cost: cti >= 0 ? row[cti] : "",   // سعر التكلفة خام (بلا أي ضرب/ضريبة) — اختياريّ
       bar: (bi >= 0 && row[bi] != null) ? String(row[bi]).trim() : ""
     });
   }
@@ -5730,10 +5733,10 @@ function aggregateInv(list, mode) {
   for (const it of list || []) {
     const code = String(it.code == null ? "" : it.code).trim(); if (!code) continue;
     let e = map.get(code);
-    if (!e) { e = { code, name: "", qty: 0, incl: "", excl: "", bar: "" }; map.set(code, e); }
+    if (!e) { e = { code, name: "", qty: 0, incl: "", excl: "", cost: "", bar: "" }; map.set(code, e); }
     const q = Number(String(it.qty).replace(/[^\d.\-]/g, "")); if (Number.isFinite(q)) e.qty += q;
     const put = (k, v) => { if (!hasVal(v)) return; if (whMode) e[k] = (k === "name" || k === "bar") ? String(v).trim() : v; else if (!hasVal(e[k])) e[k] = (k === "name" || k === "bar") ? String(v).trim() : v; };
-    put("name", it.name); put("incl", it.incl); put("excl", it.excl); put("bar", it.bar);
+    put("name", it.name); put("incl", it.incl); put("excl", it.excl); put("cost", it.cost); put("bar", it.bar);   // cost خام (لا يمرّ بـapplyVat)
   }
   return [...map.values()];
 }
@@ -5768,9 +5771,9 @@ function vatDoubleCheck(fileName, colMap, aggList, label) {
     `\n\nإن كان السعر قبل الضريبة فتابِع. إن كان شاملاً فألغِ وارفع ملفاً «قبل الضريبة».\n\nأتابع الإضافة؟`
   );
 }
-function buildInvDbRows(aggList, branchId) {
+function buildInvDbRows(aggList, branchId, withCost) {
   const nowIso = new Date().toISOString();
-  return aggList.map((r, i) => { const row = { code: String(r.code), name: r.name || null, barcode: r.bar || null, qty: numOrNull(r.qty), price_incl: numOrNull(r.incl), price_excl: numOrNull(r.excl), row_order: i, imported_at: nowIso }; if (branchId) row.branch_id = branchId; return row; });
+  return aggList.map((r, i) => { const row = { code: String(r.code), name: r.name || null, barcode: r.bar || null, qty: numOrNull(r.qty), price_incl: numOrNull(r.incl), price_excl: numOrNull(r.excl), row_order: i, imported_at: nowIso }; if (withCost) row.cost_price = numOrNull(r.cost); if (branchId) row.branch_id = branchId; return row; });   // cost_price خام (numOrNull بلا ضريبة) · null إن غاب العمود · 🚫 لا يُرسَل لجدول الحراج (بلا عمود)
 }
 const invRowToMerge = r => ({ code: r.code, name: r.name || "", qty: r.qty, incl: r.price_incl, excl: r.price_excl, bar: r.barcode || "" });
 // مزامنة كاملة لجدول (مستودع/فرع): upsert دفعات + حذف الغائب + تحديث الميتا + سجل نشاط
@@ -5931,7 +5934,7 @@ async function recordMovements(uploadId, kind, existMap, rows, branchId, fileNam
 }
 async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
   const isBr = kind === "branch", isXbr = kind === "xbranch", scope = (isBr || isXbr) ? branchId : null;   // xbranch: فرعا شاشة المبيعات (scope = الرمز الثابت)
-  const table = INV_TABLE[kind], rows = buildInvDbRows(aggList, scope);
+  const table = INV_TABLE[kind], rows = buildInvDbRows(aggList, scope, kind !== "xbranch");   // cost_price للمستودع والفروع فقط — 🚫 لا جدول الحراج (بلا العمود)
   const newCodes = rows.map(r => r.code), newSet = new Set(newCodes);
   const existRows = await db.inventory.getAllCodes(table, scope);   // [{code,qty}] — القديم للدلتا (لوحة المبيعات)
   const existMap = new Map(existRows.map(r => [String(r.code), r]));   // القديم كصفّ كامل {qty,name,price_incl,price_excl} — لتقييم المختفي بسعره الأخير

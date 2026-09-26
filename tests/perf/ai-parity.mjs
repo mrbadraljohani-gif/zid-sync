@@ -26,13 +26,15 @@ const branches = [{ id: "az", name: "العزيزية" }, { id: "kh", name: "ا�
 const mv = (loc, sku, q, v) => ({ kind: "estimated_sale", delta: -q, value_est: v, unit_price_incl: v / q, unit_price_excl: Math.round(v / q / 1.15), location: loc, sku, sku_name: sku, upload_id: "U_" + loc, captured_at: now, period_days: 5 });
 const movements = [mv("az", "A1", 500, 9772), mv("kh", "K1", 435, 26816), mv("wh", "W1", 445, 19680)];   // wh سحب — يجب استبعاده
 const uploads = [{ id: "U_az", location: "az", captured_at: now, suspect: false }, { id: "U_kh", location: "kh", captured_at: now, suspect: false }, { id: "U_wh", location: "wh", captured_at: now, suspect: false }];
-const stock = [{ location: "az", sku: "A1", name: "A1", qty: 100, price_incl: 20, price_excl: 17 }, { location: "kh", sku: "K1", name: "K1", qty: 200, price_incl: 30, price_excl: 26 }, { location: "wh", sku: "W1", name: "W1", qty: 1000, price_incl: 500, price_excl: 435 }];
+const stock = [{ location: "az", sku: "A1", name: "A1", qty: 100, price_incl: 20, price_excl: 17, cost_price: 8 }, { location: "kh", sku: "K1", name: "K1", qty: 200, price_incl: 30, price_excl: 26, cost_price: 12 }, { location: "wh", sku: "W1", name: "W1", qty: 1000, price_incl: 500, price_excl: 435, cost_price: 200 }];
 // 🚨 الدرس (الفخّ الذي أخفى القصّ شهراً): بيانات الحارس يجب أن تتجاوز كل سقف نظام حقيقيّ (1000/طلب).
 //    نُضخّم المخزون فوق السقف، وموك الشاشة يفرض سقف 1000/طلب (slice) فيُختبَر تصفيح الشاشة فعليّاً.
 const STOCK_FILL = 1200;   // إجمالي 1203 صفّاً > 1000
-for (let i = 0; i < STOCK_FILL; i++) stock.push({ location: "az", sku: "F" + i, name: "F" + i, qty: 1, price_incl: 10, price_excl: 8 });
-// قيمة المخزون المتوقّعة (all، يشمل المستودع): az(100*20 + 1200*10) + kh(200*30) + wh(1000*500) = 520000
+for (let i = 0; i < STOCK_FILL; i++) stock.push({ location: "az", sku: "F" + i, name: "F" + i, qty: 1, price_incl: 10, price_excl: 8, cost_price: 5 });
+// قيمة المخزون المتوقّعة للمساعد (incl، يشمل المستودع — 🚫 لا cost في الدفعة ٢): az(100*20 + 1200*10) + kh(200*30) + wh(1000*500) = 520000
 const EXPECT_INV = 520000;
+// دفعة ٢: الشاشة صارت تعرض «قيمة المخزون (تكلفة)» — az(100*8 + 1200*5) + kh(200*12) + wh(1000*200) = 209200
+const EXPECT_COST = 209200;
 
 // ————— (أ) أرقام الشاشة (المتصفّح): period=all و period=7 —————
 function findChrome(){const c=["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",process.env.CHROME_PATH||"","/usr/bin/google-chrome-stable","/usr/bin/google-chrome"];for(const x of c)if(x&&existsSync(x))return x;for(const n of ["google-chrome-stable","google-chrome","chromium"])try{return execFileSync("bash",["-lc","command -v "+n]).toString().trim();}catch{}return"";}
@@ -116,10 +118,10 @@ if (val7 !== screen.p7) fails.push(`تكافؤ ③ منكسر: المساعد (7
 if (!(res7 && res7.coverage_shortfall && res7.coverage_shortfall.requested_days === 7)) fails.push(`الفحص ③: بلا coverage_shortfall (بيان النقص) — «${JSON.stringify(res7 && res7.coverage_shortfall)}»`);
 // ④ المركّب: إجماليّ مقارنة المواقع == الشاشة (المستودع مستبعَد)
 if (valCmp !== screen.all) fails.push(`تكافؤ ④ (مركّب) منكسر: مقارنة المواقع ${valCmp} ≠ الشاشة ${screen.all}`);
-// ⑤ قيمة المخزون على >1000 صفّ (بيانات تتجاوز سقف النظام): الشاشة (بتصفيحها) == المساعد == المتوقّع
-if (invAll !== String(EXPECT_INV)) fails.push(`قيمة مخزون المساعد على >1000 صفّ ليست ${EXPECT_INV}: «${invAll}»`);
-if (screen.inv !== String(EXPECT_INV)) fails.push(`قيمة مخزون الشاشة (تصفيح >1000) ليست ${EXPECT_INV} — تصفيح الشاشة مقصوص؟: «${screen.inv}»`);
-if (screen.inv !== invAll) fails.push(`تكافؤ ⑤ (قيمة المخزون >1000) منكسر: الشاشة ${screen.inv} ≠ المساعد ${invAll}`);
+// ⑤ التصفيح على >1000 صفّ (بيانات تتجاوز سقف النظام): كلاهما يقرأ كل الصفوف — لكن بوحدتين بعد الدفعة ٢:
+//    المساعد قيمة المخزون **incl** (🚫 لا cost في الدفعة ٢) · الشاشة «قيمة المخزون (تكلفة)». تطابقٌ لا يصحّ هنا — التصفيح يُثبَت بأنّ كليهما يبلغ متوقّعه الكامل.
+if (invAll !== String(EXPECT_INV)) fails.push(`قيمة مخزون المساعد (incl) على >1000 صفّ ليست ${EXPECT_INV} — تصفيح المساعد مقصوص؟: «${invAll}»`);
+if (screen.inv !== String(EXPECT_COST)) fails.push(`قيمة مخزون الشاشة (تكلفة، تصفيح >1000) ليست ${EXPECT_COST} — تصفيح الشاشة مقصوص أو التكلفة لم تُقرأ؟: «${screen.inv}»`);
 
 if (fails.length) { console.error("✗ G-AI-PARITY:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log(`✅ G-AI-PARITY: ① مفرد=${valAll} · ③ فترة 7 ⇒ ${val7} ＋ بيان نقص · ④ مركّب=${valCmp} · ⑤ قيمة المخزون على ${stock.length} صفّ (>سقف النظام)=الشاشة=المساعد=${invAll} — كلّها بتطابق تامّ.`);
+console.log(`✅ G-AI-PARITY: ① مفرد=${valAll} · ③ فترة 7 ⇒ ${val7} ＋ بيان نقص · ④ مركّب=${valCmp} · ⑤ تصفيح >1000: المساعد incl=${invAll} · الشاشة تكلفة=${screen.inv} (كلاهما كامل بلا قصّ) — بتطابق تامّ.`);
