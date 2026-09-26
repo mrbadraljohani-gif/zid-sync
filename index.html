@@ -33,6 +33,14 @@
     --green-2: #4FD1B8;
     --danger: #FF9B8A;      /* danger — الخطأ */
     --cost: #FF6B7A;        /* سعر التكلفة — أحمر وردِيّ منفصل عن --danger (#FF9B8A، الخطأ) دوراً وقيمةً؛ لا يُخلَط كي لا يُفقَد الخطأُ معناه (تباين ≥6.4:1 على أسطح التكلفة، مقيس) */
+    /* ألوان فئوية لخطوط رسم المبيعات — خمس درجات متباعدة الصبغة (🚫 لا الذهبيّ للسعر ولا --cost للتكلفة)؛ الشكل يميّزها أيضاً (وصولية) */
+    --loc-wh: #6FA8DC;       /* المستودع — أزرق (نادر في رسم المبيعات، يُستعمل في جدول المقارنة) */
+    --loc1: #2ED3C6;         /* فيروزيّ ~178° */
+    --loc2: #7C9CFF;         /* أزرق بنفسجيّ ~228° */
+    --loc3: #C58AF0;         /* بنفسجيّ ~275° */
+    --loc4: #7ED957;         /* أخضر ليمونيّ ~105° */
+    --loc5: #F58BD0;         /* أرجوانيّ ~322° (متباعد عن --cost الورديّ ~353°) */
+    --loc6: #E6CC6A;         /* رمليّ فاتح (احتياطيّ سادس — متمايز عن الذهبيّ الأغمق) */
     --info: #6FA8DC;        /* أزرق بارد مميّز — المعلومات (7.1:1 على steel) */
     --amber: #E6CC2E;       /* أصفر تحذير — متمايز عن النحاس (18° hue · 11.3:1 على steel) */
     --amber-tint: oklch(from var(--amber) 0.90 c h);   /* اشتقاق أفتح بنفس الصبغة (مقاد بـ--amber): للحدود/الأشرطة الأمبرية البارزة كي تقرأ صفراء لا زيتونية عند التركيب فوق الداكن */
@@ -1304,6 +1312,23 @@
   .s4-dd { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 7px; padding: 3px 9px; }
   .s4-ml { width: 100%; height: auto; }
   .s4-ml-grid { stroke: var(--border); stroke-width: 1; } .s4-ml-ax { fill: var(--muted-2); font-size: 10px; font-family: var(--mono); direction: ltr; }   /* direction:ltr يمنع قلب text-anchor في التواريخ العربية (بتر الطرف) */
+  /* رسم المبيعات: المفتاح ＋ التلميح */
+  .sc-chart-wrap { position: relative; }
+  .sc-legend { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin-top: 10px; }
+  .sc-leg { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 99px; background: rgba(255,255,255,.03); color: var(--text); font-family: inherit; font-size: 12px; cursor: pointer; }
+  .sc-leg:hover { border-color: var(--border-strong); }
+  .sc-leg:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .sc-leg.off { opacity: .45; text-decoration: line-through; }   /* المخفيّ: باهت ＋ شطب (واضح لا غامض) */
+  .sc-leg-sw { flex: 0 0 auto; }
+  .sc-leg-late { color: var(--muted-2); font-size: 10.5px; }
+  .sc-leg-note { color: var(--muted-2); font-size: 10.5px; margin-inline-start: auto; }
+  .sc-tip { position: absolute; top: 6px; pointer-events: none; z-index: 5; background: linear-gradient(var(--panel-2), var(--panel-2)), var(--bg); border: 1px solid var(--border-strong); border-radius: 10px; padding: 7px 9px; font-size: 11.5px; box-shadow: 0 6px 20px rgba(0,0,0,.35); max-width: 220px; }
+  .sc-tip .sctip-h { font-weight: 800; color: var(--text); margin-bottom: 4px; }
+  .sc-tip .sctip-row { display: flex; align-items: center; gap: 6px; color: var(--muted); line-height: 1.8; }
+  .sc-tip .sctip-row b { margin-inline-start: auto; color: var(--text); font-family: var(--mono); }
+  .sc-tip .sctip-sw { width: 9px; height: 9px; border-radius: 2px; flex: 0 0 auto; }
+  .sc-tip .sctip-total { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); color: var(--muted); display: flex; }
+  .sc-tip .sctip-total b { margin-inline-start: auto; color: var(--text); font-family: var(--mono); }
   .s4-cmp h2 { font-size: 15px; margin-bottom: 12px; }
   .s4-cmp table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .s4-cmp th { font-size: 10px; color: var(--muted); font-weight: 600; padding: 8px 14px; border-bottom: 1px solid var(--border-strong); text-align: start; white-space: nowrap; }
@@ -2009,7 +2034,7 @@
       <!-- كتل حالة الرفع (بلا رفعة · المفقود · آخر رفعة/التغطية) نُقلت إلى صفحة «تحديث قاعدة البيانات» ← #dbUploadStatus (دفعة هـ) -->
       <div class="s4-mid">
         <div class="card s4-cmp"><h2>مقارنة المواقع</h2><div class="twrap" id="salesCmp"></div></div>
-        <div class="card"><div class="s4-ch-head"><h2>المبيعات المقدّرة عبر الزمن (قيمة)</h2><span class="s4-dd">يومياً</span></div><div id="salesChart"></div><div class="s4-chart-note">كل نقطة تمثّل مبيعات اليوم السابق لرفعتها (بتوقيت الرياض) · النقطة المجوّفة ○ تغطّي أكثر من يوم · الألوان كنقاط المواقع في الجدول</div></div>
+        <div class="card"><div class="s4-ch-head"><h2>المبيعات المقدّرة عبر الزمن (قيمة)</h2><span class="s4-dd">يومياً</span></div><div class="sc-chart-wrap"><div id="salesChart"></div><div id="salesChartTip" class="sc-tip" style="display:none" aria-hidden="true"></div></div><div id="salesChartLegend" class="sc-legend" role="group" aria-label="مفتاح المواقع — اضغط لإخفاء/إظهار الخطّ"></div><div class="s4-chart-note">كل نقطة تمثّل مبيعات اليوم السابق لرفعتها (بتوقيت الرياض)</div></div>
       </div>
       <div class="sales-notes" id="salesNotes"></div>
       <div id="salesSuspectBox" style="display:none"></div>
@@ -2121,7 +2146,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "bf93ace";
+const APP_VERSION = "0d4d3eb";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3159,7 +3184,20 @@ const SALES_PERIODS = [["today", "أمس"], ["7", "7 أيام"], ["30", "30 يو
 function salesAllLocs() { return [...(invBranches || []).map(b => ({ id: b.id, name: b.name })), ...SALES_EXTRA_LOCS]; }
 function salesLocName(loc) { return loc === "wh" ? "المستودع" : ((salesAllLocs().find(b => b.id === loc) || {}).name || loc); }
 function salesLocList() { return [["all", "جميع المواقع"], ["wh", "المستودع"], ...salesAllLocs().map(b => [b.id, b.name])]; }
-function salesLocColor(loc) { if (loc === "wh") return "--info"; const i = salesAllLocs().findIndex(b => b.id === loc); return ["--green", "--gold", "--amber", "--green-2", "--danger", "--gold-2"][i] || "--info"; }
+function salesLocColor(loc) { if (loc === "wh") return "--loc-wh"; const i = salesAllLocs().findIndex(b => b.id === loc); return ["--loc1", "--loc2", "--loc3", "--loc4", "--loc5", "--loc6"][i] || "--loc6"; }   // فئويّ متباعد (🚫 لا الذهبيّ/‏--cost)
+function salesLocShape(loc) { if (loc === "wh") return "circle"; const i = salesAllLocs().findIndex(b => b.id === loc); return ["circle", "square", "triangle", "diamond", "star", "cross"][i] || "circle"; }   // شكل نقطة مميّز لكل موقع (وصولية: لا اعتماد على اللون وحده)
+// عنصر SVG لشكل نقطة (لون + شكل) ＋ عنوان اختياريّ — دائرة/مربّع/مثلّث/معيّن/نجمة
+function svgShape(shape, cx, cy, r, attrs, title) {
+  const a = attrs || "", t = title || "", n = v => v.toFixed(1);
+  if (shape === "square") return `<rect x="${n(cx - r)}" y="${n(cy - r)}" width="${n(2 * r)}" height="${n(2 * r)}" ${a}>${t}</rect>`;
+  if (shape === "triangle") return `<polygon points="${[[cx, cy - r], [cx - r, cy + r * 0.85], [cx + r, cy + r * 0.85]].map(p => n(p[0]) + "," + n(p[1])).join(" ")}" ${a}>${t}</polygon>`;
+  if (shape === "diamond") return `<polygon points="${[[cx, cy - r], [cx + r, cy], [cx, cy + r], [cx - r, cy]].map(p => n(p[0]) + "," + n(p[1])).join(" ")}" ${a}>${t}</polygon>`;
+  if (shape === "star") { const pts = []; for (let i = 0; i < 10; i++) { const ang = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; pts.push([cx + rr * Math.cos(ang), cy + rr * Math.sin(ang)]); } return `<polygon points="${pts.map(p => n(p[0]) + "," + n(p[1])).join(" ")}" ${a}>${t}</polygon>`; }
+  if (shape === "cross") return `<path d="M${n(cx - r)},${n(cy - r * 0.34)} h${n(r * 0.66)} v${n(-r * 0.66)} h${n(r * 0.68)} v${n(r * 0.66)} h${n(r * 0.66)} v${n(r * 0.68)} h${n(-r * 0.66)} v${n(r * 0.66)} h${n(-r * 0.68)} v${n(-r * 0.66)} h${n(-r * 0.66)} z" ${a}>${t}</path>`;
+  return `<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(r)}" ${a}>${t}</circle>`;
+}
+// محور رأسيّ بخطوات مستديرة (0 · 4K · 8K …): يُرجع {top, step}
+function niceAxis(max) { if (!(max > 0)) return { top: 1, step: 1 }; const raw = max / 4, mag = Math.pow(10, Math.floor(Math.log10(raw))), norm = raw / mag, nice = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10, step = nice * mag; return { top: Math.ceil(max / step) * step, step }; }
 function salesLocIcon(loc) { return loc === "wh" ? ic("warehouse") : ic("branch"); }   // أيقونة عامّة للفروع كلها (زد ＋ حراج) — بلا تعداد
 // ── التوقيت: كل يوم تقويميّ يُشتقّ بتوقيت الرياض (UTC+3، بلا صيفيّ) صراحةً — لا slice على UTC ولا توابع متصفّح القارئ ──
 const SALES_TZ_OFF = 3 * 3600000;
@@ -3223,8 +3261,8 @@ function renderSalesFilters() {
   const sel = document.getElementById("salesLocSel");
   if (sel) sel.innerHTML = salesLocList().map(([v, l]) => `<option value="${esc(String(v))}"${salesLoc === v ? " selected" : ""}>${esc(l)}</option>`).join("");
 }
-function salesSetPeriod(p) { salesManualRange = null; salesPeriod = p; renderSalesPage(); }   // زرّ سريع يُلغي المدى اليدويّ (مصدر واحد)
-function salesSetLoc(l) { salesLoc = l; renderSalesPage(); }
+function salesSetPeriod(p) { salesManualRange = null; salesPeriod = p; salesHiddenLines = new Set(); renderSalesPage(); }   // زرّ سريع يُلغي المدى اليدويّ (مصدر واحد) ＋ يصفّر إخفاء الخطوط
+function salesSetLoc(l) { salesLoc = l; salesHiddenLines = new Set(); renderSalesPage(); }   // تغيّر النطاق ⇒ مجموعة مواقع مختلفة ⇒ صفّر الإخفاء
 // (هويّة الجلسة نُقلت إلى قائمة المستخدم بالشريط العلويّ — sideUserEmail ＋ sideUserRole)
 // تسمية مدى الفترة (عرضٌ لا اختيار) — تُحسب من الشريحة النشطة
 function salesSetDateLabel() {
@@ -3486,37 +3524,97 @@ async function salesShowDisappeared() {
       + `</tbody></table></div></div>`;
   } catch (e) { box.innerHTML = `<div class="stc-empty">تعذّر: ${esc(e.message || String(e))}</div>`; }
 }
-// رسم خطّي متعدّد المواقع (SVG مضمّن، بلا مكتبة)
-function salesMultiLineSVG(seriesMap, order) {
-  const W = 560, H = 232, padL = 60, padB = 40, padT = 14, padR = 22;   // هوامش أوسع: y-labels يميناً ＋ تاريخ أسفل بلا بتر (محروس بـG-CHART-AXIS)
-  const dates = [...new Set(order.flatMap(l => (seriesMap[l] || []).map(p => p.d)))].sort();
-  if (!dates.length) return `<svg class="s4-ml" viewBox="0 0 ${W} ${H}" aria-hidden="true"><text x="${W / 2}" y="${H / 2}" text-anchor="middle" class="s4-ml-ax">لا بيانات كافية للرسم</text></svg>`;
-  const max = Math.max(1, ...order.flatMap(l => (seriesMap[l] || []).map(p => p.v)));
+// رسم خطّي متعدّد المواقع (SVG مضمّن، بلا مكتبة) — أشكال نقاط مميّزة · محور مستدير · تسمية كل تاريخ (أو 1/2) · إخفاء بالمفتاح
+// hidden: Set بالمواقع المخفيّة (يعاد المقياس على المرئيّ فقط ليُقارَن فرعان). يبني salesTipData للتلميح.
+let salesTipData = null;
+function salesMultiLineSVG(seriesMap, order, hidden) {
+  hidden = hidden || new Set();
+  const W = 560, H = 232, padL = 60, padB = 40, padT = 14, padR = 22;
+  const vis = order.filter(l => !hidden.has(l) && (seriesMap[l] || []).length);   // المرئيّ فقط (للمقياس والرسم)
+  const dates = [...new Set(vis.flatMap(l => (seriesMap[l] || []).map(p => p.d)))].sort();
+  salesTipData = null;
+  if (!dates.length) return `<svg class="s4-ml" viewBox="0 0 ${W} ${H}" aria-hidden="true"><text x="${W / 2}" y="${H / 2}" text-anchor="middle" class="s4-ml-ax">${vis.length ? "لا بيانات كافية للرسم" : "كل الخطوط مخفيّة — أظهر موقعاً من المفتاح"}</text></svg>`;
+  const rawMax = Math.max(1, ...vis.flatMap(l => (seriesMap[l] || []).map(p => p.v)));
+  const { top, step } = niceAxis(rawMax);   // محور بخطوات مستديرة (0 · step · 2step …)
   const xi = new Map(dates.map((d, i) => [d, i]));
   const X = i => padL + (dates.length === 1 ? (W - padL - padR) / 2 : i * (W - padL - padR) / (dates.length - 1));
-  const Y = v => padT + (1 - v / max) * (H - padT - padB);
+  const Y = v => padT + (1 - v / top) * (H - padT - padB);
   let grid = "", ax = "", lines = "";
-  for (const f of [0, 0.25, 0.5, 0.75, 1]) { const yy = padT + (1 - f) * (H - padT - padB); grid += `<line class="s4-ml-grid" x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}"/>`; ax += `<text class="s4-ml-ax" x="${padL - 5}" y="${(yy + 3).toFixed(1)}" text-anchor="end">${salesShort(max * f)}</text>`; }
-  for (const loc of order) {
-    const s = seriesMap[loc] || []; if (!s.length) continue;
-    const col = `var(${salesLocColor(loc)})`;
-    const solo = s.length === 1;   // موقع بنقطة واحدة: لا خطّ له (polyline بلا طول) ⇒ علامة بارزة إلزاماً (لا يختفي وله قيمة)
+  for (let g = 0; g <= top + 1e-6; g += step) { const yy = padT + (1 - g / top) * (H - padT - padB); grid += `<line class="s4-ml-grid" x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}"/>`; ax += `<text class="s4-ml-ax" x="${padL - 5}" y="${(yy + 3).toFixed(1)}" text-anchor="end">${salesShort(g)}</text>`; }
+  for (const loc of vis) {
+    const s = seriesMap[loc] || [];
+    const col = `var(${salesLocColor(loc)})`, shape = salesLocShape(loc), solo = s.length === 1;
     if (s.length > 1) lines += `<polyline fill="none" stroke="${col}" stroke-width="2.2" points="${s.map(p => `${X(xi.get(p.d)).toFixed(1)},${Y(p.v).toFixed(1)}`).join(" ")}"/>`;
     lines += s.map(p => {
       const cx = X(xi.get(p.d)), cy = Y(p.v), multi = (p.span || 1) > 1;
       const title = `<title>${esc(salesLocName(loc))} · ${multi ? "تغطّي " + esc(bizRangeLabel(p.d, p.span)) : esc(fmtDayLabel(p.d))} · ${salesNum(p.v)} ر.س</title>`;
-      if (solo) {   // علامة بارزة (هالة ＋ قرص) — مرئيّة دائماً حتى بلا خطّ؛ مجوّفة الوسط إن كانت ممتدّة
-        return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="6" fill="${col}" opacity="0.18"/><circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4" fill="${multi ? "none" : col}" stroke="${col}" stroke-width="2">${title}</circle>`;
-      }
-      // ضمن خطّ: النقطة الممتدّة (span>1) حلقة مجوّفة مميّزة عن نقطة اليوم الواحد
-      return multi
-        ? `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.2" fill="none" stroke="${col}" stroke-width="2"/><circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="1.5" fill="${col}">${title}</circle>`
-        : `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="3.2" fill="${col}">${title}</circle>`;
+      const halo = solo ? `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="6" fill="${col}" opacity="0.18"/>` : "";   // هالة النقطة المنفردة (r=6، لا تختفي)
+      const attrs = multi ? `fill="none" stroke="${col}" stroke-width="2"` : `fill="${col}"`;   // الممتدّة (span>1) مجوّفة
+      return halo + svgShape(shape, cx, cy, solo ? 4.5 : 3.6, attrs, title);
     }).join("");
   }
-  const single = dates.length === 1;
-  const xl = `<text class="s4-ml-ax" x="${X(0).toFixed(1)}" y="${H - 6}" text-anchor="${single ? "middle" : "start"}">${esc(fmtDayLabel(dates[0]))}</text>` + (dates.length > 1 ? `<text class="s4-ml-ax" x="${X(dates.length - 1).toFixed(1)}" y="${H - 6}" text-anchor="end">${esc(fmtDayLabel(dates[dates.length - 1]))}</text>` : "");
-  return `<svg class="s4-ml" viewBox="0 0 ${W} ${H}" aria-hidden="true">${grid}${lines}${ax}${xl}</svg>`;
+  // تسمية التواريخ: كلّها إن ≤7، وإلا واحدة من كلّ N (＋ الطرف الأخير دائماً) — لا طرفين فقط
+  const nStep = dates.length <= 7 ? 1 : Math.ceil(dates.length / 7);
+  let xl = "";
+  dates.forEach((d, i) => { if (i % nStep !== 0 && i !== dates.length - 1) return; const anchor = dates.length === 1 ? "middle" : i === 0 ? "start" : i === dates.length - 1 ? "end" : "middle"; xl += `<text class="s4-ml-ax" x="${X(i).toFixed(1)}" y="${H - 6}" text-anchor="${anchor}">${esc(fmtDayLabel(d))}</text>`; });
+  // بيانات التلميح: لكل تاريخ قيمة كل موقع مرئيّ (مرتّبة تنازلياً) ＋ الإجمالي ＋ إحداثيّاته
+  const byDate = dates.map((d, i) => { const items = vis.map(loc => { const pt = (seriesMap[loc] || []).find(p => p.d === d); return pt ? { loc, name: salesLocName(loc), color: salesLocColor(loc), value: pt.v } : null; }).filter(Boolean).sort((a, b) => b.value - a.value); return { d, x: X(i), items, total: items.reduce((s, e) => s + e.value, 0) }; });
+  salesTipData = { W, H, padL, padR, byDate };
+  return `<svg class="s4-ml" viewBox="0 0 ${W} ${H}" aria-hidden="true" preserveAspectRatio="xMidYMid meet">${grid}${lines}${ax}${xl}</svg>`;
+}
+let salesHiddenLines = new Set();   // مواقع مخفيّة من الرسم — عرضٌ فقط (🚫 لا localStorage) · تُصفّر عند تبديل التبويب/الفترة
+let salesChartState = null;   // {smap, order} — مدخلات الرسم (مستقلّة عن توقيت إسناد salesCtx) لإعادة الرسم عند تبديل خطّ
+// أشكال المفتاح: عيّنة SVG صغيرة (لون + شكل) — نفس شكل النقطة على الخط
+function legendSwatch(loc) {
+  const col = `var(${salesLocColor(loc)})`;
+  return `<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" class="sc-leg-sw">${svgShape(salesLocShape(loc), 8, 8, 5.5, `fill="${col}"`, "")}</svg>`;
+}
+// المفتاح: كل موقع مرسوم = زرّ تبديل (اسم ＋ عيّنة لون/شكل ＋ وسم «(من التاريخ)» لمن لا يغطّي المدى) — قابل للّمس والكيبورد
+function renderSalesLegend(order, seriesMap, fullDates) {
+  const host = document.getElementById("salesChartLegend"); if (!host) return;
+  const firstAll = fullDates && fullDates.length ? fullDates[0] : null;
+  const items = order.filter(l => (seriesMap[l] || []).length).map(loc => {
+    const hiddenL = salesHiddenLines.has(loc), s = seriesMap[loc] || [];
+    const myFirst = s.length ? s.map(p => p.d).sort()[0] : null;
+    const late = firstAll && myFirst && myFirst > firstAll ? ` <span class="sc-leg-late">(من ${esc(fmtDayLabel(myFirst))})</span>` : "";   // بند ٣: بداية متأخّرة مُفسَّرة
+    return `<button type="button" class="sc-leg${hiddenL ? " off" : ""}" role="button" aria-pressed="${!hiddenL}" onclick="salesToggleLine('${esc(String(loc)).replace(/'/g, "\\'")}')" title="${hiddenL ? "أظهر" : "أخفِ"} ${esc(salesLocName(loc))}">${legendSwatch(loc)}<span class="sc-leg-nm">${esc(salesLocName(loc))}</span>${late}</button>`;
+  }).join("");
+  host.innerHTML = items + `<span class="sc-leg-note">النقطة المجوّفة ○ تغطّي أكثر من يوم</span>`;   // بند ٧: شرح النقطة المجوّفة بجوار ما يشرحه (○ محرف هندسيّ لا إيموجي)
+}
+function salesToggleLine(loc) {   // إخفاء/إظهار خطّ — عرضٌ فقط
+  if (salesHiddenLines.has(loc)) salesHiddenLines.delete(loc); else salesHiddenLines.add(loc);
+  renderSalesChart();
+}
+// تلميح: أقرب عمود تاريخ عند المرور/اللمس ⇒ صندوق (تاريخ ＋ قيمة كل موقع مرتّبة تنازلياً ＋ الإجمالي) داخل حدود البطاقة
+function wireSalesTooltip() {
+  const host = document.getElementById("salesChart"), svg = host && host.querySelector("svg"), tip = document.getElementById("salesChartTip");
+  if (!host || !svg || !tip || !salesTipData || !salesTipData.byDate.length) { if (tip) tip.style.display = "none"; return; }
+  const td = salesTipData;
+  const show = (clientX) => {
+    const rect = svg.getBoundingClientRect(); if (!rect.width) return;
+    const vx = (clientX - rect.left) / rect.width * td.W;   // clientX ⇒ إحداثيّ viewBox
+    let best = td.byDate[0], bd = Infinity; for (const c of td.byDate) { const d = Math.abs(c.x - vx); if (d < bd) { bd = d; best = c; } }
+    const rows = best.items.map(e => `<div class="sctip-row"><span class="sctip-sw" style="background:var(${e.color})"></span><span class="sctip-nm">${esc(e.name)}</span><b><bdi dir="ltr">${salesNum(e.value)}</bdi> ر.س</b></div>`).join("");
+    tip.innerHTML = `<div class="sctip-h">${esc(fmtDayLabel(best.d))}</div>${rows}<div class="sctip-total">الإجمالي <b><bdi dir="ltr">${salesNum(best.total)}</bdi> ر.س</b></div>`;
+    tip.style.display = "block";
+    const hostRect = host.getBoundingClientRect(); let left = (best.x / td.W) * rect.width + (rect.left - hostRect.left) + 12;
+    if (left + tip.offsetWidth > host.clientWidth) left = Math.max(4, host.clientWidth - tip.offsetWidth - 4);   // 🚫 لا يخرج عن حدود البطاقة
+    tip.style.left = Math.max(4, left) + "px";
+  };
+  const hide = () => { tip.style.display = "none"; };
+  svg.addEventListener("mousemove", e => show(e.clientX));
+  svg.addEventListener("mouseleave", hide);
+  svg.addEventListener("touchstart", e => { if (e.touches[0]) show(e.touches[0].clientX); }, { passive: true });
+  svg.addEventListener("touchmove", e => { if (e.touches[0]) show(e.touches[0].clientX); }, { passive: true });
+}
+// يرسم الرسم ＋ المفتاح ＋ يوصّل التلميح — من salesCtx._chart (يُعاد عند تبديل خطّ)
+function renderSalesChart() {
+  const host = document.getElementById("salesChart"); if (!host || !salesChartState) return;
+  const { smap, order } = salesChartState;
+  const fullDates = [...new Set(order.flatMap(l => (smap[l] || []).map(p => p.d)))].sort();   // كامل المدى (لوسم البداية المتأخّرة)
+  host.innerHTML = salesMultiLineSVG(smap, order, salesHiddenLines);
+  renderSalesLegend(order, smap, fullDates);
+  wireSalesTooltip();
 }
 let salesTab = "all", salesCtx = null, salesShowAll = {}, salesSearchOpen = false;
 const S4_STAGNANT_MIN_DAYS = 14, S4_NAFAD_DAYS = 30, S4_NOSALE_DAYS = 14;
@@ -4017,7 +4115,8 @@ async function renderSalesPage() {
     else banner.style.display = "none";
     // الرسم متعدّد المواقع ＋ وسيلة الإيضاح
     const smap = {}; for (const d of salesData) smap[d.loc] = d.series;   // الرسم: الفروع فقط (المستودع ليس بيعاً)
-    document.getElementById("salesChart").innerHTML = salesMultiLineSVG(smap, salesShown);
+    salesChartState = { smap, order: salesShown };   // للرسم/المفتاح/التلميح ولإعادة الرسم عند تبديل خطّ (مستقلّ عن salesCtx)
+    renderSalesChart();
     // جدول المقارنة — الوحدة ملتصقة برقمها بخطّ عربيّ (لا mono يقطّع «يوم») · «المبيعات» بشريط حصّة خلفيّ بلون الموقع.
     const money = v => `<bdi dir="ltr">${salesNum(v)}</bdi><span class="cmp-u">ر.س</span>`;   // «5,685,194 ر.س»
     const covCell = c => c == null ? "—" : (c > 3650 ? `<span class="cmp-slow">بطيء</span>` : `<bdi dir="ltr">${c}</bdi><span class="cmp-u">يوم</span>`);   // «855 يوم» (يوم بخطّ عربيّ)
@@ -6658,7 +6757,7 @@ function run(reprocess) {
         const runLog = [];
         const zidQtyOf = rk => { const row = rowByRawSku[rk]; return (row && iQty >= 0) ? curQtyNum(row[iQty]) : null; };
         // ① تصفير الكمية (كل الأبواب) — before = كمية زد الحالية · after = 0 · السبب من zeroDoor؛ 0 أصلاً ⇒ لا تحوّل
-        const zeroReason = { low: "قيمة منخفضة", waiting: "غير متوفر ⏳", absent: "غائب عن المخزن", matched0: "مطابَق بكمية 0" };
+        const zeroReason = { low: "قيمة منخفضة", waiting: "غير متوفر", absent: "غائب عن المخزن", matched0: "مطابَق بكمية 0" };   // 🚫 لا إيموجي في نصّ يُخزَّن (reason في activity_log)
         for (const rk in zeroDoor) {
           if (finalQtyByRaw[rk] !== 0) continue;                       // أُعيد تفعيله ⇒ ليس تصفيراً
           const before = zidQtyOf(rk);

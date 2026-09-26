@@ -254,6 +254,14 @@ jobs:
         run: node tests/perf/sales-singlepoint.mjs --broken
       - name: G-SINGLEPOINT — موقع بنقطة واحدة وقيمة>0 له علامة بارزة (لا يختفي)
         run: node tests/perf/sales-singlepoint.mjs
+      - name: Self-check — G-SALES-CHART يرسب حين تتطابق ألوان الخطوط
+        run: node tests/perf/sales-chart.mjs --broken
+      - name: Self-check — G-SALES-CHART يرسب حين يغيب الشكل المميّز
+        run: node tests/perf/sales-chart.mjs --broken-shape
+      - name: Self-check — G-SALES-CHART يرسب حين لا يُخفي المفتاح الخطّ
+        run: node tests/perf/sales-chart.mjs --broken-toggle
+      - name: G-SALES-CHART — مفتاح تفاعليّ ＋ ألوان/أشكال متمايزة ＋ محاور مقروءة ＋ تلميح
+        run: node tests/perf/sales-chart.mjs
       - name: Self-check — G-TAX-STOCK يرسب حين يُحسب الصنف بلا price_excl صفراً
         run: node tests/perf/sales-tax-stock.mjs --broken
       - name: G-TAX-STOCK — قيمة المخزون قبل الضريبة من price_excl؛ الناقص مستبعَد بعدّاد
