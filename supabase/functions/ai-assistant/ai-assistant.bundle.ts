@@ -429,7 +429,7 @@ const D = n => `${NF1(n)} يوم`;
 const PC = n => `${n > 0 ? "+" : ""}${n}%`;
 // 🚨 مقاييس مُنفصلة {label, value, unit} — القيمة رقم بفواصله وحده، الوحدة والوسم منفصلان (لا دمج ⇒ لا تكرار).
 //   القيمة أرقام/فواصل/إشارة فقط (بلا حروف) — حارس G-AI-METRIC-UNITS يقفل ذلك.
-const mM  = (label, n) => ({ label, value: NF(n),  unit: "ر.س شامل" });
+const mM  = (label, n) => ({ label, value: NF(n),  unit: "ر.س بسعر البيع شامل الضريبة" });   // «بسعر البيع» يميّز عن التكلفة (الشاشة تعرض قيمة المخزون بالتكلفة)
 const mMX = (label, n) => ({ label, value: NF(n),  unit: "ر.س صافي" });
 const mRT = (label, n) => ({ label, value: NF(n),  unit: "ر.س/يوم" });
 const mQ  = (label, n) => ({ label, value: NF(n),  unit: "قطعة" });
@@ -859,7 +859,7 @@ Deno.serve(async (req) => {
   const answerNote = hasSalesIntent
     ? "المبيعات مقدّرة لا مؤكّدة، والمستودع مستبعَد من المبيعات."
     : (intents.includes("inventory_value")
-      ? (location === "branches" ? "قيمة المخزون لقطة حاليّة — الفروع فقط (بلا المستودع)." : "قيمة المخزون لقطة حاليّة تشمل المستودع.")
+      ? (location === "branches" ? "قيمة المخزون لقطة حاليّة بسعر البيع شامل الضريبة (لا سعر التكلفة) — الفروع فقط (بلا المستودع)." : "قيمة المخزون لقطة حاليّة بسعر البيع شامل الضريبة (لا سعر التكلفة) — تشمل المستودع.")
       : "");
 
   const phRes = await geminiRobust(GEMINI_MODEL, GEMINI_MODEL_FALLBACK, GEMINI_KEY, PHRASE_INSTRUCTION, phrasePayload, true);

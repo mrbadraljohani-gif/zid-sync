@@ -239,7 +239,7 @@ const D = n => `${NF1(n)} يوم`;
 const PC = n => `${n > 0 ? "+" : ""}${n}%`;
 // 🚨 مقاييس مُنفصلة {label, value, unit} — القيمة رقم بفواصله وحده، الوحدة والوسم منفصلان (لا دمج ⇒ لا تكرار).
 //   القيمة أرقام/فواصل/إشارة فقط (بلا حروف) — حارس G-AI-METRIC-UNITS يقفل ذلك.
-const mM  = (label, n) => ({ label, value: NF(n),  unit: "ر.س شامل" });
+const mM  = (label, n) => ({ label, value: NF(n),  unit: "ر.س بسعر البيع شامل الضريبة" });   // «بسعر البيع» يميّز عن التكلفة (الشاشة تعرض قيمة المخزون بالتكلفة)
 const mMX = (label, n) => ({ label, value: NF(n),  unit: "ر.س صافي" });
 const mRT = (label, n) => ({ label, value: NF(n),  unit: "ر.س/يوم" });
 const mQ  = (label, n) => ({ label, value: NF(n),  unit: "قطعة" });

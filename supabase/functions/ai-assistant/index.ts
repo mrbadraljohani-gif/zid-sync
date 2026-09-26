@@ -300,7 +300,7 @@ Deno.serve(async (req) => {
   const answerNote = hasSalesIntent
     ? "المبيعات مقدّرة لا مؤكّدة، والمستودع مستبعَد من المبيعات."
     : (intents.includes("inventory_value")
-      ? (location === "branches" ? "قيمة المخزون لقطة حاليّة — الفروع فقط (بلا المستودع)." : "قيمة المخزون لقطة حاليّة تشمل المستودع.")
+      ? (location === "branches" ? "قيمة المخزون لقطة حاليّة بسعر البيع شامل الضريبة (لا سعر التكلفة) — الفروع فقط (بلا المستودع)." : "قيمة المخزون لقطة حاليّة بسعر البيع شامل الضريبة (لا سعر التكلفة) — تشمل المستودع.")
       : "");
 
   const phRes = await geminiRobust(GEMINI_MODEL, GEMINI_MODEL_FALLBACK, GEMINI_KEY, PHRASE_INSTRUCTION, phrasePayload, true);

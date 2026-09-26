@@ -14,9 +14,9 @@ const BROKEN = process.argv.includes("--broken");
 let url = pathToFileURL(SRC).href, tmp = "";
 if (BROKEN) {
   let s = readFileSync(SRC, "utf8");
-  const A = 'const mM  = (label, n) => ({ label, value: NF(n),  unit: "ر.س شامل" });';
+  const A = 'const mM  = (label, n) => ({ label, value: NF(n),  unit: "ر.س بسعر البيع شامل الضريبة" });';
   if (!s.includes(A)) { console.error("✗ (--broken) لم أجد mM"); process.exit(2); }
-  s = s.replace(A, 'const mM  = (label, n) => ({ label, value: NF(n) + " ر.س شامل",  unit: "ر.س" });   // (--broken) دمج قديم');
+  s = s.replace(A, 'const mM  = (label, n) => ({ label, value: NF(n) + " ر.س",  unit: "ر.س" });   // (--broken) دمج قديم');
   tmp = join(dirname(SRC), "_broken_metric.mjs"); writeFileSync(tmp, s); url = pathToFileURL(tmp).href;
 }
 const { runIntent } = await import(url);

@@ -2115,7 +2115,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "c02159b";
+const APP_VERSION = "885d31d";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3856,6 +3856,19 @@ function salesQueryDetail(sku) {
 // كتل حالة الرفع أعلى «المخزون» — دالّة مستقلّة ببوّابة دورها (🚫 لا تعتمد بوّابة شاشة المبيعات/canSeeSales):
 // المصادر (sales_uploads/movements/stock) مسموحة لـowner+admin فقط بين زوّار المخزون (viewer محجوب بـRLS ⇒ نُخفي لا نترك فارغاً بصمت؛ marketing لا يصل المخزون).
 // الحساب مُعاد من renderSalesPage (بلا بوّابة دور — يملأ الكتل بالمعرّف)؛ التغطية تبقى owner فقط داخله (admin مخفيّ).
+// دفعة: كتلة «بلا رفعة» لدور admin — أسماء المواقع التي لم تُرفع اليوم (بتوقيت الرياض) من sales_uploads **وحده**.
+// 🚫 صفر استعلام/رقم مبيعات: sales_uploads سجلّ رفعات (طوابع الموقع/الوقت) لا بيانات مبيعات. المواقع = المستودع ＋ كل ما يرفعه admin (فروع زد ＋ الحراج).
+function renderAdminMissingToday(ups) {
+  const el = document.getElementById("salesMissBanner"); if (!el) return;
+  const today = riyadhDay(Date.now());
+  const locs = [["wh", "المستودع"], ...salesAllLocs().map(b => [b.id, b.name])];
+  const latest = new Map();
+  for (const u of ups || []) { const t = Date.parse(u.captured_at); if (Number.isFinite(t) && (!latest.has(u.location) || t > latest.get(u.location))) latest.set(u.location, t); }
+  const miss = locs.filter(([id]) => { const t = latest.get(id); return !t || riyadhDay(t) !== today; }).map(([, n]) => n);
+  if (!miss.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+  el.style.display = "block"; el.className = "s4-banner miss";
+  el.innerHTML = `⚠ لم تُرفع اليوم: ${miss.map(esc).join(" · ")} — ارفع ملف كل موقع ناقص قبل إنشاء ملفَّي زد.`;
+}
 async function fillUploadStatus() {
   const host = document.getElementById("invUploadStatus"); if (!host) return;
   if (!(myRole === "owner" || myRole === "admin")) { host.style.display = "none"; return; }   // viewer/غيره: RLS يحجب المصادر — إخفاء صريح لا نصف صامت
@@ -3863,8 +3876,8 @@ async function fillUploadStatus() {
   // دفعة ٣: admin بلا بيانات مبيعات (RLS يقصر sales_movements/sales_stock على owner+marketing) — حالة الرفع من sales_uploads فقط.
   //   🚫 لا نستعلم sales_movements/sales_stock لـadmin (صفر صفّ مبيعات في استجابة الشبكة، لا مجرّد 0 من RLS). كتل التحليل تُخفى صراحةً (تحتاج حركات محجوبة).
   if (myRole === "admin") {
-    try { if (dbOnline && sb) renderSalesLastUp(await db.sales.uploads()); } catch (e) {}   // sales_uploads = سجلّ رفعات (طوابع) لا بيانات مبيعات
-    ["salesMissBanner", "salesBanner", "salesDisBox"].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = "none"; });
+    try { if (dbOnline && sb) { const ups = await db.sales.uploads(); renderSalesLastUp(ups); renderAdminMissingToday(ups); } } catch (e) {}   // sales_uploads = سجلّ رفعات (طوابع) لا بيانات مبيعات
+    ["salesBanner", "salesDisBox"].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = "none"; });   // «المفقود»/التحليل يبقى مخفيّاً · «بلا رفعة» يُعرض من sales_uploads وحده
     return;
   }
   if (typeof renderSalesPage === "function") await renderSalesPage();
@@ -6023,6 +6036,21 @@ async function loadInventoryFromDB() {
 function invMergeIncomplete() {
   return !!(mergeWh && invMeta && Number(invMeta.branch_count) > 0 && mergeBranches.length === 0);
 }
+// اكتمال المدخل **لكل موقع ولليوم**: المواقع المتوقَّعة = المستودع (invMeta.wh_synced_at) ＋ فروع زد (invBranches[].synced_at).
+// 🚫 فرعا الحراج (SALES_EXTRA_LOCS) خارج الحساب — لا علاقة لهما بمزامنة زد. يُرجع أسماء المواقع التي لم تُرفع اليوم (بتوقيت الرياض).
+// مصدر التاريخ لكل موقع موجود ومنفصل (لا يُخترَع): wh_synced_at للمستودع · branches.synced_at لكل فرع.
+function invStaleToday() {
+  if (!invMeta) return [];   // لا ميتا (جلسة دون اتصال من البداية) ⇒ لا حكم — كـinvMergeIncomplete
+  const today = riyadhDay(Date.now()), miss = [];
+  const whMs = invMeta.wh_synced_at ? Date.parse(invMeta.wh_synced_at) : null;
+  if (!whMs || riyadhDay(whMs) !== today) miss.push({ name: "المستودع", ms: whMs });
+  for (const b of (invBranches || [])) { const ms = b.synced_at ? Date.parse(b.synced_at) : null; if (!ms || riyadhDay(ms) !== today) miss.push({ name: b.name || String(b.id), ms }); }
+  return miss;
+}
+function invStaleMsg(miss) {   // رسالة تذكر اسم كل موقع ناقص وتاريخ آخر رفعة له — 🚫 لا رسالة عامّة بلا اسم
+  const parts = (miss || []).map(m => `${m.name} (آخر رفعة: ${m.ms ? ageText(m.ms) : "لم تُرفع قطّ"})`);
+  return `⚠ المدخل ناقص: مواقع لم تُرفع اليوم — ${parts.join(" · ")}. أوقفتُ التنزيل تفادياً لتصفير أصناف موجودة في الرفّ. ارفع ملف كل موقع ناقص اليوم ثم «طابق وأنشئ».`;
+}
 function showInvIncomplete() {
   showErr("");
   const n = (invMeta && invMeta.branch_count) || 0;
@@ -6564,9 +6592,10 @@ function run(reprocess) {
     const vq = verifyQuantities(qtyRows);
     const vp = verifyPrices(priceRows, priceOrig, H, autoUnpub);   // يمرّر Yes→No للإخفاء الآلي (بسيط/آباء عبر كل الأبواب)
     const vm = document.getElementById("verifyMsg");
+    const staleLocs = invStaleToday();   // مواقع لم تُرفع اليوم (المستودع ＋ فروع زد) — تقفل التنزيل بلا اختراع مصدر
     const wireDl = (id, ok, aoa, count, reason) => {
       const el = document.getElementById(id);
-      if (ok && count > 0 && dbOnline && !invMergeIncomplete() && !histIncomplete) {   // بلا اتصال · موحّد مبتور · تاريخ ناقص ⇒ لا تنزيل (الدفعة أ ＋ الموحّد الناقص ＋ H1)
+      if (ok && count > 0 && dbOnline && !invMergeIncomplete() && !histIncomplete && staleLocs.length === 0) {   // بلا اتصال · موحّد مبتور · تاريخ ناقص · موقع لم يُرفع اليوم ⇒ لا تنزيل
         el.href = URL.createObjectURL(mkBlob(aoa)); el.classList.remove("disabled");
         el.onclick = ev => {
           if (id === "dlQty" && (!absentZeroGateOk(lastZeroRatio) || !zeroGateOk(lastZeroRatio))) { ev.preventDefault(); return false; }   // ②-ب (updated=0 ∧ غيابيّ) ثم ② (نسبة 60%) — أيّهما يوقف يمنع
@@ -6577,6 +6606,7 @@ function run(reprocess) {
     };
     wireDl("dlQty", vq.ok, qtyRows, qtyCount, "بعد تحميل ملف الكميات");
     wireDl("dlPrice", vp.ok, priceRows, priceCount, "بعد تحميل ملف الأسعار");
+    if (staleLocs.length && !invMergeIncomplete()) { const vmS = document.getElementById("verifyMsg"); if (vmS) { vmS.className = "verify-fail"; vmS.style.display = "block"; vmS.textContent = invStaleMsg(staleLocs); } }   // رسالة تذكر اسم كل موقع ناقص (بعد قفل التنزيل)
     document.getElementById("qtyN").textContent = qtyCount;
     document.getElementById("priceN").textContent = priceCount;
     // التقاط الأرقام نفسها المعروضة أعلاه (بلا إعادة حساب) لتقرأها صفحة المخزون
@@ -7339,6 +7369,7 @@ function toggleAllTest() {
 function downloadSelected() {
   if (blockedOffline()) return;
   if (invMergeIncomplete()) { showToast("⚠ الموحّد ناقص — أعِد التحميل (طابق وأنشئ / حدّث الصفحة) قبل التنزيل."); return; }   // منع صريح على أزرار التجربة أيضاً
+  { const st = invStaleToday(); if (st.length) { showToast("⚠ مواقع لم تُرفع اليوم: " + st.map(m => m.name).join(" · ") + " — ارفعها قبل التنزيل."); return; } }   // منع تنزيل التجربة عند نقص موقع اليوم
   if (!testSelected.size) { showErr("حدّد صنفاً واحداً على الأقل من القائمة أولاً."); return; }
   const iSkuP = stData.header.indexOf("sku");
   const inSel = sk => testSelected.has(String(sk));
@@ -7386,6 +7417,7 @@ function downloadSelected() {
 function downloadOne(skuN) {
   if (blockedOffline()) return;
   if (invMergeIncomplete()) { showToast("⚠ الموحّد ناقص — أعِد التحميل (طابق وأنشئ / حدّث الصفحة) قبل التنزيل."); return; }   // منع صريح على أزرار التجربة أيضاً
+  { const st = invStaleToday(); if (st.length) { showToast("⚠ مواقع لم تُرفع اليوم: " + st.map(m => m.name).join(" · ") + " — ارفعها قبل التنزيل."); return; } }   // منع تنزيل التجربة عند نقص موقع اليوم
   const target = normCode(skuN);
   const iSkuP = stData.header.indexOf("sku");
   const files = [];
