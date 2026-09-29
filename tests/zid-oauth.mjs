@@ -72,7 +72,7 @@ function load(env, db, fetchImpl, logs) {
   const shSrc = stripTypeScriptTypes(read("_shared/zid.ts"))
     .replace(/^\s*import[\s\S]*?from\s+["'][^"']+["'];/gm, "")
     .replace(/^export\s+/gm, "");
-  const names = ["REDIRECT_URI", "ZID_OAUTH", "SCOPES", "EXPECTED_STORE_ID", "STATE_TTL_MIN", "STATE_PURGE_MIN", "adminClient", "newRef", "logSafe", "dbCode", "keyKind", "textPage", "failPage"];
+  const names = ["REDIRECT_URI", "ZID_OAUTH", "SCOPES", "EXPECTED_STORE_ID", "STATE_TTL_MIN", "STATE_PURGE_MIN", "adminClient", "newRef", "logSafe", "dbCode", "keyKind", "logAuthorizeUrl", "textPage", "failPage"];
   const Deno = { env: { get: k => env[k] }, serve: h => { Deno._h = h; } };
   const fakeConsole = { error: (...a) => logs.push(a.join(" ")), log: (...a) => logs.push(a.join(" ")), warn: (...a) => logs.push(a.join(" ")) };
   const shared = new Function("Deno", "console", "createClient", shSrc + "\nreturn {" + names.join(",") + "};")(Deno, fakeConsole, () => db.client);
@@ -117,7 +117,15 @@ async function runSuite() {
     check("start: يوجّه إلى oauth.zid.sa/oauth/authorize", loc.origin + loc.pathname === "https://oauth.zid.sa/oauth/authorize", loc.origin + loc.pathname);
     check("start: client_id=7908 · response_type=code", loc.searchParams.get("client_id") === "7908" && loc.searchParams.get("response_type") === "code");
     check("start: redirect_uri مطابق حرفياً", loc.searchParams.get("redirect_uri") === B + "zid-oauth-callback", loc.searchParams.get("redirect_uri"));
-    check("start: النطاقان products.read inventories.read فقط", loc.searchParams.get("scope") === "products.read inventories.read", loc.searchParams.get("scope"));
+    // حادثة: إرسال scope بأسماء مخمَّنة أسقط صفحة تفويض زد («Oops! Something broke»).
+    // مثال زد الرسمي: client_id · redirect_uri · response_type فقط — والنطاقات من لوحة الشريك.
+    check("start: لا يرسل scope (النطاقات من لوحة الشريك)", !loc.searchParams.has("scope"), "scope=" + loc.searchParams.get("scope"));
+    check("start: المعاملات الأربعة بالضبط (client_id · redirect_uri · response_type · state)",
+      [...loc.searchParams.keys()].sort().join(",") === "client_id,redirect_uri,response_type,state", [...loc.searchParams.keys()].join(","));
+    const urlLog = logs.find(l => l.includes("start:authorize-url")) || "";
+    check("start: سطر التشخيص يطبع رابط التفويض", urlLog.includes("oauth.zid.sa/oauth/authorize") && urlLog.includes("client_id=7908") && urlLog.includes(encodeURIComponent(B + "zid-oauth-callback")), urlLog.slice(0, 120));
+    check("🚨 start: state محجوب في سطر التشخيص (لا القيمة كاملة)", !!loc.searchParams.get("state") && !urlLog.includes(loc.searchParams.get("state")));
+    check("🚨 start: لا client_secret في السجلّ", !logs.join("\n").includes(SECRET));
     check("start: state في الرابط مُخزَّن", st.includes(loc.searchParams.get("state")));
     check("start: state طويل عشوائي (≥40 حرفاً)", (loc.searchParams.get("state") || "").length >= 40);
     check("start: حُذف ما تجاوز ساعة · بقي الحديث", !st.includes("OLD") && st.includes("RECENT"));

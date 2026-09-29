@@ -18,8 +18,20 @@ const REDIRECT_URI =
 
 const ZID_OAUTH = "https://oauth.zid.sa";
 
-// نطاقات قراءة فقط — المرحلة الأولى. لا نطاق كتابة إطلاقاً.
+// النطاقات تُختار في **لوحة الشريك** لا في رابط التفويض (قراءة فقط: Products · Inventory
+// · Product Inventory Stock). ⚠ لا يُرسل معامل scope في /oauth/authorize: مثال زد الرسمي
+// لا يتضمّنه، وإرسالُه بأسماء مخمَّنة أسقط صفحة التفويض بـ«Oops! Something broke».
+// هذه القيمة وصفية فقط — تُخزَّن في zid_tokens.scopes إن لم تُعِد زد حقل scope.
 const SCOPES = "products.read inventories.read";
+
+// سطر تشخيص رابط التفويض — كل أجزائه عامّة (client_id عامّ · redirect_uri · response_type)،
+// و**state يُحجب** (نونس CSRF لمرّة واحدة: يُطبع طوله وأوّل 4 أحرف فقط).
+function logAuthorizeUrl(ref: string, url: URL) {
+  const shown = new URL(url.toString());
+  const st = shown.searchParams.get("state") || "";
+  if (st) shown.searchParams.set("state", `${st.slice(0, 4)}…(${st.length})`);
+  console.log(`[zid] stage=start:authorize-url ref=${ref} url=${shown.toString()}`);
+}
 
 // المتجر الوحيد المقبول. أي تفويض لمتجر آخر يُرفض ولا يُخزَّن.
 const EXPECTED_STORE_ID = "28494";
@@ -133,8 +145,9 @@ Deno.serve(async (req) => {
     u.searchParams.set("client_id", clientId);
     u.searchParams.set("redirect_uri", REDIRECT_URI);
     u.searchParams.set("response_type", "code");
-    u.searchParams.set("scope", SCOPES);
+    // 🚫 لا scope هنا — النطاقات من لوحة الشريك (مثال زد الرسمي بلا scope؛ إرساله أسقط الصفحة)
     u.searchParams.set("state", state);
+    logAuthorizeUrl(ref, u);   // الرابط كاملاً للمقارنة بالمسجَّل — state محجوب
 
     return new Response(null, {
       status: 302,

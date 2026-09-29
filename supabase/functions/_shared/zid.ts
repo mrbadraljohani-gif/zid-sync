@@ -13,8 +13,20 @@ export const REDIRECT_URI =
 
 export const ZID_OAUTH = "https://oauth.zid.sa";
 
-// نطاقات قراءة فقط — المرحلة الأولى. لا نطاق كتابة إطلاقاً.
+// النطاقات تُختار في **لوحة الشريك** لا في رابط التفويض (قراءة فقط: Products · Inventory
+// · Product Inventory Stock). ⚠ لا يُرسل معامل scope في /oauth/authorize: مثال زد الرسمي
+// لا يتضمّنه، وإرسالُه بأسماء مخمَّنة أسقط صفحة التفويض بـ«Oops! Something broke».
+// هذه القيمة وصفية فقط — تُخزَّن في zid_tokens.scopes إن لم تُعِد زد حقل scope.
 export const SCOPES = "products.read inventories.read";
+
+// سطر تشخيص رابط التفويض — كل أجزائه عامّة (client_id عامّ · redirect_uri · response_type)،
+// و**state يُحجب** (نونس CSRF لمرّة واحدة: يُطبع طوله وأوّل 4 أحرف فقط).
+export function logAuthorizeUrl(ref: string, url: URL) {
+  const shown = new URL(url.toString());
+  const st = shown.searchParams.get("state") || "";
+  if (st) shown.searchParams.set("state", `${st.slice(0, 4)}…(${st.length})`);
+  console.log(`[zid] stage=start:authorize-url ref=${ref} url=${shown.toString()}`);
+}
 
 // المتجر الوحيد المقبول. أي تفويض لمتجر آخر يُرفض ولا يُخزَّن.
 export const EXPECTED_STORE_ID = "28494";

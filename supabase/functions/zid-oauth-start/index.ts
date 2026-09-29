@@ -8,8 +8,8 @@
 // لا تكتب شيئاً في زد — توجيه فقط.
 // ============================================================================
 import {
-  adminClient, dbCode, failPage, keyKind, logSafe, newRef,
-  REDIRECT_URI, SCOPES, STATE_PURGE_MIN, ZID_OAUTH,
+  adminClient, dbCode, failPage, keyKind, logAuthorizeUrl, logSafe, newRef,
+  REDIRECT_URI, STATE_PURGE_MIN, ZID_OAUTH,
 } from "../_shared/zid.ts";
 
 function randomState(): string {
@@ -45,8 +45,9 @@ Deno.serve(async (req) => {
     u.searchParams.set("client_id", clientId);
     u.searchParams.set("redirect_uri", REDIRECT_URI);
     u.searchParams.set("response_type", "code");
-    u.searchParams.set("scope", SCOPES);
+    // 🚫 لا scope هنا — النطاقات من لوحة الشريك (مثال زد الرسمي بلا scope؛ إرساله أسقط الصفحة)
     u.searchParams.set("state", state);
+    logAuthorizeUrl(ref, u);   // الرابط كاملاً للمقارنة بالمسجَّل — state محجوب
 
     return new Response(null, {
       status: 302,
