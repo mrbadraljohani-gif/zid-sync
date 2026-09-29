@@ -29,10 +29,7 @@
     "test:manual:self": "node tests/manual-link.mjs --broken",
     "test:manual:self2": "node tests/manual-link.mjs --broken-unlink",
     "test:deadids": "node tests/dead-ids.mjs",
-    "test:deadids:self": "node tests/dead-ids.mjs --broken",
-    "test:zidoauth": "node tests/zid-oauth.mjs",
-    "test:zidoauth:self": "node tests/zid-oauth.mjs --broken",
-    "build:zid": "node supabase/functions/build-zid-bundles.mjs"
+    "test:deadids:self": "node tests/dead-ids.mjs --broken"
   },
   "keywords": [],
   "author": "",
