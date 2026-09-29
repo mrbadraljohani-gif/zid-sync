@@ -9,12 +9,14 @@
 //         node tests/b3-run-regression.mjs --broken  (تحقّق ذاتي: حذف ثابت ⇒ يجب أن يرسب)
 // ============================================================================
 import { readFileSync } from "node:fs";
+import { stripComments } from "./lib/strip-comments.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const html = readFileSync(join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
-const script = html.slice(html.lastIndexOf("\n<script>\n"), html.lastIndexOf("\n</script>"));
+// الكود بلا تعليقات: كلمة في تعليق ليست كوداً (المرساة تحرس المعنى لا الصياغة)
+const script = stripComments(html.slice(html.lastIndexOf("\n<script>\n"), html.lastIndexOf("\n</script>")));
 const BROKEN = process.argv.includes("--broken");
 
 function fnSrc(name) {

@@ -8,7 +8,7 @@
 // تشغيل:  node tests/crlf-safe.mjs
 //         node tests/crlf-safe.mjs --broken   (تحقّق ذاتي: يزيل التطبيع ⇒ يجب أن يرسب)
 // ============================================================================
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, cpSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -23,7 +23,9 @@ const NORM_RE = /\.replace\(\/\\r\\n\/g, *\"\\n\"\)/g;
 const GUARDS = ["batch-a-invariants.mjs", "b2-invariants.mjs", "b2-analyze-counts.mjs", "b2-missed-rounds.mjs", "b3-run-regression.mjs", "stat-active.mjs", "token-defs.mjs", "glass-rows.mjs"];
 
 const tmp = mkdtempSync(join(tmpdir(), "crlf-"));
-mkdirSync(join(tmp, "tests"), { recursive: true });
+mkdirSync(join(tmp, "tests", "lib"), { recursive: true });
+// مساعدات الحراس المشتركة (stripComments…) — بلا نسخها يفشل الاستيراد فيبدو رسوب CRLF زائفاً
+cpSync(join(root, "tests", "lib"), join(tmp, "tests", "lib"), { recursive: true });
 
 // index.html بنهايات CRLF مصطنعة (يحاكي checkout ويندوز)
 const html = readFileSync(join(root, "index.html"), "utf8").replace(CRLF, "\n");

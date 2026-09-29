@@ -6,6 +6,7 @@
 // مقياس الأداء الحيّ (300 صف headless) يأتي في الدفعة (ب) لأنه يقيس رسم قائمتها.
 // ============================================================================
 import { readFileSync } from "node:fs";
+import { stripComments } from "./lib/strip-comments.mjs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -18,7 +19,8 @@ const check = (cond, msg) => (cond ? ok : fails).push(msg);
 // استخرج كتلة السكربت الرئيسية (آخر <script>…</script>) للفحوص الدالّية
 const scriptStart = html.lastIndexOf("\n<script>\n");
 const scriptEnd = html.lastIndexOf("\n</script>");
-const script = scriptStart >= 0 && scriptEnd > scriptStart ? html.slice(scriptStart, scriptEnd) : html;
+// الكود بلا تعليقات: كلمة في تعليق ليست كوداً (المرساة تحرس المعنى لا الصياغة)
+const script = stripComments(scriptStart >= 0 && scriptEnd > scriptStart ? html.slice(scriptStart, scriptEnd) : html);
 
 // دالة مساعدة: جسم أول تعريف دالة باسمها (heuristic: من "function name" حتى إغلاق تقريبي)
 function fnBody(name) {

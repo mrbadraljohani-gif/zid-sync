@@ -17,7 +17,11 @@ if (BROKEN) {
   const call = 'salesRateSpan(scope.valRate, prevSince != null ? scope.pvalRate : -1, "kpi-trend", prevBaselineOnly, observedDays, scope.pdaysMax)';
   if (!html.includes(call)) { console.error("✗ (--broken) لم أجد نداء scope.valRate"); process.exit(2); }
   html = html.replace(call, 'salesRateSpan(scope.val, prevSince != null ? sumPrevVal : -1, "kpi-trend", prevBaselineOnly)');
-  html = html.replace("const covGate = salesCovInsufficient(observedDays);", "const covGate = salesCovInsufficient(observedDays);\n    const sumPrevVal = dataActive.reduce((s,d)=>s+d.pagg.estValue,0);");
+  // يُحقن مجموع السابق بعد تعريف dataActive مباشرةً (السطر القديم «const covGate…» حُذف فكان الحقن يسقط بصمت
+  // ⇒ sumPrevVal غير معرَّف ⇒ لا اتّجاه أصلاً ⇒ الطفرة بلا أثر). الحقن الفاشل يرسب صراحةً الآن.
+  const B = "const dataActive = salesData.filter(d => uploadedInPeriod.has(d.loc));";
+  if (!html.includes(B)) { console.error("✗ (--broken) لم أجد تعريف dataActive"); process.exit(2); }
+  html = html.replace(B, B + "\n    const sumPrevVal = dataActive.reduce((s,d)=>s+d.pagg.estValue,0);");
 }
 function findChrome(){const c=["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",process.env.CHROME_PATH||"","/usr/bin/google-chrome-stable","/usr/bin/google-chrome"];for(const x of c)if(x&&existsSync(x))return x;for(const n of ["google-chrome-stable","google-chrome","chromium"])try{return execFileSync("bash",["-lc","command -v "+n]).toString().trim();}catch{}return"";}
 const b = await puppeteer.launch({ executablePath: findChrome(), headless: "new", args: ["--no-sandbox"] });

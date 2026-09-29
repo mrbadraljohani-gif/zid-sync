@@ -13,9 +13,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const BROKEN = process.argv.includes("--broken");
 let html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 if (BROKEN) {
-  const A = "const solo = s.length === 1;";
-  if (!html.includes(A)) { console.error("✗ (--broken) لم أجد كشف النقطة المنفردة solo"); process.exit(2); }
-  html = html.replace(A, "const solo = false;");
+  // التعيين نفسه لا صياغة السطر (صار جزءاً من سلسلة const واحدة فانكسرت الطفرة الحرفية)
+  const A = /\bsolo = s\.length === 1\b/;
+  if (!A.test(html)) { console.error("✗ (--broken) لم أجد كشف النقطة المنفردة solo"); process.exit(2); }
+  html = html.replace(A, "solo = false");
 }
 function findChrome(){const c=["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",process.env.CHROME_PATH||"","/usr/bin/google-chrome-stable","/usr/bin/google-chrome"];for(const x of c)if(x&&existsSync(x))return x;for(const n of ["google-chrome-stable","google-chrome","chromium"])try{return execFileSync("bash",["-lc","command -v "+n]).toString().trim();}catch{}return"";}
 const b = await puppeteer.launch({ executablePath: findChrome(), headless: "new", args: ["--no-sandbox"] });

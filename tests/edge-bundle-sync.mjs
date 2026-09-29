@@ -8,6 +8,7 @@
 // --broken-sync: يحاكي مصدراً مُعدّلاً بلا إعادة توليد ⇒ المطابقة تفشل ⇒ يرسب.
 // ============================================================================
 import { readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { stripComments } from "./lib/strip-comments.mjs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { buildBundle, BUNDLE_PATH } from "../scripts/build-edge-bundle.mjs";
@@ -52,7 +53,7 @@ if (committed !== built) {
   let i = 0; while (i < committed.length && i < built.length && committed[i] === built[i]) i++;
   fails.push("المدمج المحفوظ لا يطابق المصادر — شغّل: node scripts/build-edge-bundle.mjs (أوّل اختلاف عند " + i + ")");
 }
-if (/from\s+["']\.\//.test(committed)) fails.push("المدمج يحوي import محلّياً (./) — لن يعمل في النشر");
+if (/from\s+["']\.\//.test(stripComments(committed))) fails.push("المدمج يحوي import محلّياً (./) — لن يعمل في النشر");
 const boot = await tryBoot(committed, "ok");
 if (!boot.ok) fails.push("الإقلاع المحلّيّ فشل: " + boot.err);
 if (fails.length) { console.error("✗ G-EDGE-BUNDLE:\n  " + fails.join("\n  ")); process.exit(1); }

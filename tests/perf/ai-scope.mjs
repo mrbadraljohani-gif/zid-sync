@@ -7,6 +7,7 @@
 // --broken: يجعل renderSalesAI يُنشئ الحقل لكل الأدوار ⇒ admin/viewer يريان الحقل ⇒ يرسب.
 // ============================================================================
 import { readFileSync, existsSync } from "node:fs";
+import { stripComments } from "../lib/strip-comments.mjs";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,7 +25,7 @@ if (BROKEN) {
 const staticFails = [];
 const aiStart = html.indexOf("let aiBusy = false;");               // بداية كتلة المساعد (تليها renderSalesAI/salesAskAI)
 const aiEnd = html.indexOf("async function renderSalesPage", aiStart);
-const scope = (aiStart >= 0 && aiEnd > aiStart) ? html.slice(aiStart, aiEnd) : "";
+const scope = (aiStart >= 0 && aiEnd > aiStart) ? stripComments(html.slice(aiStart, aiEnd)) : "";   // الكود بلا تعليقات
 if (!scope) staticFails.push("لم أجد نطاق renderSalesAI/salesAskAI");
 if (!/functions\.invoke\("ai-assistant"/.test(scope)) staticFails.push("لا يستدعي الدالّة ai-assistant");
 // 🚨 لا كتابة أي جدول من كود المساعد

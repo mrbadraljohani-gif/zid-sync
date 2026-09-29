@@ -13,6 +13,7 @@ import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
+import { stripComments } from "../lib/strip-comments.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const BROKEN = process.argv.includes("--broken");
 let html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
@@ -74,7 +75,8 @@ if (res.hasE) fails.push("E: دلتا الصفر (4→4) أُدرِجت — يج
 if (res.anyZero) fails.push("أُدرجت حركة delta=0");
 if (res.count !== 4) fails.push(`عدد الحركات ${res.count} (توقّعت 4: A,B,C,D بلا E)`);
 // العزل (حياد): محرّك الحركات لا يمسّ المطابقة/الدمج
-const run = fnSrc("run"), mrg = fnSrc("mergeInventory"), rec = fnSrc("recordMovements"), sync = fnSrc("syncInventoryToDB");
+// العزل يُفحص على الكود بلا تعليقات: الكلمة في تعليق ليست استدعاءً (المرساة تحرس المعنى لا الصياغة)
+const run = stripComments(fnSrc("run")), mrg = stripComments(fnSrc("mergeInventory")), rec = stripComments(fnSrc("recordMovements")), sync = fnSrc("syncInventoryToDB");
 for (const bad of ["recordMovements", "computeMovements", "sales_movements", "sales_uploads"]) {
   if (run.includes(bad)) fails.push(`العزل: run() يذكر «${bad}» (يجب لا)`);
   if (mrg.includes(bad)) fails.push(`العزل: mergeInventory يذكر «${bad}» (يجب لا)`);

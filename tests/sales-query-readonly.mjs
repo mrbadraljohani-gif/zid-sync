@@ -5,20 +5,33 @@
 // --broken: يحقن sb.from("mappings").insert(...) في نطاق القسم ⇒ يرسب (كتابة/قاعدة/جدول زد).
 // ============================================================================
 import { readFileSync } from "node:fs";
+import { stripComments } from "./lib/strip-comments.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 let html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 const BROKEN = process.argv.includes("--broken");
 
-// نطاق القسم: من onSalesQuery حتى renderSalesPage
-const start = html.indexOf("let sqDebounce");
-const end = html.indexOf("async function renderSalesPage", start);
-let scope = (start >= 0 && end > start) ? html.slice(start, end) : "";
+// نطاق القسم = دوالّه بأسمائها (sq* · salesQuery* · onSalesQuery)، لا مدى نصّي بين علامتين:
+// المدى القديم (sqDebounce → renderSalesPage) انجرف حين أُضيفت fillUploadStatus بينهما — وهي تقرأ
+// db.sales.uploads() قراءةً مشروعة خارج القسم — فرسب الحارس زوراً. الكود بلا تعليقات.
+const code = stripComments(html.slice(html.lastIndexOf("\n<script>\n"), html.lastIndexOf("\n</script>")));
+const QUERY_FN = /^(sq[A-Z]\w*|salesQuery\w*|onSalesQuery)$/;
+function topFn(name) {   // جسم دالّة علويّة بمطابقة الأقواس (على كود بلا تعليقات)
+  const m = new RegExp("\\n(?:async )?function " + name + "\\(").exec(code); if (!m) return "";
+  let d = 0, started = false;
+  for (let j = m.index; j < code.length; j++) { const c = code[j]; if (c === "{") { d++; started = true; } else if (c === "}") { d--; if (started && d === 0) return code.slice(m.index, j + 1); } }
+  return code.slice(m.index);
+}
+const qNames = [...code.matchAll(/\n(?:async )?function (\w+)\(/g)].map(m => m[1]).filter(n => QUERY_FN.test(n));
+let scope = qNames.map(topFn).join("\n");
+const QUERY_EXPECT = ["onSalesQuery", "salesQueryRun", "salesQueryPick", "salesQueryDetail", "sqBadgeRow", "sqStockByLoc"];
+const qMissing = QUERY_EXPECT.filter(n => !qNames.includes(n));
 if (BROKEN) scope += '\n sb.from("mappings").insert({ x: 1 });\n';   // حقن كتابة/قاعدة/جدول زد
 
 const fails = [];
 if (!scope) fails.push("لم أجد نطاق قسم الاستعلام");
+if (qMissing.length) fails.push("دوالّ القسم غير موجودة (تغيّرت الأسماء؟): " + qMissing.join(" · "));
 // 🚫 لا استعلام قاعدة مباشر
 for (const p of ["sb.from(", "sb.rpc(", ".functions.invoke", "db.inventory", "db.sales", "db.salesBranches"]) if (scope.includes(p)) fails.push(`استعلام قاعدة مباشر في القسم: ${p}`);
 // 🚫 لا كتابة

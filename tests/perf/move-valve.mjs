@@ -33,13 +33,20 @@ const res = await p.evaluate(async () => {
   sb = { from: t => ({ insert: async row => { (t === "sales_uploads" ? cap.uploads : cap.movements).push(row); return { error: null }; } }) };
   const existMap = new Map(); for (let i = 0; i < 20; i++) existMap.set("C" + i, { qty: 5, price_incl: 100, name: "x" });
   const rows = [];   // كلها اختفت ⇒ 100% شاذّ
+  // تسلسل الإنتاج نفسه (syncInventoryToDB): تحليل ⇒ رأس الرفعة دائماً ⇒ الحركات إن لم تُتخطَّ.
+  // (التجهيزة القديمة استدعت recordMovements بتوقيعها قبل تقسيمها في 97d76cd — تقادمت التجهيزة لا الثابت.)
+  const upload = async (id) => {
+    const anz = analyzeMovements(existMap, rows, "wh", new Date().toISOString(), null, null);
+    const ok = await recordUpload(id, "wh", new Date().toISOString(), "f.xlsx", rows.length, anz.note, anz.suspect);
+    if (ok && !anz.skip) await recordMovements(id, anz.movs);
+  };
   window.confirm = () => true;
   cap.uploads = []; cap.movements = [];
-  await recordMovements("U-OK", "wh", existMap, rows, null, "f.xlsx", null);
+  await upload("U-OK");
   const okUp = cap.uploads[0] || {}, okMovs = cap.movements.length;
   window.confirm = () => false;
   cap.uploads = []; cap.movements = [];
-  await recordMovements("U-NO", "wh", existMap, rows, null, "f.xlsx", null);
+  await upload("U-NO");
   const noUp = cap.uploads[0] || {}, noMovs = cap.movements.length;
   return { anom, okSuspect: okUp.suspect, okMovs, noSuspect: noUp.suspect, noMovs, noNote: noUp.note || "" };
 });

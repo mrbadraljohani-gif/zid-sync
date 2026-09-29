@@ -5,12 +5,14 @@
 // هنا: حارس «إيموجي» (مؤشّرات الثقة SVG لا إيموجي ملوّنة) + «لا أرقام قبل المطابقة» + التوصيل.
 // ============================================================================
 import { readFileSync } from "node:fs";
+import { stripComments } from "./lib/strip-comments.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const html = readFileSync(join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
-const script = html.slice(html.lastIndexOf("\n<script>\n"), html.lastIndexOf("\n</script>"));
+// الكود بلا تعليقات: كلمة في تعليق ليست كوداً (المرساة تحرس المعنى لا الصياغة)
+const script = stripComments(html.slice(html.lastIndexOf("\n<script>\n"), html.lastIndexOf("\n</script>")));
 const fails = [], ok = [];
 const check = (c, m) => (c ? ok : fails).push(m);
 function fnSrc(name) {
@@ -24,7 +26,7 @@ function fnSrc(name) {
 // (1) التوصيل: القائمة الموحّدة هي مسار «بدون ربط»
 check(/renderUnifiedList\(title, wrap\)/.test(script), "renderDetailBody يستدعي renderUnifiedList لفلتر «بدون ربط»");
 check(/function renderUnifiedList\b/.test(script), "renderUnifiedList معرّفة");
-check(/batchData = null;\s*\/\/ بيانات «بدون ربط»/.test(script), "refreshUnmatchedUI يبطل batchData (إعادة تحليل الثقة)");
+check(/\bbatchData = null;/.test(fnSrc("refreshUnmatchedUI")), "refreshUnmatchedUI يبطل batchData (إعادة تحليل الثقة)");   // داخل الدالّة نفسها — لا بنصّ التعليق المجاور
 
 // (2) حارس «إيموجي»: مؤشّرات الثقة في الشريط الموحّد SVG (DOT_*) لا إيموجي ملوّنة 🟢🟡🔴
 const bar = fnSrc("unifiedBar");

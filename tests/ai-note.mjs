@@ -5,6 +5,7 @@
 // --broken: يجعل النوت path-dependent (parsed.note في النجاح) ⇒ يختلف عن التدهور ⇒ يرسب.
 // ============================================================================
 import { readFileSync } from "node:fs";
+import { stripComments } from "./lib/strip-comments.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -28,7 +29,7 @@ if (BROKEN_DUP) {
 const fails = [];
 if (!/const answerNote = /.test(src)) fails.push("لا يوجد answerNote (مصدر واحد للنوت)");
 if (!/note: answerNote\b/.test(src)) fails.push("structured التحليليّ لا يستعمل note: answerNote");
-if (/note: parsed\.note|note = parsed\.note|note: \(parsed/.test(src)) fails.push("النوت مشتقّ من النموذج/المسار (parsed.note) — يجب أن يكون من النطاق");
+if (/note: parsed\.note|note = parsed\.note|note: \(parsed/.test(stripComments(src))) fails.push("النوت مشتقّ من النموذج/المسار (parsed.note) — يجب أن يكون من النطاق");
 // 🚨 عدّ التنويه: مصدرٌ واحدٌ فقط لجملة «مقدّرة … مستبعَد» **كسلسلة مقتبسة** (note/answerNote) عبر الملفّين — التكرار سطران متطابقان.
 //    نحصره في السلاسل ذات علامتَي الاقتباس المزدوجة (النوت الفعليّ) — التعليقات تستعمل «» فلا تُحسب (لا عدّ للتعليق).
 const both = src + "\n" + intentsSrc;

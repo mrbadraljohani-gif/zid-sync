@@ -14,9 +14,15 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const BROKEN = process.argv.includes("--broken");
 let html = readFileSync(process.env.HTML_PATH || join(root, "index.html"), "utf8").replace(/\r\n/g, "\n");
 if (BROKEN) {
-  const A = ".s4-tbl td.nm, .s4-tbl th:nth-child(2) { width: 42%; }";
-  if (!html.includes(A)) { console.error("✗ (--broken) لم أجد hint عرض الاسم"); process.exit(2); }
+  // بنيوياً لا بالنسبة الحرفية (كانت 42% ثم زِيدت 48% فانكسرت الطفرة): قاعدة hint عرض الاسم أيّاً كانت قيمتها
+  const A = /\.s4-tbl td\.nm, \.s4-tbl th:nth-child\(2\) \{ width: \d+%; \}/;
+  if (!A.test(html)) { console.error("✗ (--broken) لم أجد hint عرض الاسم"); process.exit(2); }
   html = html.replace(A, "");   // إزالة hint العرض ⇒ auto-layout يخنق الاسم
+  // ⚠ طبقتان (مقيس @1280): الشبكة الملتفّة وحدها تُبقي الاسم 129px، والـhint وحده 158px في الشبكة الضيّقة؛
+  //   الانكسار (82px) لا يقع إلا بكسرهما معاً ⇒ نعيد الشبكة الضيّقة (3 أعمدة متجاورة = ظرف العطل الأصلي).
+  const G = "grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));";
+  if (!html.includes(G)) { console.error("✗ (--broken) لم أجد شبكة .s4-3tables الملتفّة"); process.exit(2); }
+  html = html.replace(G, "grid-template-columns: repeat(3, 1fr);");
 }
 function findChrome(){const c=["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",process.env.CHROME_PATH||"","/usr/bin/google-chrome-stable","/usr/bin/google-chrome"];for(const x of c)if(x&&existsSync(x))return x;for(const n of ["google-chrome-stable","google-chrome","chromium"])try{return execFileSync("bash",["-lc","command -v "+n]).toString().trim();}catch{}return"";}
 const b = await puppeteer.launch({ executablePath: findChrome(), headless: "new", args: ["--no-sandbox"] });

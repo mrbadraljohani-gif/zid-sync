@@ -21,6 +21,11 @@ if (BROKEN) {
   const A = 'if (covEl) covEl.innerHTML = (myRole === "owner" || myRole === "marketing") ? ';
   if (!html.includes(A)) { console.error("✗ (--broken) لم أجد بوّابة دور التغطية"); process.exit(2); }
   html = html.replace(A, 'if (covEl) covEl.innerHTML = (true) ? ');
+  // ⚠ طبقتان: منذ الدفعة ٣ يخرج admin مبكّراً من fillUploadStatus (sales_uploads فقط) فلا يبلغ بوّابة التغطية أصلاً؛
+  //   كسرُ البوّابة وحدها لا يغيّر سلوكاً (أخضره صواب لا تهاون) ⇒ نكسر الخروج المبكّر أيضاً ليبلغها.
+  const E = 'if (myRole === "admin") {\n    try { if (dbOnline && sb) { const ups = await db.sales.uploads(); renderSalesLastUp(ups);';
+  if (!html.includes(E)) { console.error("✗ (--broken) لم أجد خروج admin المبكّر في fillUploadStatus"); process.exit(2); }
+  html = html.replace(E, E.replace('if (myRole === "admin") {', "if (false) {"));
 }
 if (BROKEN_EMPTY) {
   const A = 'if (typeof renderSalesPage === "function") await renderSalesPage();';
