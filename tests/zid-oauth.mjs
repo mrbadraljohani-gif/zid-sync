@@ -44,7 +44,7 @@ function makeDb() {
     then(res, rej) { return Promise.resolve().then(() => this.exec()).then(res, rej); }
     exec() {
       db.touched.add(this.t + ":" + this.op);
-      if (db.fail.has(this.t)) return { data: null, error: { message: "fail" } };
+      if (db.fail.has(this.t)) return { data: null, error: db.failErr || { message: "fail" } };
       const T = db.tables[this.t];
       const m = r => this.f.every(fn => fn(r));
       const now = new Date().toISOString();
@@ -72,7 +72,7 @@ function load(env, db, fetchImpl, logs) {
   const shSrc = stripTypeScriptTypes(read("_shared/zid.ts"))
     .replace(/^\s*import[\s\S]*?from\s+["'][^"']+["'];/gm, "")
     .replace(/^export\s+/gm, "");
-  const names = ["REDIRECT_URI", "ZID_OAUTH", "SCOPES", "EXPECTED_STORE_ID", "STATE_TTL_MIN", "STATE_PURGE_MIN", "adminClient", "newRef", "logSafe", "textPage", "failPage"];
+  const names = ["REDIRECT_URI", "ZID_OAUTH", "SCOPES", "EXPECTED_STORE_ID", "STATE_TTL_MIN", "STATE_PURGE_MIN", "adminClient", "newRef", "logSafe", "dbCode", "keyKind", "textPage", "failPage"];
   const Deno = { env: { get: k => env[k] }, serve: h => { Deno._h = h; } };
   const fakeConsole = { error: (...a) => logs.push(a.join(" ")), log: (...a) => logs.push(a.join(" ")), warn: (...a) => logs.push(a.join(" ")) };
   const shared = new Function("Deno", "console", "createClient", shSrc + "\nreturn {" + names.join(",") + "};")(Deno, fakeConsole, () => db.client);
@@ -122,6 +122,31 @@ async function runSuite() {
     check("start: state طويل عشوائي (≥40 حرفاً)", (loc.searchParams.get("state") || "").length >= 40);
     check("start: حُذف ما تجاوز ساعة · بقي الحديث", !st.includes("OLD") && st.includes("RECENT"));
     check("start: لا كتابة في zid_tokens", ![...db.touched].some(t => t.startsWith("zid_tokens")));
+  }
+
+  // ①ب تشخيص فشل القاعدة (حادثة التفويض الأول: purge وinsert فشلا معاً)
+  //     رمز الخطأ يُطبع · الرسالة لا تُطبع أبداً ولو حملت سرّاً · نوع المفتاح لا قيمته
+  {
+    const db = makeDb(), logs = [];
+    db.fail.add("zid_oauth_state");
+    db.failErr = { code: "42501", message: "permission denied — LEAK-IN-ERROR-MSG-GGGG", details: "LEAK-IN-ERROR-MSG-GGGG" };
+    const h = load(ENV, db, async () => { throw new Error("no fetch"); }, logs);
+    const r = await h.start(new Request(B + "zid-oauth-start"));
+    const all = logs.join("\n");
+    check("تشخيص: فشل الإدراج ⇒ 500 برمز مرجعي", r.status === 500);
+    check("تشخيص: رمز الخطأ 42501 ظاهر في السجلّ", /insert-state-failed[^\n]* db=42501/.test(all), all.slice(0, 160));
+    check("تشخيص: فشل الحذف يُسجَّل برمزه أيضاً", /purge-failed[^\n]* db=42501/.test(all));
+    check("تشخيص: نوع المفتاح ظاهر (key=other) لا قيمته", /key=other/.test(all));
+    check("🚨 تشخيص: رسالة الخطأ لا تُطبع أبداً", !all.includes("LEAK-IN-ERROR-MSG-GGGG"));
+    const L = leaks([all]);
+    check("🚨 تشخيص: لا مفتاح service_role في السجلّ", L.length === 0, L.join(","));
+
+    const db2 = makeDb(), logs2 = [];
+    db2.fail.add("zid_oauth_state");
+    db2.failErr = { code: "free text with spaces", message: "x" };
+    const h2 = load(ENV, db2, async () => {}, logs2);
+    await h2.start(new Request(B + "zid-oauth-start"));
+    check("تشخيص: رمز بشكل غير معياري ⇒ «other» لا نصّ حرّ", logs2.join("\n").includes("db=other") && !logs2.join("\n").includes("free text"));
   }
 
   // أداة مشتركة لتشغيل callback

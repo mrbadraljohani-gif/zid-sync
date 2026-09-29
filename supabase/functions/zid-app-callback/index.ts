@@ -14,7 +14,7 @@
 //
 // تُنشر بـ --no-verify-jwt (زد تناديها من خادمها بلا جلسة).
 // ============================================================================
-import { adminClient, logSafe, newRef } from "../_shared/zid.ts";
+import { adminClient, dbCode, keyKind, logSafe, newRef } from "../_shared/zid.ts";
 
 const MAX_BODY = 64 * 1024;   // سقف الحمولة المخزَّنة
 
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
       })
       .select("id")
       .single();
-    if (insErr) { logSafe("app:insert", ref); return ok(ref); }
+    if (insErr) { logSafe("app:insert-failed:key=" + keyKind(), ref, undefined, dbCode(insErr)); return ok(ref); }
 
     // ② سطر مختصر في activity_log — **بلا الحمولة**:
     //    activity_log مقروء لكل موثَّق، والحمولة قد تحمل ما لا يُعرض.
@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
       zid_sku: null,
       details: { event: eventType, store_id: storeId, zid_app_event_id: row?.id ?? null },
     });
-    if (actErr) logSafe("app:activity", ref);
+    if (actErr) logSafe("app:activity-failed", ref, undefined, dbCode(actErr));
 
     return ok(ref);
   } catch {

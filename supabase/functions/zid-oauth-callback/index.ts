@@ -11,7 +11,7 @@
 // 🚨 لا يُطبع جسم استجابة زد في أي سجلّ — قد يحمل توكنات.
 // ============================================================================
 import {
-  adminClient, EXPECTED_STORE_ID, failPage, logSafe, newRef,
+  adminClient, dbCode, EXPECTED_STORE_ID, failPage, keyKind, logSafe, newRef,
   REDIRECT_URI, SCOPES, STATE_TTL_MIN, textPage, ZID_OAUTH,
 } from "../_shared/zid.ts";
 
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
       .is("used_at", null)
       .gt("created_at", notBefore)
       .select("state");
-    if (stErr) { logSafe("cb:state-db", ref); return failPage(ref, 500); }
+    if (stErr) { logSafe("cb:state-db-failed:key=" + keyKind(), ref, undefined, dbCode(stErr)); return failPage(ref, 500); }
     if (!claimed || claimed.length !== 1) { logSafe("cb:state-invalid", ref); return failPage(ref, 400); }
 
     // ② تبادل الكود
@@ -126,14 +126,16 @@ Deno.serve(async (req) => {
       },
       { onConflict: "store_id" },
     );
-    if (upErr) { logSafe("cb:upsert", ref); return failPage(ref, 500); }
+    if (upErr) { logSafe("cb:upsert-failed:key=" + keyKind(), ref, undefined, dbCode(upErr)); return failPage(ref, 500); }
 
     // سجل النشاط — بلا أي توكن
-    await db.from("activity_log").insert({
+    // supabase-js لا يرفض الوعد عند خطأ القاعدة — يعيد {error}؛ فنفحصه صراحةً.
+    const { error: actErr } = await db.from("activity_log").insert({
       event_type: "zid_connected",
       zid_sku: null,
       details: { store_id: storeId, scopes, expires_at: expiresAt },
-    }).then(() => {}, () => logSafe("cb:activity", ref));
+    });
+    if (actErr) logSafe("cb:activity-failed", ref, undefined, dbCode(actErr));   // غير حاجب
 
     // ⑤ النجاح
     const days = Math.round(expiresIn / 86400);

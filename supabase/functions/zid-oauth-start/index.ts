@@ -8,7 +8,7 @@
 // لا تكتب شيئاً في زد — توجيه فقط.
 // ============================================================================
 import {
-  adminClient, failPage, logSafe, newRef,
+  adminClient, dbCode, failPage, keyKind, logSafe, newRef,
   REDIRECT_URI, SCOPES, STATE_PURGE_MIN, ZID_OAUTH,
 } from "../_shared/zid.ts";
 
@@ -32,12 +32,13 @@ Deno.serve(async (req) => {
     // ① تنظيف: ما تجاوز ساعة (مستهلَكاً كان أم لا)
     const purgeBefore = new Date(Date.now() - STATE_PURGE_MIN * 60_000).toISOString();
     const { error: purgeErr } = await db.from("zid_oauth_state").delete().lt("created_at", purgeBefore);
-    if (purgeErr) logSafe("start:purge", ref);   // غير حاجب — التنظيف لا يمنع الربط
+    // غير حاجب — التنظيف لا يمنع الربط. ⚠ هذا السطر يُطبع **عند الفشل وحده** (لا نجاح يُسجَّل).
+    if (purgeErr) logSafe("start:purge-failed:key=" + keyKind(), ref, undefined, dbCode(purgeErr));
 
     // ② state جديد
     const state = randomState();
     const { error: insErr } = await db.from("zid_oauth_state").insert({ state });
-    if (insErr) { logSafe("start:insert-state", ref); return failPage(ref, 500); }
+    if (insErr) { logSafe("start:insert-state-failed:key=" + keyKind(), ref, undefined, dbCode(insErr)); return failPage(ref, 500); }
 
     // ③ التوجيه
     const u = new URL(`${ZID_OAUTH}/oauth/authorize`);

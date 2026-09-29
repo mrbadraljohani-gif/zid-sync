@@ -43,10 +43,29 @@ function newRef(): string {
   return Array.from(b, x => x.toString(16).padStart(2, "0")).join("");
 }
 
-// سجلّ آمن: المرحلة ＋ الرمز ＋ رمز HTTP اختياري. لا يقبل كائن خطأ عمداً
-// (رسالة الخطأ قد تحمل جسم استجابة فيه توكن).
-function logSafe(stage: string, ref: string, httpStatus?: number) {
-  console.error(`[zid] stage=${stage} ref=${ref}${httpStatus != null ? ` http=${httpStatus}` : ""}`);
+// سجلّ آمن: المرحلة ＋ الرمز ＋ رمز HTTP اختياري ＋ رمز خطأ القاعدة اختياري.
+// لا يقبل كائن خطأ عمداً (رسالة الخطأ قد تحمل جسم استجابة فيه توكن).
+function logSafe(stage: string, ref: string, httpStatus?: number, dbCode?: string) {
+  console.error(`[zid] stage=${stage} ref=${ref}${httpStatus != null ? ` http=${httpStatus}` : ""}${dbCode ? ` db=${dbCode}` : ""}`);
+}
+
+// رمز خطأ القاعدة وحده — SQLSTATE من 5 خانات (42501 صلاحية · 42P01 جدول · 42703 عمود
+// · 23502 NOT NULL) أو PGRST### من PostgREST (PGRST301 مفتاح مرفوض). الرسالة لا تُطبع أبداً.
+// أي قيمة لا تطابق الشكلين تُطبع «other» — فلا يتسرّب نصّ حرّ من الخطأ.
+function dbCode(err: unknown): string {
+  const c = err && typeof err === "object" ? (err as Record<string, unknown>).code : null;
+  if (typeof c === "string" && /^([0-9A-Z]{5}|PGRST\d{3})$/.test(c)) return c;
+  return "other";
+}
+
+// نوع المفتاح لا قيمته: JWT قديم (eyJ…) · مفتاح جديد (sb_secret_…) · غيره · مفقود.
+// يحسم «هل المفتاح المحقون معطَّل؟» بلا كشف أي حرف منه.
+function keyKind(): string {
+  const k = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!k) return "missing";
+  if (k.startsWith("eyJ")) return "jwt";
+  if (k.startsWith("sb_secret_")) return "sb_secret";
+  return "other";
 }
 
 // ⚠ نصّ عادي لا HTML: نطاق *.supabase.co قد يقدّم استجابات HTML للدوالّ كنصّ خام
@@ -123,7 +142,7 @@ Deno.serve(async (req) => {
       .is("used_at", null)
       .gt("created_at", notBefore)
       .select("state");
-    if (stErr) { logSafe("cb:state-db", ref); return failPage(ref, 500); }
+    if (stErr) { logSafe("cb:state-db-failed:key=" + keyKind(), ref, undefined, dbCode(stErr)); return failPage(ref, 500); }
     if (!claimed || claimed.length !== 1) { logSafe("cb:state-invalid", ref); return failPage(ref, 400); }
 
     // ② تبادل الكود
@@ -195,14 +214,16 @@ Deno.serve(async (req) => {
       },
       { onConflict: "store_id" },
     );
-    if (upErr) { logSafe("cb:upsert", ref); return failPage(ref, 500); }
+    if (upErr) { logSafe("cb:upsert-failed:key=" + keyKind(), ref, undefined, dbCode(upErr)); return failPage(ref, 500); }
 
     // سجل النشاط — بلا أي توكن
-    await db.from("activity_log").insert({
+    // supabase-js لا يرفض الوعد عند خطأ القاعدة — يعيد {error}؛ فنفحصه صراحةً.
+    const { error: actErr } = await db.from("activity_log").insert({
       event_type: "zid_connected",
       zid_sku: null,
       details: { store_id: storeId, scopes, expires_at: expiresAt },
-    }).then(() => {}, () => logSafe("cb:activity", ref));
+    });
+    if (actErr) logSafe("cb:activity-failed", ref, undefined, dbCode(actErr));   // غير حاجب
 
     // ⑤ النجاح
     const days = Math.round(expiresIn / 86400);
