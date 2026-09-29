@@ -25,7 +25,10 @@ const env = {
   extractSize: () => null, coreTokens: () => [], nameTokens: () => [],
   scoreCandidate: () => ({ score: 0 }), classifyBatch: () => "red",
 };
+// batchOkItem استُخرج من analyzeBatch إلى دالّة عليا (مصدر واحد مع #sUn/KPI/بطاقة المخزون/updateNewCount).
+// نحقنه مع analyzeBatch — فالحارس صار يُشغّل المرشِّح المشترك الفعلي لا نسخة مضمَّنة داخل الدالّة.
 const body = Object.keys(env).map(k => `var ${k} = __env.${k};`).join("\n")
+  + "\n" + fnSrc("batchOkItem")
   + "\n" + fnSrc("analyzeBatch") + "\nreturn analyzeBatch();";
 const res = new Function("__env", body)(env);
 
