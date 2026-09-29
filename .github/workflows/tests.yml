@@ -5,6 +5,21 @@ on:
   pull_request:
     branches: [ main ]
 jobs:
+  # دوالّ OAuth لزد — وظيفة مستقلّة على Node 22: الحارس يجرّد أنواع TypeScript بـ
+  # node:module.stripTypeScriptTypes (غير موجودة في Node 20). لا تُنقل لوظيفة Node 20:
+  # الحارس يرسب صراحةً هناك بدل أن يُتخطّى بصمت.
+  zid-oauth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Self-check — حارس OAuth يرسب على أربع طفرات (state · تسريب · متجر · إبطال)
+        run: node tests/zid-oauth.mjs --broken
+      - name: دوالّ OAuth لزد — state ذرّي · لا تسريب أسرار · متجر 28494 وحده · app-callback لا تُبطل · الحزم مطابقة
+        run: node tests/zid-oauth.mjs
+
   static-invariants:
     runs-on: ubuntu-latest
     steps:
