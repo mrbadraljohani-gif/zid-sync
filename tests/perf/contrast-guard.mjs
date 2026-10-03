@@ -1,7 +1,7 @@
 // ============================================================================
 // حارس التباين (WCAG 4.5:1 · 3:1 للنص الكبير) — على الصفحة الحقيقية بالـCSS الفعلي.
 // يقيس لون كل نصّ مقابل خلفيته الفعّالة (تركيب طبقات rgba فوق --bg، وأسوأ محطة
-// في التدرّجات) عبر مشاهد (صفحات/حالات) × عرضين (360/1200). داكن فقط (أُزيل الفاتح).
+// في التدرّجات) عبر مشاهد (صفحات/حالات) × عرضين (360/1200). داكن للأداة ＋ مشهد المبيعات في الوضعين (داكن/فاتح).
 //
 // تشغيل:  node tests/perf/contrast-guard.mjs
 //         node tests/perf/contrast-guard.mjs --broken   (يحقن نصّاً منخفض التباين ⇒ يجب أن يرسب)
@@ -114,6 +114,29 @@ const SETUP = (cfg) => {
   try { hideLogin && hideLogin(); } catch (e) {}
 };
 
+// ---- تهيئة شاشة المبيعات (دور marketing + بيانات مبيعات/مخزون) × الوضع (داكن/فاتح) ----
+// تقيس الفاتح على أرضه الفعليّة: effBg يلتقط خلفية #page-sales المعتمة (#F5EFE3) وهو يصعد السلسلة.
+const SALES_SETUP = async (theme) => {
+  dbOnline = true; myRole = "marketing"; authSession = { user: { email: "m@x.sa" } };
+  invBranches = [{ id: "az", name: "العزيزية" }, { id: "kh", name: "الخضرة" }];
+  salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = "";
+  try { salesHiddenLines = new Set(); } catch (e) {}
+  const day = 86400000, nowm = Date.now(), iso = t => new Date(t).toISOString();
+  const movs = [];
+  for (let i = 8; i >= 1; i--) {
+    movs.push({ kind: "estimated_sale", delta: -2, value_est: 120 - i * 5, unit_price_incl: 60, unit_price_excl: 52, location: "az", sku: "A" + i, sku_name: "صنف أ " + i, upload_id: "U" + (i % 3), captured_at: iso(nowm - i * day), period_days: 1 });
+    movs.push({ kind: "estimated_sale", delta: -1, value_est: 90 - i * 4, unit_price_incl: 45, unit_price_excl: 39, location: "kh", sku: "K" + i, sku_name: "صنف خ " + i, upload_id: "UK" + (i % 3), captured_at: iso(nowm - i * day), period_days: 1 });
+  }
+  const STOCK = [];
+  for (let i = 0; i < 12; i++) STOCK.push({ location: "az", sku: "R" + i, name: "راكد " + i, qty: (i * 5) % 17 + 1, price_incl: 100, price_excl: 87, cost_price: 60 });
+  for (let i = 1; i <= 8; i++) STOCK.push({ location: "az", sku: "A" + i, name: "صنف أ " + i, qty: 3, price_incl: 60, price_excl: 52, cost_price: 30 });
+  db.sales = { uploads: async () => [...new Set(movs.map(m => m.upload_id))].map(id => { const m = movs.find(x => x.upload_id === id); return { id, location: m.location, captured_at: m.captured_at, suspect: false }; }), movements: async () => movs, clearSuspect: async () => {} };
+  sb = { from: () => ({ select: () => ({ range: async (a) => ({ data: a === 0 ? STOCK : [], error: null }) }) }), rpc: async () => ({ data: null, error: null }), functions: { invoke: async () => ({ data: null, error: null }) }, auth: { getSession: async () => ({ data: { session: null } }) } };
+  try { salesTheme = theme; } catch (e) {}
+  try { goPage("sales"); } catch (e) {}
+  try { await renderSalesPage(); } catch (e) {}
+};
+
 const exe = findChrome();
 if (!exe) { console.error("✗ لا Chrome. اضبط CHROME_PATH."); process.exit(2); }
 
@@ -137,6 +160,8 @@ try {
     { id: "recover", prep: "try{ showRecover(); }catch(e){}" },                                    // نموذج استرجاع كلمة المرور
     { id: "offset", prep: "goPage('home'); try{ openOffset('A1'); }catch(e){}" },   // لوحة زيادة سعر المتغيّر (A1 في lastUpdated)
     { id: "combofloat", prep: "goPage('home'); (function(){ var i=document.getElementById('s-u0'); if(i){ i.value='مخزن'; try{comboOpen('u0')}catch(e){} try{comboSearch('u0')}catch(e){} } })();" },   // قائمة البحث الهجين العائمة (bt-results-float)
+    { id: "sales-dark", sales: "dark" },     // شاشة المبيعات (داكن): بطاقات · جداول · رسم خطّي/حلقي · شرائح · تلميح
+    { id: "sales-light", sales: "light" },   // 🚨 شاشة المبيعات (فاتح): الضمان الوحيد ضدّ النصّ الخفيّ على الأرض الفاتحة
   ];
   for (const w of WIDTHS) {
     for (const sc of SCENES) {
@@ -145,9 +170,11 @@ try {
       await page.setRequestInterception(true);
       page.on("request", req => { const u = req.url(); if (u.startsWith("http://127.0.0.1:" + port)) return req.continue(); if (/^https?:/.test(u)) return req.abort(); req.continue(); });
       await page.goto("http://127.0.0.1:" + port + "/", { waitUntil: "load" });
-      await page.evaluate(SETUP, CFG);
-      await page.evaluate(p => { try { (0, eval)(p); } catch (e) {} }, sc.prep);
+      if (sc.sales) { await page.evaluate(SALES_SETUP, sc.sales); }
+      else { await page.evaluate(SETUP, CFG); await page.evaluate(p => { try { (0, eval)(p); } catch (e) {} }, sc.prep); }
       if (BROKEN && sc.id === "home") await page.evaluate(() => { const s = document.createElement("style"); s.textContent = ".mc-sub, .mc-sub b { color: #4b4b52 !important; }"; document.head.appendChild(s); });
+      // أسنان الفاتح: نصّ شبه-أبيض على الأرض الفاتحة ⇒ يثبت أنّ مشهد الفاتح يُقاس فعلاً (لا يُقبَل النصّ الخفيّ)
+      if (BROKEN && sc.id === "sales-light") await page.evaluate(() => { const s = document.createElement("style"); s.textContent = "#page-sales.sales-light .s4-tbl td, #page-sales.sales-light .s4-tbl th, #page-sales.sales-light .s4-tab { color: #ECE5D7 !important; }"; document.head.appendChild(s); });
       await new Promise(r => setTimeout(r, 160));
       const bad = await page.evaluate(MEASURE);
       if (bad.length) { for (const b of bad) fails.push(`@${w}px [${sc.id}] «${b.t}» نسبة ${b.ratio}/${b.thr} · ${b.color} · ${b.cls}`); }
@@ -158,7 +185,9 @@ try {
 } finally { await browser.close(); server.close(); }
 
 if (BROKEN) {
-  if (fails.length) { console.log(`\n✅ تحقّق ذاتي: الحارس رسب على النصّ منخفض التباين (${fails.length} مخالفة) — كما يجب.`); process.exit(0); }
+  const litLight = fails.some(f => f.includes("[sales-light]"));
+  if (fails.length && litLight) { console.log(`\n✅ تحقّق ذاتي: الحارس رسب على النصّ منخفض التباين (${fails.length} مخالفة، منها مشهد الفاتح) — كما يجب.`); process.exit(0); }
+  if (fails.length && !litLight) { console.error("\n✗ خلل منهجي: رسب لكن مشهد الفاتح (sales-light) لم يُرصَد — الفاتح غير مقيس فعلاً!"); process.exit(1); }
   console.error("\n✗ خلل منهجي: الحارس لم يرسب على المعطوب!"); process.exit(1);
 }
 if (fails.length) { console.error(`\n✗ ${fails.length} مخالفة تباين (<4.5:1 · <3:1 كبير):\n` + fails.slice(0, 60).map(f => "  ✗ " + f).join("\n")); process.exit(1); }

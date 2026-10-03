@@ -504,7 +504,11 @@ jobs:
         run: node tests/manual-link.mjs
       - name: Behavioral run() harness (ج-١ حياد · ٤ فورية · ٥ إجماع · صمام · ٣+١ عودة + أسنان)
         run: node tests/behavioral/run-behavior.mjs
-      - name: Self-check — حارس التباين يرسب على نصّ منخفض التباين
+      - name: Self-check — حارس التباين يرسب على نصّ منخفض التباين (ومشهد الفاتح مقيس)
         run: node tests/perf/contrast-guard.mjs --broken
-      - name: Contrast guard WCAG 4.5:1 (مشاهد × 360/1200)
+      - name: Contrast guard WCAG 4.5:1 (مشاهد × 360/1200 · المبيعات داكن＋فاتح)
         run: node tests/perf/contrast-guard.mjs
+      - name: Self-check — G-LIGHT يرسب حين تُحذف لوحة الفاتح
+        run: node tests/perf/sales-light.mjs --broken
+      - name: G-LIGHT — الوضع الفاتح للمبيعات (توكنات الوضعين · لا لمسة بيضاء · عزل بقيّة الأداة داكنة)
+        run: node tests/perf/sales-light.mjs
