@@ -1,7 +1,7 @@
 // ============================================================================
 // G-SALES-SORT — ترتيب وتوسيع جداول شاشة عرض المبيعات (القيمة، لا الشكل):
 //   ① العرض بالكمية تنازلياً: الصفّ الأول ≥ الأخير في «الأكثر مبيعاً» و«الراكدة» و«السحب».
-//   ② «إظهار المزيد» ⇒ 20 صفّاً بالضبط (لا الكل) ＋ صفر استعلام قاعدة جديد · «عرض أقل» ⇒ 10.
+//   ② «إظهار المزيد» ⇒ 50 صفّاً بالضبط (لا الكل) ＋ صفر استعلام قاعدة جديد · «عرض أقل» ⇒ 10.
 //   ③ الدخول لا يتغيّر (نفس الأصناف العشرة الأولى بمعيارها الأصليّ — نتحقّق أنّ التوسيع يزيد لا يستبدل).
 // --broken: يُلغى فرز العرض بالكمية ⇒ العمود غير تنازليّ ⇒ يرسب.
 // ============================================================================
@@ -30,15 +30,15 @@ const res = await p.evaluate(async () => {
   dbOnline = true; myRole = "owner"; authSession = { user: { email: "o@x.sa" } };
   invBranches = [{ id: "az", name: "العزيزية" }]; salesPeriod = "all"; salesLoc = "all"; salesTab = "all"; salesSearch = ""; salesShowAll = {};
   const now = new Date().toISOString(), day = 86400000;
-  // 25 صنف مبيعات: القيمة والوحدات مرتّبتان عكسياً (لاختبار أنّ العرض بالوحدات لا القيمة)
+  // 55 صنف مبيعات (>50 لاختبار سقف التوسيع): القيمة والوحدات مرتّبتان عكسياً (لاختبار أنّ العرض بالوحدات لا القيمة)
   const movs = [];
-  for (let i = 0; i < 25; i++) movs.push({ kind: "estimated_sale", delta: -(i + 1), value_est: (25 - i) * 10, unit_price_incl: 50, unit_price_excl: 43, location: "az", sku: "S" + i, sku_name: "صنف " + i, upload_id: "U" + (i % 3), captured_at: now, period_days: 6 });
-  // سحب المستودع: 25 صنف — القيمة والوحدات عكسيّتان (لاختبار العرض بالوحدات)
-  for (let i = 0; i < 25; i++) movs.push({ kind: "estimated_sale", delta: -(i + 1), value_est: (25 - i) * 10, unit_price_incl: 50, unit_price_excl: 43, location: "wh", sku: "W" + i, sku_name: "مسحوب " + i, upload_id: "UW0", captured_at: now, period_days: 6 });
-  // مخزون راكد: 25 صنف بكميات متفاوتة بلا بيع (days=null ⇒ راكد) ＋ مخزون المستودع
+  for (let i = 0; i < 55; i++) movs.push({ kind: "estimated_sale", delta: -(i + 1), value_est: (55 - i) * 10, unit_price_incl: 50, unit_price_excl: 43, location: "az", sku: "S" + i, sku_name: "صنف " + i, upload_id: "U" + (i % 3), captured_at: now, period_days: 6 });
+  // سحب المستودع: 55 صنف — القيمة والوحدات عكسيّتان (لاختبار العرض بالوحدات)
+  for (let i = 0; i < 55; i++) movs.push({ kind: "estimated_sale", delta: -(i + 1), value_est: (55 - i) * 10, unit_price_incl: 50, unit_price_excl: 43, location: "wh", sku: "W" + i, sku_name: "مسحوب " + i, upload_id: "UW0", captured_at: now, period_days: 6 });
+  // مخزون راكد: 55 صنف بكميات متفاوتة بلا بيع (days=null ⇒ راكد) ＋ مخزون المستودع
   const stock = [];
-  for (let i = 0; i < 25; i++) stock.push({ location: "az", sku: "R" + i, name: "راكد " + i, qty: (i * 7) % 23 + 1, price_incl: 100, price_excl: 87 });
-  for (let i = 0; i < 25; i++) stock.push({ location: "wh", sku: "W" + i, name: "مسحوب " + i, qty: (i * 5) % 19 + 1, price_incl: 100, price_excl: 87 });
+  for (let i = 0; i < 55; i++) stock.push({ location: "az", sku: "R" + i, name: "راكد " + i, qty: (i * 7) % 23 + 1, price_incl: 100, price_excl: 87 });
+  for (let i = 0; i < 55; i++) stock.push({ location: "wh", sku: "W" + i, name: "مسحوب " + i, qty: (i * 5) % 19 + 1, price_incl: 100, price_excl: 87 });
   db.sales = { uploads: async () => { fromCalls++; return [{ id: "U0", location: "az", captured_at: now, suspect: false }, { id: "U1", location: "az", captured_at: new Date(Date.now() - 6 * day).toISOString(), suspect: false }, { id: "U2", location: "az", captured_at: new Date(Date.now() - 12 * day).toISOString(), suspect: false }, { id: "UW0", location: "wh", captured_at: now, suspect: false }]; }, movements: async () => { fromCalls++; return movs; }, clearSuspect: async () => {} };
   sb = { from: () => { fromCalls++; return { select: () => ({ range: async () => ({ data: stock, error: null }) }) }; } };
   try { goPage("home"); } catch (e) {}
@@ -53,18 +53,18 @@ const res = await p.evaluate(async () => {
   const rakaQ = colVals("#s4tbl-raka", 3);            // الكمية
   const whQ = colVals("#s4tbl-whsuhb", 3);            // الكمية (السحب)
 
-  // التوسيع: «إظهار المزيد» على «الأكثر مبيعاً» ⇒ 20 صفّاً · صفر استعلام جديد
+  // التوسيع: «إظهار المزيد» على «الأكثر مبيعاً» ⇒ 50 صفّاً · صفر استعلام جديد
   const before = fromCalls;
   const rows10 = document.querySelectorAll("#s4tbl-sellers tbody tr").length;
   salesToggleAll("sellers");
   await new Promise(r => setTimeout(r, 20));
-  const rows20 = document.querySelectorAll("#s4tbl-sellers tbody tr").length;
+  const rows50 = document.querySelectorAll("#s4tbl-sellers tbody tr").length;
   const callsAfterExpand = fromCalls;
   salesToggleAll("sellers"); await new Promise(r => setTimeout(r, 20));
   const rowsBack = document.querySelectorAll("#s4tbl-sellers tbody tr").length;
 
   return { sellersQ, rakaQ, whQ, sellersMono: nonIncreasing(sellersQ), rakaMono: nonIncreasing(rakaQ), whMono: nonIncreasing(whQ),
-           rows10, rows20, rowsBack, queriesOnExpand: callsAfterExpand - before,
+           rows10, rows50, rowsBack, queriesOnExpand: callsAfterExpand - before,
            hasMoreBtn: !!document.querySelector('#salesDetail .s4-more[aria-controls="s4tbl-sellers"]') };
 });
 await b.close();
@@ -82,9 +82,9 @@ if (!res.rakaMono) fails.push(`① «الراكدة» الكمية غير تنا
 if (!res.whQ.length) fails.push("جدول «السحب» فارغ");
 if (!res.whMono) fails.push(`① «السحب» الكمية غير تنازلية: ${res.whQ}`);
 if (res.rows10 !== 10) fails.push(`② العرض الافتراضيّ ليس 10 صفوف: ${res.rows10}`);
-if (res.rows20 !== 20) fails.push(`② «إظهار المزيد» لم يُعطِ 20 صفّاً بالضبط: ${res.rows20}`);
+if (res.rows50 !== 50) fails.push(`② «إظهار المزيد» لم يُعطِ 50 صفّاً بالضبط: ${res.rows50}`);
 if (res.rowsBack !== 10) fails.push(`② «عرض أقل» لم يُرجِع 10: ${res.rowsBack}`);
 if (res.queriesOnExpand !== 0) fails.push(`② التوسيع أطلق ${res.queriesOnExpand} استعلام قاعدة (يجب 0)`);
 if (!res.hasMoreBtn) fails.push("زرّ «إظهار المزيد» (aria-controls) غائب");
 if (fails.length) { console.error("✗ G-SALES-SORT:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log("✅ G-SALES-SORT: الكمية تنازلية في مبيعاً/راكدة/سحباً · إظهار المزيد 10→20→10 · صفر استعلام عند التوسيع · زرّ aria سليم.");
+console.log("✅ G-SALES-SORT: الكمية تنازلية في مبيعاً/راكدة/سحباً · إظهار المزيد 10→50→10 · صفر استعلام عند التوسيع · زرّ aria سليم.");

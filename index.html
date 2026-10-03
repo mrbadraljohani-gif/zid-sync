@@ -2146,7 +2146,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "f537819";
+const APP_VERSION = "290e291";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3628,7 +3628,7 @@ function salesToggleAll(k) {   // «إظهار المزيد» (10⇄20) — قص
   if (k === "whsuhb") { if (salesCtx && salesCtx._wh) renderWarehouseSection(salesCtx._wh.whData, salesCtx._wh.movs, salesCtx._wh.curSince, salesCtx._wh.whUploaded, salesCtx._wh.whLast); }
   else renderSalesTables();
 }
-const salesCap = (list, k) => salesShowAll[k] ? list.slice(0, 20) : list.slice(0, 10);   // الافتراضي 10 · التوسيع 20 (لا «الكل») — قصّ عرض
+const salesCap = (list, k) => salesShowAll[k] ? list.slice(0, 50) : list.slice(0, 10);   // الافتراضي 10 · التوسيع 50 (لا «الكل») — قصّ عرض
 // ترتيب العرض بالكمية تنازلياً · كسر التعادل بالمعيار الأصلي: القائمة مرتّبة أصلاً بمعيارها والفرز مستقرّ (stable) فيبقى ترتيبها عند التساوي
 const salesQtyDesc = (list, qtyOf) => list.slice().sort((a, b) => (Number(qtyOf(b)) || 0) - (Number(qtyOf(a)) || 0));
 // زرّ «إظهار المزيد/عرض أقل» — هدف لمس ≥32px ＋ aria-expanded/controls (يظهر فقط حين القائمة > 10)
