@@ -296,6 +296,12 @@ jobs:
         run: node tests/perf/role-sales.mjs --broken
       - name: G-ROLE-SALES — عزل شاشة المبيعات بالدور (واجهة + بنية SQL؛ admin بلا شاشة · marketing عليها فقط)
         run: node tests/perf/role-sales.mjs
+      - name: Self-check — G-AUDIT يرسب حين يُزال شرط owner من SQL
+        run: node tests/perf/audit-log.mjs --broken
+      - name: Self-check — G-AUDIT يرسب حين يُلغى فحص الدور في renderAudit
+        run: node tests/perf/audit-log.mjs --broken-ui
+      - name: G-AUDIT — سجلّ التدقيق (عزل قاعديّ owner · تسجيل دخول/بحث/حراج بلا كلمة مرور · الجدول بقيمته)
+        run: node tests/perf/audit-log.mjs
       - name: Self-check — G-SALES-CLEAN يرسب حين تظهر التغطية لـadmin
         run: node tests/perf/sales-clean.mjs --broken
       - name: Self-check — G-SALES-CLEAN يرسب حين تبقى كتلة رفع في شاشة المبيعات

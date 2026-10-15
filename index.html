@@ -1426,6 +1426,16 @@
   .s4-tbl td.n { font-family: var(--mono); text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .s4-tbl th.n { text-align: end; }
   .s4-tbl td.mono { font-family: var(--mono); font-size: 11px; color: var(--muted-2); }
+  /* سجلّ التدقيق (مستخدم جديد) — بتوكنات الثيم */
+  .audit-title { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); margin: 0 0 10px; }
+  .audit-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .audit-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .audit-table thead th { position: sticky; top: 0; background: var(--panel-2); font-size: 10.5px; color: var(--muted); font-weight: 600; text-align: start; padding: 9px 10px; border-bottom: 1px solid var(--border-strong); white-space: nowrap; }
+  .audit-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; color: var(--text); }
+  .audit-table tbody tr:last-child td { border-bottom: 0; }
+  .audit-table tbody tr:hover td { background: var(--tint-2); }
+  .audit-table td.audit-det { white-space: normal; overflow-wrap: anywhere; max-width: 340px; color: var(--muted); }
+  .audit-table .incl-tag { margin-inline-start: 4px; }
   .s4-tbl td.nm, .s4-tbl th:nth-child(2) { width: 48%; }   /* hint في table-layout:auto ⇒ الاسم يأخذ نصيباً كافياً (زِيد بعد حذف عمود القيمة) */
   .s4-tbl-sub { font-size: 10.5px; color: var(--muted); margin: -4px 2px 10px; line-height: 1.5; }
   .s4-tbl td.nm { color: var(--text); line-height: 1.5; min-width: 150px; overflow-wrap: anywhere; }
@@ -2112,6 +2122,14 @@
       <div id="suMsg" class="login-err" role="alert"></div>
       <p class="hint" style="margin-top:14px;line-height:1.7"><svg class="ico inline ico-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.8" r=".9" fill="currentColor" stroke="none"/></svg> كتابة الروابط صلاحية <b>المالك</b> وحده. قد يتطلب النظام تأكيد البريد قبل أول دخول (حسب إعدادات Supabase)، ولن تتأثر جلستك الحالية. لإدارة كاملة للمستخدمين استخدم لوحة <b>Supabase → Authentication</b>.</p>
     </form>
+    <div class="card audit-card" id="auditCard" style="margin-top:14px">
+      <h3 class="audit-title"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none"/></svg> سجلّ التدقيق — نشاط المستخدمين</h3>
+      <div class="audit-filters">
+        <select id="auditUserSel" class="sales-loc-sel" onchange="auditSetUser(this.value)" aria-label="تصفية بالمستخدم"></select>
+        <span id="auditDates" role="group" aria-label="تصفية بالتاريخ"></span>
+      </div>
+      <div class="twrap" id="auditTbl"></div>
+    </div>
   </section>
 
   </main>
@@ -2180,7 +2198,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "b09cb50";
+const APP_VERSION = "a62619c";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2378,6 +2396,9 @@ const db = {
     async getByType(type, limit) { let q = sb.from("activity_log").select("event_type,zid_sku,details,created_by,created_at").order("created_at", { ascending: false }).limit(limit || 200); if (type) q = q.eq("event_type", type); const { data, error } = await q; if (error) throw error; return data || []; },
     // أحداث صنف واحد (زمنيّ) — مصفّى بالـsku **في القاعدة** ＋ تصفيح (حدّ الخادم 1000). عند الطلب فقط.
     async getBySku(sku) { const out = [], page = 1000; let from = 0; for (;;) { const { data, error } = await sb.from("activity_log").select("event_type,zid_sku,details,created_by,created_at").eq("zid_sku", String(sku)).order("created_at", { ascending: false }).range(from, from + page - 1); if (error) throw error; out.push(...(data || [])); if (!data || data.length < page) break; from += page; } return out; },
+    // سجلّ التدقيق (owner فقط) — الدالّة/العرض يشترطان get_my_role()='owner' في القاعدة فالعزل قاعديّ لا واجهة. «آخر p_limit لكل مستخدم» ＋ فلتر تاريخ/مستخدم.
+    async auditRecent(userId, sinceIso, limit) { const { data, error } = await sb.rpc("audit_recent", { p_user: userId || null, p_since: sinceIso || null, p_limit: limit || 100 }); if (error) throw error; return data || []; },
+    async userDirectory() { const { data, error } = await sb.from("user_directory").select("id,email,role"); if (error) throw error; return data || []; },   // id·email·role فقط (owner فقط) — لفلتر الأسماء وترجمة created_by→بريد
   },
   // أدوار المستخدمين (user_roles)
   roles: {
@@ -2479,6 +2500,16 @@ db.sales = {
 function logActivity(event_type, zid_sku, details) {
   if (!(dbOnline && sb)) return;
   try { db.activity.insert(event_type, zid_sku, details).catch(e => console.warn("activity log:", e)); } catch (e) { console.warn("activity log:", e); }
+}
+// تسجيل البحث (تدقيق) — نصّ **بحث المنتجات فقط** (كود/اسم/باركود) 🚫 لا حقول كلمة المرور إطلاقاً.
+// بعد الـdebounce (المنادي مُبطّأ أصلاً) ＋ كبت المكرّر المتتالي ＋ تجاهل الحرف الواحد (ضوضاء).
+let lastSearchLog = {};
+function logSearch(scope, text) {
+  const q = String(text == null ? "" : text).trim();
+  if (q.length < 2) return;
+  if (lastSearchLog[scope] === q) return;
+  lastSearchLog[scope] = q;
+  logActivity("search", null, { scope, q });
 }
 // الدفعة أ: كل قرارات المستخدم القاعدة أولاً — عند نجاح القاعدة فقط يُحدَّث الذاكرة (لا localStorage إطلاقاً).
 // فشل القاعدة ⇒ يرمي، فلا يتغيّر شيء في الذاكرة (لا تشعّب صامت). المنادي يلتقط الاستثناء.
@@ -2845,11 +2876,11 @@ async function doLogin() {
   if (!email || !pass) { setLoginMsg(err, "أدخل البريد وكلمة المرور."); return; }
   if (!sb) { setLoginMsg(err, "لم تُحمّل مكتبة Supabase — تحقّق من الاتصال."); return; }
   setLoginMsg(err, ""); btn.disabled = true; btn.setAttribute("aria-busy", "true"); btn.textContent = "جارٍ الدخول…";
-  try { const { error } = await sb.auth.signInWithPassword({ email, password: pass }); if (error) throw error; }
+  try { const { error } = await sb.auth.signInWithPassword({ email, password: pass }); if (error) throw error; logActivity("login", null, { email }); }   // تدقيق: بعد النجاح حصراً (🚫 لا onAuthStateChange — يتجنّب دخولات عودة التبويب) · البريد فقط لا كلمة المرور
   catch (e) { setLoginMsg(err, "فشل الدخول: " + (e.message || e)); }
   btn.disabled = false; btn.removeAttribute("aria-busy"); btn.textContent = "دخول";
 }
-async function doLogout() { if (sb) await sb.auth.signOut(); }
+async function doLogout() { if (sb) { try { if (dbOnline) await db.activity.insert("logout", null, null); } catch (e) {} await sb.auth.signOut(); } }   // تدقيق: نكتب الخروج **قبل** signOut (بعده لا جلسة فتُرفَض الكتابة) — await ضروريّ لضمان الصفّ قبل موت الجلسة
 // زر الخروج في قاع القائمة الجانبية — نفس signOut مع تأكيد خفيف لتفادي الضغط الخاطئ
 function sideLogout() { closeUserMenu(); if (confirm("تسجيل الخروج؟")) doLogout(); }
 
@@ -2898,6 +2929,51 @@ function userKey(e) {
 let myRole = null;          // 'owner' | 'admin' | 'viewer' | null (غير محمّل)
 let signupRole = "admin";   // الدور المختار في صفحة «مستخدم جديد»
 function roleLabel(r) { return r === "owner" ? "المالك" : r === "admin" ? "مشرف" : r === "marketing" ? "تسويق" : r === "viewer" ? "مشاهد" : "—"; }
+// ═══ سجلّ التدقيق (owner فقط) — تحت «مستخدم جديد». عرضٌ بحت من audit_recent/user_directory ═══
+// 🚫 عزل تامّ: لا يمسّ المطابقة/المبيعات/أي منطق. الحاجز الفعليّ RLS في القاعدة (الدالّة تشترط owner)؛ فحص الدور هنا طبقة ثانية.
+let auditUser = "", auditSince = "7", auditDir = null;
+const AUDIT_PERIODS = [["1", "اليوم"], ["7", "7 أيام"], ["30", "30 يوماً"], ["all", "الكل"]];
+const AUDIT_ACTIONS = { login: "دخول", logout: "خروج", search: "بحث", role_change: "تغيير صلاحية", warehouse_sync_full: "رفع ملف (مستودع)", branch_sync_full: "رفع ملف (فرع)", sync_full: "رفع ملف (زد)", xbranch_sync_full: "رفع ملف (حراج)", link_added: "ربط", link_removed: "إلغاء ربط", file_generated: "تنزيل" };
+const AUDIT_SCOPES = { warehouse: "المخزن", zid: "زد", sales: "المبيعات", item: "حركة الصنف" };
+const AUDIT_KINDS = { quantities: "ملف الكميات", prices: "ملف الأسعار", explorer_view: "تصدير المستكشف" };
+function auditSinceIso() { if (auditSince === "all") return null; return new Date(Date.now() - (Number(auditSince) || 7) * 86400000).toISOString(); }
+function auditEmailOf(uid) { if (!uid || !auditDir) return ""; const u = auditDir.find(x => x.id === uid); return u ? u.email : ""; }
+function auditDetails(row) {   // التفاصيل بقيمتها (old=null ⇒ «—»)
+  const d = row.details || {};
+  switch (row.event_type) {
+    case "search": return "«" + String(d.q || "") + "»" + (d.scope ? " · " + (AUDIT_SCOPES[d.scope] || d.scope) : "");
+    case "role_change": { const t = auditEmailOf(d.target); return (t ? t + " · " : "") + (d.old || "—") + " ← " + (d.new || "—"); }
+    case "link_added": case "link_removed": return (row.zid_sku ? String(row.zid_sku) : "") + (d.code ? " → " + d.code : "");
+    case "file_generated": return (AUDIT_KINDS[d.kind] || d.kind || "") + (d.count != null ? " · " + d.count : "");
+    case "warehouse_sync_full": case "branch_sync_full": case "sync_full": case "xbranch_sync_full": return (d.file || "") + (d.total != null ? " · " + d.total + " صنف" : "");
+    case "login": return d.email ? String(d.email) : "";   // البريد فقط (لا كلمة مرور)
+    default: return (d && Object.keys(d).length) ? JSON.stringify(d) : "—";
+  }
+}
+async function renderAudit() {
+  const card = document.getElementById("auditCard"); if (!card) return;
+  if (myRole !== "owner") { card.style.display = "none"; return; }   // طبقة ثانية فوق RLS
+  card.style.display = "";
+  if (auditDir == null && dbOnline && sb) { try { auditDir = await db.activity.userDirectory(); } catch (e) { auditDir = []; } }
+  const sel = document.getElementById("auditUserSel");
+  if (sel) sel.innerHTML = `<option value="">كل المستخدمين</option>` + (auditDir || []).map(u => `<option value="${esc(u.id)}"${u.id === auditUser ? " selected" : ""}>${esc(u.email || u.id)}${u.role ? " · " + roleLabel(u.role) : ""}</option>`).join("");
+  const dz = document.getElementById("auditDates");
+  if (dz) dz.innerHTML = AUDIT_PERIODS.map(([v, l]) => `<button type="button" class="exp-chip${auditSince === v ? " on" : ""}" aria-pressed="${auditSince === v}" onclick="auditSetDate('${v}')">${l}</button>`).join(" ");
+  const host = document.getElementById("auditTbl"); if (!host) return;
+  host.innerHTML = `<div class="hint" style="padding:10px">جارٍ التحميل…</div>`;
+  let rows = [];
+  try { rows = await db.activity.auditRecent(auditUser || null, auditSinceIso(), 100); }
+  catch (e) { host.innerHTML = `<div class="hint" style="padding:10px">تعذّر تحميل السجلّ: ${esc(e && e.message ? e.message : String(e))}</div>`; return; }
+  if (!rows.length) { host.innerHTML = `<div class="hint" style="padding:10px">لا نشاط مسجَّل في هذه الفترة.</div>`; return; }
+  const body = rows.map(r => {
+    const dt = riyadhDateTime(r.created_at), date = dt.slice(0, 10), time = dt.length > 10 ? dt.slice(11) : "—";
+    const who = r.actor_email || r.created_by || "—";
+    return `<tr><td>${esc(who)}${r.actor_role ? ` <span class="incl-tag">${esc(roleLabel(r.actor_role))}</span>` : ""}</td><td>${esc(AUDIT_ACTIONS[r.event_type] || r.event_type)}</td><td class="audit-det">${esc(auditDetails(r))}</td><td><bdi dir="ltr">${esc(date)}</bdi></td><td><bdi dir="ltr">${esc(time)}</bdi></td></tr>`;
+  }).join("");
+  host.innerHTML = `<table class="audit-table"><thead><tr><th>المستخدم</th><th>الإجراء</th><th>التفاصيل</th><th>التاريخ</th><th>الساعة</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+function auditSetUser(v) { auditUser = v || ""; renderAudit(); }
+function auditSetDate(v) { auditSince = v; renderAudit(); }
 function isOwner() { return myRole === "owner"; }
 function canSeeSales() { return myRole === "owner" || myRole === "marketing"; }   // شاشة عرض المبيعات: owner+marketing (admin/viewer محجوبان — RLS يعيد 0)
 // منع الربط في الواجهة لغير المالك (RLS هو الحاجز الحقيقي؛ null=غير محمّل ⇒ نترك القاعدة تقرّر)
@@ -2971,6 +3047,7 @@ function goPage(id, fromHash) {
   if (id === "inventory") { renderInventoryPage(); renderActivityTable(); fillUploadStatus(); }
   if (id === "sales" && typeof renderSalesPage === "function") renderSalesPage();
   if (id === "options" && typeof renderOffsetsList === "function") renderOffsetsList();
+  if (id === "newuser" && typeof renderAudit === "function") renderAudit();   // سجلّ التدقيق (owner فقط)
   closeSidebar();
   const h = PAGE_HASH[id] || "home";   // حدّث الـhash (بلا إعادة تحميل) ما لم يأتِ التنقّل من الـhash أصلاً
   if (!fromHash && location.hash.replace(/^#/, "") !== h) { try { location.hash = h; } catch (e) {} }
@@ -3967,6 +4044,7 @@ function salesQueryRun(v) {
   const box = document.getElementById("sqResults"); if (!box) return;
   const q = normText(String(v || "").trim());
   if (!q) { box.innerHTML = ""; sqClose(); return; }                        // فارغ ⇒ إغلاق المنسدلة (بلا مسح ما في الحقل)
+  logSearch("sales", v);                                                    // تدقيق: نصّ بحث المبيعات (منتجات)
   if (!saiPanelHasContent()) salesAIClose();                                // فتح البحث يغلق المساعد الخامل فقط (🚫 لا يمسح سؤالاً/إجابة)
   if (!salesCtx || !salesCtx.stock) { box.innerHTML = '<div class="q-empty">تُتاح بعد تحميل بيانات الشاشة.</div>'; sqOpen(); return; }
   const nc = normCode(q), bySku = new Map();
@@ -6204,6 +6282,7 @@ async function syncInventoryToDB(kind, aggList, header, fileName, branchId) {
     }
     if (!isXbr) { resyncNeeded[kind] = invPolluted(rows); renderResyncWarn(); }   // الملف الجديد (بالرأس المُلتقط) يُصفّي التلوّث إن حواه شامل (لا يخصّ xbranch)
     if (!isXbr) logActivity(isBr ? "branch_sync_full" : "warehouse_sync_full", null, { added, updated, deleted: toDelete.length, total: newCodes.length, file: fileName || "", location: isBr ? branchId : "wh", upload_id: uploadId });
+    if (isXbr) logActivity("xbranch_sync_full", null, { added, updated, deleted: toDelete.length, total: newCodes.length, file: fileName || "", location: branchId, upload_id: uploadId });   // رفع الحراج (كان غير مسجَّل) — تدقيق فقط، لا يمسّ عزل الحراج
     // لوحة المبيعات (بعد نجاح كتابة المخزون): سجّل **واقعة الرفعة دائماً**، والحركات fire-and-forget.
     // identical = رفعة بلا حركات (ملف مطابق) · uploadOk = نجح تسجيل الرفعة (البيانات مُخزَّنة أياً كان).
     let identical = false, uploadOk = true;
@@ -7842,6 +7921,7 @@ function runWhQuery() {
   const inp = document.getElementById("whQuery"); if (!inp) return;
   const box = document.getElementById("whQResults"), cnt = document.getElementById("whQCount");
   const q = normText(inp.value.trim());
+  logSearch("warehouse", inp.value);   // تدقيق: نصّ بحث المخزن (منتجات، لا كلمة مرور)
   // لا مخزن محمّل في الذاكرة؟ حمّله كسولاً من القاعدة (الجدولين) ثم أعِد
   if (!lastMerge) {
     if (invDbAvailable() && dbOnline) {
@@ -7917,6 +7997,7 @@ function runZdQuery() {
   const inp = document.getElementById("zdQuery"); if (!inp) return;
   const box = document.getElementById("zdQResults"), cnt = document.getElementById("zdQCount");
   const q = normText(inp.value.trim());
+  logSearch("zid", inp.value);   // تدقيق: نصّ بحث زد (منتجات)
   if (!stData || !stData.rows || stData.rows.length < 2) {
     // لا بيانات زد في الذاكرة؟ حمّلها كسولاً من القاعدة (كالمخزن) ثم أعِد
     if (zidDbAvailable() && dbOnline) {
