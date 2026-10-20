@@ -141,6 +141,8 @@
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border); box-shadow: 0 10px 34px rgba(0,0,0,.34); }
   .side-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; text-decoration: none; border-radius: 10px; color: var(--text); }
+  /* رقاقة الشعار: emblem-light على رقاقة بيضاء (الذهبيّ ＋ الكحليّ يُقرآن على الشريط الداكن والفاتح) · object-fit:contain بلا تشويه · تبقى ظاهرة ≤560px حين يُخفى النصّ */
+  .brand-mark { width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px; background: #fff; border: 1px solid var(--hair); padding: 5px; box-sizing: border-box; object-fit: contain; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
   .side-brand:hover .side-brand-txt span { color: var(--gold-2); }
   .side-brand-txt { display: flex; flex-direction: column; line-height: 1; transition: color .15s; }
   .side-brand-txt b { font-family: var(--serif); font-size: 19px; letter-spacing: .16em; background: linear-gradient(120deg, var(--gold-2), var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -1700,6 +1702,7 @@
    <div class="tn-bar">
     <!-- شعار واحد: النصّ نفسه هو رابط الرئيسية (أُزيلت الأيقونة الدائرية المكرّرة) -->
     <a class="side-brand" href="#home" aria-label="الرئيسية" onclick="event.preventDefault();goPage('home')">
+      <img class="brand-mark" src="asj-mark.png" alt="ASJ" width="40" height="40">
       <span class="side-brand-txt"><b>ASJ</b><span>Inventory Sync</span></span>
     </a>
     <nav class="side-nav" id="sidebar" aria-label="التنقّل الرئيسي">
@@ -2198,7 +2201,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "a62619c";
+const APP_VERSION = "1441326";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
