@@ -45,6 +45,7 @@ if (!loginM) srcFails.push("② الدخول لا يُسجَّل بالبريد 
 if (loginM && /pass(word)?/i.test(loginM[0])) srcFails.push("② 🚫 الدخول يسجّل كلمة المرور");
 if (!/logActivity\("search",\s*null,\s*\{\s*scope,\s*q\s*\}\)/.test(code)) srcFails.push("② البحث لا يُسجَّل بنصّه (scope,q)");
 if (!/logActivity\("xbranch_sync_full"/.test(code)) srcFails.push("② رفع الحراج غير مسجَّل (xbranch_sync_full)");
+if (!/sb\.rpc\("user_directory_list"\)/.test(code)) srcFails.push("② userDirectory لا يستعمل الدالّة user_directory_list (تفادي لينت auth_users_exposed) — ما زال يقرأ العرض");
 if (MODE !== "ui" && !/myRole !== "owner"/.test(code)) srcFails.push("④ فحص الدور في renderAudit غائب");
 
 // ── ③④⑤ سلوكيّ ──
@@ -63,7 +64,7 @@ const res = await p.evaluate(async () => {
     { id: 3, event_type: "role_change", details: { target: "u-mkt", old: null, new: "marketing", op: "INSERT" }, created_at: "2026-10-15T07:02:00Z", created_by: "u-own", actor_email: "owner@asj.sa", actor_role: "owner" },
     { id: 2, event_type: "xbranch_sync_full", details: { file: "haraj.xlsx", total: 120, location: "haraj_reh" }, created_at: "2026-10-15T07:03:00Z", created_by: "u-adm", actor_email: "mohammed@asj.sa", actor_role: "admin" }];
   let rpcArgs = null;
-  sb = { rpc: async (fn, pr) => { if (fn === "audit_recent") rpcArgs = pr; return { data: fn === "audit_recent" ? ROWS : null, error: null }; }, from: (t) => ({ select: async () => ({ data: t === "user_directory" ? DIR : [], error: null }) }) };
+  sb = { rpc: async (fn, pr) => { if (fn === "audit_recent") rpcArgs = pr; return { data: fn === "audit_recent" ? ROWS : fn === "user_directory_list" ? DIR : null, error: null }; }, from: (t) => ({ select: async () => ({ data: t === "user_directory" ? DIR : [], error: null }) }) };
   document.getElementById("page-newuser").classList.add("active");
   myRole = "owner"; await renderAudit(); await new Promise(r => setTimeout(r, 20));
   const tbl = document.getElementById("auditTbl"), txt = tbl.textContent;

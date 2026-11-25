@@ -2202,7 +2202,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "4f01010";
+const APP_VERSION = "ec256b2";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2402,7 +2402,7 @@ const db = {
     async getBySku(sku) { const out = [], page = 1000; let from = 0; for (;;) { const { data, error } = await sb.from("activity_log").select("event_type,zid_sku,details,created_by,created_at").eq("zid_sku", String(sku)).order("created_at", { ascending: false }).range(from, from + page - 1); if (error) throw error; out.push(...(data || [])); if (!data || data.length < page) break; from += page; } return out; },
     // سجلّ التدقيق (owner فقط) — الدالّة/العرض يشترطان get_my_role()='owner' في القاعدة فالعزل قاعديّ لا واجهة. «آخر p_limit لكل مستخدم» ＋ فلتر تاريخ/مستخدم.
     async auditRecent(userId, sinceIso, limit) { const { data, error } = await sb.rpc("audit_recent", { p_user: userId || null, p_since: sinceIso || null, p_limit: limit || 100 }); if (error) throw error; return data || []; },
-    async userDirectory() { const { data, error } = await sb.from("user_directory").select("id,email,role"); if (error) throw error; return data || []; },   // id·email·role فقط (owner فقط) — لفلتر الأسماء وترجمة created_by→بريد
+    async userDirectory() { const { data, error } = await sb.rpc("user_directory_list"); if (error) throw error; return data || []; },   // دالّة user_directory_list() (owner فقط · security definer · حارس get_my_role()='owner') بدل العرض — تفادي لينت auth_users_exposed؛ نفس أعمدة id·email·role فشكل البيانات مطابق (لا مساس بـrenderAudit)
   },
   // أدوار المستخدمين (user_roles)
   roles: {
