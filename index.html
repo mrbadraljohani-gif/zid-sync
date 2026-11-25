@@ -1445,6 +1445,8 @@
   .usr-seg { flex-shrink: 0; }
   .usr-seg .chip { min-height: 32px; }
   .usr-email { font-size: 12px; text-align: left; }
+  /* نقطة «جلسة نشطة» — عنصر CSS لا إيموجي (الإيموجي لون شارد) */
+  .usr-active { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-inline-end: 6px; vertical-align: middle; box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 25%, transparent); }
   .s4-tbl td.nm, .s4-tbl th:nth-child(2) { width: 48%; }   /* hint في table-layout:auto ⇒ الاسم يأخذ نصيباً كافياً (زِيد بعد حذف عمود القيمة) */
   .s4-tbl-sub { font-size: 10.5px; color: var(--muted); margin: -4px 2px 10px; line-height: 1.5; }
   .s4-tbl td.nm { color: var(--text); line-height: 1.5; min-width: 150px; overflow-wrap: anywhere; }
@@ -2210,7 +2212,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "5b239e6";
+const APP_VERSION = "a1f7d1c";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -3004,7 +3006,10 @@ async function renderUsers() {
   const body = rows.map(u => {
     const confirmed = !!u.email_confirmed_at;
     const statusBadge = confirmed ? `<span class="act-st st-ok">مؤكَّد</span>` : `<span class="act-st st-wait">بانتظار التأكيد</span>`;
-    const lastLogin = u.last_sign_in_at ? relTime(u.last_sign_in_at) : "لم يدخل بعد";
+    // «آخر نشاط» = last_seen (تجديد الجلسة) لا last_sign_in_at (لحظة الدخول فقط — مضلِّل لجلسة مفتوحة منذ أسابيع). الدخول يبقى tooltip.
+    const lastSeen = u.last_seen ? relTime(u.last_seen) : "لم يدخل بعد";
+    const loginTip = u.last_sign_in_at ? `آخر تسجيل دخول: ${relTime(u.last_sign_in_at)}` : "لم يسجّل دخولاً بعد";
+    const activeDot = u.session_active ? `<span class="usr-active" title="جلسة نشطة" aria-label="جلسة نشطة"></span>` : "";
     const roleBadge = `<span class="act-st st-mute">${esc(roleLabel(u.role))}</span>`;
     const em = String(u.email || "").replace(/['"\\]/g, "");   // تنظيف دفاعيّ لوسيط onclick (البريد يُنشئه المالك)
     const roleCtl = u.role === "owner" ? "" : `<span class="seg usr-seg" role="radiogroup" aria-label="تغيير صلاحية ${esc(u.email || "")}">` +
@@ -3013,13 +3018,13 @@ async function renderUsers() {
     return `<tr>
       <td class="usr-email" dir="ltr">${esc(u.email || "—")}</td>
       <td>${roleBadge}</td>
-      <td>${esc(lastLogin)}</td>
+      <td><span class="usr-seen" title="${esc(loginTip)}">${activeDot}${esc(lastSeen)}</span></td>
       <td>${statusBadge}</td>
       <td class="usr-actions">${roleCtl}${resetBtn}</td>
     </tr>`;
   }).join("");
   const host = document.getElementById("usersTbl"); if (!host) return;
-  host.innerHTML = `<table class="audit-table" aria-label="المستخدمون الحاليون"><thead><tr><th>البريد</th><th>الصلاحية</th><th>آخر دخول</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>${body}</tbody></table>`;
+  host.innerHTML = `<table class="audit-table" aria-label="المستخدمون الحاليون"><thead><tr><th>البريد</th><th>الصلاحية</th><th>آخر نشاط</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 async function changeUserRole(id, role, email) {
   if (!isOwner()) { showToast("🔒 تغيير الصلاحيات للمالك فقط."); return; }

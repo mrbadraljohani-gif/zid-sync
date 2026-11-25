@@ -34,10 +34,13 @@ await p.setRequestInterception(true); p.on("request", r => { const u = r.url(); 
 await p.setContent(html, { waitUntil: "load" });
 const res = await p.evaluate(async () => {
   dbOnline = true;
+  const recent = new Date(Date.now() - 5 * 60000).toISOString();     // قبل 5 د — نشاط حديث
+  const old57 = new Date(Date.now() - 57 * 86400000).toISOString();   // قبل 57 ي — دخولٌ قديم (المضلِّل)
   const ROWS = [
-    { id: "u-own", email: "owner@asj.sa", role: "owner",     created_at: "2026-01-01T00:00:00Z", last_sign_in_at: "2026-11-25T06:00:00Z", email_confirmed_at: "2026-01-01T00:00:00Z" },
-    { id: "u-mkt", email: "mkt@asj.sa",   role: "marketing", created_at: "2026-02-01T00:00:00Z", last_sign_in_at: "2026-11-20T06:00:00Z", email_confirmed_at: "2026-02-01T00:00:00Z" },
-    { id: "u-new", email: "new@asj.sa",   role: "viewer",    created_at: "2026-11-24T00:00:00Z", last_sign_in_at: null,                   email_confirmed_at: null }];
+    // last_sign_in_at قديم (57 ي) بينما last_seen حديث (5 د) ＋ session_active ⇒ «آخر نشاط» يجب أن يعرض الحديث لا القديم
+    { id: "u-own", email: "owner@asj.sa", role: "owner",     last_sign_in_at: old57, last_seen: recent, session_active: true,  email_confirmed_at: "2026-01-01T00:00:00Z" },
+    { id: "u-mkt", email: "mkt@asj.sa",   role: "marketing", last_sign_in_at: old57, last_seen: old57,  session_active: false, email_confirmed_at: "2026-02-01T00:00:00Z" },
+    { id: "u-new", email: "new@asj.sa",   role: "viewer",    last_sign_in_at: null,   last_seen: null,   session_active: false, email_confirmed_at: null }];
   let setRoleArgs = null, resetEmail = null;
   sb = { rpc: async () => ({ data: ROWS, error: null }),
          from: () => ({ upsert: async (row) => { setRoleArgs = row; return { error: null }; }, select: async () => ({ data: ROWS, error: null }) }),
@@ -64,6 +67,13 @@ const res = await p.evaluate(async () => {
   const mktConfirmed = mktRow ? /مؤكَّد/.test(mktRow.textContent) : false;
   const arabicRoles = /مالك/.test(txt) && /تسويق/.test(txt) && /مشاهد/.test(txt) && !/owner|marketing|viewer/.test([...card.querySelectorAll(".act-st.st-mute")].map(e=>e.textContent).join(" "));
   const ariaTable = table && table.hasAttribute("aria-label");
+  // «آخر نشاط»: من last_seen (الحديث) لا last_sign_in_at (القديم المضلِّل) · نقطة جلسة نشطة · tooltip الدخول
+  const headerActivity = /آخر نشاط/.test(card.textContent) && !/آخر دخول/.test(card.textContent);
+  const ownerSeenCell = ownerRow ? ownerRow.querySelectorAll("td")[2] : null;
+  const ownerActiveDot = !!(ownerSeenCell && ownerSeenCell.querySelector(".usr-active"));
+  const ownerSeenRecent = !!(ownerSeenCell && /قبل\s*\d+\s*د|الآن/.test(ownerSeenCell.textContent) && !/57/.test(ownerSeenCell.textContent));
+  const ownerSeenTitle = !!(ownerSeenCell && /آخر تسجيل دخول/.test((ownerSeenCell.querySelector(".usr-seen") || {}).title || ""));
+  const mktNoDot = !!(mktRow && !mktRow.querySelector(".usr-active"));
 
   // ③ تغيير صلاحية mkt → viewer
   let changed = false, reloaded = false;
@@ -83,6 +93,7 @@ const res = await p.evaluate(async () => {
 
   return { ownerDisplay, hasTable: !!table, rowCount: trs.length, ownerHasSeg, mktHasSeg, everyRowHasReset,
     newLastLogin, newPending, mktConfirmed, arabicRoles, ariaTable, changed, reloaded, reset,
+    headerActivity, ownerActiveDot, ownerSeenRecent, ownerSeenTitle, mktNoDot,
     adminDisplay, adminHasTable, adminHasTitle };
 });
 await b.close();
@@ -94,7 +105,12 @@ if (!res.hasTable) fails.push("① لا جدول للمالك");
 if (res.rowCount !== 3) fails.push(`① عدد الصفوف ${res.rowCount} ≠ 3`);
 if (!res.arabicRoles) fails.push("① الأدوار ليست بالعربية (مالك/تسويق/مشاهد) أو تسرّبت الإنجليزية");
 if (!res.ariaTable) fails.push("① الجدول بلا aria-label");
-if (!res.newLastLogin) fails.push("② «لم يدخل بعد» غائب لمن last_sign_in_at فارغ");
+if (!res.newLastLogin) fails.push("② «لم يدخل بعد» غائب لمن last_seen فارغ");
+if (!res.headerActivity) fails.push("① العنوان ليس «آخر نشاط» (أو «آخر دخول» ما زال)");
+if (!res.ownerSeenRecent) fails.push("① «آخر نشاط» لا يعرض last_seen الحديث (يعرض last_sign_in_at القديم «57 ي»)");
+if (!res.ownerActiveDot) fails.push("② نقطة «جلسة نشطة» غائبة عمن session_active=true");
+if (!res.ownerSeenTitle) fails.push("③ tooltip «آخر تسجيل دخول» غائب على القيمة");
+if (!res.mktNoDot) fails.push("② نقطة نشطة ظهرت عمن session_active=false");
 if (!res.newPending) fails.push("② «بانتظار التأكيد» غائب لمن email_confirmed_at فارغ");
 if (!res.mktConfirmed) fails.push("② «مؤكَّد» غائب للمستخدم المؤكَّد");
 const ownerRowFail = res.ownerHasSeg;   // ② صفّ المالك يجب ألّا يحمل seg
@@ -114,4 +130,4 @@ if (MODE) {
   console.error(`✗ (${flag}) لم يُرصَد العطل — لا أسنان. ${JSON.stringify({ ownerRowFail, isolFail })}`); process.exit(1);
 }
 if (fails.length) { console.error("✗ G-USERS:\n  " + fails.join("\n  ")); process.exit(1); }
-console.log(`✅ G-USERS: المالك يرى ٣ صفوف (أدوار عربية · مؤكَّد/بانتظار · «لم يدخل بعد») · صفّ المالك بلا seg والبقيّة تحمله · تغيير الصلاحية يستدعي setRole ويعيد الرسم · إعادة التعيين بالبريد · العزل (admin: لا قسم في DOM).`);
+console.log(`✅ G-USERS: المالك يرى ٣ صفوف (أدوار عربية · مؤكَّد/بانتظار) · «آخر نشاط» من last_seen الحديث ＋ نقطة جلسة نشطة ＋ tooltip الدخول · صفّ المالك بلا seg والبقيّة تحمله · تغيير الصلاحية يستدعي setRole ويعيد الرسم · إعادة التعيين بالبريد · العزل (admin: لا قسم في DOM).`);
