@@ -1439,6 +1439,12 @@
   .audit-table tbody tr:hover td { background: var(--tint-2); }
   .audit-table td.audit-det { white-space: normal; overflow-wrap: anywhere; max-width: 340px; color: var(--muted); }
   .audit-table .incl-tag { margin-inline-start: 4px; }
+  /* المستخدمون الحاليون — إجراءات الصفّ (seg تغيير الدور ＋ زرّ إعادة التعيين)؛ تلفّ على الجوال بلا تمرير أفقيّ للصفحة (الجدول داخل .twrap) */
+  .audit-table td.usr-actions { white-space: normal; }
+  .usr-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .usr-seg { flex-shrink: 0; }
+  .usr-seg .chip { min-height: 32px; }
+  .usr-email { font-size: 12px; text-align: left; }
   .s4-tbl td.nm, .s4-tbl th:nth-child(2) { width: 48%; }   /* hint في table-layout:auto ⇒ الاسم يأخذ نصيباً كافياً (زِيد بعد حذف عمود القيمة) */
   .s4-tbl-sub { font-size: 10.5px; color: var(--muted); margin: -4px 2px 10px; line-height: 1.5; }
   .s4-tbl td.nm { color: var(--text); line-height: 1.5; min-width: 150px; overflow-wrap: anywhere; }
@@ -2096,6 +2102,8 @@
   <!-- ============ الصفحة: مستخدم جديد ============ -->
   <section class="page" id="page-newuser">
     <div class="page-head"><span class="ph-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><div class="ph-txt"><h2>مستخدم جديد</h2><p>إنشاء حساب دخول جديد للأداة</p></div></div>
+    <!-- المستخدمون الحاليون (owner فقط) — يملؤه renderUsers؛ لغير المالك يبقى فارغاً مخفيّاً (لا عنوان/جدول في DOM) -->
+    <div class="card" id="usersCard" style="display:none;margin-bottom:14px"></div>
     <form class="card acc-card signup-card" id="signupForm" novalidate onsubmit="event.preventDefault();doSignup();return false">
       <div class="login-field"><label for="suEmail">البريد الإلكتروني</label><input type="email" id="suEmail" dir="ltr" placeholder="name@asj.com" autocomplete="off" aria-describedby="suMsg"></div>
       <div class="login-field"><label for="suPass">كلمة المرور</label>
@@ -2202,7 +2210,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "ec256b2";
+const APP_VERSION = "5b239e6";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
@@ -2978,6 +2986,58 @@ async function renderAudit() {
 }
 function auditSetUser(v) { auditUser = v || ""; renderAudit(); }
 function auditSetDate(v) { auditSince = v; renderAudit(); }
+
+// ═══ المستخدمون الحاليون (owner فقط) — جدول من user_directory_list() ＋ تغيير الصلاحية/إرسال رابط إعادة التعيين ═══
+// 🚫 لا service_role ولا auth.admin.*: تغيير الكلمة/الإيميل/الحذف خارج النطاق (تحتاج service_role). المتاح: تغيير الدور (user_roles · RLS owner UPDATE) ＋ رابط إعادة تعيين بالبريد.
+const USERS_ROLE_OPTS = [["admin", "مشرف"], ["marketing", "تسويق"], ["viewer", "مشاهد"]];   // نفس أدوار النموذج (لا owner من الواجهة)
+async function renderUsers() {
+  const card = document.getElementById("usersCard"); if (!card) return;
+  if (myRole !== "owner") { card.innerHTML = ""; card.style.display = "none"; return; }   // حارس نمط renderAudit: لغير المالك فارغ ومخفيّ — لا عنوان ولا جدول في DOM
+  card.style.display = "";
+  const titleH = `<h3 class="audit-title"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M17 7.5h4M19 5.5v4"/></svg> المستخدمون الحاليون</h3>`;
+  if (!(dbOnline && sb)) { card.innerHTML = titleH + `<div class="hint" style="padding:10px">غير متصل بالقاعدة.</div>`; return; }
+  card.innerHTML = titleH + `<div class="twrap" id="usersTbl"><div class="hint" style="padding:10px">جارٍ التحميل…</div></div>`;
+  let rows = [];
+  try { rows = await db.activity.userDirectory(); }   // نفس rpc user_directory_list() (owner فقط) — يُرجع id·email·role·created_at·last_sign_in_at·email_confirmed_at
+  catch (e) { const h = document.getElementById("usersTbl"); if (h) h.innerHTML = `<div class="hint" style="padding:10px">تعذّر تحميل المستخدمين: ${esc(e && e.message ? e.message : String(e))}</div>`; return; }
+  rows = rows.slice().sort((a, b) => (a.role === "owner" ? -1 : b.role === "owner" ? 1 : 0) || String(a.email || "").localeCompare(String(b.email || "")));
+  const body = rows.map(u => {
+    const confirmed = !!u.email_confirmed_at;
+    const statusBadge = confirmed ? `<span class="act-st st-ok">مؤكَّد</span>` : `<span class="act-st st-wait">بانتظار التأكيد</span>`;
+    const lastLogin = u.last_sign_in_at ? relTime(u.last_sign_in_at) : "لم يدخل بعد";
+    const roleBadge = `<span class="act-st st-mute">${esc(roleLabel(u.role))}</span>`;
+    const em = String(u.email || "").replace(/['"\\]/g, "");   // تنظيف دفاعيّ لوسيط onclick (البريد يُنشئه المالك)
+    const roleCtl = u.role === "owner" ? "" : `<span class="seg usr-seg" role="radiogroup" aria-label="تغيير صلاحية ${esc(u.email || "")}">` +
+      USERS_ROLE_OPTS.map(([v, l]) => `<button type="button" role="radio" aria-checked="${u.role === v}" class="chip${u.role === v ? " on" : ""}" onclick="changeUserRole('${esc(u.id)}','${v}','${esc(em)}')">${l}</button>`).join("") + `</span>`;
+    const resetBtn = `<button type="button" class="mini-btn" onclick="sendResetLink('${esc(em)}')">إرسال رابط إعادة التعيين</button>`;
+    return `<tr>
+      <td class="usr-email" dir="ltr">${esc(u.email || "—")}</td>
+      <td>${roleBadge}</td>
+      <td>${esc(lastLogin)}</td>
+      <td>${statusBadge}</td>
+      <td class="usr-actions">${roleCtl}${resetBtn}</td>
+    </tr>`;
+  }).join("");
+  const host = document.getElementById("usersTbl"); if (!host) return;
+  host.innerHTML = `<table class="audit-table" aria-label="المستخدمون الحاليون"><thead><tr><th>البريد</th><th>الصلاحية</th><th>آخر دخول</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+async function changeUserRole(id, role, email) {
+  if (!isOwner()) { showToast("🔒 تغيير الصلاحيات للمالك فقط."); return; }
+  if (!USERS_ROLE_OPTS.some(([v]) => v === role)) return;   // لا owner ولا دور مجهول من الواجهة
+  if (!confirm(`تغيير صلاحية ${email} إلى «${roleLabel(role)}»؟`)) return;
+  try { await db.roles.setRole(id, role); showToast(`✓ صار ${email}: ${roleLabel(role)}`); renderUsers(); }   // المُشغِّل log_role_change يسجّل الحدث في القاعدة تلقائياً
+  catch (e) { showToast(`✗ تعذّر التغيير: ${e && e.message ? e.message : e}`); }
+}
+async function sendResetLink(email) {
+  if (!isOwner()) { showToast("🔒 للمالك فقط."); return; }
+  if (!email || !(sb && sb.auth)) return;
+  try {
+    const redirectTo = window.location.href.split("#")[0].split("?")[0];   // نفس نمط forgotPassword — صفحة الأداة (في Redirect URLs)
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) throw error;
+    showToast(`✓ أُرسل الرابط إلى ${email}`);   // 🚫 لا يمسّ جلسة المالك (إرسال بريد فقط)
+  } catch (e) { showToast(`✗ تعذّر الإرسال: ${e && e.message ? e.message : e}`); }
+}
 function isOwner() { return myRole === "owner"; }
 function canSeeSales() { return myRole === "owner" || myRole === "marketing"; }   // شاشة عرض المبيعات: owner+marketing (admin/viewer محجوبان — RLS يعيد 0)
 // منع الربط في الواجهة لغير المالك (RLS هو الحاجز الحقيقي؛ null=غير محمّل ⇒ نترك القاعدة تقرّر)
@@ -3052,6 +3112,7 @@ function goPage(id, fromHash) {
   if (id === "sales" && typeof renderSalesPage === "function") renderSalesPage();
   if (id === "options" && typeof renderOffsetsList === "function") renderOffsetsList();
   if (id === "newuser" && typeof renderAudit === "function") renderAudit();   // سجلّ التدقيق (owner فقط)
+  if (id === "newuser" && typeof renderUsers === "function") renderUsers();   // المستخدمون الحاليون (owner فقط)
   closeSidebar();
   const h = PAGE_HASH[id] || "home";   // حدّث الـhash (بلا إعادة تحميل) ما لم يأتِ التنقّل من الـhash أصلاً
   if (!fromHash && location.hash.replace(/^#/, "") !== h) { try { location.hash = h; } catch (e) {} }

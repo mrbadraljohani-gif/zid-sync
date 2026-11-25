@@ -302,6 +302,12 @@ jobs:
         run: node tests/perf/audit-log.mjs --broken-ui
       - name: G-AUDIT — سجلّ التدقيق (عزل قاعديّ owner · تسجيل دخول/بحث/حراج بلا كلمة مرور · الجدول بقيمته)
         run: node tests/perf/audit-log.mjs
+      - name: Self-check — G-USERS يرسب حين يحمل صفّ المالك seg تغيير الصلاحية
+        run: node tests/perf/users-table.mjs --broken
+      - name: Self-check — G-USERS يرسب حين يرى غير-المالك القسم
+        run: node tests/perf/users-table.mjs --broken-ui
+      - name: G-USERS — المستخدمون الحاليون (owner فقط · أدوار عربية · صفّ المالك بلا تغيير دور · العزل)
+        run: node tests/perf/users-table.mjs
       - name: Self-check — G-SALES-CLEAN يرسب حين تظهر التغطية لـadmin
         run: node tests/perf/sales-clean.mjs --broken
       - name: Self-check — G-SALES-CLEAN يرسب حين تبقى كتلة رفع في شاشة المبيعات
