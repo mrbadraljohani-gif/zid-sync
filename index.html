@@ -2106,6 +2106,15 @@
     <div class="page-head"><span class="ph-ico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><div class="ph-txt"><h2>مستخدم جديد</h2><p>إنشاء حساب دخول جديد للأداة</p></div></div>
     <!-- المستخدمون الحاليون (owner فقط) — يملؤه renderUsers؛ لغير المالك يبقى فارغاً مخفيّاً (لا عنوان/جدول في DOM) -->
     <div class="card" id="usersCard" style="display:none;margin-bottom:14px"></div>
+    <!-- سجلّ التدقيق مباشرةً تحت «المستخدمون الحاليون» (كلاهما فوق نموذج الإنشاء) -->
+    <div class="card audit-card" id="auditCard" style="margin-bottom:14px">
+      <h3 class="audit-title"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none"/></svg> سجلّ التدقيق — نشاط المستخدمين</h3>
+      <div class="audit-filters">
+        <select id="auditUserSel" class="sales-loc-sel" onchange="auditSetUser(this.value)" aria-label="تصفية بالمستخدم"></select>
+        <span id="auditDates" role="group" aria-label="تصفية بالتاريخ"></span>
+      </div>
+      <div class="twrap" id="auditTbl"></div>
+    </div>
     <form class="card acc-card signup-card" id="signupForm" novalidate onsubmit="event.preventDefault();doSignup();return false">
       <div class="login-field"><label for="suEmail">البريد الإلكتروني</label><input type="email" id="suEmail" dir="ltr" placeholder="name@asj.com" autocomplete="off" aria-describedby="suMsg"></div>
       <div class="login-field"><label for="suPass">كلمة المرور</label>
@@ -2136,14 +2145,6 @@
       <div id="suMsg" class="login-err" role="alert"></div>
       <p class="hint" style="margin-top:14px;line-height:1.7"><svg class="ico inline ico-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.8" r=".9" fill="currentColor" stroke="none"/></svg> كتابة الروابط صلاحية <b>المالك</b> وحده. قد يتطلب النظام تأكيد البريد قبل أول دخول (حسب إعدادات Supabase)، ولن تتأثر جلستك الحالية. لإدارة كاملة للمستخدمين استخدم لوحة <b>Supabase → Authentication</b>.</p>
     </form>
-    <div class="card audit-card" id="auditCard" style="margin-top:14px">
-      <h3 class="audit-title"><svg class="ico inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none"/></svg> سجلّ التدقيق — نشاط المستخدمين</h3>
-      <div class="audit-filters">
-        <select id="auditUserSel" class="sales-loc-sel" onchange="auditSetUser(this.value)" aria-label="تصفية بالمستخدم"></select>
-        <span id="auditDates" role="group" aria-label="تصفية بالتاريخ"></span>
-      </div>
-      <div class="twrap" id="auditTbl"></div>
-    </div>
   </section>
 
   </main>
@@ -2212,7 +2213,7 @@
 
 <script>
 // نسخة الكود — حدّثها يدوياً (آخر commit hash) مع كل commit للتشخيص بين الأجهزة
-const APP_VERSION = "a1f7d1c";
+const APP_VERSION = "28c7167";
 // اسم عمود الكميات في نموذج استيراد زد الرسمي — غيّر هذا إذا تغيّر اسم المستودع في زد
 const ZID_QTY_COL = "عبدالله صلاح الجهني للتجارة - كميات";
 // ضريبة القيمة المضافة: تُضاف تلقائياً لأسعار المخزن (المستودع ＋ الفروع) قبل الكتابة في القاعدة — المستخدم يرفع «قبل الضريبة».
